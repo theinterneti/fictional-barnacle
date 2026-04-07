@@ -43,8 +43,23 @@ quality: lint format typecheck ## Run lint + format + typecheck
 # ---------------------------------------------------------------------------
 # Testing (once tests/ exist)
 # ---------------------------------------------------------------------------
-test: ## Run pytest
+test: ## Run all tests
 	uv run pytest
+
+test-unit: ## Run unit tests only (no external services needed)
+	uv run pytest -m "not integration and not e2e"
+
+test-integration: ## Run integration tests (requires make test-up)
+	uv run pytest -m integration
+
+test-watch: ## Continuous selective testing (reruns affected tests on save)
+	uv run ptw . -- --testmon -x --tb=short
+
+test-up: ## Start test service containers
+	docker compose -f docker-compose.test.yml up -d --wait
+
+test-down: ## Stop test service containers
+	docker compose -f docker-compose.test.yml down
 
 # ---------------------------------------------------------------------------
 # Infrastructure

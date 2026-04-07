@@ -45,9 +45,18 @@
 | **ruff** | Linting + formatting | 88-char lines, `py312`, select `E,W,F,I,B,C4,UP` |
 | **pyright** | Type checking | `standard` mode |
 | **pytest** | Testing | `asyncio_mode = "auto"` |
-| **pytest-bdd** | Gherkin test execution | For user-visible behavior ACs only |
 | **pytest-cov** | Coverage reporting | 80% target for game-critical paths |
+| **hypothesis** | Property-based testing | Auto-generated edge cases for data models |
+| **pytest-testmon** _(optional)_ | Selective test runner | Only reruns affected tests (local DX) |
+| **pytest-watcher** _(optional)_ | File watcher | Triggers test runs on save (local DX) |
 | **Docker Compose** | Local infrastructure | Neo4j + Postgres + Redis |
+
+**Deferred tooling** (adopt when test suite is stable):
+
+| Tool | Purpose | When to adopt |
+|------|---------|---------------|
+| **mutmut** | Mutation testing | After coverage ≥ 80% on critical modules |
+| **pytest-bdd** | Gherkin test execution | If HTTP acceptance tests warrant BDD format |
 
 ### 1.4 — Explicit Exclusions
 
@@ -60,7 +69,7 @@
 | **Dolt** | Time-travel queries aren't needed in v1. Postgres is simpler. |
 | **WebSocket** | SSE is sufficient for v1's unidirectional streaming. WebSocket adds complexity for multiplayer (future). |
 | **Custom circuit breakers** | tenacity handles retry. If a model is down, LiteLLM's fallback chain handles failover. |
-| **Behave** | pytest-bdd integrates with the existing pytest ecosystem. Behave is a separate test runner. |
+| **Behave** | If BDD is adopted, pytest-bdd integrates with the existing pytest ecosystem. Behave is a separate test runner. |
 
 ---
 

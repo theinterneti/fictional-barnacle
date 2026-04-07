@@ -16,9 +16,7 @@ This spec defines the infrastructure, tooling, and automation that supports test
 - **Performance benchmarking harness** — load testing is documented as future (§7) — revisit at scale
 - **Contract testing (Pact)** — single-service architecture in v1 makes contract tests unnecessary — future if microservices
 - **Security / penetration test automation** — manual review for v1 — S17 (Data Privacy) covers policy
-- **pytest-bdd for Gherkin execution** — Gherkin in specs is for human-readable ACs, not automated BDD test runner — may adopt later
-
-> **Note**: Overridden by system.md §1.3 — pytest-bdd is included for v1 to enable executable Gherkin acceptance tests.
+- **pytest-bdd for Gherkin execution** — Gherkin in specs is for human-readable ACs, not automated BDD test runner. pytest-bdd 8.x does not support async step functions (issue #223, open since 2017), making it a poor fit for a heavily-async FastAPI app. May adopt later for HTTP-level acceptance tests via sync TestClient.
 
 ---
 
@@ -120,15 +118,70 @@ This spec defines the infrastructure, tooling, and automation that supports test
 
 ---
 
-## 3. LLM Mock Strategy
+## 3. Anti-Mock Realism Gate
 
-### 3.1 User Stories
+### 3.1 Problem Statement
+
+The most common cause of "tests pass but things don't work" is **over-mocking**: unit tests verify that mocks behave correctly, but never verify that real services interact correctly. High coverage with aggressive mocking produces false confidence.
+
+### 3.2 User Stories
+
+- **US-16.A1**: As a developer, if I break a Neo4j query, an integration test fails — not just a unit test against a mock.
+- **US-16.A2**: As a developer, integration tests clearly SKIP when services are unavailable, never silently degrade to mocks.
+- **US-16.A3**: As a maintainer, I can identify which tests hit real services vs mocks at a glance.
+
+### 3.3 Functional Requirements
+
+**FR-16.A1**: Tests SHALL be classified into exactly one realism tier:
+
+| Tier | Mock Policy | When to Use |
+|------|-------------|-------------|
+| **Unit** | Full mocking allowed | Business logic, data transforms, validation |
+| **Integration** | Real services required | Database queries, cache ops, API calls |
+| **E2E** | Real services required | Full turn pipeline |
+
+**FR-16.A2**: Integration tests SHALL **fail or skip** when a required service is unavailable. They SHALL NOT silently fall back to a mock. The mechanism:
+
+```python
+@pytest.fixture(scope="session")
+def neo4j_driver():
+    """Real Neo4j driver — skips if unavailable."""
+    try:
+        driver = AsyncGraphDatabase.driver("bolt://localhost:7687")
+        # Verify connectivity
+        driver.verify_connectivity()
+        yield driver
+        driver.close()
+    except Exception:
+        pytest.skip("Neo4j not available — run `make test-up` first")
+```
+
+**FR-16.A3**: The `conftest.py` SHALL NOT contain "automatic mock fallback" fixtures that silently substitute mocks for real services. If a fixture cannot connect, it MUST call `pytest.skip()`.
+
+**FR-16.A4**: Every module that interacts with an external service (Neo4j, Redis, PostgreSQL, LLM API) SHALL have at least one integration test that hits the real service. These are the **realism gates**.
+
+**FR-16.A5**: CI SHALL run integration tests with real service containers (GitHub Actions services). The integration test suite is a **merge gate** — PRs cannot merge if integration tests fail.
+
+**FR-16.A6**: Unit tests MAY mock external services, but SHALL clearly document what is mocked and why. The `MockLLMClient` (§4) is the only approved mock for LLM calls.
+
+### 3.4 Acceptance Criteria
+
+- [ ] No fixture in `conftest.py` silently falls back to a mock when a real service is unavailable.
+- [ ] Running `uv run pytest -m integration` without Docker services results in tests being **skipped**, not **passed**.
+- [ ] Every service-touching module has at least one integration test.
+- [ ] CI runs integration tests against real containers and blocks merge on failure.
+
+---
+
+## 4. LLM Mock Strategy
+
+### 4.1 User Stories
 
 - **US-16.6**: As a developer, unit tests that involve LLM calls complete in milliseconds, not seconds.
 - **US-16.7**: As a developer, I can write a test that verifies the prompt sent to the LLM without making a real API call.
 - **US-16.8**: As a developer, I can test how the system handles LLM failures (timeouts, rate limits, malformed responses).
 
-### 3.2 Functional Requirements
+### 4.2 Functional Requirements
 
 **FR-16.10**: All LLM interactions SHALL go through a client abstraction (e.g., `LLMClient` protocol/interface). This enables mock injection at the dependency level.
 
@@ -162,12 +215,12 @@ mock_llm.when_call_number(5).raise_error(RateLimitError())
 
 **FR-16.14**: The mock client SHALL track token counts using a simple approximation (word count × 1.3) so that cost-related tests can function without real tokenization.
 
-### 3.3 Edge Cases
+### 4.3 Edge Cases
 
 - **EC-16.5**: If a test needs a specific token count (e.g., testing context window limits), the mock SHALL support explicit token count override: `mock_llm.set_response("text", token_count=4096)`.
 - **EC-16.6**: If a test needs streaming behavior, the mock SHALL support async iteration that yields chunks with configurable delay.
 
-### 3.4 Acceptance Criteria
+### 4.4 Acceptance Criteria
 
 - [ ] Unit tests involving LLM calls complete in under 100ms each.
 - [ ] `MockLLMClient` records all prompts for assertion.
@@ -176,14 +229,14 @@ mock_llm.when_call_number(5).raise_error(RateLimitError())
 
 ---
 
-## 4. Test Fixtures & Data
+## 5. Test Fixtures & Data
 
-### 4.1 User Stories
+### 5.1 User Stories
 
 - **US-16.9**: As a developer, I can write a test with a fully populated world graph without manually constructing 50 nodes.
 - **US-16.10**: As a developer, test fixtures are reusable across test modules.
 
-### 4.2 Functional Requirements
+### 5.2 Functional Requirements
 
 **FR-16.15**: The project SHALL provide pytest fixtures for common test data:
 
@@ -220,7 +273,7 @@ def test_player_with_custom_name():
     assert player["name"] == "Alice"
 ```
 
-### 4.3 Acceptance Criteria
+### 5.3 Acceptance Criteria
 
 - [ ] Every test file uses fixtures from `conftest.py` or factories, not inline data construction.
 - [ ] `tests/fixtures/` contains at least one world graph and one session history.
@@ -228,14 +281,14 @@ def test_player_with_custom_name():
 
 ---
 
-## 5. Golden Tests (Narrative Snapshots)
+## 6. Golden Tests (Narrative Snapshots)
 
-### 5.1 User Stories
+### 6.1 User Stories
 
 - **US-16.11**: As a developer, I can detect unintended changes to narrative output by comparing against approved snapshots.
 - **US-16.12**: As a developer, I can update golden snapshots when intentional prompt changes alter output.
 
-### 5.2 Functional Requirements
+### 6.2 Functional Requirements
 
 **FR-16.19**: Golden tests SHALL compare generated narrative output against approved snapshot files. The comparison is NOT exact string matching — it uses a similarity threshold.
 
@@ -253,7 +306,7 @@ def test_player_with_custom_name():
 
 **FR-16.23**: Golden tests SHALL be marked with `@pytest.mark.golden` and can be run independently: `uv run pytest -m golden`.
 
-### 5.3 Acceptance Criteria
+### 6.3 Acceptance Criteria
 
 - [ ] Changing a prompt template causes golden tests to fail.
 - [ ] `pytest --update-golden` regenerates snapshot files.
@@ -262,14 +315,14 @@ def test_player_with_custom_name():
 
 ---
 
-## 6. Coverage Reporting
+## 7. Coverage Reporting
 
-### 6.1 User Stories
+### 7.1 User Stories
 
 - **US-16.13**: As a developer, I can see which lines of code are not covered by tests.
 - **US-16.14**: As a maintainer, I can see coverage trends over time.
 
-### 6.2 Functional Requirements
+### 7.2 Functional Requirements
 
 **FR-16.24**: Coverage SHALL be measured by `pytest-cov` using `coverage.py` under the hood.
 
@@ -303,7 +356,7 @@ exclude_lines = [
 
 **FR-16.28**: Coverage SHALL measure branch coverage, not just line coverage. An `if/else` with only the `if` branch tested shows as partially covered.
 
-### 6.3 Acceptance Criteria
+### 7.3 Acceptance Criteria
 
 - [ ] CI reports coverage percentage and fails if below threshold.
 - [ ] HTML coverage report is downloadable as a CI artifact.
@@ -312,13 +365,13 @@ exclude_lines = [
 
 ---
 
-## 7. Load Testing (Future)
+## 8. Load Testing (Future)
 
-### 7.1 Discussion
+### 8.1 Discussion
 
 Load testing is out of scope for v1, but the approach is documented here so it can be implemented when needed.
 
-### 7.2 Functional Requirements (FUTURE)
+### 8.2 Functional Requirements (FUTURE)
 
 **FR-16.29 (FUTURE)**: Load testing SHALL use `locust` (Python-native, OSS) to simulate concurrent player sessions.
 
@@ -334,7 +387,7 @@ Load testing is out of scope for v1, but the approach is documented here so it c
 
 **FR-16.32 (FUTURE)**: Load test results SHALL be stored as CI artifacts for trend comparison.
 
-### 7.3 Acceptance Criteria (Future)
+### 8.3 Acceptance Criteria (Future)
 
 - [ ] A locustfile exists in `tests/load/` that defines the scenarios above.
 - [ ] Load tests can run against local Docker Compose stack.
@@ -342,14 +395,14 @@ Load testing is out of scope for v1, but the approach is documented here so it c
 
 ---
 
-## 8. Flaky Test Handling
+## 9. Flaky Test Handling
 
-### 8.1 User Stories
+### 9.1 User Stories
 
 - **US-16.15**: As a developer, a flaky test does not block my PR from merging.
 - **US-16.16**: As a maintainer, I can see which tests are flaky and prioritize fixing them.
 
-### 8.2 Functional Requirements
+### 9.2 Functional Requirements
 
 **FR-16.33**: Tests SHALL be categorized by determinism:
 
@@ -375,12 +428,12 @@ Load testing is out of scope for v1, but the approach is documented here so it c
 
 **FR-16.37**: Tests involving real time (sleep, timeout) SHALL use `freezegun` or equivalent to control time. Tests SHALL NOT `time.sleep()` to wait for async operations — they SHALL use proper async waiting mechanisms (event, semaphore, polling with short intervals).
 
-### 8.3 Edge Cases
+### 9.3 Edge Cases
 
 - **EC-16.7**: If a test fails on retry too (fails all attempts), it is a real failure, not flaky.
 - **EC-16.8**: If CI infrastructure causes a failure (Docker daemon crash, OOM), the entire job should be retried, not individual tests.
 
-### 8.4 Acceptance Criteria
+### 9.4 Acceptance Criteria
 
 - [ ] A test marked `@pytest.mark.flaky(reruns=2)` that fails once but passes on retry shows as passing.
 - [ ] CI logs show how many tests were retried.
@@ -388,13 +441,129 @@ Load testing is out of scope for v1, but the approach is documented here so it c
 
 ---
 
-## 9. Mutation Testing
+## 10. Property-Based Testing (Hypothesis)
 
-### 9.1 Discussion
+### 10.1 Discussion
+
+Property-based testing auto-generates thousands of inputs to verify that code invariants hold. Instead of writing specific test cases, you define properties ("for any valid player name, creating a player never raises") and the framework finds counterexamples. This catches edge cases that manual test data misses.
+
+### 10.2 User Stories
+
+- **US-16.P1**: As a developer, data model validation is tested against thousands of generated inputs, not just 3-4 handwritten examples.
+- **US-16.P2**: As a developer, when Hypothesis finds a failing input, it shrinks it to the minimal reproduction case.
+
+### 10.3 Functional Requirements
+
+**FR-16.P1**: The project SHALL include `hypothesis` as a dev dependency for property-based testing.
+
+**FR-16.P2**: Hypothesis SHALL be used for testing:
+- Pydantic model validation (valid and invalid inputs).
+- Data transformation functions (serialization roundtrips).
+- API input validation (request schema edge cases).
+- Pure functions with clearly defined invariants.
+
+**FR-16.P3**: Hypothesis SHALL NOT be used for:
+- Async function testing (Hypothesis is synchronous only — wrap async calls in `asyncio.run()` if needed).
+- Tests requiring real external services (use integration tests instead).
+- Tests where execution order matters (Hypothesis randomizes inputs).
+
+**FR-16.P4**: Hypothesis profiles SHALL be configured in `conftest.py`:
+
+```python
+from hypothesis import settings, Phase
+
+# Fast local development
+settings.register_profile("dev", max_examples=10)
+
+# Default
+settings.register_profile("default", max_examples=100)
+
+# Thorough CI runs
+settings.register_profile("ci", max_examples=500, deriving=settings.get_profile("default"))
+
+# Load profile from environment
+settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "default"))
+```
+
+**FR-16.P5**: Tests using Hypothesis SHALL be marked with `@pytest.mark.hypothesis` and can be run independently: `uv run pytest -m hypothesis`.
+
+**FR-16.P6**: Example usage pattern:
+
+```python
+from hypothesis import given
+from hypothesis import strategies as st
+from src.models import PlayerCreate
+
+@given(
+    name=st.text(min_size=1, max_size=100),
+    handle=st.from_regex(r"[a-z][a-z0-9_]{2,19}", fullmatch=True),
+)
+def test_player_create_accepts_valid_input(name: str, handle: str):
+    player = PlayerCreate(name=name, handle=handle)
+    assert player.name == name
+    assert player.handle == handle
+
+@given(name=st.text(max_size=0))
+def test_player_create_rejects_empty_name(name: str):
+    with pytest.raises(ValidationError):
+        PlayerCreate(name=name, handle="valid_handle")
+```
+
+### 10.4 Acceptance Criteria
+
+- [ ] Hypothesis is a dev dependency in `pyproject.toml`.
+- [ ] At least one property-based test exists for each Pydantic model.
+- [ ] Hypothesis profiles are configured (dev, default, ci).
+- [ ] `@pytest.mark.hypothesis` is registered and tests are runnable in isolation.
+
+---
+
+## 11. Continuous Testing (Developer Experience)
+
+### 11.1 Discussion
+
+Continuous testing runs affected tests automatically when files change, providing instant feedback during development. This is a **local DX tool**, not a CI requirement.
+
+### 11.2 User Stories
+
+- **US-16.C1**: As a developer, when I save a file, only the tests affected by my change run automatically.
+- **US-16.C2**: As a developer, I get test feedback within seconds of saving, not minutes.
+
+### 11.3 Functional Requirements
+
+**FR-16.C1**: The project SHALL include `pytest-testmon` as an **optional** dev dependency for selective test execution. Testmon tracks which tests are affected by code changes using coverage data.
+
+**FR-16.C2**: The project SHALL include `pytest-watcher` as an **optional** dev dependency for file-change-triggered test runs.
+
+**FR-16.C3**: A Makefile target SHALL combine both tools:
+
+```makefile
+test-watch: ## Continuous selective testing (saves → runs affected tests)
+	uv run ptw . -- --testmon -x --tb=short
+```
+
+**FR-16.C4**: Testmon's database (`.testmondata`) SHALL be listed in `.gitignore`. It is a local cache, not a shared artifact.
+
+**FR-16.C5**: Continuous testing is NOT a CI requirement. CI always runs the full test suite. Testmon is purely for local development speed.
+
+**FR-16.C6**: If `pytest-testmon` produces false negatives (misses an affected test), running `uv run pytest --testmon-forceselect` SHALL clear its cache and rerun everything.
+
+### 11.4 Acceptance Criteria
+
+- [ ] `make test-watch` starts a file watcher that reruns affected tests on save.
+- [ ] `.testmondata` is in `.gitignore`.
+- [ ] Testmon correctly identifies affected tests when a source file changes.
+- [ ] CI does NOT use testmon — it runs the full suite.
+
+---
+
+## 12. Mutation Testing
+
+### 12.1 Discussion
 
 Mutation testing measures test quality by introducing small code changes (mutations) and checking if tests catch them. It answers: "if I introduce a bug, will my tests find it?"
 
-### 9.2 Recommendation
+### 12.2 Recommendation
 
 **FR-16.38**: Mutation testing is NOT required for v1. Here's why:
 
@@ -403,26 +572,43 @@ Mutation testing measures test quality by introducing small code changes (mutati
 | Value | High — catches weak tests that have high coverage but low effectiveness |
 | Cost | High — mutation runs are 10-100x slower than normal test runs |
 | Maturity | TTA v1 has higher priorities (get tests written, then optimize them) |
-| Tooling | `mutmut` or `cosmic-ray` for Python — mature but slow |
+| Tooling | `mutmut` 3.5.0 — Python 3.12+ compatible, JSON output, incremental runs |
 
 **FR-16.39**: When the test suite is stable and coverage exceeds 80% across game-critical code, mutation testing SHOULD be introduced:
-- Start with the safety module (highest criticality).
-- Run mutations nightly, not on every PR.
+- Use `mutmut` 3.5.0+ (actively maintained, Python 3.12+ support, async fixes in v3.5.0).
+- Scope to critical modules first: `paths_to_mutate = ["src/turn_pipeline/"]`.
+- Run mutations nightly, not on every PR (typical run: 30-120 minutes).
 - Target a mutation score ≥ 75% for critical modules.
 
-**FR-16.40**: If mutation testing is introduced, the configuration SHALL be stored in `pyproject.toml` and the mutation report SHALL be a CI artifact.
+**FR-16.40**: When adopted, the configuration SHALL be:
 
-### 9.3 Acceptance Criteria
+```toml
+# pyproject.toml
+[tool.mutmut]
+paths_to_mutate = ["src/turn_pipeline/", "src/session/"]
+tests_dir = "tests/"
+```
+
+```makefile
+# Makefile
+test-mutate: ## Run mutation testing (slow — nightly only)
+	uv run mutmut run
+	uv run mutmut results
+```
+
+Mutmut produces `mutants/mutmut-stats.json` for CI integration.
+
+### 12.3 Acceptance Criteria
 
 - [ ] A decision document exists explaining when mutation testing will be adopted.
-- [ ] If adopted: mutation testing runs nightly and produces a report.
-- [ ] If adopted: mutation score ≥ 75% for safety-critical modules.
+- [ ] If adopted: mutation testing runs nightly and produces a JSON report.
+- [ ] If adopted: mutation score ≥ 75% for game-critical modules.
 
 ---
 
-## 10. Test Organization & Conventions
+## 13. Test Organization & Conventions
 
-### 10.1 Functional Requirements
+### 13.1 Functional Requirements
 
 **FR-16.41**: Test directory structure SHALL mirror the source directory:
 
@@ -466,14 +652,15 @@ markers = [
     "flaky: known flaky test (with reruns)",
     "llm_live: requires real LLM API key",
     "slow: takes more than 5 seconds",
+    "hypothesis: property-based test (Hypothesis)",
 ]
 ```
 
 **FR-16.44**: `conftest.py` SHALL auto-detect the test environment and configure accordingly:
-- If `TTA_ENV=testing` or service containers are available: use real databases.
-- Otherwise: skip integration tests with a clear message.
+- If service containers are available: use real databases for integration tests.
+- Otherwise: **skip** integration tests with a clear message (never silently mock — see §3).
 
-### 10.2 Acceptance Criteria
+### 13.2 Acceptance Criteria
 
 - [ ] Every test file has a corresponding source file.
 - [ ] All custom markers are registered (no `PytestUnknownMarkWarning`).
@@ -492,12 +679,41 @@ Scenario: CI blocks PR on lint failure
   And the "unit tests" job does not execute
   And the PR status shows a failing "lint" check
 
+Scenario: Integration tests skip without services, not pass
+  Given test services (Neo4j, Redis, PostgreSQL) are NOT running
+  When a developer runs "uv run pytest -m integration"
+  Then all integration tests are SKIPPED with message "service not available"
+  And zero integration tests show as PASSED
+  And the developer sees a clear instruction to run "make test-up"
+
+Scenario: Integration tests fail on real service errors
+  Given test services are running via "make test-up"
+  And a developer introduces a broken Neo4j query
+  When the integration test suite runs
+  Then the test with the broken query FAILS (not skips)
+  And the failure message includes the actual Neo4j error
+
 Scenario: MockLLMClient returns deterministic responses
   Given a test configures MockLLMClient with a pattern "forest" → "The forest is dark."
   When the turn pipeline processes input containing "forest"
   Then the mock returns "The forest is dark." without making a real API call
   And the mock records the full prompt for assertion
   And the test completes in under 100ms
+
+Scenario: Hypothesis finds edge case in model validation
+  Given a Pydantic model has a field with constraints (min_length=1, max_length=100)
+  When Hypothesis generates 100 random inputs
+  Then all valid inputs produce a valid model instance
+  And all invalid inputs raise ValidationError
+  And if a failing case is found, Hypothesis reports the minimal reproduction
+
+Scenario: Continuous testing reruns affected tests on save
+  Given pytest-testmon has a warm cache from a previous test run
+  And pytest-watcher is running via "make test-watch"
+  When a developer saves changes to src/session/manager.py
+  Then only tests that depend on session/manager.py are rerun
+  And tests for unrelated modules are NOT rerun
+  And feedback appears within seconds
 
 Scenario: Flaky test passes on retry
   Given a test is marked with @pytest.mark.flaky(reruns=2)
