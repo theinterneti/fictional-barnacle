@@ -19,9 +19,7 @@ class SafetyResult(BaseModel):
 class SafetyHook(Protocol):
     """Protocol for safety check hooks (v1: pass-through only)."""
 
-    async def pre_generation_check(
-        self, turn_state: TurnState
-    ) -> SafetyResult: ...
+    async def pre_generation_check(self, turn_state: TurnState) -> SafetyResult: ...
 
     async def post_generation_check(
         self, narrative_output: str, turn_state: TurnState
@@ -31,9 +29,7 @@ class SafetyHook(Protocol):
 class PassthroughHook:
     """V1 default: all content passes through unchanged."""
 
-    async def pre_generation_check(
-        self, turn_state: TurnState
-    ) -> SafetyResult:
+    async def pre_generation_check(self, turn_state: TurnState) -> SafetyResult:
         return SafetyResult(safe=True)
 
     async def post_generation_check(

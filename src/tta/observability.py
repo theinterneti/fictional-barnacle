@@ -76,24 +76,18 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
             if _langfuse_client is None:
                 return await func(*args, **kwargs)  # type: ignore[misc]
 
-            trace = _langfuse_client.trace(
-                name=name, tags=["user_input"]
-            )
+            trace = _langfuse_client.trace(name=name, tags=["user_input"])
             start = time.monotonic()
 
             try:
                 result = await func(*args, **kwargs)  # type: ignore[misc]
                 latency_ms = int((time.monotonic() - start) * 1000)
 
-                gen_kwargs = _build_generation_kwargs(
-                    name, result, latency_ms, kwargs
-                )
+                gen_kwargs = _build_generation_kwargs(name, result, latency_ms, kwargs)
                 trace.generation(**gen_kwargs)
                 return result  # type: ignore[return-value]
             except Exception as exc:
-                trace.update(
-                    level="ERROR", status_message=str(exc)
-                )
+                trace.update(level="ERROR", status_message=str(exc))
                 raise
 
         return wrapper  # type: ignore[return-value]
