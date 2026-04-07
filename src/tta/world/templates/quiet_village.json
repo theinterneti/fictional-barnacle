@@ -1,0 +1,105 @@
+{
+  "metadata": {
+    "template_key": "quiet_village",
+    "display_name": "The Quiet Village",
+    "tags": ["fantasy", "intimate", "village", "mystery"],
+    "compatible_tones": ["dark", "hopeful", "whimsical"],
+    "compatible_tech_levels": ["primitive", "medieval"],
+    "compatible_magic": ["none", "rare", "common"],
+    "compatible_scales": ["intimate", "regional"],
+    "location_count": 3,
+    "npc_count": 2
+  },
+  "regions": [
+    {"key": "reg_village", "archetype": "small settlement"}
+  ],
+  "locations": [
+    {
+      "key": "loc_square",
+      "region_key": "reg_village",
+      "type": "exterior",
+      "archetype": "village center with a well or fountain",
+      "is_starting_location": true,
+      "tags": ["social", "safe"]
+    },
+    {
+      "key": "loc_tavern",
+      "region_key": "reg_village",
+      "type": "interior",
+      "archetype": "local tavern or inn",
+      "tags": ["social", "safe", "shop"]
+    },
+    {
+      "key": "loc_edge",
+      "region_key": "reg_village",
+      "type": "exterior",
+      "archetype": "edge of settlement bordering wilderness",
+      "light_level": "dim",
+      "tags": ["transitional", "nature"]
+    }
+  ],
+  "connections": [
+    {
+      "from_key": "loc_square",
+      "to_key": "loc_tavern",
+      "direction": "east",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_square",
+      "to_key": "loc_edge",
+      "direction": "north",
+      "bidirectional": true
+    }
+  ],
+  "npcs": [
+    {
+      "key": "npc_keeper",
+      "location_key": "loc_tavern",
+      "role": "merchant",
+      "archetype": "innkeeper who knows everyone's business",
+      "disposition": "friendly"
+    },
+    {
+      "key": "npc_stranger",
+      "location_key": "loc_edge",
+      "role": "quest_giver",
+      "archetype": "mysterious figure who recently arrived",
+      "disposition": "neutral"
+    }
+  ],
+  "items": [
+    {
+      "key": "item_map",
+      "location_key": null,
+      "npc_key": "npc_stranger",
+      "type": "quest",
+      "archetype": "old map or document with a secret",
+      "portable": true,
+      "hidden": false
+    },
+    {
+      "key": "item_key",
+      "location_key": "loc_tavern",
+      "npc_key": null,
+      "type": "key",
+      "archetype": "key or token that unlocks something",
+      "portable": true,
+      "hidden": true
+    }
+  ],
+  "knowledge": [
+    {
+      "npc_key": "npc_keeper",
+      "about_key": "npc_stranger",
+      "knowledge_type": "npc",
+      "is_secret": false
+    },
+    {
+      "npc_key": "npc_stranger",
+      "about_key": "item_map",
+      "knowledge_type": "item",
+      "is_secret": true
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "metadata": {
+    "template_key": "haunted_manor",
+    "display_name": "The Haunted Manor",
+    "tags": ["gothic", "horror", "manor", "mystery", "intimate"],
+    "compatible_tones": ["dark", "austere"],
+    "compatible_tech_levels": ["medieval", "industrial"],
+    "compatible_magic": ["rare", "common", "pervasive"],
+    "compatible_scales": ["intimate"],
+    "location_count": 4,
+    "npc_count": 2
+  },
+  "regions": [
+    {"key": "reg_grounds", "archetype": "overgrown estate grounds"},
+    {"key": "reg_interior", "archetype": "decaying manor interior"}
+  ],
+  "locations": [
+    {
+      "key": "loc_gate",
+      "region_key": "reg_grounds",
+      "type": "exterior",
+      "archetype": "rusted iron gate at the estate entrance",
+      "is_starting_location": true,
+      "light_level": "dim",
+      "tags": ["transitional", "eerie"]
+    },
+    {
+      "key": "loc_foyer",
+      "region_key": "reg_interior",
+      "type": "interior",
+      "archetype": "grand foyer with a crumbling chandelier",
+      "light_level": "dim",
+      "tags": ["social", "eerie"]
+    },
+    {
+      "key": "loc_library",
+      "region_key": "reg_interior",
+      "type": "interior",
+      "archetype": "dusty library filled with forbidden tomes",
+      "light_level": "dark",
+      "tags": ["knowledge", "danger"]
+    },
+    {
+      "key": "loc_cellar",
+      "region_key": "reg_interior",
+      "type": "underground",
+      "archetype": "damp cellar with strange markings on the walls",
+      "light_level": "dark",
+      "tags": ["danger", "hidden"]
+    }
+  ],
+  "connections": [
+    {
+      "from_key": "loc_gate",
+      "to_key": "loc_foyer",
+      "direction": "north",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_foyer",
+      "to_key": "loc_library",
+      "direction": "east",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_foyer",
+      "to_key": "loc_cellar",
+      "direction": "down",
+      "bidirectional": true,
+      "is_locked": true
+    }
+  ],
+  "npcs": [
+    {
+      "key": "npc_caretaker",
+      "location_key": "loc_foyer",
+      "role": "quest_giver",
+      "archetype": "old caretaker who refuses to enter certain rooms",
+      "disposition": "fearful"
+    },
+    {
+      "key": "npc_ghost",
+      "location_key": "loc_library",
+      "role": "ambient",
+      "archetype": "spectral presence bound to the manor",
+      "disposition": "hostile"
+    }
+  ],
+  "items": [
+    {
+      "key": "item_cellar_key",
+      "location_key": "loc_library",
+      "npc_key": null,
+      "type": "key",
+      "archetype": "tarnished brass key hidden among the books",
+      "portable": true,
+      "hidden": true
+    },
+    {
+      "key": "item_journal",
+      "location_key": null,
+      "npc_key": "npc_caretaker",
+      "type": "quest",
+      "archetype": "leather-bound journal with torn pages",
+      "portable": true,
+      "hidden": false
+    }
+  ],
+  "knowledge": [
+    {
+      "npc_key": "npc_caretaker",
+      "about_key": "loc_cellar",
+      "knowledge_type": "location",
+      "is_secret": true
+    },
+    {
+      "npc_key": "npc_ghost",
+      "about_key": "item_cellar_key",
+      "knowledge_type": "item",
+      "is_secret": true
+    }
+  ]
+}

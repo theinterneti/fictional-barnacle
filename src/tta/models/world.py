@@ -2,9 +2,39 @@
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
+
+# -- Controlled vocabularies as type aliases --
+
+LocationType = Literal["interior", "exterior", "underground", "water"]
+LightLevel = Literal["dark", "dim", "lit", "bright"]
+NPCRole = Literal["merchant", "quest_giver", "companion", "ambient"]
+NPCState = Literal["idle", "active", "busy", "sleeping", "traveling"]
+ItemType = Literal["weapon", "tool", "key", "consumable", "quest", "ambient"]
+ConnectionDirection = Literal[
+    "n",
+    "s",
+    "e",
+    "w",
+    "ne",
+    "nw",
+    "se",
+    "sw",
+    "up",
+    "down",
+    "in",
+    "out",
+]
+EventType = Literal["narrative", "combat", "trade", "discovery", "quest"]
+EventSeverity = Literal["minor", "notable", "major", "critical"]
+QuestStatus = Literal["available", "active", "completed", "failed"]
+QuestDifficulty = Literal["easy", "medium", "hard"]
+WorldStatus = Literal["active", "paused", "completed", "archived"]
+
+# -- Core domain models --
 
 
 class Location(BaseModel):
@@ -15,6 +45,16 @@ class Location(BaseModel):
     description: str
     type: str
     visited: bool = False
+    # Wave 3 optional extensions
+    region_id: str | None = None
+    description_visited: str | None = None
+    is_accessible: bool = True
+    light_level: str = "lit"
+    tags: list[str] = Field(default_factory=list)
+    template_key: str | None = None
+    session_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class NPC(BaseModel):
@@ -25,6 +65,16 @@ class NPC(BaseModel):
     description: str
     disposition: str
     alive: bool = True
+    # Wave 3 optional extensions
+    role: str | None = None
+    state: str = "idle"
+    personality: str | None = None
+    dialogue_style: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    template_key: str | None = None
+    session_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Item(BaseModel):
@@ -35,18 +85,97 @@ class Item(BaseModel):
     description: str
     portable: bool = True
     hidden: bool = False
+    # Wave 3 optional extensions
+    item_type: str | None = None
+    is_usable: bool = False
+    use_effect: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    template_key: str | None = None
+    session_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class Region(BaseModel):
+    """A grouping of locations within the world."""
+
+    id: str
+    session_id: str
+    name: str
+    description: str
+    atmosphere: str | None = None
+    danger_level: int = 0
+    template_key: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class Connection(BaseModel):
+    """A directional link between two locations."""
+
+    from_id: str
+    to_id: str
+    direction: str
+    description: str | None = None
+    is_locked: bool = False
+    lock_description: str | None = None
+    required_item_id: str | None = None
+    is_hidden: bool = False
+    travel_time: int | None = None
+
+
+class PlayerSession(BaseModel):
+    """Lightweight graph pointer — detailed data in Postgres."""
+
+    session_id: UUID
+    player_id: UUID
+    world_id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class GraphEvent(BaseModel):
+    """Neo4j narrative event — things NPCs remember.
+
+    Distinct from WorldEvent (Postgres mechanical changelog).
+    """
+
+    id: str
+    session_id: str
+    type: str
+    description: str
+    severity: str = "minor"
+    is_public: bool = True
+    triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class Quest(BaseModel):
+    """A quest tracked in the world graph."""
+
+    id: str
+    session_id: str
+    name: str
+    description: str
+    status: str = "available"
+    difficulty: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class WorldChangeType(StrEnum):
-    """Categories of world-state mutations."""
+    """Categories of world-state mutations (plan §2.3)."""
 
-    location_entered = "location_entered"
-    npc_moved = "npc_moved"
-    item_picked_up = "item_picked_up"
-    item_dropped = "item_dropped"
-    npc_disposition_changed = "npc_disposition_changed"
-    location_modified = "location_modified"
-    custom = "custom"
+    PLAYER_MOVED = "player_moved"
+    ITEM_TAKEN = "item_taken"
+    ITEM_DROPPED = "item_dropped"
+    NPC_MOVED = "npc_moved"
+    NPC_DISPOSITION_CHANGED = "npc_disposition_changed"
+    LOCATION_STATE_CHANGED = "location_state_changed"
+    CONNECTION_LOCKED = "connection_locked"
+    CONNECTION_UNLOCKED = "connection_unlocked"
+    QUEST_STATUS_CHANGED = "quest_status_changed"
+    ITEM_VISIBILITY_CHANGED = "item_visibility_changed"
+    NPC_STATE_CHANGED = "npc_state_changed"
 
 
 class WorldChange(BaseModel):
@@ -58,7 +187,7 @@ class WorldChange(BaseModel):
 
 
 class WorldEvent(BaseModel):
-    """A persisted record of something that happened."""
+    """A persisted record of something that happened (Postgres)."""
 
     id: UUID = Field(default_factory=uuid4)
     session_id: UUID
@@ -88,15 +217,94 @@ class LocationContext(BaseModel):
     items_here: list[Item] = Field(default_factory=list)
 
 
-class WorldTemplate(BaseModel):
-    """Blueprint for generating a world."""
+# -- Template models (plan §3.1) --
 
-    name: str
-    description: str
-    locations: list[dict] = Field(default_factory=list)
-    npcs: list[dict] = Field(default_factory=list)
-    items: list[dict] = Field(default_factory=list)
-    connections: list[dict] = Field(default_factory=list)
+
+class TemplateMetadata(BaseModel):
+    """Template-level metadata for selection and filtering."""
+
+    template_key: str
+    display_name: str
+    tags: list[str] = Field(default_factory=list)
+    compatible_tones: list[str] = Field(default_factory=list)
+    compatible_tech_levels: list[str] = Field(default_factory=list)
+    compatible_magic: list[str] = Field(default_factory=list)
+    compatible_scales: list[str] = Field(default_factory=list)
+    location_count: int = 0
+    npc_count: int = 0
+
+
+class TemplateRegion(BaseModel):
+    """A region within a world template."""
+
+    key: str
+    archetype: str
+
+
+class TemplateLocation(BaseModel):
+    """A location definition within a world template."""
+
+    key: str
+    region_key: str
+    type: str
+    archetype: str
+    is_starting_location: bool = False
+    light_level: str = "lit"
+    tags: list[str] = Field(default_factory=list)
+
+
+class TemplateConnection(BaseModel):
+    """A connection between locations in a template."""
+
+    from_key: str
+    to_key: str
+    direction: str
+    bidirectional: bool = True
+    is_locked: bool = False
+    is_hidden: bool = False
+
+
+class TemplateNPC(BaseModel):
+    """An NPC definition within a world template."""
+
+    key: str
+    location_key: str
+    role: str
+    archetype: str
+    disposition: str = "neutral"
+
+
+class TemplateItem(BaseModel):
+    """An item definition within a world template."""
+
+    key: str
+    location_key: str | None = None
+    npc_key: str | None = None
+    type: str
+    archetype: str
+    portable: bool = True
+    hidden: bool = False
+
+
+class TemplateKnowledge(BaseModel):
+    """Knowledge an NPC has about something in the template."""
+
+    npc_key: str
+    about_key: str
+    knowledge_type: str
+    is_secret: bool = False
+
+
+class WorldTemplate(BaseModel):
+    """Typed blueprint for generating a world (plan §3.1)."""
+
+    metadata: TemplateMetadata
+    regions: list[TemplateRegion] = Field(default_factory=list)
+    locations: list[TemplateLocation] = Field(default_factory=list)
+    connections: list[TemplateConnection] = Field(default_factory=list)
+    npcs: list[TemplateNPC] = Field(default_factory=list)
+    items: list[TemplateItem] = Field(default_factory=list)
+    knowledge: list[TemplateKnowledge] = Field(default_factory=list)
 
 
 class WorldSeed(BaseModel):
@@ -105,3 +313,13 @@ class WorldSeed(BaseModel):
     template: WorldTemplate
     flavor_text: dict = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # Genesis-lite fields (plan §4.2)
+    tone: str | None = None
+    tech_level: str | None = None
+    magic_presence: str | None = None
+    world_scale: str | None = None
+    player_position: str | None = None
+    power_source: str | None = None
+    defining_detail: str | None = None
+    character_name: str | None = None
+    character_concept: str | None = None

@@ -3,11 +3,23 @@
 import json
 from uuid import UUID, uuid4
 
-from tta.models.world import (  # noqa: I001
+from tta.models.world import (
     NPC,
+    Connection,
+    GraphEvent,
     Item,
     Location,
     LocationContext,
+    PlayerSession,
+    Quest,
+    Region,
+    TemplateConnection,
+    TemplateItem,
+    TemplateKnowledge,
+    TemplateLocation,
+    TemplateMetadata,
+    TemplateNPC,
+    TemplateRegion,
     WorldChange,
     WorldChangeType,
     WorldContext,
@@ -46,6 +58,14 @@ def _item(**overrides: object) -> Item:
     return Item(**{**defaults, **overrides})
 
 
+def _template_metadata(**overrides: object) -> TemplateMetadata:
+    defaults = {
+        "template_key": "forest-001",
+        "display_name": "Dark Forest",
+    }
+    return TemplateMetadata(**{**defaults, **overrides})
+
+
 # --- Location ---
 
 
@@ -64,6 +84,31 @@ class TestLocation:
         assert loc.name == "Town Square"
         assert loc.type == "outdoor"
 
+    def test_wave3_optional_defaults(self) -> None:
+        loc = _location()
+        assert loc.region_id is None
+        assert loc.description_visited is None
+        assert loc.is_accessible is True
+        assert loc.light_level == "lit"
+        assert loc.tags == []
+        assert loc.template_key is None
+
+    def test_wave3_optional_overrides(self) -> None:
+        loc = _location(
+            region_id="reg-1",
+            description_visited="Familiar square.",
+            is_accessible=False,
+            light_level="dim",
+            tags=["urban", "central"],
+            template_key="town-square",
+        )
+        assert loc.region_id == "reg-1"
+        assert loc.description_visited == "Familiar square."
+        assert loc.is_accessible is False
+        assert loc.light_level == "dim"
+        assert loc.tags == ["urban", "central"]
+        assert loc.template_key == "town-square"
+
 
 # --- NPC ---
 
@@ -80,6 +125,31 @@ class TestNPC:
     def test_fields(self) -> None:
         npc = _npc()
         assert npc.disposition == "friendly"
+
+    def test_wave3_optional_defaults(self) -> None:
+        npc = _npc()
+        assert npc.role is None
+        assert npc.state == "idle"
+        assert npc.personality is None
+        assert npc.dialogue_style is None
+        assert npc.tags == []
+        assert npc.template_key is None
+
+    def test_wave3_optional_overrides(self) -> None:
+        npc = _npc(
+            role="merchant",
+            state="active",
+            personality="gruff but kind",
+            dialogue_style="terse",
+            tags=["shopkeeper"],
+            template_key="npc-blacksmith",
+        )
+        assert npc.role == "merchant"
+        assert npc.state == "active"
+        assert npc.personality == "gruff but kind"
+        assert npc.dialogue_style == "terse"
+        assert npc.tags == ["shopkeeper"]
+        assert npc.template_key == "npc-blacksmith"
 
 
 # --- Item ---
@@ -99,6 +169,150 @@ class TestItem:
         assert item.portable is False
         assert item.hidden is True
 
+    def test_wave3_optional_defaults(self) -> None:
+        item = _item()
+        assert item.item_type is None
+        assert item.is_usable is False
+        assert item.use_effect is None
+        assert item.tags == []
+        assert item.template_key is None
+
+    def test_wave3_optional_overrides(self) -> None:
+        item = _item(
+            item_type="key",
+            is_usable=True,
+            use_effect="Opens the gate.",
+            tags=["quest"],
+            template_key="gate-key",
+        )
+        assert item.item_type == "key"
+        assert item.is_usable is True
+        assert item.use_effect == "Opens the gate."
+        assert item.tags == ["quest"]
+        assert item.template_key == "gate-key"
+
+
+# --- Region ---
+
+
+class TestRegion:
+    def test_minimal(self) -> None:
+        r = Region(
+            id="reg-1",
+            session_id="sess-1",
+            name="Darkwood",
+            description="Foreboding forest.",
+        )
+        assert r.id == "reg-1"
+        assert r.atmosphere is None
+        assert r.danger_level == 0
+        assert r.template_key is None
+        assert r.created_at is not None
+
+    def test_full(self) -> None:
+        r = Region(
+            id="reg-2",
+            session_id="sess-1",
+            name="Swamp",
+            description="Murky swamp.",
+            atmosphere="eerie",
+            danger_level=7,
+            template_key="swamp-01",
+        )
+        assert r.danger_level == 7
+        assert r.atmosphere == "eerie"
+
+
+# --- Connection ---
+
+
+class TestConnection:
+    def test_minimal(self) -> None:
+        c = Connection(from_id="loc-1", to_id="loc-2", direction="n")
+        assert c.is_locked is False
+        assert c.is_hidden is False
+        assert c.travel_time is None
+
+    def test_locked_connection(self) -> None:
+        c = Connection(
+            from_id="loc-1",
+            to_id="loc-3",
+            direction="e",
+            is_locked=True,
+            lock_description="A heavy iron gate.",
+            required_item_id="item-key",
+        )
+        assert c.is_locked is True
+        assert c.required_item_id == "item-key"
+
+
+# --- PlayerSession ---
+
+
+class TestPlayerSession:
+    def test_creation(self) -> None:
+        ps = PlayerSession(
+            session_id=uuid4(),
+            player_id=uuid4(),
+            world_id="world-1",
+        )
+        assert ps.world_id == "world-1"
+        assert ps.created_at is not None
+
+
+# --- GraphEvent ---
+
+
+class TestGraphEvent:
+    def test_defaults(self) -> None:
+        e = GraphEvent(
+            id="evt-1",
+            session_id="sess-1",
+            type="narrative",
+            description="A door creaks open.",
+        )
+        assert e.severity == "minor"
+        assert e.is_public is True
+
+    def test_full(self) -> None:
+        e = GraphEvent(
+            id="evt-2",
+            session_id="sess-1",
+            type="combat",
+            description="The guard attacks!",
+            severity="major",
+            is_public=False,
+        )
+        assert e.severity == "major"
+        assert e.is_public is False
+
+
+# --- Quest ---
+
+
+class TestQuest:
+    def test_defaults(self) -> None:
+        q = Quest(
+            id="q-1",
+            session_id="sess-1",
+            name="Find the Key",
+            description="Locate the old key.",
+        )
+        assert q.status == "available"
+        assert q.difficulty is None
+
+    def test_full(self) -> None:
+        q = Quest(
+            id="q-2",
+            session_id="sess-1",
+            name="Defeat the Dragon",
+            description="Slay the beast.",
+            status="active",
+            difficulty="hard",
+        )
+        assert q.status == "active"
+        assert q.difficulty == "hard"
+
 
 # --- WorldChange ---
 
@@ -106,17 +320,33 @@ class TestItem:
 class TestWorldChange:
     def test_with_enum(self) -> None:
         change = WorldChange(
-            type=WorldChangeType.item_picked_up,
+            type=WorldChangeType.ITEM_TAKEN,
             entity_id="item-1",
             payload={"by": "player"},
         )
-        assert change.type == WorldChangeType.item_picked_up
+        assert change.type == WorldChangeType.ITEM_TAKEN
         assert change.entity_id == "item-1"
         assert change.payload == {"by": "player"}
 
     def test_enum_values(self) -> None:
-        assert WorldChangeType.location_entered.value == ("location_entered")
-        assert WorldChangeType.custom.value == "custom"
+        assert WorldChangeType.PLAYER_MOVED.value == "player_moved"
+        assert WorldChangeType.NPC_STATE_CHANGED.value == ("npc_state_changed")
+
+    def test_all_enum_members(self) -> None:
+        expected = {
+            "PLAYER_MOVED",
+            "ITEM_TAKEN",
+            "ITEM_DROPPED",
+            "NPC_MOVED",
+            "NPC_DISPOSITION_CHANGED",
+            "LOCATION_STATE_CHANGED",
+            "CONNECTION_LOCKED",
+            "CONNECTION_UNLOCKED",
+            "QUEST_STATUS_CHANGED",
+            "ITEM_VISIBILITY_CHANGED",
+            "NPC_STATE_CHANGED",
+        }
+        assert {m.name for m in WorldChangeType} == expected
 
 
 # --- WorldEvent ---
@@ -193,43 +423,215 @@ class TestLocationContext:
         assert len(ctx.items_here) == 1
 
 
-# --- WorldSeed & WorldTemplate ---
+# --- Template models ---
+
+
+class TestTemplateMetadata:
+    def test_defaults(self) -> None:
+        m = _template_metadata()
+        assert m.template_key == "forest-001"
+        assert m.tags == []
+        assert m.compatible_tones == []
+        assert m.location_count == 0
+        assert m.npc_count == 0
+
+    def test_full(self) -> None:
+        m = _template_metadata(
+            tags=["dark", "fantasy"],
+            compatible_tones=["grim"],
+            compatible_tech_levels=["medieval"],
+            compatible_magic=["high"],
+            compatible_scales=["village"],
+            location_count=5,
+            npc_count=3,
+        )
+        assert m.tags == ["dark", "fantasy"]
+        assert m.location_count == 5
+
+
+class TestTemplateRegion:
+    def test_basic(self) -> None:
+        r = TemplateRegion(key="forest", archetype="dark-forest")
+        assert r.key == "forest"
+        assert r.archetype == "dark-forest"
+
+
+class TestTemplateLocation:
+    def test_defaults(self) -> None:
+        tl = TemplateLocation(
+            key="clearing",
+            region_key="forest",
+            type="exterior",
+            archetype="forest-clearing",
+        )
+        assert tl.is_starting_location is False
+        assert tl.light_level == "lit"
+        assert tl.tags == []
+
+
+class TestTemplateConnection:
+    def test_defaults(self) -> None:
+        tc = TemplateConnection(
+            from_key="clearing",
+            to_key="cave-mouth",
+            direction="n",
+        )
+        assert tc.bidirectional is True
+        assert tc.is_locked is False
+        assert tc.is_hidden is False
+
+
+class TestTemplateNPC:
+    def test_defaults(self) -> None:
+        tn = TemplateNPC(
+            key="ranger",
+            location_key="clearing",
+            role="quest_giver",
+            archetype="forest-ranger",
+        )
+        assert tn.disposition == "neutral"
+
+
+class TestTemplateItem:
+    def test_defaults(self) -> None:
+        ti = TemplateItem(
+            key="torch",
+            location_key="clearing",
+            type="tool",
+            archetype="basic-torch",
+        )
+        assert ti.portable is True
+        assert ti.hidden is False
+        assert ti.npc_key is None
+
+
+class TestTemplateKnowledge:
+    def test_basic(self) -> None:
+        tk = TemplateKnowledge(
+            npc_key="ranger",
+            about_key="cave-mouth",
+            knowledge_type="location",
+        )
+        assert tk.is_secret is False
+
+
+# --- WorldTemplate (typed) ---
 
 
 class TestWorldTemplate:
-    def test_nested_data(self) -> None:
+    def test_typed_template(self) -> None:
+        meta = _template_metadata()
         tmpl = WorldTemplate(
-            name="Forest",
-            description="A dark wood.",
-            locations=[{"id": "l1", "name": "Clearing"}],
-            npcs=[{"id": "n1", "name": "Ranger"}],
-            items=[{"id": "i1", "name": "Torch"}],
-            connections=[{"from": "l1", "to": "l2"}],
+            metadata=meta,
+            regions=[TemplateRegion(key="forest", archetype="dark")],
+            locations=[
+                TemplateLocation(
+                    key="clearing",
+                    region_key="forest",
+                    type="exterior",
+                    archetype="forest-clearing",
+                )
+            ],
+            connections=[
+                TemplateConnection(
+                    from_key="clearing",
+                    to_key="cave",
+                    direction="n",
+                )
+            ],
+            npcs=[
+                TemplateNPC(
+                    key="ranger",
+                    location_key="clearing",
+                    role="quest_giver",
+                    archetype="forest-ranger",
+                )
+            ],
+            items=[
+                TemplateItem(
+                    key="torch",
+                    location_key="clearing",
+                    type="tool",
+                    archetype="basic-torch",
+                )
+            ],
+            knowledge=[
+                TemplateKnowledge(
+                    npc_key="ranger",
+                    about_key="cave",
+                    knowledge_type="location",
+                )
+            ],
         )
-        assert tmpl.name == "Forest"
+        assert tmpl.metadata.template_key == "forest-001"
+        assert len(tmpl.regions) == 1
         assert len(tmpl.locations) == 1
-        assert tmpl.connections[0]["from"] == "l1"
+        assert len(tmpl.connections) == 1
+        assert len(tmpl.npcs) == 1
+        assert len(tmpl.items) == 1
+        assert len(tmpl.knowledge) == 1
+
+    def test_empty_lists_default(self) -> None:
+        tmpl = WorldTemplate(metadata=_template_metadata())
+        assert tmpl.regions == []
+        assert tmpl.locations == []
+        assert tmpl.connections == []
+        assert tmpl.npcs == []
+        assert tmpl.items == []
+        assert tmpl.knowledge == []
+
+
+# --- WorldSeed ---
 
 
 class TestWorldSeed:
     def test_json_round_trip(self) -> None:
-        tmpl = WorldTemplate(
-            name="Cave",
-            description="An echoing cave.",
-        )
+        meta = _template_metadata(template_key="cave-01", display_name="Cave")
+        tmpl = WorldTemplate(metadata=meta)
         seed = WorldSeed(
             template=tmpl,
             flavor_text={"intro": "You step inside…"},
         )
         data = seed.model_dump_json()
         restored = WorldSeed.model_validate_json(data)
-        assert restored.template.name == "Cave"
+        assert restored.template.metadata.template_key == "cave-01"
         assert restored.flavor_text["intro"] == ("You step inside…")
 
     def test_json_serializable(self) -> None:
         seed = WorldSeed(
-            template=WorldTemplate(name="T", description="D"),
+            template=WorldTemplate(metadata=_template_metadata()),
         )
         raw = json.loads(seed.model_dump_json())
         assert isinstance(raw, dict)
         assert "template" in raw
+
+    def test_genesis_optional_fields(self) -> None:
+        seed = WorldSeed(
+            template=WorldTemplate(metadata=_template_metadata()),
+            tone="dark",
+            tech_level="medieval",
+            magic_presence="high",
+            world_scale="village",
+            player_position="outsider",
+            power_source="arcane",
+            defining_detail="cursed forest",
+            character_name="Elara",
+            character_concept="wandering healer",
+        )
+        assert seed.tone == "dark"
+        assert seed.tech_level == "medieval"
+        assert seed.magic_presence == "high"
+        assert seed.world_scale == "village"
+        assert seed.player_position == "outsider"
+        assert seed.power_source == "arcane"
+        assert seed.defining_detail == "cursed forest"
+        assert seed.character_name == "Elara"
+        assert seed.character_concept == "wandering healer"
+
+    def test_genesis_fields_default_none(self) -> None:
+        seed = WorldSeed(
+            template=WorldTemplate(metadata=_template_metadata()),
+        )
+        assert seed.tone is None
+        assert seed.tech_level is None
+        assert seed.character_name is None
