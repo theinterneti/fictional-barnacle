@@ -31,15 +31,20 @@ designed so the deferred features can be added without rewriting the foundation.
 | Safety preamble enforcement | ✅ | — |
 | Input sanitization / injection defense | ✅ | — |
 | Langfuse trace linkage (template ID + version) | ✅ | — |
-| Golden tests and scenario tests | ✅ | — |
+| Prompt snapshot tests and scenario tests | ✅ | — |
 | Genre pack loading | ✅ | — |
 | Hot-reload in dev (file watcher) | ✅ | — |
+| Multi-version registry (`get(id, version)`, history, rollback) | — | v2 (git is the version store in v1) |
 | Runtime activation / rollback without deploy | — | v2 (Langfuse prompt management or DB-backed registry) |
 | Shadow mode (parallel evaluation) | — | v2 |
 | Interactive preview mode | — | v2 |
 | Visual prompt editor UI | — | Not planned |
 | Automated A/B testing with cohort assignment | — | v2+ |
 | Community prompt marketplace | — | Not planned |
+| Post-generation content interception / replacement (FR-09.48) | — | Owned by Safety component (plans/safety.md) |
+| Output schema validation at registration | — | v2 |
+| Token-fit validation at registration | — | v2 (depends on model choice at runtime) |
+| `updated` / last-modified metadata in front matter | — | v2 (git blame is sufficient in v1) |
 
 ### Resolved open questions from S09
 
@@ -128,7 +133,7 @@ output_schema: null
 You are the narrator of a {{ genre_tone }} text adventure game.
 You write in **second person, present tense**.
 
-{% include "genre/" ~ genre_slug ~ ".fragment.md" ignore missing %}
+{% include "genre/" ~ genre_slug ~ ".fragment.md" %}
 
 ## World Context
 
@@ -303,10 +308,14 @@ class PromptRegistry:
 3. Validate all templates:
    a. Jinja2 syntax check (parse without rendering)
    b. All {% include %} references resolve to known fragments
-   c. No circular includes (fragment A includes fragment B includes fragment A)
-   d. Protected fragments (safety-preamble) are present
+   c. Dynamic genre includes: validate that all genre_slug values from
+      loaded genre packs resolve to a matching genre fragment file.
+      Missing genre fragment → fail startup (not silently ignored).
+   d. No circular includes (fragment A includes fragment B includes fragment A)
+   e. Protected fragments (safety-preamble) are present
 4. Scan prompts/genres/ → parse GenrePack YAML → store GenrePack objects
-5. If any required template is missing → fail startup with clear error (FR-09.05)
+5. Cross-validate: every genre pack's id has a matching genre fragment file
+6. If any required template is missing → fail startup with clear error (FR-09.05)
 ```
 
 **Required templates** — the pipeline will not start without these:
@@ -396,30 +405,49 @@ langfuse.trace(
 ### 3.1 — From turn to LLM messages
 
 The composition pipeline transforms a `TurnState` (from the pipeline orchestrator)
-into a `list[Message]` suitable for LiteLLM. This happens in **Stage 2 (Context
-Assembly)** and is consumed by **Stage 3 (Generation)**.
+into a `list[Message]` suitable for LiteLLM.
+
+**Stage ownership:** Context assembly and token budget allocation belong to
+**Stage 2 (Context Assembly)**. Template rendering and message construction belong
+to **Stage 3 (Generation)**. The boundary is:
+
+- **Stage 2 produces**: a `ContextBundle` — a typed, priority-tagged collection of
+  context sections (location, NPCs, history, etc.) that have already been measured,
+  compressed, and packed within the token budget. This is stored on `TurnState`.
+- **Stage 3 consumes** the `ContextBundle`: flattens it to template variables,
+  renders the Jinja2 template, builds the LiteLLM message list, and calls the LLM.
+
+This split keeps Stage 2 focused on *what context to include* and Stage 3 focused
+on *how to render and call the model*.
 
 ```
 TurnState
    │
    ├── Stage 1 output: parsed_intent, emotional_tone
-   ├── Stage 2 queries: world context from Neo4j, recent events from Postgres
    │
    ▼
-┌─────────────────────────────────────────────────┐
-│            Prompt Composition Pipeline           │
+┌──────────────────────────────────────────────────┐
+│  Stage 2: Context Assembly                       │
+│                                                  │
+│  1. Query world context (Neo4j, Postgres)        │
+│  2. Build ContextBundle (typed, prioritized)     │
+│  3. Apply token budget (compress/truncate)       │
+│                                                  │
+│  Output: TurnState.context_bundle: ContextBundle │
+└──────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────┐
+│  Stage 3: Generation                             │
 │                                                  │
 │  1. Select template (by pipeline stage + role)   │
-│  2. Gather variables from TurnState + context    │
-│  3. Apply token budget (compress/truncate)       │
-│  4. Render template (Jinja2)                     │
-│  5. Build LiteLLM message list                   │
+│  2. Flatten ContextBundle → template variables   │
+│  3. Render template (Jinja2)                     │
+│  4. Build LiteLLM message list                   │
+│  5. Call LLMClient.generate() or .stream()       │
 │                                                  │
-│  Output: list[Message] + GenerationParams        │
-└─────────────────────────────────────────────────┘
-   │
-   ▼
-LLMClient.generate() or LLMClient.stream()
+│  Output: TurnState.narrative_output + metadata   │
+└──────────────────────────────────────────────────┘
 ```
 
 ### 3.2 — Message structure
@@ -616,13 +644,18 @@ the activation layer picks which version is live. The registry interface (`get()
 
 ---
 
-## 5. Golden Tests and Prompt Testing
+## 5. Prompt Snapshot Tests and Prompt Testing
 
-### 5.1 — What golden tests are
+### 5.1 — What prompt snapshot tests are
 
-A golden test captures the **assembled prompt** (not the LLM output) for a known set
-of input variables. It verifies that template rendering + composition produces the
-expected prompt structure. This is fully deterministic — no LLM involved.
+A prompt snapshot test captures the **assembled prompt** (not the LLM output) for a
+known set of input variables. It verifies that template rendering + composition
+produces the expected prompt structure. This is fully deterministic — no LLM involved.
+
+> **Terminology note**: S09 uses "golden tests" to describe tolerant LLM-output
+> regression checks. This plan uses "prompt snapshot tests" for the deterministic
+> template-rendering layer and reserves "golden / regression tests" (§5.4–5.5)
+> for the LLM-backed behavioral checks that validate actual model output.
 
 ```
                     ┌─────────────────────┐
@@ -633,9 +666,9 @@ Known variables ──▶ │  Render template    │ ──▶ Rendered prompt
                                               golden snapshot
 ```
 
-### 5.2 — Golden test structure
+### 5.2 — Snapshot test structure
 
-Golden tests live alongside the templates they test:
+Snapshot tests live alongside the templates they test:
 
 ```
 prompts/
@@ -968,6 +1001,18 @@ enforced at three levels:
 3. **Lint check**: A CI linting step (§8.3) validates that every `role: generation`
    template includes the safety preamble.
 
+### 7.5 — Post-generation content interception (FR-09.48)
+
+**Not owned by this component.** FR-09.48 requires intercepting LLM output before
+delivery and replacing unsafe content with a safe alternative. This is a
+**post-generation safety enforcement** responsibility, owned by the Safety component
+(plans/safety.md) and implemented as a Stage 4 (Post-processing) pipeline step.
+
+The prompts component's responsibility ends at the system prompt: it encodes *what
+the model should not generate*. The safety component's responsibility is verifying
+*that the model actually complied* and intervening if it didn't. This plan does not
+duplicate that logic.
+
 ---
 
 ## 8. Testing Strategy
@@ -977,7 +1022,7 @@ enforced at three levels:
 | Layer | What it tests | Speed | Runs in CI | Tool |
 |---|---|---|---|---|
 | **Unit** | Template rendering with known variables | Fast (<1s each) | ✅ Every PR | pytest |
-| **Golden** | Rendered prompt matches snapshot | Fast (<1s each) | ✅ Every PR | pytest + golden files |
+| **Snapshot** | Rendered prompt matches snapshot | Fast (<1s each) | ✅ Every PR | pytest + snapshot files |
 | **Lint** | Template structure, safety preamble, variable declarations | Fast | ✅ Every PR | Custom pytest checks |
 | **Scenario** | LLM output meets behavioral assertions | Slow (2–10s each) | ❌ On-demand | pytest -m llm |
 | **Regression** | Known-bad cases don't recur | Slow (if LLM-backed) | ❌ On-demand | pytest -m llm |
@@ -1127,17 +1172,22 @@ def create_app() -> FastAPI:
     ...
 ```
 
-Pipeline stages receive the registry and use it to render prompts:
+Pipeline stages receive the registry and use it to render prompts. Note that
+`build_generation_variables` reads from `state.context_bundle`, which was populated
+by Stage 2 (Context Assembly):
 
 ```python
-# In tta/pipeline/generation.py
+# In tta/pipeline/generation.py (Stage 3)
 
 async def generation_stage(
     state: TurnState,
     registry: PromptRegistry,
     llm: LLMClient,
 ) -> TurnState:
-    """Stage 3: Render prompt and call LLM."""
+    """Stage 3: Render prompt and call LLM.
+
+    Requires state.context_bundle to be populated by Stage 2.
+    """
     variables = build_generation_variables(state)
     rendered = registry.render("narrative.generate", variables)
 
@@ -1156,32 +1206,91 @@ async def generation_stage(
 
 ### 9.3 — Variable assembly
 
-A helper function maps `TurnState` + `WorldContext` into the flat variable dict that
-templates expect. This is the bridge between the pipeline's typed models and the
-template's string variables.
+A helper function maps `TurnState` + `ContextBundle` into the flat variable dict
+that templates expect. This is the bridge between the pipeline's typed models and
+the template's string variables.
+
+**Stage 2 context model** — `ContextBundle` contains all fields needed to satisfy
+S03's priority-based context tiers. The following fields are the minimum contract
+that Stage 2 must populate on `TurnState`:
+
+```python
+class ContextBundle(BaseModel):
+    """Priority-tagged context assembled in Stage 2.
+
+    Tiers correspond to S03 FR-3.1 compression priorities.
+    """
+
+    # Tier 6 (never cut)
+    genre_tone: str              # from WorldSeed
+    genre_id: str                # slug for fragment include
+    voice_formality: float       # S03 FR-1.2 — 0.0 (casual) to 1.0 (formal)
+    voice_warmth: float          # S03 FR-1.2 — 0.0 (detached) to 1.0 (warm)
+    voice_humor: float           # S03 FR-1.2 — 0.0 (serious) to 1.0 (playful)
+
+    # Tier 4 (preserve)
+    location: LocationContext
+    character_state: CharacterState | None = None
+    active_scene: str | None = None
+
+    # Tier 3 (compress)
+    active_quests: list[QuestSummary] = []
+    active_threads: list[str] = []       # Active story threads
+    relationship_states: list[RelationshipSummary] = []
+    chapter_context: str | None = None   # Current chapter framing
+
+    # Tier 2 (truncate)
+    recent_events: list[TurnSummary] = []
+    conversation_history: list[str] = []
+
+    # Tier 1 (drop)
+    distant_history: list[str] = []
+    inactive_npcs: list[str] = []
+
+    # Derived
+    running_story_summary: str | None = None  # Updated at chapter boundaries
+    nearby_npcs: list[NPCSummary] = []
+    nearby_objects: list[str] = []
+    inventory: list[str] = []
+    time_description: str | None = None
+```
 
 ```python
 def build_generation_variables(state: TurnState) -> dict[str, str]:
-    """Assemble template variables from pipeline state."""
-    ctx = state.world_context
+    """Assemble template variables from pipeline state.
+
+    Reads from state.context_bundle (populated by Stage 2) and
+    state.game_state (player identity, WorldSeed).
+    """
+    ctx = state.context_bundle
+    ws = state.game_state.world_seed
     return {
+        # Required
         "player_name": state.game_state.player_name,
         "player_action": state.player_input,
         "location_description": ctx.location.description,
         "location_name": ctx.location.name,
-        "genre_tone": state.game_state.world_seed.genre_tone,
-        "genre_slug": state.game_state.world_seed.genre_id,
+        "genre_tone": ctx.genre_tone,
+        "genre_slug": ctx.genre_id,
         "recent_events": format_recent_events(ctx.recent_events),
         "turn_number": str(state.turn_number),
+        # Voice tuning (S03 FR-1.2) — injected as variables for template access
+        "voice_formality": f"{ctx.voice_formality:.1f}",
+        "voice_warmth": f"{ctx.voice_warmth:.1f}",
+        "voice_humor": f"{ctx.voice_humor:.1f}",
         # Optional — included only if available
-        **({"nearby_npcs": format_npcs(ctx.npcs)} if ctx.npcs else {}),
-        **({"nearby_objects": format_items(ctx.items)} if ctx.items else {}),
+        **({"nearby_npcs": format_npcs(ctx.nearby_npcs)} if ctx.nearby_npcs else {}),
+        **({"nearby_objects": format_items(ctx.nearby_objects)} if ctx.nearby_objects else {}),
         **({"inventory_summary": format_inventory(ctx.inventory)} if ctx.inventory else {}),
-        **({"active_quests": format_quests(ctx.quests)} if ctx.quests else {}),
+        **({"active_quests": format_quests(ctx.active_quests)} if ctx.active_quests else {}),
         **({"world_time": ctx.time_description} if ctx.time_description else {}),
-        **({"character_state": format_character(ctx.character)} if ctx.character else {}),
-        **({"conversation_history": format_history(state.narrative_history)} if state.narrative_history else {}),
+        **({"character_state": format_character(ctx.character_state)} if ctx.character_state else {}),
+        **({"conversation_history": format_history(ctx.conversation_history)} if ctx.conversation_history else {}),
         **({"emotional_tone": state.parsed_intent.emotional_tone} if state.parsed_intent and state.parsed_intent.emotional_tone else {}),
+        **({"running_summary": ctx.running_story_summary} if ctx.running_story_summary else {}),
+        **({"active_threads": format_threads(ctx.active_threads)} if ctx.active_threads else {}),
+        **({"relationship_states": format_relationships(ctx.relationship_states)} if ctx.relationship_states else {}),
+        **({"chapter_context": ctx.chapter_context} if ctx.chapter_context else {}),
     }
 ```
 
@@ -1217,7 +1326,7 @@ all subsequent waves.
 | Wave | Prompt work |
 |---|---|
 | **Wave 0** | Define `PromptMetadata`, `RenderedPrompt`, `PromptRegistry` protocol |
-| **Wave 2** | Implement registry, renderer, composer. Write initial templates. Golden tests. |
+| **Wave 2** | Implement registry, renderer, composer. Write initial templates. Snapshot tests. |
 | **Wave 3** | Genre pack loading. Genre fragments for the 2–3 launch genres. |
 | **Wave 4** | Langfuse trace linkage. Prompt lint in CI. |
 | **Wave 5** | Scenario tests. Regression suite. Prompt tuning from playtests. |
@@ -1234,3 +1343,41 @@ all subsequent waves.
 | `TokenBudget.allocate(sections) → list[ContextSection]` | `prompts/composer.py` | Context assembly (Stage 2) |
 | `sanitize_variable(value) → str` | `prompts/sanitize.py` | Registry (at render time) |
 | `GenrePack` model | `prompts/models.py` | World seeding, template variables |
+| `ContextBundle` model | `prompts/models.py` | Stage 2 → Stage 3 contract |
+
+---
+
+## Appendix A — S09 Functional Requirement Coverage
+
+| FR | Description | v1 Status | Notes |
+|---|---|---|---|
+| FR-09.01 | Template file format with front matter | ✅ Implemented | §1 |
+| FR-09.02 | Variables with required/optional distinction | ✅ Implemented | §1.4 |
+| FR-09.03 | Fragment composition (shared pieces) | ✅ Implemented | §1.5, §3.3 |
+| FR-09.04 | Registry loads at startup | ✅ Implemented | §2.1 |
+| FR-09.05 | Startup fails on missing required templates | ✅ Implemented | §2.2 |
+| FR-09.06 | Semver versioning in front matter | ✅ Implemented | §4.1 |
+| FR-09.07 | Version history / multi-version registry | ❌ Deferred v2 | Git is version store in v1 |
+| FR-09.08 | Runtime activation / rollback | ❌ Deferred v2 | §4.4 |
+| FR-09.09–11 | Shadow mode, A/B cohorts | ❌ Deferred v2 | — |
+| FR-09.12–16 | Variable catalog (16 standard vars) | ✅ Implemented | §9.3 (expanded for S03) |
+| FR-09.17 | Variable validation at render time | ✅ Implemented | StrictUndefined (§2.3) |
+| FR-09.18 | Missing required var → clear error | ✅ Implemented | §2.3, §5.3 |
+| FR-09.19 | Input sanitization (Jinja2 delimiter escape) | ✅ Implemented | §7.2 |
+| FR-09.20–22 | Prompt testing (snapshot + scenario) | ✅ Implemented | §5, §8 |
+| FR-09.23–24 | Fragment ordering, safety-first composition | ✅ Implemented | §3.3 |
+| FR-09.25 | Token budget management | ✅ Implemented | §3.4 |
+| FR-09.26 | Fixed composition order | ✅ Implemented | §3.3 |
+| FR-09.27–30 | Genre packs | ✅ Implemented | §6.4 |
+| FR-09.31–35 | Langfuse trace linkage | ✅ Implemented | §4.3 |
+| FR-09.36 | Fragment dependency tracking | ✅ Implemented | `fragment_versions` in trace |
+| FR-09.37–40 | CI lint, structural validation | ✅ Implemented | §8.3 |
+| FR-09.41–45 | Interactive preview, visual editor | ❌ Deferred v2+ | — |
+| FR-09.46 | Safety preamble (protected fragment) | ✅ Implemented | §1.5, §7.4 |
+| FR-09.47 | Safety preamble cannot be excluded | ✅ Implemented | §7.4 (3 layers) |
+| FR-09.48 | Post-generation interception/replacement | ❌ Owned by Safety | §7.5 |
+| FR-09.49 | Structural separation (system/user) | ✅ Implemented | §7.1 |
+| FR-09.50 | Injection detection (log, don't block) | ✅ Implemented | §7.3 |
+| FR-09.51 | Output schema validation at registration | ❌ Deferred v2 | — |
+| FR-09.52 | Token-fit validation at registration | ❌ Deferred v2 | Model-dependent |
+| FR-09.53 | Updated/last-modified metadata | ❌ Deferred v2 | Git blame suffices |

@@ -102,7 +102,8 @@ FastAPI `Depends()` functions resolve request-scoped resources. Dependencies liv
 ```python
 # src/tta/api/deps.py
 
-from fastapi import Depends, Request, HTTPException
+from fastapi import Depends, Request
+from tta.api.errors import AppError
 
 async def get_pg(request: Request) -> AsyncSession:
     """Yields an async SQLAlchemy session from the app-level pool."""
@@ -128,15 +129,15 @@ async def get_current_player(
     """
     token = _extract_token(request)
     if token is None:
-        raise HTTPException(status_code=401, detail="AUTH_TOKEN_MISSING")
+        raise AppError(401, "AUTH_TOKEN_MISSING", "No session token provided.")
 
     session_row = await player_sessions_repo.get_by_token(pg, token)
     if session_row is None or session_row.expires_at < utcnow():
-        raise HTTPException(status_code=401, detail="AUTH_TOKEN_INVALID")
+        raise AppError(401, "AUTH_TOKEN_INVALID", "Session token is invalid or expired.")
 
     player = await players_repo.get_by_id(pg, session_row.player_id)
     if player is None:
-        raise HTTPException(status_code=401, detail="AUTH_TOKEN_INVALID")
+        raise AppError(401, "AUTH_TOKEN_INVALID", "Session token is invalid or expired.")
 
     return player
 
@@ -160,7 +161,7 @@ Applied in order (outermost → innermost):
 |---|-----------|---------|
 | 1 | **CORS** | `CORSMiddleware` from Starlette. Configurable origins (FR-10.67–72). |
 | 2 | **Request ID** | Custom. Generates a UUID4 `X-Request-Id` header on every response. Attaches to structlog context for distributed tracing (FR-10.54). |
-| 3 | **Rate Limiting** | Custom. Per-player rate limiting via Redis counters. Applied after auth resolves a player ID. Returns 429 with `Retry-After` header (FR-10.61–66). |
+| 3 | **Rate Limiting** | Custom. Per-session rate limiting via Redis counters (keyed on session token). Applied after auth resolves the session. Returns 429 with `Retry-After` header (FR-10.61–66). |
 
 **Error handlers** are registered separately (not middleware) and produce the standard
 error envelope described in §7.
@@ -409,7 +410,8 @@ class TurnAccepted(BaseModel):
 **Behavior:**
 
 1. Validate ownership (404 if not the player's game).
-2. Check game status — must be `active` or `created`. Reject `paused`/`ended`/etc. with 422.
+2. Check game status — must be `active` or `created`. Reject `paused`/`ended`/etc.
+   with 422.
 3. **Concurrent turn check** (Postgres-based, not Redis):
    ```sql
    SELECT id FROM turns
@@ -422,11 +424,11 @@ class TurnAccepted(BaseModel):
 4. **Idempotency check**: If `idempotency_key` is provided, check for existing turn with
    same session + key. If found, return existing `turn_id` without reprocessing.
 5. Insert turn row (status=`processing`), compute `turn_number` from max + 1.
-6. If game was in `created` state, transition to `active`.
+6. If game was in `created` state, transition to `active` (first turn triggers this).
 7. Dispatch pipeline processing as a background task (`asyncio.create_task`).
 8. Return 202 immediately (within 500ms — FR-10.05).
 
-- Rate limit: 10 per minute per player (FR-10.61).
+- Rate limit: 10 per minute per session (FR-10.61).
 - Empty/whitespace input → 422 (FR-10.08). Over 2000 chars → 422 (FR-10.09).
 
 ### 2.8 — Game SSE Stream (`GET /api/v1/games/{game_id}/stream`)
@@ -559,7 +561,7 @@ Client                                      Server
   │                                           │── Subscribe to Redis channel
   │                                           │      sse:{session_id}:stream
   │        ... idle ...                       │
-  │◀──── event: heartbeat ───────────────────│  (every 15s)
+  │◀──── event: keepalive ────────────────────│  (every 15s)
   │        ... idle ...                       │
   │                                           │── [Turn submitted via POST /turns]
   │                                           │── Pipeline runs, buffers response
@@ -569,7 +571,7 @@ Client                                      Server
   │◀──── event: world_update ────────────────│
   │◀──── event: turn_complete ───────────────│
   │        ... idle ...                       │
-  │◀──── event: heartbeat ───────────────────│
+  │◀──── event: keepalive ────────────────────│
   │                                           │
   │── (client disconnects) ──────────────────▶│── Unsubscribe Redis channel
   │                                           │── Release connection resources (< 5s)
@@ -592,14 +594,14 @@ async def game_stream(
 ):
     game = await games_repo.get_by_id(pg, game_id)
     if game is None or game.player_id != player.id:
-        raise HTTPException(404, "GAME_NOT_FOUND")
+        raise AppError(404, "GAME_NOT_FOUND", "Game not found.")
 
     # Check concurrent SSE connection limit (3 per player)
     conn_count = await redis.incr(f"sse:conn:{player.id}")
     await redis.expire(f"sse:conn:{player.id}", 3600)
     if conn_count > 3:
         await redis.decr(f"sse:conn:{player.id}")
-        raise HTTPException(429, "SSE_CONNECTION_LIMIT")
+        raise AppError(429, "SSE_CONNECTION_LIMIT", "Too many concurrent SSE connections.")
 
     async def event_generator():
         pubsub = redis.pubsub()
@@ -624,10 +626,13 @@ async def game_stream(
                 if await request.is_disconnected():
                     break
 
-                msg = await asyncio.wait_for(
-                    pubsub.get_message(ignore_subscribe_messages=True),
-                    timeout=1.0,
-                )
+                try:
+                    msg = await asyncio.wait_for(
+                        pubsub.get_message(ignore_subscribe_messages=True),
+                        timeout=1.0,
+                    )
+                except TimeoutError:
+                    msg = None
 
                 if msg and msg["type"] == "message":
                     yield msg["data"].decode()
@@ -635,7 +640,7 @@ async def game_stream(
 
                 # Heartbeat every 15 seconds (FR-10.38)
                 if time.monotonic() - last_heartbeat >= 15:
-                    yield format_sse("heartbeat", {"timestamp": utcnow_iso()})
+                    yield format_sse("keepalive", {"timestamp": utcnow_iso()})
                     last_heartbeat = time.monotonic()
 
         except asyncio.CancelledError:
@@ -693,7 +698,7 @@ is illustrative. The actual implementation uses a connection-scoped counter obje
 | `turn_complete` | `{turn_number, model_used, latency_ms}` | Turn finished |
 | `narrative_block` | `{turn_id, turn_number, narrative}` | Full narrative on reconnect |
 | `error` | `{code, message, turn_id?}` | Error during processing |
-| `heartbeat` | `{timestamp}` | Keep-alive (every 15s) |
+| `keepalive` | `{timestamp}` | Keep-alive (every 15s) |
 
 ### 3.6 — Publishing Events from the Pipeline
 
@@ -759,6 +764,13 @@ v1 does NOT implement full `Last-Event-ID` replay (system.md §6.4). Instead:
 4. If status is `processing`: server subscribes to the Redis pub/sub channel and the
    client picks up from whatever events arrive next.
 5. If status is `failed`: sends an `error` event with the failure reason.
+
+**Replay deduplication rule:** The reconnect replay fires once per SSE connection
+establishment. The client is responsible for checking whether the replayed `turn_id`
+matches a turn it has already rendered and discarding the duplicate. The `connected`
+event precedes any replay, and `narrative_block` includes `turn_id` + `turn_number`
+to enable this check. This avoids server-side state tracking of "what the client has
+seen" which would require `Last-Event-ID` infrastructure deferred to post-v1.
 
 This is implemented in the `event_generator()` above (§3.3) — the reconnection check
 happens at connection time, before the pub/sub subscription loop.
@@ -1348,11 +1360,15 @@ All other transitions are rejected with `422 INVALID_STATE_TRANSITION`.
 
 ### 6.4 — Save Game
 
-Snapshots the current Redis game state into the `game_sessions.world_seed` or a
-supplementary column. In practice, the state is already persisted after every turn
-(the `world_context` JSONB on the `turns` table serves as the per-turn snapshot).
-An explicit save is a no-op that confirms the latest state is durable — it updates
-`game_sessions.updated_at` and returns the timestamp.
+The save endpoint confirms that the current game state is durable. In practice, game
+state is already durably persisted after every turn: the `world_context` JSONB on the
+`turns` table captures the per-turn snapshot, and `world_events` records all mutations.
+The game can be fully reconstructed from `world_seed` (genesis output) + the ordered
+turn/world_events history — no separate "save state" column is needed.
+
+An explicit save therefore updates `game_sessions.updated_at` (resetting inactivity
+timers) and returns a confirmation timestamp. This is intentionally a no-op for data —
+it exists to give players a "save" action that resets the abandon/expire clock.
 
 ### 6.5 — End / Abandon Game
 
@@ -1517,7 +1533,7 @@ On 429, additionally:
 Retry-After: 42
 ```
 
-Implementation: Redis sliding-window counter keyed on `ratelimit:{player_id}:{endpoint_group}`.
+Implementation: Redis sliding-window counter keyed on `ratelimit:{session_token_hash}:{endpoint_group}`.
 
 ---
 
@@ -1867,6 +1883,11 @@ Key Gherkin scenarios from S10 and S11 are mapped to `pytest-bdd` tests:
 | Rate limiting (S10 AC-10.07–08) | `tests/bdd/step_defs/test_rate_limiting.py` | Wave 4 |
 | Error response shape (S10 AC-10.09–10) | `tests/bdd/step_defs/test_error_shapes.py` | Wave 4 |
 | Player cannot access other's game (S10 AC-10.12) | `tests/bdd/step_defs/test_access_control.py` | Wave 4 |
+| SSE reconnect replays completed turn | `tests/integration/test_sse_reconnect.py` | Wave 4 |
+| SSE reconnect during processing joins live stream | `tests/integration/test_sse_reconnect.py` | Wave 4 |
+| Concurrent turn submissions serialize correctly | `tests/integration/test_turn_concurrency.py` | Wave 4 |
+| Buffer-then-stream: tokens only after full gen | `tests/integration/test_sse_buffer_stream.py` | Wave 4 |
+| Redis-down degrades gracefully (cache miss path) | `tests/integration/test_degraded_mode.py` | Wave 4 |
 
 ### 9.6 — Test Markers
 
@@ -1898,9 +1919,9 @@ lists the settings relevant to the API + Sessions component:
 | `neo4j_user` | `TTA_NEO4J_USER` | `neo4j` | Neo4j auth |
 | `neo4j_password` | `TTA_NEO4J_PASSWORD` | *(required)* | Neo4j auth |
 | `max_input_length` | `TTA_MAX_INPUT_LENGTH` | `2000` | Turn input char limit |
-| `turn_rate_limit` | `TTA_TURN_RATE_LIMIT` | `10` | Turns per minute per player |
+| `turn_rate_limit` | `TTA_TURN_RATE_LIMIT` | `10` | Turns per minute per session |
 | `session_ttl_seconds` | `TTA_SESSION_TTL_SECONDS` | `86400` | Session token lifetime (24h) |
-| `sse_heartbeat_interval` | `TTA_SSE_HEARTBEAT_INTERVAL` | `15` | SSE keepalive interval (seconds) |
+| `sse_keepalive_interval` | `TTA_SSE_KEEPALIVE_INTERVAL` | `15` | SSE keepalive interval (seconds) |
 | `max_active_games` | `TTA_MAX_ACTIVE_GAMES` | `5` | Per-player game limit |
 
 ---
@@ -1921,7 +1942,7 @@ src/tta/
 │   └── routes/
 │       ├── __init__.py
 │       ├── games.py        # All /games endpoints incl. stream (§2.4–2.12)
-│       ├── health.py       # /health, /ready (§2.13)
+│       ├── health.py       # /api/v1/health, /api/v1/health/ready (§2.13)
 │       ├── players.py      # /players registration + profile (§2.1–2.3)
 │       └── static.py       # / → index.html (§8)
 ├── models/
