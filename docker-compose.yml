@@ -1,0 +1,102 @@
+# docker-compose.yml — TTA local development stack
+# See plans/ops.md §1.2 and specs/S14 for rationale.
+
+services:
+  tta-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tta
+      POSTGRES_PASSWORD: tta
+      POSTGRES_DB: tta
+    ports:
+      - "5432:5432"
+    volumes:
+      - tta-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tta"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  tta-neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/changeme
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - tta-neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  tta-redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - tta-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  langfuse-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - tta-langfuse-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  langfuse:
+    image: langfuse/langfuse:3
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://langfuse:langfuse@langfuse-db:5432/langfuse"
+      NEXTAUTH_SECRET: dev-secret-change-in-prod
+      NEXTAUTH_URL: "http://localhost:3000"
+      SALT: dev-salt-change-in-prod
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  tta-api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      tta-postgres:
+        condition: service_healthy
+      tta-neo4j:
+        condition: service_healthy
+      tta-redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  tta-postgres-data:
+  tta-neo4j-data:
+  tta-redis-data:
+  tta-langfuse-db-data:
