@@ -54,8 +54,12 @@ test: ## Run all tests with coverage
 test-unit: ## Run unit tests only (no external services needed)
 	uv run pytest -m "not integration and not e2e"
 
-test-integration: ## Run integration tests (requires make test-up)
-	uv run pytest -m integration
+test-integration: ## Run integration tests (starts/stops test services)
+	docker compose -f docker-compose.test.yml up -d --wait
+	uv run pytest tests/integration/ -v; \
+	EXIT_CODE=$$?; \
+	docker compose -f docker-compose.test.yml down; \
+	exit $$EXIT_CODE
 
 test-watch: ## Continuous selective testing (reruns affected tests on save)
 	uv run ptw . -- --testmon -x --tb=short

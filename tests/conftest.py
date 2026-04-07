@@ -21,11 +21,12 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     Sets environment variables so that ``Settings()`` can be instantiated
     without real database connections being available.
     """
+    # Ports match docker-compose.test.yml (offset from dev to avoid conflicts).
     test_env = {
-        "TTA_DATABASE_URL": "postgresql://test:test@localhost:5432/tta_test",
-        "TTA_NEO4J_PASSWORD": "test",
-        "TTA_NEO4J_URI": "bolt://localhost:7687",
-        "TTA_REDIS_URL": "redis://localhost:6379/1",
+        "TTA_DATABASE_URL": "postgresql://tta_test:tta_test@localhost:5433/tta_test",
+        "TTA_NEO4J_PASSWORD": "test_password",
+        "TTA_NEO4J_URI": "bolt://localhost:7688",
+        "TTA_REDIS_URL": "redis://localhost:6380/1",
         "TTA_ENVIRONMENT": "development",
         "TTA_LOG_LEVEL": "DEBUG",
         "TTA_LOG_FORMAT": "console",

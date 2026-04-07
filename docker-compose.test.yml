@@ -1,0 +1,48 @@
+# docker-compose.test.yml — Ephemeral test services for integration tests.
+# Ports offset from dev to avoid conflicts (5433, 7475/7688, 6380).
+# All use tmpfs for speed — data is discarded on container stop.
+
+services:
+  test-postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: tta_test
+      POSTGRES_PASSWORD: tta_test
+      POSTGRES_DB: tta_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tta_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  test-neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    environment:
+      NEO4J_AUTH: neo4j/test_password
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p test_password 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  test-redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
