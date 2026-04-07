@@ -13,6 +13,8 @@ class EventType(StrEnum):
     """SSE event type discriminator."""
 
     TURN_START = "turn_start"
+    THINKING = "thinking"
+    STILL_THINKING = "still_thinking"
     NARRATIVE_TOKEN = "narrative_token"
     NARRATIVE_BLOCK = "narrative_block"
     WORLD_UPDATE = "world_update"
@@ -61,6 +63,18 @@ class WorldUpdateEvent(SSEEvent):
     changes: list[WorldChange]
 
 
+class ThinkingEvent(SSEEvent):
+    """Signals the server is processing (shown as thinking indicator)."""
+
+    event_type: EventType = EventType.THINKING
+
+
+class StillThinkingEvent(SSEEvent):
+    """Sent after 3s if generation is still running."""
+
+    event_type: EventType = EventType.STILL_THINKING
+
+
 class TurnCompleteEvent(SSEEvent):
     """Signals the turn is fully processed."""
 
@@ -68,6 +82,7 @@ class TurnCompleteEvent(SSEEvent):
     turn_number: int
     model_used: str
     latency_ms: float
+    suggested_actions: list[str] = Field(default_factory=list)
 
 
 class ErrorEvent(SSEEvent):

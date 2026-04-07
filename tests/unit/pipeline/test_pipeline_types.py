@@ -8,6 +8,7 @@ import pytest
 from tta.models.turn import TurnState
 from tta.pipeline.types import (
     PipelineConfig,
+    PipelineDeps,
     Stage,
     StageConfig,
     StageName,
@@ -78,7 +79,7 @@ def test_pipeline_config_overall_timeout() -> None:
 # --- Stage type annotation ---
 
 
-async def _dummy_stage(state: TurnState) -> TurnState:
+async def _dummy_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     return state
 
 
@@ -97,15 +98,29 @@ def test_async_function_matches_stage_type() -> None:
 async def test_stage_composability() -> None:
     """Two stages chained: each enriches TurnState."""
 
-    async def understand(state: TurnState) -> TurnState:
+    async def understand(state: TurnState, deps: PipelineDeps) -> TurnState:
         return state.model_copy(update={"generation_prompt": "enriched"})
 
-    async def generate(state: TurnState) -> TurnState:
+    async def generate(state: TurnState, deps: PipelineDeps) -> TurnState:
         return state.model_copy(update={"narrative_output": "story text"})
 
     state = _make_turn_state()
-    state = await understand(state)
-    state = await generate(state)
+
+    # Build minimal deps for test (using mocks)
+    from unittest.mock import AsyncMock
+
+    deps = PipelineDeps(
+        llm=AsyncMock(),
+        world=AsyncMock(),
+        session_repo=AsyncMock(),
+        turn_repo=AsyncMock(),
+        safety_pre_input=AsyncMock(),
+        safety_pre_gen=AsyncMock(),
+        safety_post_gen=AsyncMock(),
+    )
+
+    state = await understand(state, deps)
+    state = await generate(state, deps)
 
     assert state.generation_prompt == "enriched"
     assert state.narrative_output == "story text"

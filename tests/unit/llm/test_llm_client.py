@@ -18,12 +18,14 @@ class TestModelRole:
         assert ModelRole.GENERATION == "generation"
         assert ModelRole.CLASSIFICATION == "classification"
         assert ModelRole.EXTRACTION == "extraction"
+        assert ModelRole.SUMMARIZATION == "summarization"
 
     def test_all_members(self) -> None:
         assert set(ModelRole) == {
             ModelRole.GENERATION,
             ModelRole.CLASSIFICATION,
             ModelRole.EXTRACTION,
+            ModelRole.SUMMARIZATION,
         }
 
 
@@ -90,15 +92,16 @@ class TestMockLLMClient:
         assert resp.latency_ms == 0.0
 
     @pytest.mark.asyncio
-    async def test_stream_yields_tokens(self) -> None:
+    async def test_stream_returns_llm_response(self) -> None:
+        """stream() now returns LLMResponse (buffer-then-stream)."""
         client = MockLLMClient()
         messages = [Message(role=MessageRole.USER, content="look around")]
-        tokens: list[str] = []
-        async for token in client.stream(role=ModelRole.GENERATION, messages=messages):
-            tokens.append(token)
+        resp = await client.stream(role=ModelRole.GENERATION, messages=messages)
 
-        expected = "You enter a dimly lit chamber.".split()
-        assert tokens == expected
+        assert isinstance(resp, LLMResponse)
+        assert resp.content == "You enter a dimly lit chamber."
+        assert resp.model_used == "mock"
+        assert resp.tier_used == "primary"
 
     async def test_satisfies_llm_client_protocol(self) -> None:
         """Structural typing: MockLLMClient has generate & stream."""
