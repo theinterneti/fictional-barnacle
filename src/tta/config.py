@@ -3,7 +3,6 @@
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -49,6 +48,9 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
 
+    # CORS
+    cors_origins: list[str] = ["*"]
+
     # Application
     session_token_ttl: int = 86400
     log_level: LogLevel = LogLevel.INFO
@@ -59,4 +61,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Singleton access to application settings."""
-    return Settings()
+    return Settings()  # type: ignore[reportCallIssue]  # env vars via pydantic-settings

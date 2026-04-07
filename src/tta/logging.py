@@ -17,8 +17,8 @@ REDACTED_FIELDS = {
 def _privacy_filter(
     logger: structlog.types.WrappedLogger,
     method_name: str,
-    event_dict: dict,  # type: ignore[type-arg]
-) -> dict:  # type: ignore[type-arg]
+    event_dict: structlog.types.EventDict,
+) -> structlog.types.EventDict:
     """Redact sensitive fields from log entries."""
     for key in list(event_dict.keys()):
         if any(sensitive in key.lower() for sensitive in REDACTED_FIELDS):
@@ -39,7 +39,6 @@ def configure_logging(settings: Settings | None = None) -> None:
     processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
         _privacy_filter,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
