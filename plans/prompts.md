@@ -41,7 +41,7 @@ designed so the deferred features can be added without rewriting the foundation.
 | Visual prompt editor UI | — | Not planned |
 | Automated A/B testing with cohort assignment | — | v2+ |
 | Community prompt marketplace | — | Not planned |
-| Post-generation content interception / replacement (FR-09.48) | — | Owned by Safety component (plans/safety.md) |
+| Post-generation content interception / replacement (FR-09.48) | — | Owned by future Safety component (see system.md §2.4 safety seam architecture; full system deferred to S19) |
 | Output schema validation at registration | — | v2 |
 | Token-fit validation at registration | — | v2 (depends on model choice at runtime) |
 | `updated` / last-modified metadata in front matter | — | v2 (git blame is sufficient in v1) |
@@ -1005,8 +1005,9 @@ enforced at three levels:
 
 **Not owned by this component.** FR-09.48 requires intercepting LLM output before
 delivery and replacing unsafe content with a safe alternative. This is a
-**post-generation safety enforcement** responsibility, owned by the Safety component
-(plans/safety.md) and implemented as a Stage 4 (Post-processing) pipeline step.
+**post-generation safety enforcement** responsibility, owned by the future Safety
+component (see system.md §2.4 safety seam architecture; full system deferred to S19)
+and implemented as a Stage 4 (Post-processing) pipeline step.
 
 The prompts component's responsibility ends at the system prompt: it encodes *what
 the model should not generate*. The safety component's responsibility is verifying
