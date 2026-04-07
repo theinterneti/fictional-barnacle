@@ -1,0 +1,16 @@
+# docker-compose.override.yml — development overrides
+# Applied automatically by `docker compose up`.
+# Mounts source for hot reload via uvicorn --reload.
+
+services:
+  tta-api:
+    volumes:
+      - ./src:/app/src:ro
+    command:
+      - uvicorn
+      - tta.api.app:create_app
+      - --factory
+      - --host=0.0.0.0
+      - --port=8000
+      - --reload
+      - --reload-dir=/app/src

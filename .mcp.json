@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "hindsight": {
+      "type": "http",
       "url": "http://localhost:8888/mcp/"
     },
     "codegraphcontext": {
@@ -18,6 +19,11 @@
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
         "GITHUB_TOOLSETS": "default,projects,labels,orgs"
       }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "description": "Up-to-date documentation for libraries and frameworks"
     }
   }
 }

@@ -1,0 +1,186 @@
+"""Initial schema — normative PostgreSQL tables.
+
+Tables: players, player_sessions, game_sessions, turns, world_events
+Reference: system.md §3.2
+
+Revision ID: 001
+Revises: None
+Create Date: 2025-01-01 00:00:00.000000
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+from alembic import op
+
+revision: str = "001"
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+# ---------------------------------------------------------------------------
+# Shared defaults
+# ---------------------------------------------------------------------------
+_UUID_PK = {
+    "type_": sa.UUID(),
+    "nullable": False,
+    "server_default": sa.text("gen_random_uuid()"),
+}
+_CREATED_AT = {
+    "type_": sa.DateTime(timezone=True),
+    "nullable": False,
+    "server_default": sa.func.now(),
+}
+_UPDATED_AT = {
+    "type_": sa.DateTime(timezone=True),
+    "nullable": False,
+    "server_default": sa.func.now(),
+}
+
+
+def upgrade() -> None:
+    # ── players ───────────────────────────────────────────────────
+    op.create_table(
+        "players",
+        sa.Column("id", **_UUID_PK),
+        sa.Column("handle", sa.Text(), nullable=False, unique=True),
+        sa.Column("created_at", **_CREATED_AT),
+        sa.Column("updated_at", **_UPDATED_AT),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
+    # ── player_sessions ───────────────────────────────────────────
+    # Normative: token TEXT PRIMARY KEY (no UUID id column)
+    op.create_table(
+        "player_sessions",
+        sa.Column("token", sa.Text(), nullable=False),
+        sa.Column("player_id", sa.UUID(), nullable=False),
+        sa.Column(
+            "expires_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+        ),
+        sa.Column("created_at", **_CREATED_AT),
+        sa.PrimaryKeyConstraint("token"),
+        sa.ForeignKeyConstraint(["player_id"], ["players.id"], ondelete="CASCADE"),
+    )
+    op.create_index(
+        "idx_player_sessions_player",
+        "player_sessions",
+        ["player_id"],
+    )
+
+    # ── game_sessions ─────────────────────────────────────────────
+    op.create_table(
+        "game_sessions",
+        sa.Column("id", **_UUID_PK),
+        sa.Column("player_id", sa.UUID(), nullable=False),
+        sa.Column(
+            "world_seed",
+            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            nullable=False,
+        ),
+        sa.Column(
+            "status",
+            sa.Text(),
+            nullable=False,
+            server_default="active",
+        ),
+        sa.Column("created_at", **_CREATED_AT),
+        sa.Column("updated_at", **_UPDATED_AT),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["player_id"], ["players.id"], ondelete="CASCADE"),
+    )
+
+    # ── turns ─────────────────────────────────────────────────────
+    op.create_table(
+        "turns",
+        sa.Column("id", **_UUID_PK),
+        sa.Column("session_id", sa.UUID(), nullable=False),
+        sa.Column("turn_number", sa.Integer(), nullable=False),
+        sa.Column("idempotency_key", sa.UUID(), nullable=True),
+        sa.Column(
+            "status",
+            sa.Text(),
+            nullable=False,
+            server_default="processing",
+        ),
+        sa.Column("player_input", sa.Text(), nullable=False),
+        sa.Column(
+            "parsed_intent",
+            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            nullable=True,
+        ),
+        sa.Column(
+            "world_context",
+            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            nullable=True,
+        ),
+        sa.Column("narrative_output", sa.Text(), nullable=True),
+        sa.Column("model_used", sa.Text(), nullable=True),
+        sa.Column("latency_ms", sa.Integer(), nullable=True),
+        sa.Column(
+            "token_count",
+            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            nullable=True,
+        ),
+        sa.Column("created_at", **_CREATED_AT),
+        sa.Column(
+            "completed_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(
+            ["session_id"],
+            ["game_sessions.id"],
+            ondelete="CASCADE",
+        ),
+        sa.UniqueConstraint(
+            "session_id",
+            "turn_number",
+            name="uq_turns_session_turn",
+        ),
+        sa.UniqueConstraint(
+            "session_id",
+            "idempotency_key",
+            name="uq_turns_session_idempotency",
+        ),
+    )
+
+    # ── world_events ──────────────────────────────────────────────
+    op.create_table(
+        "world_events",
+        sa.Column("id", **_UUID_PK),
+        sa.Column("session_id", sa.UUID(), nullable=False),
+        sa.Column("turn_id", sa.UUID(), nullable=False),
+        sa.Column("event_type", sa.Text(), nullable=False),
+        sa.Column("entity_id", sa.Text(), nullable=False),
+        sa.Column(
+            "payload",
+            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            nullable=False,
+        ),
+        sa.Column("created_at", **_CREATED_AT),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(
+            ["session_id"],
+            ["game_sessions.id"],
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(["turn_id"], ["turns.id"]),
+    )
+
+    op.create_index(
+        "idx_world_events_session",
+        "world_events",
+        ["session_id", sa.text("created_at DESC")],
+    )
+
+
+def downgrade() -> None:
+    op.drop_table("world_events")
+    op.drop_table("turns")
+    op.drop_table("game_sessions")
+    op.drop_table("player_sessions")
+    op.drop_table("players")
