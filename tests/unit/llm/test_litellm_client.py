@@ -199,19 +199,26 @@ class TestStream:
     async def test_stream_error_during_iteration(
         self, mock_ac: AsyncMock
     ) -> None:
-        """Error mid-stream is classified and raised."""
+        """Error mid-stream is classified and surfaces."""
 
         async def _exploding_stream() -> Any:
             yield _mock_stream_chunks("partial")[0]
             raise ConnectionError("stream dropped")
 
-        mock_ac.return_value = _exploding_stream()
+        # Each retry needs a fresh generator
+        mock_ac.side_effect = [
+            _exploding_stream(),
+            _exploding_stream(),
+            _exploding_stream(),
+        ]
         client = LiteLLMClient(
             role_configs=_role_configs(fallback=None)
         )
 
-        with pytest.raises(TransientLLMError, match="stream dropped"):
+        with pytest.raises(AllTiersFailedError):
             await client.stream(ModelRole.GENERATION, MESSAGES)
+
+        assert mock_ac.call_count == 3
 
 
 # ── fallback tests ──────────────────────────────────────────────────
@@ -321,14 +328,14 @@ class TestErrorClassification:
     async def test_transient_litellm_exception_retried(
         self, mock_ac: AsyncMock
     ) -> None:
-        """Exception classified as transient is retried."""
+        """Exception classified as transient is retried 3×."""
         RateLimitError = type("RateLimitError", (Exception,), {})
         mock_ac.side_effect = RateLimitError("rate limited")
         client = LiteLLMClient(
             role_configs=_no_fallback_configs()
         )
 
-        with pytest.raises(TransientLLMError):
+        with pytest.raises(AllTiersFailedError):
             await client.generate(ModelRole.GENERATION, MESSAGES)
 
         assert mock_ac.call_count == 3
