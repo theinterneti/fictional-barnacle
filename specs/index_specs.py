@@ -19,11 +19,11 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-
 # ── Spec metadata ──────────────────────────────────────────────
+
 
 @dataclass
 class SpecMeta:
@@ -56,12 +56,8 @@ class SpecMeta:
 FRONT_RE = {
     "status": re.compile(r">\s*\*\*Status\*\*:\s*(.+)", re.IGNORECASE),
     "level": re.compile(r">\s*\*\*Level\*\*:\s*(.+)", re.IGNORECASE),
-    "deps": re.compile(
-        r">\s*\*\*Dependencies?\*\*:\s*(.+)", re.IGNORECASE
-    ),
-    "updated": re.compile(
-        r">\s*\*\*Last Updated\*\*:\s*(.+)", re.IGNORECASE
-    ),
+    "deps": re.compile(r">\s*\*\*Dependencies?\*\*:\s*(.+)", re.IGNORECASE),
+    "updated": re.compile(r">\s*\*\*Last Updated\*\*:\s*(.+)", re.IGNORECASE),
 }
 
 TITLE_RE = re.compile(r"^#\s+S(\d+)\s*[—–-]\s*(.+)", re.IGNORECASE)
@@ -72,18 +68,14 @@ AC_RE = re.compile(
     r"|^-\s+\*\*AC-\d+",
     re.IGNORECASE,
 )
-AC_SECTION_RE = re.compile(
-    r"^#{2,3}\s+.*(?:Acceptance\s+Criteria)", re.IGNORECASE
-)
+AC_SECTION_RE = re.compile(r"^#{2,3}\s+.*(?:Acceptance\s+Criteria)", re.IGNORECASE)
 AC_CHECKBOX_RE = re.compile(r"^-\s*\[[ x]\]")
 STORY_RE = re.compile(
     r"\*\*As a\*\*|>\s*As a\s+\*\*|As a \*\*"
     r"|US-\d+.*:\s*As a",
     re.IGNORECASE,
 )
-GWT_RE = re.compile(
-    r"(given|when|then)\s", re.IGNORECASE
-)
+GWT_RE = re.compile(r"(given|when|then)\s", re.IGNORECASE)
 GHERKIN_RE = re.compile(
     r"^\s*(Feature|Scenario|Given|When|Then|And|But)[\s:]",
     re.IGNORECASE,
@@ -138,9 +130,7 @@ def parse_spec(path: Path) -> SpecMeta | None:
                     meta.dependencies = [
                         d.strip()
                         for d in re.split(r"[,;]", val)
-                        if d.strip()
-                        and d.strip().lower()
-                        not in ("none", "n/a", "-")
+                        if d.strip() and d.strip().lower() not in ("none", "n/a", "-")
                     ]
                 elif key == "updated":
                     meta.last_updated = val
@@ -192,8 +182,7 @@ def parse_spec(path: Path) -> SpecMeta | None:
         meta.warnings.append("Missing acceptance criteria")
     elif meta.acceptance_criteria_count < 3:
         meta.warnings.append(
-            f"Only {meta.acceptance_criteria_count} acceptance criteria"
-            " (aim for ≥5)"
+            f"Only {meta.acceptance_criteria_count} acceptance criteria (aim for ≥5)"
         )
     if not meta.has_user_stories:
         meta.warnings.append("No user stories found")
@@ -202,17 +191,13 @@ def parse_spec(path: Path) -> SpecMeta | None:
     if not meta.has_out_of_scope:
         meta.warnings.append("No 'Out of Scope' section")
     if meta.word_count < 200:
-        meta.warnings.append(
-            f"Very short ({meta.word_count} words) — may lack detail"
-        )
+        meta.warnings.append(f"Very short ({meta.word_count} words) — may lack detail")
     if (
         not meta.has_gherkin_scenarios
         and "stub" not in meta.status.lower()
         and "future" not in meta.level.lower()
     ):
-        meta.warnings.append(
-            "No Gherkin scenarios — ACs should use Given/When/Then"
-        )
+        meta.warnings.append("No Gherkin scenarios — ACs should use Given/When/Then")
 
     return meta
 
@@ -241,6 +226,7 @@ def discover_specs(specs_dir: Path) -> list[SpecMeta]:
 
 # ── Dependency validation ──────────────────────────────────────
 
+
 def validate_dependencies(specs: list[SpecMeta]) -> list[str]:
     """Check that all declared dependencies reference existing specs."""
     known = {s.number for s in specs}
@@ -251,8 +237,7 @@ def validate_dependencies(specs: list[SpecMeta]) -> list[str]:
             dep_num = re.match(r"(S\d+)", dep)
             if dep_num and dep_num.group(1) not in known:
                 issues.append(
-                    f"{spec.number}: depends on {dep_num.group(1)}"
-                    " which does not exist"
+                    f"{spec.number}: depends on {dep_num.group(1)} which does not exist"
                 )
     return issues
 
@@ -270,7 +255,7 @@ def check_circular_deps(specs: list[SpecMeta]) -> list[str]:
 
     issues: list[str] = []
     WHITE, GRAY, BLACK = 0, 1, 2
-    color: dict[str, int] = {n: WHITE for n in graph}
+    color: dict[str, int] = dict.fromkeys(graph, WHITE)
     path: list[str] = []
 
     def dfs(node: str) -> None:
@@ -278,10 +263,8 @@ def check_circular_deps(specs: list[SpecMeta]) -> list[str]:
         path.append(node)
         for dep in graph.get(node, set()):
             if color.get(dep, WHITE) == GRAY:
-                cycle = path[path.index(dep):] + [dep]
-                issues.append(
-                    f"Circular dependency: {' → '.join(cycle)}"
-                )
+                cycle = path[path.index(dep) :] + [dep]
+                issues.append(f"Circular dependency: {' → '.join(cycle)}")
             elif color.get(dep, WHITE) == WHITE:
                 dfs(dep)
         path.pop()
@@ -296,15 +279,13 @@ def check_circular_deps(specs: list[SpecMeta]) -> list[str]:
 
 # ── Output formatters ──────────────────────────────────────────
 
+
 def format_markdown(specs: list[SpecMeta]) -> str:
     """Generate a Markdown index of all specs."""
     lines: list[str] = []
     lines.append("# TTA Spec Index (Auto-Generated)")
     lines.append("")
-    lines.append(
-        f"**{len(specs)} specs** indexed"
-        f" | Generated by `index_specs.py`"
-    )
+    lines.append(f"**{len(specs)} specs** indexed | Generated by `index_specs.py`")
     lines.append("")
 
     # Group by level
@@ -348,16 +329,13 @@ def format_markdown(specs: list[SpecMeta]) -> str:
     lines.append(f"- **Total specs**: {len(specs)}")
     lines.append(f"- **Total words**: {total_words:,}")
     lines.append(f"- **Total acceptance criteria**: {total_acs}")
-    lines.append(
-        f"- **Specs with warnings**: {specs_with_warnings}/{len(specs)}"
-    )
+    lines.append(f"- **Specs with warnings**: {specs_with_warnings}/{len(specs)}")
     lines.append(
         f"- **Specs with Gherkin scenarios**: "
         f"{sum(1 for s in specs if s.has_gherkin_scenarios)}/{len(specs)}"
     )
     lines.append(
-        f"- **Total Gherkin scenarios**: "
-        f"{sum(s.gherkin_scenario_count for s in specs)}"
+        f"- **Total Gherkin scenarios**: {sum(s.gherkin_scenario_count for s in specs)}"
     )
     lines.append(
         f"- **Specs with Given/When/Then**: "
@@ -373,9 +351,7 @@ def format_json(specs: list[SpecMeta]) -> str:
     data = {
         "spec_count": len(specs),
         "total_words": sum(s.word_count for s in specs),
-        "total_acceptance_criteria": sum(
-            s.acceptance_criteria_count for s in specs
-        ),
+        "total_acceptance_criteria": sum(s.acceptance_criteria_count for s in specs),
         "specs": [asdict(s) for s in specs],
     }
     return json.dumps(data, indent=2)
@@ -418,10 +394,8 @@ def format_validation(specs: list[SpecMeta]) -> str:
     total = len(specs)
     lines.append("### Quality Scorecard")
     lines.append("")
-    lines.append(
-        f"| Metric | Count | % |"
-    )
-    lines.append(f"|--------|------:|---:|")
+    lines.append("| Metric | Count | % |")
+    lines.append("|--------|------:|---:|")
     for label, count in [
         (
             "Has acceptance criteria",
@@ -458,10 +432,9 @@ def format_validation(specs: list[SpecMeta]) -> str:
 
 # ── CLI ────────────────────────────────────────────────────────
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Index and validate TTA spec files."
-    )
+    parser = argparse.ArgumentParser(description="Index and validate TTA spec files.")
     parser.add_argument(
         "--json",
         action="store_true",
