@@ -75,12 +75,12 @@ class TestWorldUpdateEvent:
     def test_instantiation_with_changes(self) -> None:
         changes = [
             WorldChange(
-                type=WorldChangeType.location_entered,
+                type=WorldChangeType.PLAYER_MOVED,
                 entity_id="loc-1",
                 payload={"name": "Cave"},
             ),
             WorldChange(
-                type=WorldChangeType.item_picked_up,
+                type=WorldChangeType.ITEM_TAKEN,
                 entity_id="item-42",
             ),
         ]
@@ -169,7 +169,7 @@ class TestFormatSSE:
     def test_world_update_serializes_changes(self) -> None:
         changes = [
             WorldChange(
-                type=WorldChangeType.npc_moved,
+                type=WorldChangeType.NPC_STATE_CHANGED,
                 entity_id="npc-7",
             )
         ]

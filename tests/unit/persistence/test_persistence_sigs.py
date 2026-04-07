@@ -140,7 +140,7 @@ _NOW = datetime.now()
             {
                 "session_id": _SESSION_ID,
                 "turn_id": _TURN_ID,
-                "event_type": "location_entered",
+                "event_type": "player_moved",
                 "entity_id": "loc-1",
                 "payload": {},
             },

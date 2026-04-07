@@ -7,7 +7,9 @@ from tta.models.world import (
     Location,
     LocationContext,
     WorldChange,
+    WorldContext,
     WorldEvent,
+    WorldSeed,
 )
 
 
@@ -42,3 +44,28 @@ class WorldService(Protocol):
         self,
         session_id: UUID,
     ) -> Location: ...
+
+    # -- Wave 3 additions --
+
+    async def create_world_graph(
+        self,
+        session_id: UUID,
+        world_seed: WorldSeed,
+    ) -> None: ...
+
+    async def cleanup_session(
+        self,
+        session_id: UUID,
+    ) -> None: ...
+
+    async def validate_movement(
+        self,
+        session_id: UUID,
+        from_id: str,
+        to_id: str,
+    ) -> bool: ...
+
+    async def get_world_state(
+        self,
+        session_id: UUID,
+    ) -> WorldContext: ...

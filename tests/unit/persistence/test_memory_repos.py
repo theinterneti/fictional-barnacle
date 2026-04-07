@@ -399,14 +399,14 @@ class TestInMemoryWorldEventRepository:
         event = await event_repo.create_world_event(
             session_id=sid,
             turn_id=tid,
-            event_type="location_entered",
+            event_type="player_moved",
             entity_id="loc-1",
             payload={"name": "forest"},
         )
         assert isinstance(event, WorldEvent)
         assert event.session_id == sid
         assert event.turn_id == tid
-        assert event.event_type == "location_entered"
+        assert event.event_type == "player_moved"
         assert event.entity_id == "loc-1"
         assert event.payload == {"name": "forest"}
 
