@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(uv run:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv lock:*)",
+      "Bash(make:*)",
+      "Bash(python3:*)",
+      "Bash(gh api:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh run:*)",
+      "mcp__hindsight__recall",
+      "mcp__hindsight__retain"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "hindsight",
+    "codegraphcontext",
+    "github"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "hindsight": {
+      "url": "http://localhost:8888/mcp/"
+    },
+    "codegraphcontext": {
+      "command": "cgc",
+      "args": ["mcp", "start"]
+    },
+    "github": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "GITHUB_TOOLSETS": "default,projects,labels,orgs"
+      }
+    }
+  }
+}
