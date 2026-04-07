@@ -16,22 +16,24 @@
 |-------|-----------|---------|-----------|
 | **Language** | Python | ≥ 3.12 | AI/ML ecosystem, async/await, typing |
 | **Package manager** | uv | latest | Fast, lockfile-based, replaces pip+venv |
-| **API framework** | FastAPI | ≥ 0.115 | Async, typed, native SSE, auto OpenAPI docs |
+| **API framework** | FastAPI | ≥ 0.135 | Async, typed, **native SSE** (`fastapi.sse.EventSourceResponse`), auto OpenAPI docs |
 | **ASGI server** | Uvicorn | ≥ 0.30 | Standard, `--reload` for dev |
 | **LLM gateway** | LiteLLM | ≥ 1.50 | Library mode (not proxy). Unified API, streaming, fallback, cost tracking |
 | **World graph** | Neo4j Community | 5.x | Native graph for world state. Cypher queries. CE is sufficient for v1 scale. |
 | **Relational DB** | PostgreSQL | 16+ | Player data, sessions, transcripts. Use everywhere — including dev. No SQLite. |
-| **Session cache** | Redis | 7+ | Active session state, SSE pub/sub. Ephemeral only — never the source of truth. |
-| **ORM / query** | SQLModel | ≥ 0.0.22 | Thin Pydantic+SQLAlchemy layer. Raw asyncpg for hot paths if needed. |
-| **Neo4j driver** | neo4j (Python) | ≥ 5.0 | Official async driver |
+| **Session cache** | Redis | 7+ | Active session state, SSE pub/sub. Ephemeral only — never the source of truth. Use `redis.asyncio` (redis-py ≥ 5.0) — NOT standalone `aioredis`. |
+| **ORM / query** | SQLModel | ≥ 0.0.38 | Thin Pydantic+SQLAlchemy 2.0 layer. Raw asyncpg for hot paths if needed. |
+| **Neo4j driver** | neo4j (Python) | ≥ 6.0 | Official async driver (`AsyncGraphDatabase.driver()`) |
 | **Resilience** | tenacity | ≥ 9.0 | Retry with backoff. Do NOT build custom retry/circuit-breaker logic. |
+| **SQL driver (app)** | asyncpg | latest | Async Postgres driver for FastAPI runtime |
+| **SQL driver (migrations)** | psycopg[binary] | latest | Sync Postgres driver for Alembic CLI commands |
 | **HTTP client** | httpx | ≥ 0.27 | Async HTTP for internal calls and testing |
 
 ### 1.2 — Observability
 
 | Tool | Purpose | Mode |
 |------|---------|------|
-| **Langfuse** | LLM tracing, prompt versioning, cost tracking | Self-hosted (Docker) in all environments. Cloud free tier is opt-in for convenience but sends prompts off-machine — see §5.2 for privacy constraints. |
+| **Langfuse** | LLM tracing, prompt versioning, cost tracking | Self-hosted (Docker) in all environments. **SDK v4** — use `@observe()` decorator (NOT custom `@trace_llm`). Self-hosted stack requires Clickhouse + Redis + MinIO — use Docker Compose profiles (`--profile langfuse`). Cloud free tier is opt-in for convenience but sends prompts off-machine — see §5.2 for privacy constraints. |
 | **structlog** | Application logging | Structured JSON to stdout |
 | **OpenTelemetry** | Distributed tracing (non-LLM) | OTLP exporter to Langfuse or Jaeger |
 | **Prometheus** | Metrics (request latency, error rates) | Scraped from `/metrics` endpoint |
@@ -736,6 +738,7 @@ class Settings(BaseSettings):
 
     # Databases
     postgres_url: str = "postgresql+asyncpg://tta:tta@localhost:5432/tta"
+    postgres_url_sync: str = "postgresql+psycopg://tta:tta@localhost:5432/tta"  # For Alembic CLI
     neo4j_url: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str  # No default — must be set
@@ -750,7 +753,7 @@ class Settings(BaseSettings):
     # Observability
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
-    langfuse_host: str = "https://cloud.langfuse.com"
+    langfuse_host: str = "http://localhost:3001"  # Self-hosted default; override for cloud
     log_level: str = "INFO"
 
     # Game
@@ -810,23 +813,105 @@ services:
       retries: 5
 
   tta-langfuse:
-    image: langfuse/langfuse:latest
+    image: langfuse/langfuse:4
+    profiles: ["langfuse"]
     ports: ["3001:3000"]
     environment:
-      DATABASE_URL: "postgresql://tta:tta@tta-postgres:5432/langfuse"
+      DATABASE_URL: "postgresql://tta:tta@langfuse-postgres:5432/langfuse"
+      CLICKHOUSE_URL: "http://langfuse-clickhouse:8123"
+      CLICKHOUSE_MIGRATION_URL: "clickhouse://langfuse-clickhouse:9000"
+      REDIS_HOST: "langfuse-redis"
+      REDIS_PORT: "6379"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: "langfuse"
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: "http://langfuse-minio:9000"
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "minioadmin"
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "minioadmin"
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: "us-east-1"
       NEXTAUTH_SECRET: "dev-secret-change-in-prod"
       NEXTAUTH_URL: "http://localhost:3001"
       SALT: "dev-salt-change-in-prod"
     depends_on:
-      tta-postgres:
+      langfuse-postgres:
         condition: service_healthy
-    # Langfuse shares the Postgres instance but uses its own database.
-    # Create the `langfuse` database in Postgres init or manually.
+      langfuse-clickhouse:
+        condition: service_started
+      langfuse-redis:
+        condition: service_started
+      langfuse-minio:
+        condition: service_started
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:4
+    profiles: ["langfuse"]
+    environment:
+      DATABASE_URL: "postgresql://tta:tta@langfuse-postgres:5432/langfuse"
+      CLICKHOUSE_URL: "http://langfuse-clickhouse:8123"
+      CLICKHOUSE_MIGRATION_URL: "clickhouse://langfuse-clickhouse:9000"
+      REDIS_HOST: "langfuse-redis"
+      REDIS_PORT: "6379"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: "langfuse"
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: "http://langfuse-minio:9000"
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "minioadmin"
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "minioadmin"
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: "us-east-1"
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+
+  langfuse-postgres:
+    image: postgres:16-alpine
+    profiles: ["langfuse"]
+    environment:
+      POSTGRES_USER: tta
+      POSTGRES_PASSWORD: tta
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tta"]
+      interval: 5s
+      retries: 5
+
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    profiles: ["langfuse"]
+    volumes:
+      - langfuse-ch-data:/var/lib/clickhouse
+
+  langfuse-redis:
+    image: redis:7-alpine
+    profiles: ["langfuse"]
+
+  langfuse-minio:
+    image: minio/minio:latest
+    profiles: ["langfuse"]
+    command: server /data --console-address ":9090"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - langfuse-minio-data:/data
+    # Note: Bucket "langfuse" must be created on first run.
+    # Use `mc mb local/langfuse` or the MinIO console at :9090.
 
 volumes:
   pg-data:
   neo4j-data:
+  langfuse-pg-data:
+  langfuse-ch-data:
+  langfuse-minio-data:
 ```
+
+**Usage:**
+```bash
+docker compose up                         # Core services only (fast dev start)
+docker compose --profile langfuse up      # Core + full Langfuse stack
+```
+
+The TTA app handles Langfuse being unreachable gracefully (§5.3) — tracing is skipped,
+gameplay continues normally.
 
 ---
 

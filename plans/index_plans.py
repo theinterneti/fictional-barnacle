@@ -525,8 +525,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--dir",
-        default=".",
-        help="Plans directory to scan (default: current directory)",
+        default=None,
+        help="Plans directory to scan (default: directory containing this script)",
     )
     parser.add_argument(
         "--specs-dir",
@@ -535,7 +535,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    plans_dir = Path(args.dir).resolve()
+    plans_dir = Path(args.dir).resolve() if args.dir else Path(__file__).resolve().parent
     if not plans_dir.is_dir():
         print(f"Error: {plans_dir} is not a directory", file=sys.stderr)
         sys.exit(1)

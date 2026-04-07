@@ -1,7 +1,7 @@
 {
-  "plan_count": 6,
-  "total_lines": 8987,
-  "total_words": 39820,
+  "plan_count": 7,
+  "total_lines": 9366,
+  "total_words": 42011,
   "plans": [
     {
       "file": "system.md",
@@ -62,15 +62,15 @@
         "7.3 \u2014 Branching Strategy",
         "7.4 \u2014 Configuration"
       ],
-      "word_count": 5106,
-      "line_count": 864,
+      "word_count": 5351,
+      "line_count": 949,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
       "has_testing": false,
       "has_code_blocks": true,
-      "code_block_count": 14,
+      "code_block_count": 15,
       "has_normative_markers": true,
       "normative_sections": [
         "3.2 \u2014 PostgreSQL Schema (Core Tables \u2014 Normative)",
@@ -97,10 +97,74 @@
         "\u00a73.2",
         "\u00a74.1",
         "\u00a74.3",
-        "\u00a75.2"
+        "\u00a75.2",
+        "\u00a75.3"
       ],
       "warnings": [
         "No testing section found"
+      ]
+    },
+    {
+      "file": "TECHNICAL_REVIEW.md",
+      "title": "Technical Review \u2014 Dependency Verification & OSS Analysis",
+      "scope": "All production dependencies in system.md and component plans",
+      "wave": "",
+      "status": "Unknown",
+      "last_updated": "",
+      "specs_covered": [],
+      "sections": [
+        "1. Dependency Audit Summary",
+        "2. Critical Findings",
+        "3. OSS vs Custom Code Analysis",
+        "4. Integration Verification",
+        "5. Plan Updates Required",
+        "6. Risks and Mitigations",
+        "7. Conclusion"
+      ],
+      "subsections": [
+        "2.1 \u2014 \ud83d\udd34 Langfuse v4 Docker Infrastructure (CRITICAL)",
+        "2.2 \u2014 \u26a0\ufe0f Langfuse SDK v4 API Changes",
+        "2.3 \u2014 \u26a0\ufe0f FastAPI Native SSE",
+        "2.4 \u2014 \u26a0\ufe0f Alembic Async Needs Sync Driver",
+        "3.1 \u2014 Full OSS (Zero Custom Code)",
+        "3.2 \u2014 Thin Wrappers (~500 lines)",
+        "3.3 \u2014 Custom Domain Logic (~1,800 lines)",
+        "3.4 \u2014 The Ratio",
+        "4.1 \u2014 SQLModel + Alembic + asyncpg",
+        "4.2 \u2014 FastAPI Native SSE + Redis Pub/Sub",
+        "4.3 \u2014 LiteLLM Streaming + Buffer-then-Stream",
+        "4.4 \u2014 Langfuse + LiteLLM",
+        "4.5 \u2014 structlog + Langfuse + FastAPI"
+      ],
+      "word_count": 1946,
+      "line_count": 294,
+      "has_tech_stack": true,
+      "has_architecture": true,
+      "has_data_models": false,
+      "has_interfaces": true,
+      "has_testing": false,
+      "has_code_blocks": true,
+      "code_block_count": 5,
+      "has_normative_markers": false,
+      "normative_sections": [],
+      "spec_refs": [],
+      "plan_refs": [
+        "api-and-sessions.md",
+        "llm-and-pipeline.md",
+        "ops.md"
+      ],
+      "section_refs": [
+        "\u00a71.1",
+        "\u00a71.2",
+        "\u00a71.9",
+        "\u00a72.4",
+        "\u00a75.3",
+        "\u00a77",
+        "\u00a78"
+      ],
+      "warnings": [
+        "No testing section found",
+        "No spec references found (S01, S02, etc.)"
       ]
     },
     {
