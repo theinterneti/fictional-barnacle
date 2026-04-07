@@ -162,18 +162,16 @@ class TestItemValidation:
         change = WorldChange(
             type=WorldChangeType.ITEM_TAKEN,
             entity_id="sword",
-            payload={"item_id": "sword"},
         )
         await validate_change(change, svc, sid)
 
-    async def test_item_taken_missing_item_id(self) -> None:
+    async def test_item_taken_empty_entity_id(self) -> None:
         svc, sid = await _setup_world()
         change = WorldChange(
             type=WorldChangeType.ITEM_TAKEN,
-            entity_id="sword",
-            payload={},
+            entity_id="",
         )
-        with pytest.raises(ChangeValidationError, match="item_id"):
+        with pytest.raises(ChangeValidationError, match="entity_id"):
             await validate_change(change, svc, sid)
 
     async def test_item_dropped_valid(self) -> None:
@@ -181,18 +179,16 @@ class TestItemValidation:
         change = WorldChange(
             type=WorldChangeType.ITEM_DROPPED,
             entity_id="sword",
-            payload={"item_id": "sword"},
         )
         await validate_change(change, svc, sid)
 
-    async def test_item_dropped_missing_item_id(self) -> None:
+    async def test_item_dropped_empty_entity_id(self) -> None:
         svc, sid = await _setup_world()
         change = WorldChange(
             type=WorldChangeType.ITEM_DROPPED,
-            entity_id="sword",
-            payload={},
+            entity_id="",
         )
-        with pytest.raises(ChangeValidationError, match="item_id"):
+        with pytest.raises(ChangeValidationError, match="entity_id"):
             await validate_change(change, svc, sid)
 
 
@@ -207,7 +203,7 @@ class TestNPCValidation:
         change = WorldChange(
             type=WorldChangeType.NPC_MOVED,
             entity_id="npc1",
-            payload={"destination_id": "market"},
+            payload={"to_location_id": "market"},
         )
         await validate_change(change, svc, sid)
 
@@ -218,7 +214,7 @@ class TestNPCValidation:
             entity_id="npc1",
             payload={},
         )
-        with pytest.raises(ChangeValidationError, match="destination_id"):
+        with pytest.raises(ChangeValidationError, match="to_location_id"):
             await validate_change(change, svc, sid)
 
     async def test_npc_disposition_valid(self) -> None:
@@ -226,7 +222,7 @@ class TestNPCValidation:
         change = WorldChange(
             type=WorldChangeType.NPC_DISPOSITION_CHANGED,
             entity_id="npc1",
-            payload={"new_disposition": "friendly"},
+            payload={"disposition": "friendly"},
         )
         await validate_change(change, svc, sid)
 
@@ -237,7 +233,7 @@ class TestNPCValidation:
             entity_id="npc1",
             payload={},
         )
-        with pytest.raises(ChangeValidationError, match="new_disposition"):
+        with pytest.raises(ChangeValidationError, match="disposition"):
             await validate_change(change, svc, sid)
 
     async def test_npc_state_valid(self) -> None:
@@ -245,7 +241,7 @@ class TestNPCValidation:
         change = WorldChange(
             type=WorldChangeType.NPC_STATE_CHANGED,
             entity_id="npc1",
-            payload={"new_state": "active"},
+            payload={"state": "active"},
         )
         await validate_change(change, svc, sid)
 
@@ -256,7 +252,7 @@ class TestNPCValidation:
             entity_id="npc1",
             payload={},
         )
-        with pytest.raises(ChangeValidationError, match="new_state"):
+        with pytest.raises(ChangeValidationError, match="'state'"):
             await validate_change(change, svc, sid)
 
 
@@ -420,8 +416,8 @@ class TestApplyChanges:
 
         changes = [
             WorldChange(
-                type=WorldChangeType.ITEM_TAKEN,
-                entity_id="sword",
+                type=WorldChangeType.NPC_MOVED,
+                entity_id="npc1",
                 payload={},
             ),
         ]
@@ -441,12 +437,11 @@ class TestApplyChanges:
             WorldChange(
                 type=WorldChangeType.ITEM_TAKEN,
                 entity_id="sword",
-                payload={"item_id": "sword"},
             ),
             WorldChange(
                 type=WorldChangeType.NPC_DISPOSITION_CHANGED,
                 entity_id="barkeep",
-                payload={"new_disposition": "friendly"},
+                payload={"disposition": "friendly"},
             ),
         ]
 

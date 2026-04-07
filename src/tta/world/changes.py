@@ -44,32 +44,32 @@ async def _validate_player_moved(
 
 
 def _validate_item_taken(change: WorldChange) -> None:
-    if "item_id" not in change.payload:
-        msg = "ITEM_TAKEN requires 'item_id'"
+    if not change.entity_id:
+        msg = "ITEM_TAKEN requires entity_id to be the item ID"
         raise ChangeValidationError(msg)
 
 
 def _validate_item_dropped(change: WorldChange) -> None:
-    if "item_id" not in change.payload:
-        msg = "ITEM_DROPPED requires 'item_id'"
+    if not change.entity_id:
+        msg = "ITEM_DROPPED requires entity_id to be the item ID"
         raise ChangeValidationError(msg)
 
 
 def _validate_npc_moved(change: WorldChange) -> None:
-    if "destination_id" not in change.payload:
-        msg = "NPC_MOVED requires 'destination_id'"
+    if "to_location_id" not in change.payload:
+        msg = "NPC_MOVED requires 'to_location_id'"
         raise ChangeValidationError(msg)
 
 
 def _validate_npc_disposition_changed(change: WorldChange) -> None:
-    if "new_disposition" not in change.payload:
-        msg = "NPC_DISPOSITION_CHANGED requires 'new_disposition'"
+    if "disposition" not in change.payload:
+        msg = "NPC_DISPOSITION_CHANGED requires 'disposition'"
         raise ChangeValidationError(msg)
 
 
 def _validate_npc_state_changed(change: WorldChange) -> None:
-    if "new_state" not in change.payload:
-        msg = "NPC_STATE_CHANGED requires 'new_state'"
+    if "state" not in change.payload:
+        msg = "NPC_STATE_CHANGED requires 'state'"
         raise ChangeValidationError(msg)
 
 

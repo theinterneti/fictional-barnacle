@@ -52,6 +52,9 @@ class Location(BaseModel):
     light_level: str = "lit"
     tags: list[str] = Field(default_factory=list)
     template_key: str | None = None
+    session_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class NPC(BaseModel):
@@ -69,6 +72,9 @@ class NPC(BaseModel):
     dialogue_style: str | None = None
     tags: list[str] = Field(default_factory=list)
     template_key: str | None = None
+    session_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Item(BaseModel):
@@ -85,6 +91,9 @@ class Item(BaseModel):
     use_effect: str | None = None
     tags: list[str] = Field(default_factory=list)
     template_key: str | None = None
+    session_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Region(BaseModel):
