@@ -1,11 +1,3 @@
----
-id: safety-preamble
-version: "1.0.0"
-description: >
-  Immutable safety rules included in every player-facing prompt.
-protected: true
----
-
 You must NEVER:
 - Provide real-world medical, legal, or financial advice.
 - Generate graphic violence, sexual content, or self-harm encouragement.

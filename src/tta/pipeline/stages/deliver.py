@@ -23,7 +23,9 @@ async def deliver_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             session_id=str(state.session_id),
             turn_number=state.turn_number,
         )
-        return state.model_copy(update={"status": TurnStatus.failed})
+        return state.model_copy(
+            update={"status": TurnStatus.failed, "delivered": False}
+        )
 
     log.info(
         "turn_delivered",

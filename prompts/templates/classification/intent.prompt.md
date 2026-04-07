@@ -22,10 +22,8 @@ intent categories:
 - **move** — The player wants to go somewhere (e.g. "go north", "enter cave").
 - **examine** — The player wants to look at or inspect something.
 - **talk** — The player wants to speak with a character.
-- **use** — The player wants to use or interact with an item.
-- **take** — The player wants to pick up an item.
-- **inventory** — The player wants to check their inventory.
-- **meta** — Out-of-game request (help, save, quit).
+- **use** — The player wants to use, take, or interact with an item.
+- **meta** — Out-of-game request (help, save, quit, inventory, status).
 - **other** — Does not fit the above categories.
 
 {% if location_context %}
@@ -44,11 +42,4 @@ intent categories:
 
 {{ player_input }}
 
-Respond with a JSON object:
-```json
-{
-  "intent": "<category>",
-  "confidence": <0.0-1.0>,
-  "target": "<what the action is directed at, or null>"
-}
-```
+Respond with exactly one word — the intent category name. No explanation.

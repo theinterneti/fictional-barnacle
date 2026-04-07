@@ -27,8 +27,11 @@ _GENERATION_SYSTEM_PROMPT = (
 
 _EXTRACTION_SYSTEM_PROMPT = (
     "Extract world state changes from the narrative as a JSON array. "
-    "Each element should be an object with 'type' and 'description' "
-    "keys. If no changes occurred, return an empty array: []"
+    "Each element should be an object with keys: "
+    "'entity' (what changed), 'attribute' (which property), "
+    "'old_value' (previous value or null), 'new_value' (new value), "
+    "and 'reason' (brief explanation). "
+    "If no changes occurred, return an empty array: []"
 )
 
 
@@ -123,9 +126,16 @@ async def _extract_world_changes(
     try:
         response = await deps.llm.generate(role=ModelRole.EXTRACTION, messages=messages)
         parsed = json.loads(response.content)
-        if isinstance(parsed, list):
-            return parsed  # type: ignore[no-any-return]
-        return []
+        if not isinstance(parsed, list):
+            return []
+        # Validate each element is a dict with expected keys
+        validated: list[dict] = []
+        for item in parsed:
+            if isinstance(item, dict) and "entity" in item:
+                validated.append(item)
+            else:
+                log.debug("extraction_skipped_element", element=item)
+        return validated
     except (json.JSONDecodeError, Exception):
         log.debug("extraction_parse_failed", exc_info=True)
         return []

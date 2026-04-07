@@ -44,7 +44,7 @@ class LLMResponse(BaseModel):
     model_used: str
     token_count: TokenCount
     latency_ms: float
-    tier_used: Literal["primary", "fallback", "last_resort"] = "primary"
+    tier_used: Literal["primary", "fallback"] = "primary"
     trace_id: str = ""
     cost_usd: float = 0.0
 

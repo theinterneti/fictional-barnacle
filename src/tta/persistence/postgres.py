@@ -602,7 +602,7 @@ async def get_processing_turn(
     raise NotImplementedError
 
 
-async def update_turn_status(
+async def update_status(
     turn_id: UUID,
     status: str,
 ) -> None:

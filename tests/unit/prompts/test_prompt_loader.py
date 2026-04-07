@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from jinja2 import TemplateNotFound
 
 from tta.prompts.loader import FilePromptRegistry, _estimate_tokens
 
@@ -385,7 +386,7 @@ Body.
         )
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(TemplateNotFound):
             registry.render("test.bad-include", {})
 
 

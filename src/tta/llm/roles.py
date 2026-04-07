@@ -19,7 +19,6 @@ class ModelRoleConfig(BaseModel):
 
     primary: str
     fallback: str | None = None
-    last_resort: str | None = None
     temperature: float = 0.7
     max_tokens: int = 1024
     timeout_seconds: float = 30.0

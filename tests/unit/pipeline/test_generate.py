@@ -175,7 +175,15 @@ async def test_extraction_returns_empty_on_invalid_json() -> None:
 
 async def test_extraction_returns_parsed_list() -> None:
     """LLM returns valid JSON array → stored as world_state_updates."""
-    changes = [{"type": "location_change", "description": "moved north"}]
+    changes = [
+        {
+            "entity": "player",
+            "attribute": "location",
+            "old_value": None,
+            "new_value": "north",
+            "reason": "moved north",
+        }
+    ]
     # First call = generation, second call = extraction
     call_count = 0
 
