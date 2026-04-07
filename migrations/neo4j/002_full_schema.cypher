@@ -52,7 +52,7 @@ CREATE INDEX item_name IF NOT EXISTS
   FOR (i:Item) ON (i.name);
 
 CREATE INDEX item_type IF NOT EXISTS
-  FOR (i:Item) ON (i.type);
+  FOR (i:Item) ON (i.item_type);
 
 CREATE INDEX event_type IF NOT EXISTS
   FOR (e:Event) ON (e.type);

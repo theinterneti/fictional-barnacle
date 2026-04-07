@@ -31,11 +31,13 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         world_context["intent"] = intent
         world_context["turn_number"] = state.turn_number
         context_partial = False
-    except Exception:
+    except Exception as exc:
         # Fallback to V1 stub behavior
         log.warning(
             "context_fallback",
             reason="world_service_unavailable",
+            error=str(exc),
+            exc_info=True,
         )
         world_context = {
             "game_state": state.game_state,

@@ -77,6 +77,7 @@ def _rule_region_refs(template: WorldTemplate) -> None:
 def _rule_location_refs(template: WorldTemplate) -> None:
     """Rule 3: NPC/item location_key refs must exist."""
     loc_keys = {loc.key for loc in template.locations}
+    npc_keys = {npc.key for npc in template.npcs}
     for npc in template.npcs:
         if npc.location_key not in loc_keys:
             msg = f"NPC '{npc.key}' references unknown location '{npc.location_key}'"
@@ -89,22 +90,26 @@ def _rule_location_refs(template: WorldTemplate) -> None:
                     f"unknown location '{item.location_key}'"
                 )
                 raise DanglingReferenceError(msg)
+        if item.npc_key is not None:
+            if item.npc_key not in npc_keys:
+                msg = f"Item '{item.key}' references unknown NPC '{item.npc_key}'"
+                raise DanglingReferenceError(msg)
 
 
 def _rule_npc_knowledge_refs(template: WorldTemplate) -> None:
     """Rule 4: Knowledge npc_key and about_key must exist."""
-    all_keys = set()
+    npc_keys = {npc.key for npc in template.npcs}
+    all_keys: set[str] = set()
     for r in template.regions:
         all_keys.add(r.key)
     for loc in template.locations:
         all_keys.add(loc.key)
-    for npc in template.npcs:
-        all_keys.add(npc.key)
+    all_keys.update(npc_keys)
     for item in template.items:
         all_keys.add(item.key)
 
     for k in template.knowledge:
-        if k.npc_key not in all_keys:
+        if k.npc_key not in npc_keys:
             msg = f"Knowledge entry references unknown npc_key '{k.npc_key}'"
             raise DanglingReferenceError(msg)
         if k.about_key not in all_keys:

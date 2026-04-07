@@ -22,6 +22,7 @@ from tta.models.world import (
 logger = structlog.get_logger(__name__)
 
 # Reverse direction lookup for bidirectional connections.
+# Supports both abbreviated and full-word directions.
 _REVERSE_DIRECTION: dict[str, str] = {
     "n": "s",
     "s": "n",
@@ -35,6 +36,14 @@ _REVERSE_DIRECTION: dict[str, str] = {
     "down": "up",
     "in": "out",
     "out": "in",
+    "north": "south",
+    "south": "north",
+    "east": "west",
+    "west": "east",
+    "northeast": "southwest",
+    "southwest": "northeast",
+    "northwest": "southeast",
+    "southeast": "northwest",
 }
 
 
@@ -56,12 +65,17 @@ class Neo4jWorldService:
         location_id: str,
         depth: int = 1,
     ) -> LocationContext:
-        """Return a location with its exits, NPCs, and items."""
+        """Return a location with its exits, NPCs, and items.
+
+        ``depth`` controls how many hops of adjacent locations to
+        include (default 1 = immediate neighbors only).
+        """
         sid = str(session_id)
-        query = """
-        MATCH (loc:Location {id: $location_id,
-                             session_id: $session_id})
-        OPTIONAL MATCH (loc)-[conn:CONNECTS_TO]->(adj:Location)
+        safe_depth = max(1, min(depth, 5))
+        query = f"""
+        MATCH (loc:Location {{id: $location_id,
+                             session_id: $session_id}})
+        OPTIONAL MATCH (loc)-[:CONNECTS_TO*1..{safe_depth}]->(adj:Location)
         OPTIONAL MATCH (npc:NPC)-[:IS_AT]->(loc)
             WHERE npc.alive = true
         OPTIONAL MATCH (item:Item)-[:IS_AT]->(loc)

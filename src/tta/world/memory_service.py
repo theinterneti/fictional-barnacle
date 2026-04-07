@@ -19,6 +19,7 @@ from tta.models.world import (
 )
 
 # Reverse direction lookup for bidirectional connections.
+# Supports both abbreviated and full-word directions.
 _REVERSE_DIRECTION: dict[str, str] = {
     "n": "s",
     "s": "n",
@@ -32,6 +33,14 @@ _REVERSE_DIRECTION: dict[str, str] = {
     "down": "up",
     "in": "out",
     "out": "in",
+    "north": "south",
+    "south": "north",
+    "east": "west",
+    "west": "east",
+    "northeast": "southwest",
+    "southwest": "northeast",
+    "northwest": "southeast",
+    "southeast": "northwest",
 }
 
 
@@ -208,13 +217,20 @@ class InMemoryWorldService:
             )
             self._npcs[sid][nid] = (npc_model, loc_id)
 
-        # Items
+        # Items — resolve holder (location or NPC's location)
         for item in tmpl.items:
             iid = uuid4().hex
             id_map[item.key] = iid
             parent_loc: str | None = None
             if item.location_key:
                 parent_loc = id_map.get(item.location_key)
+            elif item.npc_key:
+                # Item is held by an NPC — place at NPC's location
+                npc_id = id_map.get(item.npc_key, "")
+                for npc_model, npc_loc in self._npcs.get(sid, {}).values():
+                    if npc_model.id == npc_id:
+                        parent_loc = npc_loc
+                        break
             item_model = Item(
                 id=iid,
                 name=item.key,
