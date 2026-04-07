@@ -2,14 +2,23 @@
 
 > **Status**: 📝 Draft
 > **Level**: 4 — Operations
-> **Dependencies**: S01 (Architecture), S05 (Game State), S14 (Deployment), S15 (Observability)
-> **Last Updated**: 2025-07-24
+> **Dependencies**: S01 (Gameplay Loop), S05 (Choice & Consequence), S14 (Deployment), S15 (Observability)
+> **Last Updated**: 2026-04-07
 
 ## Overview
 
 This spec defines what data TTA collects, how it is stored, who has access, and what rights players have over their data. It is honest about v1 limitations: TTA is **not HIPAA-compliant**, does share player input with third-party LLM providers, and has a basic (not enterprise-grade) approach to data protection.
 
 The guiding principle is **informed consent**: players should know exactly what happens to their data before they play. No surprises.
+
+### Out of Scope
+
+- **HIPAA compliance** — TTA is a game, not a healthcare service — explicitly disclaimed in §8
+- **SOC 2 / ISO 27001 certification** — OSS project, not an enterprise vendor — future if commercialized
+- **Data Protection Officer (DPO) appointment** — not required for OSS v1 at current scale — GDPR Art. 37
+- **Cookie consent banners** — v1 uses session cookies only, no third-party tracking — §12 (Privacy Policy)
+- **International data transfer mechanisms (SCCs, adequacy decisions)** — self-hosted v1, no cross-border transfer by default — future if multi-region
+- **Automated PII detection / DLP tooling** — manual classification for v1 — future enhancement
 
 ---
 
@@ -496,6 +505,42 @@ DELETE /api/player/me
 - [ ] The privacy policy covers all items listed in FR-17.51.
 - [ ] The privacy policy is understandable by a non-lawyer.
 - [ ] The privacy policy is version-controlled.
+
+---
+
+## Key Scenarios (Gherkin)
+
+```gherkin
+Scenario: Player exports all personal data
+  Given a player with ID "player_42" has an active account and 3 completed sessions
+  When the player requests "GET /api/player/me/data-export"
+  Then an async export job is created
+  And within 72 hours a download link is provided
+  And the JSON export contains player profile, all session histories, and consent records
+
+Scenario: Player requests account erasure
+  Given a player with ID "player_42" has data in PostgreSQL, Neo4j, Redis, and Langfuse
+  When the player requests "DELETE /api/player/me"
+  Then all player data is removed from PostgreSQL
+  And all player nodes and connected game state are removed from Neo4j
+  And cached session data is removed from Redis
+  And a Langfuse deletion request is submitted for the player's pseudonymized ID
+  And the deletion is confirmed within 30 days
+  And consent records are preserved in anonymized form
+
+Scenario: Consent required before account creation
+  Given a new player attempts to create an account
+  When the player declines the required "Core gameplay" consent category
+  Then account creation is denied
+  And the system displays a clear explanation of why consent is required
+  And no player data is stored
+
+Scenario: Age restriction enforced at registration
+  Given a new player is on the account creation screen
+  When the player does not confirm they are 13 years of age or older
+  Then account creation is denied
+  And no player data is collected or stored
+```
 
 ---
 

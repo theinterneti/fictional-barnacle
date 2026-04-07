@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 3 — Platform
 > **Dependencies**: S04 (World Model), S11 (Player Identity & Sessions), S12 (Persistence Strategy)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ---
 
@@ -523,47 +523,85 @@ the API.
 - EC-10.08: Narrative responses have no server-imposed length limit, but SSE chunking
   ensures memory usage stays bounded.
 
+### 13.5 SSE Backpressure
+
+- EC-10.09: If the client reads SSE events slower than the server produces them, the
+  server MUST buffer events in memory up to `SSE_BUFFER_MAX_EVENTS` (default: 500).
+  If the buffer is full, the server MUST drop the connection and log a warning rather
+  than consuming unbounded memory.
+- EC-10.10: The server SHOULD track per-connection send-queue depth and expose it as a
+  metric for monitoring.
+
+### 13.6 Client Disconnect During Generation
+
+- EC-10.11: If the client disconnects while the AI pipeline is still generating, the
+  server MUST cancel or abandon the in-flight generation within
+  `SSE_ORPHAN_TIMEOUT_SECONDS` (default: 30). The partial narrative MUST NOT be
+  committed to game state.
+- EC-10.12: On disconnect, the SSE handler MUST release its Redis Pub/Sub subscription
+  immediately — no leaked subscriptions.
+
+### 13.7 Reconnection With Expired Buffer
+
+- EC-10.13: If a client reconnects with a `Last-Event-ID` that is no longer in the
+  server's replay buffer, the server MUST respond with an `error` event containing
+  `replay_unavailable` and then send a full state snapshot so the client can
+  resynchronize without data loss.
+
 ---
 
 ## 14. Acceptance Criteria
 
 ### API Surface
 
-- AC-10.01: A new player can create an account, start a game, submit a turn, and receive
+- **AC-10.01**: A new player can create an account, start a game, submit a turn, and receive
   streamed narrative — using only documented API endpoints.
-- AC-10.02: The OpenAPI spec is valid (passes `openapi-spec-validator`).
-- AC-10.03: Every endpoint returns the documented error shape for all error conditions.
+- **AC-10.02**: The OpenAPI spec is valid (passes `openapi-spec-validator`).
+- **AC-10.03**: Every endpoint returns the documented error shape for all error conditions.
 
 ### Streaming
 
-- AC-10.04: SSE narrative stream begins delivering chunks within 2 seconds of turn
+- **AC-10.04**: SSE narrative stream begins delivering chunks within 2 seconds of turn
   submission (measured from the `202 Accepted` response to first `narrative` event).
-- AC-10.05: A client that disconnects and reconnects within 30 seconds receives all
+- **AC-10.05**: A client that disconnects and reconnects within 30 seconds receives all
   missed events without data loss.
-- AC-10.06: Keep-alive heartbeats arrive at least every 15 seconds during idle.
+- **AC-10.06**: Keep-alive heartbeats arrive at least every 15 seconds during idle.
 
 ### Rate Limiting
 
-- AC-10.07: A player who exceeds the turn submission rate limit receives `429` with a
+- **AC-10.07**: A player who exceeds the turn submission rate limit receives `429` with a
   valid `Retry-After` header.
-- AC-10.08: Rate limit headers are present on every authenticated response.
+- **AC-10.08**: Rate limit headers are present on every authenticated response.
 
 ### Error Handling
 
-- AC-10.09: No API response ever contains stack traces, file paths, or internal
+- **AC-10.09**: No API response ever contains stack traces, file paths, or internal
   implementation details.
-- AC-10.10: Every error response includes a `request_id` that can be found in server logs.
+- **AC-10.10**: Every error response includes a `request_id` that can be found in server logs.
 
 ### Security
 
-- AC-10.11: Unauthenticated requests to protected endpoints return `401`, not `403` or
+- **AC-10.11**: Unauthenticated requests to protected endpoints return `401`, not `403` or
   `404`.
-- AC-10.12: A player cannot access another player's game via direct URL manipulation —
+- **AC-10.12**: A player cannot access another player's game via direct URL manipulation —
   the API returns `404`.
 
 ---
 
-## 15. Open Questions
+## 15. Out of Scope
+
+- **WebSocket protocol** — SSE is sufficient for server-to-client streaming; bidirectional WebSocket adds complexity without v1 benefit — deferred to post-v1
+- **GraphQL API** — REST + SSE covers all v1 access patterns; GraphQL would duplicate the surface — not planned
+- **API gateway / reverse proxy configuration** — deployment-level concern — handled in S14
+- **Admin dashboard UI** — this spec defines the admin API endpoints, not a front-end — deferred
+- **Client SDK / generated clients** — OpenAPI spec enables codegen, but shipping an official SDK is post-v1 — deferred
+- **Long-polling fallback** — alternative to SSE for restricted environments — deferred to post-v1 (see OQ-10.02)
+- **Webhook / callback integrations** — external event delivery — not planned for v1
+- **File upload endpoints** — no v1 use case requires binary uploads — not planned
+
+---
+
+## 16. Open Questions
 
 - OQ-10.01: Should the SSE stream be per-game or per-player? Per-game is simpler but
   means multiple connections for multi-game views. Current design: per-game.

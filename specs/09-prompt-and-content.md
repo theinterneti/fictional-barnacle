@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 2 — AI & Content
 > **Dependencies**: S07 (LLM Integration), S08 (Turn Processing Pipeline)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ## 1 — Purpose
 
@@ -147,6 +147,8 @@ Write the next part of the story (150-300 words). Rules:
 
 The prompt registry is the single source of truth for prompt resolution at runtime.
 
+> **Implementation note (non-normative):** Langfuse's prompt management supports the versioning, label-based activation (e.g. "production"), rollback, diffing, and tracing linkage required by this spec. It is open-source and self-hostable. The spec defines a **Prompt Registry interface** — Langfuse is a suitable backing implementation, but any system satisfying these operations is acceptable.
+
 **FR-09.06**: The system SHALL maintain a prompt registry that maps prompt IDs to their current active version.
 
 **FR-09.07**: Given a prompt ID (e.g. `narrative-generation-v1`), the registry SHALL return the active version of that prompt template with all metadata.
@@ -180,6 +182,20 @@ The prompt registry is the single source of truth for prompt resolution at runti
 - **MAJOR**: Breaking change — the prompt expects different variables, produces different output structure, or fundamentally changes behavior.
 - **MINOR**: Behavioral change — the prompt produces noticeably different output quality or style, but the interface (variables, output format) is unchanged.
 - **PATCH**: Non-functional change — typo fixes, wording refinements that don't materially change output.
+
+#### 5.1.1 — Prompt execution artifact
+
+A **prompt execution artifact** is the immutable bundle that the pipeline (S08) uses for a given turn. It pins:
+
+| Component | Description |
+|---|---|
+| `prompt_version_id` | Exact version of the root template (e.g. `narrative.generate@2.3.1`) |
+| `fragment_versions` | Map of fragment slug → version for every included fragment |
+| `variable_schema` | The required/optional variables at the time of activation |
+| `output_schema` | JSON Schema or structured-output type the caller expects (see FR-09.02) |
+| `activation_label` | The label (e.g. `production`) that resolved to this bundle |
+
+When S07 or S08 reference "the prompt version used for this turn", they mean this artifact. The registry SHOULD be able to reconstruct the exact artifact for any past turn from the version IDs recorded in the Langfuse trace (per FR-09.40).
 
 ### 5.2 — Version lifecycle
 
@@ -544,6 +560,15 @@ The `activate` operation must be atomic. If two authors try to activate differen
 ### EC-09.8 — Golden test with non-deterministic LLM output
 Even with temperature=0 and fixed seeds, LLM outputs vary across API calls, model updates, and providers. Golden tests should use fuzzy matching (semantic similarity or structural assertions) rather than exact string equality. The configurable tolerance (FR-09.31) accounts for this.
 
+### EC-09.9 — Valid prompt template produces empty output for certain variable combinations
+A prompt template is syntactically valid and passes registration checks, but certain rare variable combinations (e.g. empty `nearby_npcs`, no `active_quests`, minimal `location_description`) cause the model to produce empty or very short output. The system SHOULD treat this as a generation quality issue (per S08 §6.5 FR-08.22) and retry. Prompt authors SHOULD include scenario tests covering minimal-context combinations.
+
+### EC-09.10 — Fragment update propagates to many dependent prompts
+Updating a shared fragment (e.g. the safety preamble) triggers re-validation of all prompts that include it. If dozens of prompts reference the same fragment, the system SHOULD batch-validate affected prompts and report all failures, not fail on the first. The system SHOULD log which prompts are affected by the update (per FR-09.23).
+
+### EC-09.11 — Prompt version and output schema drift across S07/S08
+A prompt template declares an output schema (FR-09.02), but the downstream consumer (e.g. S08's Input Understanding expecting a specific Understanding object shape) evolves independently. The system SHOULD validate at registration time that the prompt's declared output schema remains compatible with the consuming pipeline stage's expected input schema.
+
 ---
 
 ## 14 — Acceptance Criteria
@@ -603,7 +628,21 @@ Even with temperature=0 and fixed seeds, LLM outputs vary across API calls, mode
 
 ---
 
-## 15 — Open Questions
+## 15 — Out of Scope
+
+The following are explicitly NOT covered by this spec:
+
+- **Visual prompt editor (web UI)** — A graphical tool for authoring and previewing prompts. — Open question Q-09.2; file-based editing is sufficient for v1.
+- **Localization and multi-language prompt variants** — Translating prompt templates into multiple languages. — Deferred; the pipeline operates in one configured language per session. See Q-09.6.
+- **Automated prompt optimization (DSPy, etc.)** — ML-driven prompt tuning or auto-optimization. — Out of scope; the spec covers manual authoring and testing.
+- **Community prompt marketplace** — A sharing or exchange system for user-created genre packs or prompt templates. — Not planned for v1.
+- **Full content moderation and safety system** — Baseline guardrails are defined in §12 (Safety Constraints). A dedicated safety layer is a separate concern. — See future S19.
+- **Prompt execution and LLM dispatch** — The registry stores and resolves prompts; execution is the responsibility of S07 (LLM Integration) and S08 (Turn Processing Pipeline).
+- **Fine-tuning or LoRA adaptation** — Model training is outside the prompt content layer. — See S07 §15.
+
+---
+
+## 16 — Open Questions
 
 | # | Question | Impact | Resolution needed by |
 |---|---|---|---|

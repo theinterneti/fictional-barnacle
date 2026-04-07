@@ -3,13 +3,22 @@
 > **Status**: 📝 Draft
 > **Level**: 4 — Operations
 > **Dependencies**: S08 (Turn Pipeline), S14 (Deployment)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ## Overview
 
 This spec defines how TTA exposes its internal state to operators and developers. Observability is built on three pillars — logs, metrics, and traces — using OSS-first tooling. LLM-specific observability uses Langfuse. General-purpose observability uses OpenTelemetry.
 
 The goal is not enterprise-grade monitoring. The goal is: **when something goes wrong, can a developer figure out what happened within 5 minutes?**
+
+### Out of Scope
+
+- **APM SaaS (Datadog, New Relic)** — OSS-first stack; commercial APM is unnecessary for v1 — future if commercialized
+- **Log aggregation (ELK, Loki)** — stdout + `docker compose logs` suffice for v1 — future ops maturity
+- **Synthetic monitoring / uptime checks** — single-developer project, no SLA — future ops maturity
+- **User-facing error tracking (Sentry)** — structured logs and traces cover v1 debugging needs — future enhancement
+- **SLO / SLA definitions** — no production environment in v1 — revisit when staging becomes production
+- **Custom Grafana plugin development** — pre-built dashboards with standard panels only — Grafana ecosystem
 
 ---
 
@@ -196,6 +205,7 @@ HTTP POST /api/turn
 
 - **EC-15.3**: If the trace backend is unreachable, tracing SHALL degrade silently. No traces are lost from the application's perspective — they're simply not exported. Application functionality is unaffected.
 - **EC-15.4**: If a span name is missing (bug in instrumentation), the span SHALL be named `unknown` rather than causing a crash.
+- **EC-15.5**: If Langfuse is configured but unreachable at runtime (network partition, service crash), LLM calls SHALL proceed without Langfuse instrumentation. A warning SHALL be logged (not per-call — throttled to once per minute). Gameplay MUST NOT be affected by Langfuse availability.
 
 ### 3.4 Acceptance Criteria
 
@@ -443,6 +453,42 @@ llm_pricing:
 
 ---
 
+## Key Scenarios (Gherkin)
+
+```gherkin
+Scenario: Structured log includes required context fields
+  Given the application is running with TTA_LOG_LEVEL=INFO
+  When a player turn is processed for session "sess_abc"
+  Then every log line for that turn is valid JSON
+  And every log line includes "session_id", "turn_id", and "trace_id" fields
+  And no log line contains raw player input text
+
+Scenario: Langfuse unavailability does not break gameplay
+  Given the application is configured with Langfuse keys
+  And Langfuse is unreachable (connection refused)
+  When a player submits a turn
+  Then the turn is processed and a narrative response is returned via SSE
+  And a warning is logged indicating Langfuse export failed
+  And no error is returned to the player
+
+Scenario: Turn trace contains pipeline stage spans
+  Given the application is running with tracing enabled
+  When a player turn is processed through IPA, WBA, and NGA
+  Then a trace is created with a root HTTP span
+  And child spans exist for "ipa_processing", "wba_processing", and "nga_processing"
+  And each LLM span includes "llm.model" and "llm.tokens.prompt" attributes
+  And the HTTP response includes an "X-Trace-Id" header
+
+Scenario: Sensitive data excluded from logs and traces
+  Given a player submits input containing personal disclosures
+  When the turn is processed
+  Then no application log line contains the player's input text
+  And no trace span attribute contains the player's input text
+  And the full prompt and completion appear only in Langfuse
+```
+
+---
+
 ## Appendix A: Recommended OSS Stack
 
 | Component | Tool | Purpose |
@@ -456,17 +502,18 @@ llm_pricing:
 
 ## Appendix B: OpenTelemetry Configuration
 
+> **Note**: The Jaeger thrift exporter (`opentelemetry-exporter-jaeger`) is deprecated upstream. Modern OpenTelemetry uses the OTLP exporter, and Jaeger 1.35+ natively accepts OTLP. The example below uses the OTLP exporter for forward-compatibility.
+
 ```python
-# Minimal OTel setup
+# Minimal OTel setup (OTLP exporter — works with Jaeger, Tempo, etc.)
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 provider = TracerProvider()
-processor = BatchSpanProcessor(JaegerExporter(
-    agent_host_name=os.getenv("TTA_OBS_JAEGER_HOST", "localhost"),
-    agent_port=int(os.getenv("TTA_OBS_JAEGER_PORT", "6831")),
+processor = BatchSpanProcessor(OTLPSpanExporter(
+    endpoint=os.getenv("TTA_OBS_OTEL_ENDPOINT", "http://localhost:4317"),
 ))
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)

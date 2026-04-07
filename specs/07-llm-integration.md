@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 2 — AI & Content
 > **Dependencies**: S01 (Core Game Loop), S03 (World Model)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ## 1 — Purpose
 
@@ -57,6 +57,8 @@ All LLM calls in TTA pass through a single abstraction. This abstraction:
 - Resolves the role to a concrete model via configuration.
 - Returns a **uniform response envelope** regardless of provider.
 - Handles retries, fallback, and timeout internally — callers do not implement retry logic.
+
+> **Implementation note (non-normative):** LiteLLM's unified `completion()` interface and Router support streaming (`stream=True`), automatic fallback chains, and built-in cost tracking — all requirements of this spec. The spec does not mandate LiteLLM; any library that satisfies these behaviors is acceptable.
 
 **FR-07.01**: The system SHALL provide a single callable interface for all LLM interactions. Callers specify a model role, messages, and generation parameters. The interface resolves the role to a provider/model pair.
 
@@ -359,6 +361,18 @@ When falling back to a model with a smaller context window, the system MUST re-c
 ### EC-07.6 — Streaming connection drops mid-response
 See FR-07.25. The partial response is preserved, and the next turn handles the continuation.
 
+### EC-07.7 — Provider deprecates or removes a model
+A model role's primary model is removed by the provider between configuration updates. The integration layer SHOULD detect invalid-model errors (e.g. HTTP 404 or provider-specific "model not found") and treat them as configuration errors — immediately falling back rather than retrying the same model. The system SHOULD log a critical alert so operators update the role configuration.
+
+### EC-07.8 — Concurrent sessions exhaust shared rate limits
+Multiple active sessions sharing the same API key may collectively exceed a provider's rate limit. The system SHOULD implement per-provider rate-limit awareness (e.g. tracking 429 headers) and distribute retries with jitter to avoid thundering-herd effects. Circuit-breaking (FR-07.11) partially addresses this, but operators SHOULD configure per-provider concurrency limits.
+
+### EC-07.9 — Fallback model has smaller context window
+When falling back to a model with a smaller context window, the system MUST recompute the context budget for the new model's limits before sending the prompt. A prompt that fit the primary model may need aggressive truncation for the fallback. See also EC-07.5.
+
+### EC-07.10 — Structured output schema validation fails after fallback
+The primary model supports native structured output (e.g. `response_format: json_object`), but the fallback model does not. The system SHOULD detect this capability mismatch and fall back to prompt-based JSON instruction for the weaker model (per FR-07.28), re-validating the output against the schema.
+
 ---
 
 ## 14 — Acceptance Criteria
@@ -403,7 +417,21 @@ See FR-07.25. The partial response is preserved, and the next turn handles the c
 
 ---
 
-## 15 — Open Questions
+## 15 — Out of Scope
+
+The following are explicitly NOT covered by this spec:
+
+- **Fine-tuning and model training** — TTA consumes pre-trained models via API; training workflows are a separate concern. — Deferred / not planned for v1.
+- **Embedding generation and vector search** — Semantic retrieval is a world-model concern. — Handled in S04 (World Model) / S13 (World Graph Schema).
+- **Provider-specific SDK usage** — The abstraction layer isolates callers from provider details; direct SDK calls are prohibited by FR-07.03. — By design.
+- **Multi-modal input/output (images, audio, video)** — TTA is a text adventure; multi-modal generation is out of scope. — Deferred / not planned for v1.
+- **Client-side or edge model execution** — All LLM inference is server-side. — Deferred.
+- **Automated prompt optimization (DSPy-style tuning)** — Prompt authoring and tuning are content concerns. — Handled in S09.
+- **Content moderation beyond provider safety filters** — Dedicated content safety is a separate system. — Handled in future S19 (Safety).
+
+---
+
+## 16 — Open Questions
 
 | # | Question | Impact | Resolution needed by |
 |---|---|---|---|

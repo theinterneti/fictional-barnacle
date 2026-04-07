@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 3 — Platform
 > **Dependencies**: S12 (Persistence Strategy)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ---
 
@@ -47,43 +47,54 @@ stateless tokens, and a clean session lifecycle.
 
 ### Identity
 
-> **US-11.1** — As a new visitor, I can start playing immediately as an anonymous player
+> **US-11.1** — **As a** new visitor, I can start playing immediately as an anonymous player
 > so I can try the game without commitment.
 
-> **US-11.2** — As an anonymous player, I can create an account mid-session and keep my
+> **US-11.2** — **As a** guest player, I can create an account mid-session and keep my
 > current progress so I don't lose what I've done.
 
-> **US-11.3** — As a returning player, I can log in with my email and password and see
+> **US-11.3** — **As a** returning player, I can log in with my email and password and see
 > all my saved games.
 
-> **US-11.4** — As a player, I can change my display name and preferences without
+> **US-11.4** — **As a** player, I can change my display name and preferences without
 > affecting my game progress.
 
-> **US-11.5** — As a player, I can delete my account and all associated data.
+> **US-11.5** — **As a** player, I can delete my account and all associated data.
 
 ### Sessions
 
-> **US-11.6** — As a player, I can have multiple games in progress simultaneously (up to
+> **US-11.6** — **As a** player, I can have multiple games in progress simultaneously (up to
 > a limit) and switch between them.
 
-> **US-11.7** — As a player, I can pause a game, close my browser, and resume from
+> **US-11.7** — **As a** player, I can pause a game, close my browser, and resume from
 > exactly where I left off — even from a different device.
 
-> **US-11.8** — As a player whose game has been idle for a long time, I receive a clear
+> **US-11.8** — **As a** player whose game has been idle for a long time, I receive a clear
 > indication that the session has timed out, with the option to resume.
 
-> **US-11.9** — As a player, I can explicitly end a game and it appears in my completed
+> **US-11.9** — **As a** player, I can explicitly end a game and it appears in my completed
 > games history.
 
 ### Admin
 
-> **US-11.10** — As an admin, I can view player accounts (without seeing passwords) for
+> **US-11.10** — **As a** platform admin, I can view player accounts (without seeing passwords) for
 > support and moderation purposes.
 
-> **US-11.11** — As an admin, I can disable a player account if needed for safety or
+> **US-11.11** — **As a** platform admin, I can disable a player account if needed for safety or
 > abuse reasons.
 
-> **US-11.12** — As an admin, I can view active game sessions for monitoring purposes.
+> **US-11.12** — **As a** platform admin, I can view active game sessions for monitoring purposes.
+
+### Developer & Operator
+
+> **US-11.13** — **As a** developer, I can run the full auth flow locally without external
+> dependencies so that I can develop and test identity features offline.
+
+> **US-11.14** — **As a** platform operator, I can monitor login failure rates and token refresh
+> patterns so that I can detect brute-force attempts and session anomalies.
+
+> **US-11.15** — **As a** developer, I can inspect session state transitions in logs so that
+> I can debug lifecycle issues without accessing production data.
 
 ---
 
@@ -529,38 +540,91 @@ Future role: `author` — can create and edit world content. Deferred to post-v1
 
 ### Identity
 
-- AC-11.01: A visitor can start playing within 5 seconds by hitting the anonymous auth
+- **AC-11.01**: A visitor can start playing within 5 seconds by hitting the anonymous auth
   endpoint and creating a game.
-- AC-11.02: An anonymous player who upgrades to a registered account retains their
+- **AC-11.02**: An anonymous player who upgrades to a registered account retains their
   player_id and active game session.
-- AC-11.03: A registered player can log in from two different browsers and see the same
+- **AC-11.03**: A registered player can log in from two different browsers and see the same
   game list.
 
 ### Session Lifecycle
 
-- AC-11.04: A game transitions from `created` to `active` on the first turn submission.
-- AC-11.05: A paused game can be resumed after 29 days (within the 30-day window).
-- AC-11.06: A game paused for 31 days is found in `expired` state.
-- AC-11.07: An expired game can still be resumed with a "welcome back" experience.
-- AC-11.08: A `created` game with no turns is found in `abandoned` state after 25 hours.
+- **AC-11.04**: A game transitions from `created` to `active` on the first turn submission.
+- **AC-11.05**: A paused game can be resumed after 29 days (within the 30-day window).
+- **AC-11.06**: A game paused for 31 days is found in `expired` state.
+- **AC-11.07**: An expired game can still be resumed with a "welcome back" experience.
+- **AC-11.08**: A `created` game with no turns is found in `abandoned` state after 25 hours.
 
 ### Auth Security
 
-- AC-11.09: After 5 failed login attempts, the 6th attempt returns `429 Too Many Requests`
+- **AC-11.09**: After 5 failed login attempts, the 6th attempt returns `429 Too Many Requests`
   regardless of whether the password is correct.
-- AC-11.10: A reused refresh token triggers invalidation of all tokens for that player.
-- AC-11.11: A deleted player's credentials cannot be used to log in.
-- AC-11.12: No API response ever contains a password or password hash.
+- **AC-11.10**: A reused refresh token triggers invalidation of all tokens for that player.
+- **AC-11.11**: A deleted player's credentials cannot be used to log in.
+- **AC-11.12**: No API response ever contains a password or password hash.
 
 ### Data Deletion
 
-- AC-11.13: After account deletion, the player's email, name, and turn history are not
+- **AC-11.13**: After account deletion, the player's email, name, and turn history are not
   retrievable via any API endpoint or direct database query within 72 hours.
-- AC-11.14: The deleted player's `player_id` cannot be reassigned to a new player.
+- **AC-11.14**: The deleted player's `player_id` cannot be reassigned to a new player.
+
+### Gherkin Scenarios
+
+Scenario: Anonymous player starts a game without registering
+
+Given a new visitor with no existing session
+When the visitor calls POST /api/v1/auth/anonymous
+Then the response status is 201
+And the response body contains a valid player_id and access_token
+When the visitor calls POST /api/v1/games with the access_token
+Then a new game is created in "created" state
+
+Scenario: Anonymous player upgrades to a registered account
+
+Given an anonymous player with player_id "anon-001" and an active game
+When the player calls POST /api/v1/auth/upgrade with email and password
+Then the response status is 200
+And the player_id remains "anon-001"
+And the active game is still accessible under the same game_id
+
+Scenario: Game session lifecycle transitions
+
+Given a registered player with a game in "created" state
+When the player submits their first turn via POST /api/v1/games/{id}/turns
+Then the game state transitions to "active"
+When the player calls POST /api/v1/games/{id}/pause
+Then the game state transitions to "paused"
+When 31 days pass with no interaction
+Then the game state transitions to "expired"
+When the player calls POST /api/v1/games/{id}/resume
+Then the game state transitions to "active" with a "welcome back" narrative
+
+Scenario: Login lockout after repeated failures
+
+Given a registered player with email "player@example.com"
+When 5 consecutive login attempts are made with an incorrect password
+Then each attempt returns 401 Unauthorized
+When a 6th login attempt is made (even with the correct password)
+Then the response status is 429 Too Many Requests
+And the response includes a Retry-After header
 
 ---
 
-## 14. Open Questions
+## 14. Out of Scope
+
+- **OAuth 2.0 / OpenID Connect provider** — TTA authenticates players directly; federation with external identity providers is post-v1 — deferred
+- **SAML / SSO integration** — enterprise federation — not planned for v1
+- **Multi-factor authentication (MFA)** — adds friction to a game context; revisit for admin/operator accounts — deferred
+- **Social login** (Google, Discord, etc.) — reduces friction but adds external dependency — deferred to post-v1
+- **Fine-grained permission system** — v1 has two roles (player, admin); RBAC/ABAC beyond that is deferred
+- **Password-based registration for v1** — only anonymous + optional upgrade flow; full registration deferred to follow-up spec
+- **Email verification / notification** — deferred; see OQ-11.03
+- **Account linking** (merge two anonymous identities) — deferred to post-v1
+
+---
+
+## 15. Open Questions
 
 - OQ-11.01: Should anonymous players be able to set a display name? Leaning yes — low
   cost, nice personalization.

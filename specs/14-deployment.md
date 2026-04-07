@@ -3,13 +3,22 @@
 > **Status**: 📝 Draft
 > **Level**: 4 — Operations
 > **Dependencies**: S01 (Gameplay Loop), S08 (Turn Pipeline), S10 (API)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ## Overview
 
 This spec defines how TTA is built, packaged, deployed, and run. The v1 deployment target is **Docker Compose on a single host**. There is no orchestrator (no Kubernetes, no ECS). The system must be runnable by a single developer on a laptop and deployable to a single VPS or cloud VM.
 
 This spec describes behavior: what a developer or operator does, and what the system does in response. Implementation choices (which base image, which CI provider) are suggestions, not mandates.
+
+### Out of Scope
+
+- **Kubernetes / container orchestration** — v1 is single-host Docker Compose only — revisit when scaling beyond one VM (§10)
+- **Blue-green / canary deployments** — staging is the only deployment target in v1 — future ops maturity
+- **Secrets management (Vault, SOPS)** — `.env` files suffice for v1 — future security hardening
+- **CDN / edge caching** — no static frontend assets served by TTA in v1 — frontend spec (future)
+- **Multi-region / multi-cloud deployment** — single-host constraint makes this irrelevant — §10 (future)
+- **Bare-metal production** — documented for local dev (FR-14.28) but not a supported deployment target
 
 ---
 
@@ -368,6 +377,41 @@ This section documents what would need to change to support more than a handful 
 
 - [ ] Documentation exists describing the path from single-host to multi-host deployment.
 - [ ] No application code assumes a single API instance (no in-memory session state, no local file storage for game data).
+
+---
+
+## Key Scenarios (Gherkin)
+
+```gherkin
+Scenario: Fresh stack starts from clone
+  Given a fresh clone of the repository
+  And Docker is installed
+  And the developer runs "cp .env.example .env"
+  When the developer runs "docker compose up -d"
+  Then all 5 containers reach "healthy" status within 120 seconds
+  And "GET /health" returns 200 with status "ok"
+
+Scenario: Stack restart preserves data
+  Given the full stack is running with player data in PostgreSQL and Neo4j
+  When the operator runs "docker compose down"
+  And the operator runs "docker compose up -d"
+  Then all previously stored player data is still present
+  And no data migration errors are logged
+
+Scenario: Missing required env var fails fast
+  Given the .env file is missing TTA_DB_POSTGRES_URL and TTA_LLM_API_KEY
+  When the application starts
+  Then it exits with a non-zero status within 5 seconds
+  And the error message lists both TTA_DB_POSTGRES_URL and TTA_LLM_API_KEY as missing
+
+Scenario: Health readiness degrades when Redis is down
+  Given the full stack is running and healthy
+  When Redis becomes unreachable
+  Then "GET /health" still returns 200
+  And "GET /health/ready" returns 503 with status "degraded"
+  And the response body shows redis status as "fail"
+  And postgres and neo4j statuses remain "ok"
+```
 
 ---
 

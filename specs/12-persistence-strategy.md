@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 3 — Platform
 > **Dependencies**: S04 (World Model), S13 (World Graph Schema)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ---
 
@@ -47,22 +47,22 @@ requirements, not by habit.
 
 ## 3. User Stories
 
-> **US-12.1** — As a player, my game progress is saved automatically so I never lose
+> **US-12.1** — **As a** player, my game progress is saved automatically so I never lose
 > work due to a server restart or crash.
 
-> **US-12.2** — As a player, when I resume a paused game, the experience is seamless —
+> **US-12.2** — **As a** player, when I resume a paused game, the experience is seamless —
 > the world remembers where I was and what I was doing.
 
-> **US-12.3** — As a developer, I can understand which database stores which data by
+> **US-12.3** — **As a** developer, I can understand which database stores which data by
 > reading a single document, and the mapping is consistent.
 
-> **US-12.4** — As an operator, I can back up all player data and restore it in the event
+> **US-12.4** — **As a** platform operator, I can back up all player data and restore it in the event
 > of a catastrophic failure.
 
-> **US-12.5** — As a developer, I can evolve the database schema without taking the
+> **US-12.5** — **As a** developer, I can evolve the database schema without taking the
 > service offline.
 
-> **US-12.6** — As a player on a slow connection, the game still responds quickly because
+> **US-12.6** — **As a** player on a slow connection, the game still responds quickly because
 > hot data is served from cache, not disk.
 
 ---
@@ -454,35 +454,35 @@ Player submits turn
 
 ### Data Integrity
 
-- AC-12.01: A turn submitted by a player is retrievable from the turn history after a
+- **AC-12.01**: A turn submitted by a player is retrievable from the turn history after a
   server restart.
-- AC-12.02: After Redis is restarted, the next turn for any game completes successfully
+- **AC-12.02**: After Redis is restarted, the next turn for any game completes successfully
   (cache reconstruction works transparently).
-- AC-12.03: A GDPR deletion request removes all PII from SQL within 72 hours, verified
+- **AC-12.03**: A GDPR deletion request removes all PII from SQL within 72 hours, verified
   by a direct database query.
-- AC-12.04: Game state after 100 turns matches the accumulated effect of all 100 turn
+- **AC-12.04**: Game state after 100 turns matches the accumulated effect of all 100 turn
   snapshots (no state drift).
 
 ### Performance
 
-- AC-12.05: Game state read from Redis cache completes in under 5ms (p95).
-- AC-12.06: Cache miss reconstruction from SQL + Neo4j completes in under 500ms (p95).
-- AC-12.07: Turn processing (all storage operations, excluding AI) completes in under
+- **AC-12.05**: Game state read from Redis cache completes in under 5ms (p95).
+- **AC-12.06**: Cache miss reconstruction from SQL + Neo4j completes in under 500ms (p95).
+- **AC-12.07**: Turn processing (all storage operations, excluding AI) completes in under
   200ms (p95).
-- AC-12.08: World graph traversal (2-hop) completes in under 200ms (p95).
+- **AC-12.08**: World graph traversal (2-hop) completes in under 200ms (p95).
 
 ### Migration
 
-- AC-12.09: A new SQL migration can be applied to the production database without manual
+- **AC-12.09**: A new SQL migration can be applied to the production database without manual
   intervention beyond running the migration command.
-- AC-12.10: A Neo4j migration script can be run on a database that already has the schema,
+- **AC-12.10**: A Neo4j migration script can be run on a database that already has the schema,
   without errors or side effects (idempotency).
 
 ### Operational
 
-- AC-12.11: An operator can restore the SQL database from backup and have the service
+- **AC-12.11**: An operator can restore the SQL database from backup and have the service
   functional within 1 hour.
-- AC-12.12: All Redis keys have a TTL set (no unbounded memory growth). Verified by
+- **AC-12.12**: All Redis keys have a TTL set (no unbounded memory growth). Verified by
   monitoring.
 
 ---
@@ -509,7 +509,20 @@ Player submits turn
 
 ---
 
-## 15. Open Questions
+## 15. Out of Scope
+
+- **Multi-master replication** — single-primary PostgreSQL is sufficient for v1 scale — deferred
+- **Database sharding** — horizontal partitioning adds complexity; v1 data volumes don't require it — not planned
+- **Data warehouse / analytics store** — reporting queries run against read replicas or exported snapshots — deferred
+- **Time-series database** — game metrics stored in PostgreSQL or exported to observability stack — deferred
+- **Change Data Capture (CDC)** — event-driven replication from PostgreSQL — deferred to post-v1
+- **Graph-to-SQL synchronization framework** — cross-store consistency is managed at the application layer (see S13) — no generic sync layer planned
+- **Blob / file storage** — no binary asset pipeline in v1 — not planned
+- **Custom ORM** — SQLAlchemy (or raw queries) used directly; no wrapper ORM layer — not planned
+
+---
+
+## 16. Open Questions
 
 - OQ-12.01: Should game state snapshots be stored as full snapshots or diffs? Full
   snapshots are simpler but use more storage. At v1 scale, full snapshots are fine.

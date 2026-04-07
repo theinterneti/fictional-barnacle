@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 3 — Platform
 > **Dependencies**: S04 (World Model)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ---
 
@@ -53,26 +53,26 @@ that execute in constant time relative to the traversal depth (not the total gra
 
 ## 3. User Stories
 
-> **US-13.1** — As the game engine, I can quickly determine what locations are reachable
+> **US-13.1** — **As a** game engine, I can quickly determine what locations are reachable
 > from the player's current position so I can present valid movement options.
 
-> **US-13.2** — As the narrative generator, I can retrieve the full context of a location
+> **US-13.2** — **As a** narrative generator, I can retrieve the full context of a location
 > (description, NPCs present, items available, connected locations) in a single query so
 > I can generate rich, accurate narrative.
 
-> **US-13.3** — As the world builder agent, I can update world state (move an NPC, change
+> **US-13.3** — **As a** world builder agent, I can update world state (move an NPC, change
 > a location's description, add a new item) as the result of player actions.
 
-> **US-13.4** — As the Genesis system, I can seed an entire world graph from a definition
+> **US-13.4** — **As a** Genesis system, I can seed an entire world graph from a definition
 > file in a single bulk operation.
 
-> **US-13.5** — As a developer, I can query the world graph to understand its structure
+> **US-13.5** — **As a** developer, I can query the world graph to understand its structure
 > and verify correctness during development.
 
-> **US-13.6** — As the game engine, I can track what has changed in the world since a
+> **US-13.6** — **As a** game engine, I can track what has changed in the world since a
 > given point in time so I can send targeted state updates to connected players.
 
-> **US-13.7** — As the AI pipeline, I can traverse NPC knowledge graphs to determine
+> **US-13.7** — **As a** AI pipeline, I can traverse NPC knowledge graphs to determine
 > what an NPC knows and doesn't know, enabling realistic dialogue.
 
 ---
@@ -747,50 +747,50 @@ game queries. The full session data lives in SQL (see S12).
 
 ### Schema Correctness
 
-- AC-13.01: A seeded world graph passes all referential integrity checks (no dangling
+- **AC-13.01**: A seeded world graph passes all referential integrity checks (no dangling
   references, no orphaned nodes, no duplicate IDs).
-- AC-13.02: All uniqueness constraints prevent duplicate node creation (verified by
+- **AC-13.02**: All uniqueness constraints prevent duplicate node creation (verified by
   attempting duplicate insertion).
-- AC-13.03: All required properties are enforced (verified by attempting node creation
+- **AC-13.03**: All required properties are enforced (verified by attempting node creation
   with missing properties).
 
 ### Query Performance
 
-- AC-13.04: Location context query (§8.1) completes in under 50ms on a world with 1,000
+- **AC-13.04**: Location context query (§8.1) completes in under 50ms on a world with 1,000
   locations.
-- AC-13.05: Movement validation query (§8.2) completes in under 10ms.
-- AC-13.06: 2-hop nearby entities query (§8.4) completes in under 200ms on a world with
+- **AC-13.05**: Movement validation query (§8.2) completes in under 10ms.
+- **AC-13.06**: 2-hop nearby entities query (§8.4) completes in under 200ms on a world with
   1,000 locations.
 
 ### State Mutation
 
-- AC-13.07: Player movement atomically updates the `LOCATED_IN` relationship and creates
+- **AC-13.07**: Player movement atomically updates the `LOCATED_IN` relationship and creates
   an Event — verified by checking that on transaction failure, neither change persists.
-- AC-13.08: Item pickup atomically transfers ownership from location to player — no
+- **AC-13.08**: Item pickup atomically transfers ownership from location to player — no
   state where the item belongs to neither or both.
-- AC-13.09: No operation can create a state where an NPC has two `PRESENT_IN`
+- **AC-13.09**: No operation can create a state where an NPC has two `PRESENT_IN`
   relationships simultaneously.
 
 ### Seeding
 
-- AC-13.10: A valid seed file produces a graph that matches the seed data exactly (all
+- **AC-13.10**: A valid seed file produces a graph that matches the seed data exactly (all
   nodes, relationships, and properties present).
-- AC-13.11: An invalid seed file (missing required property, dangling reference) is
+- **AC-13.11**: An invalid seed file (missing required property, dangling reference) is
   rejected with a descriptive error before any nodes are created.
-- AC-13.12: Running the seed operation twice for the same world fails with a clear error
+- **AC-13.12**: Running the seed operation twice for the same world fails with a clear error
   on the second attempt.
 
 ### Temporal Tracking
 
-- AC-13.13: After modifying an NPC's disposition, `updated_at` is newer than `created_at`.
-- AC-13.14: A change detection query for "last 5 minutes" returns only nodes modified
+- **AC-13.13**: After modifying an NPC's disposition, `updated_at` is newer than `created_at`.
+- **AC-13.14**: A change detection query for "last 5 minutes" returns only nodes modified
   in that window.
 
 ### Cross-Store Consistency
 
-- AC-13.15: The `session_id` on a PlayerSession node in Neo4j matches a `game_id` in
+- **AC-13.15**: The `session_id` on a PlayerSession node in Neo4j matches a `game_id` in
   the SQL games table.
-- AC-13.16: Deleting a game session in SQL also removes (or archives) the corresponding
+- **AC-13.16**: Deleting a game session in SQL also removes (or archives) the corresponding
   PlayerSession node in Neo4j.
 
 ---
@@ -821,7 +821,20 @@ game queries. The full session data lives in SQL (see S12).
 
 ---
 
-## 16. Open Questions
+## 16. Out of Scope
+
+- **Procedural world generation schema** — dynamic world creation uses the same node/relationship types defined here, but the generation algorithm is owned by the Genesis system (S08) — not specified here
+- **Multi-world cross-references** — relationships between nodes in different world graphs — not planned for v1
+- **Graph analytics / centrality algorithms** — Neo4j GDS library use for gameplay intelligence — deferred to post-v1
+- **Graph visualization tooling** — developer/admin graph browser — deferred; Neo4j Browser suffices for v1
+- **Full-text search indexes on graph** — Cypher `CONTAINS` and property indexes are sufficient for v1 — full-text deferred
+- **Graph-level access control** — all graph access goes through the application layer; no per-node ACLs — not planned
+- **Temporal graph versioning** — tracking historical graph states for replay — deferred (see OQ-13.03)
+- **RDF / SPARQL compatibility** — TTA uses Cypher exclusively — not planned
+
+---
+
+## 17. Open Questions
 
 - OQ-13.01: Should `CONNECTS_TO` relationships be bidirectional by convention (always
   create both directions) or explicitly unidirectional? Current design: explicit — a

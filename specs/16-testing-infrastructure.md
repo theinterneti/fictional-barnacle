@@ -2,12 +2,21 @@
 
 > **Status**: 📝 Draft
 > **Level**: 4 — Operations
-> **Dependencies**: S00 (Testing Charter), S01 (Architecture), S14 (Deployment), S15 (Observability)
-> **Last Updated**: 2025-07-24
+> **Dependencies**: S00 (Testing Charter), S01 (Gameplay Loop), S14 (Deployment), S15 (Observability)
+> **Last Updated**: 2026-04-07
 
 ## Overview
 
 This spec defines the infrastructure, tooling, and automation that supports testing in TTA. It does NOT define testing philosophy, coverage targets, or test writing patterns — those live in S00 (Testing Charter). This spec answers: **what do tests run on, how are they triggered, and how do we handle the hard parts (LLM mocking, flaky tests, test data)?**
+
+### Out of Scope
+
+- **Test writing philosophy and coverage targets** — defined in S00 (Testing Charter), not here
+- **Visual / screenshot regression testing** — no frontend UI in v1 backend — future frontend spec
+- **Performance benchmarking harness** — load testing is documented as future (§7) — revisit at scale
+- **Contract testing (Pact)** — single-service architecture in v1 makes contract tests unnecessary — future if microservices
+- **Security / penetration test automation** — manual review for v1 — S17 (Data Privacy) covers policy
+- **pytest-bdd for Gherkin execution** — Gherkin in specs is for human-readable ACs, not automated BDD test runner — may adopt later
 
 ---
 
@@ -468,6 +477,42 @@ markers = [
 - [ ] All custom markers are registered (no `PytestUnknownMarkWarning`).
 - [ ] Running `uv run pytest -m "not integration"` skips all integration tests.
 - [ ] Test directory structure mirrors source directory structure.
+
+---
+
+## Key Scenarios (Gherkin)
+
+```gherkin
+Scenario: CI blocks PR on lint failure
+  Given a developer pushes a commit with a ruff lint error
+  When the CI pipeline runs
+  Then the "lint" job fails
+  And the "unit tests" job does not execute
+  And the PR status shows a failing "lint" check
+
+Scenario: MockLLMClient returns deterministic responses
+  Given a test configures MockLLMClient with a pattern "forest" → "The forest is dark."
+  When the turn pipeline processes input containing "forest"
+  Then the mock returns "The forest is dark." without making a real API call
+  And the mock records the full prompt for assertion
+  And the test completes in under 100ms
+
+Scenario: Flaky test passes on retry
+  Given a test is marked with @pytest.mark.flaky(reruns=2)
+  And the test fails on the first attempt due to a transient timing issue
+  When pytest retries the test
+  Then the test passes on the second attempt
+  And the overall test result is "passed"
+  And the CI log shows "1 rerun" for that test
+
+Scenario: Golden test detects prompt change
+  Given golden snapshot files exist in tests/fixtures/golden/
+  And a developer modifies a prompt template
+  When the golden test suite runs with MockLLMClient
+  Then at least one golden test fails with a similarity mismatch
+  And running "pytest --update-golden" regenerates the snapshot files
+  And re-running the golden tests passes with updated snapshots
+```
 
 ---
 

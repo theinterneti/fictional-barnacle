@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 2 — AI & Content
 > **Dependencies**: S01 (Core Game Loop), S03 (World Model), S07 (LLM Integration)
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-07
 
 ## 1 — Purpose
 
@@ -63,6 +63,8 @@ A player turn flows through four behavioral stages:
 ```
 
 Each stage has defined **inputs**, **outputs**, and **failure modes**. The contracts between stages are specified in §7.
+
+> **Implementation note (non-normative):** LangGraph's `StateGraph` supports this 4-stage sequential pipeline natively — each stage as a node, with typed state passed between stages, conditional routing via `add_conditional_edges`, and first-class streaming via `.stream()`. The spec does not mandate LangGraph; any orchestration approach that satisfies these behavioral contracts is acceptable.
 
 ---
 
@@ -442,54 +444,207 @@ Per FR-08.38, the second turn is rejected. But what if the first turn is almost 
 ### EC-08.7 — Player's action changes the location
 "I walk through the door." After generation, the world-state update includes a location change. The next turn's context assembly should use the new location. The state update must be applied before the next turn starts.
 
+### EC-08.8 — Player input contains multiple languages or code-switching
+A player mixes languages (e.g. English and Spanish) within a single input. The system SHOULD process the input using the session's configured primary language. Intent detection and entity resolution operate on the input as-is; the generation stage responds in the session's configured language. Localization and multi-language output are out of scope (see S09 Q-09.6).
+
+### EC-08.9 — Turn finalization partially fails (persistence vs. delivery)
+Streaming completes and the player sees the narrative, but state persistence fails (e.g. database write error). The system has delivered text that implies world-state changes that were never committed. The system SHOULD retry persistence asynchronously (per FR-08.27). If retry fails, log a critical alert; the next turn's context assembly will detect the inconsistency (missing expected state) and the generation stage SHOULD handle it narratively. The turn SHOULD be marked as `persistence_failed` in observability.
+
+### EC-08.10 — Pipeline processes a turn while the previous turn's state update is still committing
+If state persistence from the prior turn is slow, the next turn's context assembly may read stale state. Per FR-08.38, concurrent turns for the same session are rejected, so this only occurs if turn N's async persistence overlaps with turn N+1's context assembly. The system SHOULD enforce a happens-before relationship: context assembly for turn N+1 waits until turn N's state updates are committed or timed out.
+
 ---
 
 ## 14 — Acceptance Criteria
 
 ### AC-08.1 — End-to-end turn processing
-- [ ] A player can submit text input and receive a streaming narrative response.
-- [ ] The response acknowledges the player's action.
-- [ ] The response is consistent with the current world state.
-- [ ] Total time from input to first streamed token is under 5 seconds (p95).
+
+```gherkin
+Scenario: Player submits a turn and receives a streaming response
+  Given a player is in an active session at a known location
+  And the LLM service is available
+  When the player submits the text "I look behind the waterfall"
+  Then the system streams a narrative response via SSE
+  And the response acknowledges the player's action
+  And the response is consistent with the current world state
+  And the time from input to first streamed token is under 5 seconds (p95)
+
+Scenario: Turn completes with world-state side effects
+  Given a player submits an action that implies a state change (e.g. "I open the door")
+  When the narrative generation completes
+  Then world-state updates are extracted and applied atomically
+  And the updated state is visible to the next turn's context assembly
+```
 
 ### AC-08.2 — Input understanding
-- [ ] Player intent is correctly classified for common action types (explore, interact, use item, examine, speak).
-- [ ] Entity references ("the key", "it", "old man") are resolved against world state.
-- [ ] Gibberish and empty input produce graceful responses, not errors.
-- [ ] Meta-commands are detected and routed separately.
+
+```gherkin
+Scenario: Player intent is classified correctly
+  Given a player is in an active session
+  When the player submits "I pick up the old key"
+  Then the system classifies the intent as "use_item"
+  And the entity "old key" is resolved against the world state
+
+Scenario: Anaphoric references are resolved from context
+  Given the player's last turn mentioned "a rusty sword"
+  When the player submits "I swing it at the door"
+  Then "it" is resolved to "rusty sword"
+  And the Understanding object includes the resolved reference
+
+Scenario: Gibberish input produces a graceful response
+  Given a player is in an active session
+  When the player submits "asdfghjkl"
+  Then the intent is classified as "other" with confidence below 0.5
+  And the system produces an in-character narrative response, not an error
+
+Scenario: Empty input produces a narrative prompt
+  Given a player is in an active session
+  When the player submits an empty string or whitespace
+  Then the system responds with a gentle narrative prompt (e.g. "You pause, considering your options…")
+
+Scenario: Meta-command is detected and routed separately
+  Given a player is in an active session
+  When the player submits "help" or "save game"
+  Then the input is flagged as a meta-command
+  And the input does not flow through the full generation pipeline
+```
 
 ### AC-08.3 — Context assembly
-- [ ] The generation model receives relevant world state (location, NPCs, inventory).
-- [ ] Context is filtered by relevance to the current action.
-- [ ] Context fits within the generation model's token budget.
-- [ ] Context assembly completes within 1 second (p95).
+
+```gherkin
+Scenario: Relevant world state is assembled for generation
+  Given a player is at location "forest_clearing" with NPCs and objects present
+  When context is assembled for the player's action
+  Then the context includes location details, nearby NPCs, nearby objects, and inventory
+  And context is filtered by relevance to the current action
+  And the context fits within the generation model's token budget (per S07 §5)
+
+Scenario: Context assembly completes within latency budget
+  Given a player submits a turn
+  When context assembly runs
+  Then it completes within 1 second (p95)
+  And if the budget is exceeded, the pipeline proceeds with partial context
+
+Scenario: Context prioritizes directly referenced entities
+  Given the player says "talk to the old man"
+  When context is assembled
+  Then the NPC "old man" is included at highest relevance tier
+  And unrelated distant NPCs are deprioritized or truncated
+```
 
 ### AC-08.4 — Generation quality
-- [ ] Narrative does not reference objects/NPCs absent from context.
-- [ ] Narrative matches the configured genre/tone.
-- [ ] Repetitive or empty output is detected and retried.
-- [ ] World-state updates are extracted and validated.
+
+```gherkin
+Scenario: Narrative is grounded in assembled context
+  Given the context includes location "cave_entrance" and inventory ["torch", "map"]
+  When the narrative is generated
+  Then the narrative does not reference objects, NPCs, or locations absent from context
+
+Scenario: Narrative matches configured genre and tone
+  Given the session is configured with genre "noir detective"
+  When the narrative is generated
+  Then the narrative tone matches the genre's style directives
+
+Scenario: Repetitive or empty output is detected and retried
+  Given the LLM produces a response that repeats the same phrase 3+ times
+  When quality checks run on the generation
+  Then the response is rejected and generation is retried once with a different seed
+
+Scenario: World-state updates are validated before application
+  Given the narrative implies "the door opens"
+  But the door requires a key the player does not have
+  When the world-state update is validated
+  Then the conflicting update is rejected
+  And generation is retried with a constraint reminder in the prompt
+```
 
 ### AC-08.5 — Delivery
-- [ ] Tokens stream to the client via SSE as they are generated.
-- [ ] A `thinking` indicator is sent before the first token.
-- [ ] The `turn_complete` event includes all required metadata.
-- [ ] Turns are persisted to the session history.
+
+```gherkin
+Scenario: Tokens stream to the client via SSE
+  Given the generation stage is producing tokens
+  When tokens are generated
+  Then they are forwarded to the client via SSE at word boundaries
+
+Scenario: Thinking indicator is sent before first token
+  Given a player has submitted a turn
+  When the pipeline is processing (before the first token streams)
+  Then a "thinking" SSE event is sent to the client
+
+Scenario: Turn complete event includes required metadata
+  Given streaming has finished for a turn
+  When the "turn_complete" SSE event is emitted
+  Then it includes turn ID, total token count, suggested actions, and player-facing metadata
+
+Scenario: Turn is persisted to session history
+  Given a turn has completed delivery
+  When persistence runs
+  Then the player's input, Understanding object, narrative response, world-state updates, and turn metadata are saved
+```
 
 ### AC-08.6 — Error resilience
-- [ ] If input understanding fails, the turn still produces a response.
-- [ ] If the database is down, the turn still produces a response (lower quality).
-- [ ] If all LLM tiers fail, the player sees a graceful message, not an error.
-- [ ] Duplicate turn submissions are deduplicated.
+
+```gherkin
+Scenario: Input understanding failure does not block the turn
+  Given the classification LLM is unavailable
+  When the player submits a turn
+  Then the pipeline falls back to keyword-based intent detection
+  And the turn still produces a narrative response (lower tailoring quality)
+
+Scenario: Database unavailability does not block the turn
+  Given the world graph (Neo4j) is unavailable
+  When context assembly runs
+  Then the pipeline proceeds with minimal context (conversation history only)
+  And the turn still produces a narrative response
+
+Scenario: All LLM tiers fail gracefully
+  Given all LLM tiers (primary, fallback, last-resort) fail for the generation stage
+  When the pipeline reaches total failure
+  Then the player sees a pre-written "the story pauses" message, not an error or stack trace
+  And the player's input is preserved for retry
+
+Scenario: Duplicate turn submissions are deduplicated
+  Given a turn submission is received twice due to a network retry
+  When the system detects the duplicate via turn ID or idempotency key
+  Then it returns the result of the original turn
+  And does not process the input a second time
+```
 
 ### AC-08.7 — Observability
-- [ ] Every turn is traceable in Langfuse with per-stage timing.
-- [ ] The full Understanding and Context are recoverable from the trace.
-- [ ] Per-turn cost is recorded.
+
+```gherkin
+Scenario: Full turn is traceable in Langfuse
+  Given a turn has completed
+  When a developer inspects the Langfuse trace
+  Then the trace includes child spans for each pipeline stage (Understanding, Context, Generation, Delivery)
+  And per-stage timing is recorded
+  And the full Understanding and Context objects are recoverable from span attributes
+
+Scenario: Per-turn cost is recorded
+  Given a turn used LLM calls for classification and generation
+  When the turn completes
+  Then the total cost is computed from token counts and model pricing
+  And the cost is recorded in the turn metadata and observability backend
+```
 
 ---
 
-## 15 — Open Questions
+## 15 — Out of Scope
+
+The following are explicitly NOT covered by this spec:
+
+- **Multi-step action decomposition** — Handling compound inputs like "I pick up the key and unlock the door" as multiple sequential actions. — Open question Q-08.2; deferred until alpha playtest.
+- **Multi-player or collaborative turns** — The pipeline processes one player's turn at a time in a single-player session. — Not planned for v1.
+- **Autonomous NPC behavior between turns** — NPCs act only in response to player turns; real-time NPC agency is not modeled. — Deferred.
+- **Voice or audio input processing** — All input is text. Speech-to-text is an upstream concern outside this pipeline. — Not planned for v1.
+- **Save/load state restoration** — Resuming a session from a saved state is a persistence concern. — Handled in S12 (Persistence Strategy).
+- **Full content safety and moderation** — Baseline prompt guardrails are in S09 §12; dedicated safety systems are separate. — Handled in future S19 (Safety).
+- **Prompt authoring and versioning** — The pipeline consumes prompts from the registry; authoring is a content concern. — Handled in S09.
+- **Multi-language output generation** — The pipeline responds in the session's configured language; full localization is deferred. — See S09 Q-09.6.
+
+---
+
+## 16 — Open Questions
 
 | # | Question | Impact | Resolution needed by |
 |---|---|---|---|
