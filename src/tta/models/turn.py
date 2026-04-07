@@ -56,10 +56,13 @@ class TurnState(BaseModel):
 
     Required fields are populated at the start of a turn;
     optional fields are filled by successive pipeline stages.
+    TurnState is the normative pipeline contract (system.md §4.3).
+    Component plans may add optional fields but not rename/remove.
     """
 
     # --- required ---
     session_id: UUID
+    turn_id: UUID | None = None
     turn_number: int
     player_input: str
     game_state: dict
@@ -77,3 +80,9 @@ class TurnState(BaseModel):
     safety_flags: list[str] = Field(default_factory=list)
     status: TurnStatus = TurnStatus.processing
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    # --- extensions (plans/llm-and-pipeline.md §2.3) ---
+    world_state_updates: list[dict] | None = None
+    suggested_actions: list[str] | None = None
+    extraction_latency_ms: int | None = None
+    context_partial: bool = False

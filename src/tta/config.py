@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     litellm_model: str = "openai/gpt-4o-mini"
     litellm_fallback_model: str = "openai/gpt-4o-mini"
 
+    # Pipeline / cost
+    session_cost_cap_usd: float = 1.0
+    pipeline_timeout_seconds: float = 120.0
+
     # Langfuse (optional)
     langfuse_host: str | None = None
     langfuse_public_key: str | None = None

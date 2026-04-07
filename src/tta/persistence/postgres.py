@@ -118,6 +118,14 @@ async def get_processing_turn(
     raise NotImplementedError
 
 
+async def update_turn_status(
+    turn_id: UUID,
+    status: str,
+) -> None:
+    """Update a turn's status (processing/complete/failed)."""
+    raise NotImplementedError
+
+
 async def get_turn_by_idempotency_key(
     session_id: UUID,
     key: UUID,

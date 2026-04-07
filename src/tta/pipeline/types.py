@@ -1,18 +1,52 @@
 """Pipeline stage protocol and configuration types.
 
-Defines the Stage callable type and Pydantic configs for
-the turn-processing pipeline (system.md §4.3).
+Defines the Stage callable type, PipelineDeps, and Pydantic configs
+for the turn-processing pipeline (system.md §4.3,
+plans/llm-and-pipeline.md §2).
 """
 
+from __future__ import annotations
+
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from enum import StrEnum
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
 from tta.models.turn import TurnState
 
-# Each stage takes TurnState and returns enriched TurnState
-Stage = Callable[[TurnState], Awaitable[TurnState]]
+if TYPE_CHECKING:
+    from tta.config import Settings
+    from tta.llm.client import LLMClient
+    from tta.persistence.repositories import (
+        SessionRepository,
+        TurnRepository,
+    )
+    from tta.safety.hooks import SafetyHook
+    from tta.world.service import WorldService
+
+
+@dataclass
+class PipelineDeps:
+    """Injected dependencies for pipeline stages.
+
+    Stages receive (TurnState, PipelineDeps) and return TurnState.
+    """
+
+    llm: LLMClient
+    world: WorldService
+    session_repo: SessionRepository
+    turn_repo: TurnRepository
+    safety_pre_input: SafetyHook
+    safety_pre_gen: SafetyHook
+    safety_post_gen: SafetyHook
+    langfuse_trace: Any | None = None
+    settings: Settings | None = None
+
+
+# Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState
+Stage = Callable[[TurnState, PipelineDeps], Awaitable[TurnState]]
 
 
 class StageName(StrEnum):
