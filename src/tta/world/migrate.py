@@ -16,6 +16,7 @@ import pathlib
 import re
 import sys
 from datetime import UTC, datetime
+from typing import LiteralString, cast
 
 from neo4j import Driver, GraphDatabase
 
@@ -69,7 +70,8 @@ def apply_migration(
 
     with driver.session() as session:
         for stmt in statements:
-            session.run(stmt)
+            # Migrations are loaded from files — cast is safe here
+            session.run(cast(LiteralString, stmt))
 
         session.run(
             """
