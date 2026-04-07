@@ -15,6 +15,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "sqlmodel>=0.0.22",
     "asyncpg>=0.30",
+    "alembic>=1.13",
     "litellm>=1.75",
     "neo4j>=5.0",
     "redis>=5.0",
