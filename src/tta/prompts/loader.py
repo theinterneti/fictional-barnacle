@@ -56,8 +56,7 @@ def _parse_front_matter(content: str) -> tuple[dict[str, Any], str]:
     match = _FRONT_MATTER_RE.match(content)
     if not match:
         raise ValueError(
-            "Template file must start with YAML front matter "
-            "delimited by --- markers"
+            "Template file must start with YAML front matter delimited by --- markers"
         )
     yaml_text, body = match.group(1), match.group(2)
     metadata: dict[str, Any] = yaml.safe_load(yaml_text) or {}
@@ -92,8 +91,7 @@ class FilePromptRegistry:
         except KeyError:
             available = ", ".join(sorted(self._templates)) or "(none)"
             raise KeyError(
-                f"Unknown template '{template_id}'. "
-                f"Available: {available}"
+                f"Unknown template '{template_id}'. Available: {available}"
             ) from None
 
     def render(
@@ -109,18 +107,18 @@ class FilePromptRegistry:
         template = self.get(template_id)
 
         # Validate required variables before rendering.
-        missing = [
-            v for v in template.required_variables if v not in variables
-        ]
+        missing = [v for v in template.required_variables if v not in variables]
         if missing:
-            raise ValueError(
-                f"Template '{template_id}' requires variables: "
-                f"{missing}"
-            )
+            raise ValueError(f"Template '{template_id}' requires variables: {missing}")
+
+        # Default optional variables to None so StrictUndefined doesn't
+        # blow up on {% if optional_var %} checks.
+        render_vars: dict[str, Any] = dict.fromkeys(template.optional_variables)
+        render_vars.update(variables)
 
         try:
             jinja_tpl = self._jinja_env.from_string(template.body)
-            text = jinja_tpl.render(**variables)
+            text = jinja_tpl.render(**render_vars)
         except UndefinedError as exc:
             raise ValueError(str(exc)) from exc
 
@@ -175,8 +173,7 @@ class FilePromptRegistry:
             # Derive a fallback ID for the error message.
             fallback_id = _path_to_template_id(path, self._templates_dir)
             raise ValueError(
-                f"Invalid front matter in template '{fallback_id}' "
-                f"({path})"
+                f"Invalid front matter in template '{fallback_id}' ({path})"
             ) from None
 
         # Template ID: prefer explicit `id` in front matter, fall back
