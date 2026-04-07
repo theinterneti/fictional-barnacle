@@ -7,12 +7,9 @@ from uuid import uuid4
 
 import pytest
 
-from tta.llm.client import LLMResponse
 from tta.llm.testing import MockLLMClient
-from tta.models.turn import TokenCount, TurnState, TurnStatus
+from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.stages.understand import (
-    INTENT_PATTERNS,
-    VALID_INTENTS,
     understand_stage,
 )
 from tta.pipeline.types import PipelineDeps
@@ -38,9 +35,7 @@ def _make_deps(
     safe_result = SafetyResult(safe=True)
     pre_input = safety_pre_input or AsyncMock()
     if safety_pre_input is None:
-        pre_input.pre_generation_check = AsyncMock(
-            return_value=safe_result
-        )
+        pre_input.pre_generation_check = AsyncMock(return_value=safe_result)
     return PipelineDeps(
         llm=llm or MockLLMClient(),
         world=AsyncMock(),
@@ -84,9 +79,7 @@ def _make_deps(
         ("status", "meta"),
     ],
 )
-async def test_regex_classification(
-    player_input: str, expected_intent: str
-) -> None:
+async def test_regex_classification(player_input: str, expected_intent: str) -> None:
     state = _make_state(player_input=player_input)
     deps = _make_deps()
     result = await understand_stage(state, deps)
@@ -159,13 +152,9 @@ async def test_llm_failure_returns_other() -> None:
 
 async def test_safety_blocks_input() -> None:
     """Safety hook blocks → status=failed + safety_flags set."""
-    blocked_result = SafetyResult(
-        safe=False, flags=["profanity"]
-    )
+    blocked_result = SafetyResult(safe=False, flags=["profanity"])
     safety = AsyncMock()
-    safety.pre_generation_check = AsyncMock(
-        return_value=blocked_result
-    )
+    safety.pre_generation_check = AsyncMock(return_value=blocked_result)
     state = _make_state(player_input="bad input")
     deps = _make_deps(safety_pre_input=safety)
     result = await understand_stage(state, deps)

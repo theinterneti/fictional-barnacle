@@ -5,8 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-import pytest
-
 from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.stages.deliver import deliver_stage
 from tta.pipeline.types import PipelineDeps
@@ -36,18 +34,14 @@ def _make_deps() -> PipelineDeps:
 
 
 async def test_deliver_sets_complete_status() -> None:
-    state = _make_state(
-        narrative_output="You see a dark room."
-    )
+    state = _make_state(narrative_output="You see a dark room.")
     result = await deliver_stage(state, _make_deps())
 
     assert result.status == TurnStatus.complete
 
 
 async def test_deliver_sets_delivered_true() -> None:
-    state = _make_state(
-        narrative_output="You see a dark room."
-    )
+    state = _make_state(narrative_output="You see a dark room.")
     result = await deliver_stage(state, _make_deps())
 
     assert result.delivered is True
@@ -80,9 +74,7 @@ async def test_deliver_fails_with_empty_narrative() -> None:
 
 
 async def test_original_state_not_mutated() -> None:
-    state = _make_state(
-        narrative_output="Some text."
-    )
+    state = _make_state(narrative_output="Some text.")
     result = await deliver_stage(state, _make_deps())
 
     assert state.delivered is False

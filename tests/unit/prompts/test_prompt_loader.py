@@ -8,7 +8,6 @@ import pytest
 
 from tta.prompts.loader import FilePromptRegistry, _estimate_tokens
 
-
 # ---------------------------------------------------------------------------
 # Helpers — create template / fragment files inside tmp_path
 # ---------------------------------------------------------------------------
@@ -88,13 +87,9 @@ def template_dirs(tmp_path: Path) -> tuple[Path, Path]:
 class TestTemplateLoading:
     """Test loading templates from disk."""
 
-    def test_load_single_template(
-        self, template_dirs: tuple[Path, Path]
-    ) -> None:
+    def test_load_single_template(self, template_dirs: tuple[Path, Path]) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "greet/hello.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "greet/hello.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         tpl = registry.get("test.minimal")
@@ -103,16 +98,10 @@ class TestTemplateLoading:
         assert tpl.role == "generation"
         assert tpl.description == "A minimal test template"
 
-    def test_load_multiple_templates(
-        self, template_dirs: tuple[Path, Path]
-    ) -> None:
+    def test_load_multiple_templates(self, template_dirs: tuple[Path, Path]) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "a/one.prompt.md", _MINIMAL_TEMPLATE
-        )
-        _write_template(
-            templates_dir, "b/two.prompt.md", _NO_OPTIONALS_TEMPLATE
-        )
+        _write_template(templates_dir, "a/one.prompt.md", _MINIMAL_TEMPLATE)
+        _write_template(templates_dir, "b/two.prompt.md", _NO_OPTIONALS_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         assert len(registry.list_templates()) == 2
@@ -131,15 +120,11 @@ required_variables: []
 ---
 Body text.
 """
-        _write_template(
-            templates_dir, "narrative/generate.prompt.md", content
-        )
+        _write_template(templates_dir, "narrative/generate.prompt.md", content)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
         assert registry.has("narrative.generate")
 
-    def test_empty_templates_dir(
-        self, template_dirs: tuple[Path, Path]
-    ) -> None:
+    def test_empty_templates_dir(self, template_dirs: tuple[Path, Path]) -> None:
         templates_dir, fragments_dir = template_dirs
         registry = FilePromptRegistry(templates_dir, fragments_dir)
         assert registry.list_templates() == []
@@ -148,33 +133,23 @@ Body text.
 class TestYamlFrontMatter:
     """Test YAML front matter parsing."""
 
-    def test_required_variables_parsed(
-        self, template_dirs: tuple[Path, Path]
-    ) -> None:
+    def test_required_variables_parsed(self, template_dirs: tuple[Path, Path]) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         tpl = registry.get("test.minimal")
         assert tpl.required_variables == ["name"]
 
-    def test_optional_variables_parsed(
-        self, template_dirs: tuple[Path, Path]
-    ) -> None:
+    def test_optional_variables_parsed(self, template_dirs: tuple[Path, Path]) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         tpl = registry.get("test.minimal")
         assert tpl.optional_variables == ["greeting"]
 
-    def test_parameters_parsed(
-        self, template_dirs: tuple[Path, Path]
-    ) -> None:
+    def test_parameters_parsed(self, template_dirs: tuple[Path, Path]) -> None:
         templates_dir, fragments_dir = template_dirs
         content = """\
 ---
@@ -221,9 +196,7 @@ class TestRendering:
         self, template_dirs: tuple[Path, Path]
     ) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         result = registry.render("test.minimal", {"name": "Alice"})
@@ -235,9 +208,7 @@ class TestRendering:
         self, template_dirs: tuple[Path, Path]
     ) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         result = registry.render(
@@ -252,9 +223,7 @@ class TestRendering:
     ) -> None:
         """Optional variables not provided → conditional block skipped."""
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         result = registry.render("test.minimal", {"name": "Eve"})
@@ -264,9 +233,7 @@ class TestRendering:
         self, template_dirs: tuple[Path, Path]
     ) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         with pytest.raises(ValueError, match="requires variables"):
@@ -303,9 +270,7 @@ class TestRegistryLookup:
         self, template_dirs: tuple[Path, Path]
     ) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "x/y.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         assert registry.has("test.minimal") is True
@@ -322,12 +287,8 @@ class TestRegistryLookup:
         self, template_dirs: tuple[Path, Path]
     ) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "b/z.prompt.md", _NO_OPTIONALS_TEMPLATE
-        )
-        _write_template(
-            templates_dir, "a/y.prompt.md", _MINIMAL_TEMPLATE
-        )
+        _write_template(templates_dir, "b/z.prompt.md", _NO_OPTIONALS_TEMPLATE)
+        _write_template(templates_dir, "a/y.prompt.md", _MINIMAL_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
         ids = registry.list_templates()
@@ -347,14 +308,10 @@ class TestTokenEstimation:
         self, template_dirs: tuple[Path, Path]
     ) -> None:
         templates_dir, fragments_dir = template_dirs
-        _write_template(
-            templates_dir, "x/y.prompt.md", _NO_OPTIONALS_TEMPLATE
-        )
+        _write_template(templates_dir, "x/y.prompt.md", _NO_OPTIONALS_TEMPLATE)
         registry = FilePromptRegistry(templates_dir, fragments_dir)
 
-        result = registry.render(
-            "test.required-only", {"query": "hello world"}
-        )
+        result = registry.render("test.required-only", {"query": "hello world"})
         assert result.token_estimate > 0
 
     def test_estimate_tokens_formula(self) -> None:
@@ -374,9 +331,7 @@ class TestTokenEstimation:
 class TestFragmentInclusion:
     """Test Jinja2 fragment includes."""
 
-    def test_include_fragment(
-        self, template_dirs: tuple[Path, Path]
-    ) -> None:
+    def test_include_fragment(self, template_dirs: tuple[Path, Path]) -> None:
         templates_dir, fragments_dir = template_dirs
 
         _write_fragment(
@@ -408,9 +363,7 @@ Hello, {{ name }}.
         assert "SAFETY: Be safe." in result.text
         assert "Hello, Zara." in result.text
 
-    def test_missing_fragment_raises(
-        self, template_dirs: tuple[Path, Path]
-    ) -> None:
+    def test_missing_fragment_raises(self, template_dirs: tuple[Path, Path]) -> None:
         """Including a nonexistent fragment raises at render time."""
         templates_dir, fragments_dir = template_dirs
 
@@ -458,9 +411,7 @@ class TestRealTemplates:
         assert real_registry.has("classification.intent")
         assert real_registry.has("extraction.world-changes")
 
-    def test_render_narrative_generate(
-        self, real_registry: FilePromptRegistry
-    ) -> None:
+    def test_render_narrative_generate(self, real_registry: FilePromptRegistry) -> None:
         result = real_registry.render(
             "narrative.generate",
             {

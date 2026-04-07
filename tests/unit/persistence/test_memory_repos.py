@@ -19,7 +19,6 @@ from tta.persistence.memory import (
     InMemoryWorldEventRepository,
 )
 
-
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
@@ -54,18 +53,14 @@ def event_repo() -> InMemoryWorldEventRepository:
 
 
 class TestInMemoryPlayerRepository:
-    async def test_create_player(
-        self, player_repo: InMemoryPlayerRepository
-    ) -> None:
+    async def test_create_player(self, player_repo: InMemoryPlayerRepository) -> None:
         player = await player_repo.create_player("alice")
         assert isinstance(player, Player)
         assert player.handle == "alice"
         assert player.id is not None
         assert player.created_at is not None
 
-    async def test_get_player(
-        self, player_repo: InMemoryPlayerRepository
-    ) -> None:
+    async def test_get_player(self, player_repo: InMemoryPlayerRepository) -> None:
         created = await player_repo.create_player("bob")
         fetched = await player_repo.get_player(created.id)
         assert fetched is not None
@@ -120,17 +115,13 @@ class TestInMemorySessionRepository:
     ) -> None:
         pid = uuid4()
         expires = datetime.now(UTC) + timedelta(hours=1)
-        sess = await session_repo.create_session(
-            pid, "tok-abc", expires
-        )
+        sess = await session_repo.create_session(pid, "tok-abc", expires)
         assert isinstance(sess, PlayerSession)
         assert sess.player_id == pid
         assert sess.token == "tok-abc"
         assert sess.expires_at == expires
 
-    async def test_get_session(
-        self, session_repo: InMemorySessionRepository
-    ) -> None:
+    async def test_get_session(self, session_repo: InMemorySessionRepository) -> None:
         pid = uuid4()
         expires = datetime.now(UTC) + timedelta(hours=1)
         await session_repo.create_session(pid, "tok-1", expires)
@@ -166,42 +157,30 @@ class TestInMemorySessionRepository:
 
 
 class TestInMemoryGameRepository:
-    async def test_create_game(
-        self, game_repo: InMemoryGameRepository
-    ) -> None:
+    async def test_create_game(self, game_repo: InMemoryGameRepository) -> None:
         pid = uuid4()
-        game = await game_repo.create_game(
-            pid, {"theme": "forest"}
-        )
+        game = await game_repo.create_game(pid, {"theme": "forest"})
         assert isinstance(game, GameSession)
         assert game.player_id == pid
         assert game.world_seed == {"theme": "forest"}
         assert game.status == GameStatus.active
 
-    async def test_get_game(
-        self, game_repo: InMemoryGameRepository
-    ) -> None:
+    async def test_get_game(self, game_repo: InMemoryGameRepository) -> None:
         pid = uuid4()
         created = await game_repo.create_game(pid, {})
         fetched = await game_repo.get_game(created.id)
         assert fetched is not None
         assert fetched.id == created.id
 
-    async def test_get_game_not_found(
-        self, game_repo: InMemoryGameRepository
-    ) -> None:
+    async def test_get_game_not_found(self, game_repo: InMemoryGameRepository) -> None:
         assert await game_repo.get_game(uuid4()) is None
 
-    async def test_update_game_status(
-        self, game_repo: InMemoryGameRepository
-    ) -> None:
+    async def test_update_game_status(self, game_repo: InMemoryGameRepository) -> None:
         pid = uuid4()
         game = await game_repo.create_game(pid, {})
         assert game.status == GameStatus.active
 
-        await game_repo.update_game_status(
-            game.id, GameStatus.paused
-        )
+        await game_repo.update_game_status(game.id, GameStatus.paused)
         updated = await game_repo.get_game(game.id)
         assert updated is not None
         assert updated.status == GameStatus.paused
@@ -210,13 +189,9 @@ class TestInMemoryGameRepository:
         self, game_repo: InMemoryGameRepository
     ) -> None:
         with pytest.raises(ValueError, match="game not found"):
-            await game_repo.update_game_status(
-                uuid4(), GameStatus.completed
-            )
+            await game_repo.update_game_status(uuid4(), GameStatus.completed)
 
-    async def test_list_player_games(
-        self, game_repo: InMemoryGameRepository
-    ) -> None:
+    async def test_list_player_games(self, game_repo: InMemoryGameRepository) -> None:
         p1 = uuid4()
         p2 = uuid4()
         await game_repo.create_game(p1, {"a": 1})
@@ -242,9 +217,7 @@ class TestInMemoryGameRepository:
         pid = uuid4()
         game = await game_repo.create_game(pid, {})
         original_updated_at = game.updated_at
-        await game_repo.update_game_status(
-            game.id, GameStatus.completed
-        )
+        await game_repo.update_game_status(game.id, GameStatus.completed)
         updated = await game_repo.get_game(game.id)
         assert updated is not None
         assert updated.updated_at >= original_updated_at
@@ -256,9 +229,7 @@ class TestInMemoryGameRepository:
 
 
 class TestInMemoryTurnRepository:
-    async def test_create_turn(
-        self, turn_repo: InMemoryTurnRepository
-    ) -> None:
+    async def test_create_turn(self, turn_repo: InMemoryTurnRepository) -> None:
         sid = uuid4()
         turn = await turn_repo.create_turn(sid, 1, "go north")
         assert turn["id"] is not None
@@ -274,14 +245,10 @@ class TestInMemoryTurnRepository:
     ) -> None:
         sid = uuid4()
         key = uuid4()
-        turn = await turn_repo.create_turn(
-            sid, 1, "look", idempotency_key=key
-        )
+        turn = await turn_repo.create_turn(sid, 1, "look", idempotency_key=key)
         assert turn["idempotency_key"] == key
 
-    async def test_get_turn(
-        self, turn_repo: InMemoryTurnRepository
-    ) -> None:
+    async def test_get_turn(self, turn_repo: InMemoryTurnRepository) -> None:
         sid = uuid4()
         created = await turn_repo.create_turn(sid, 1, "look")
         fetched = await turn_repo.get_turn(created["id"])
@@ -289,14 +256,10 @@ class TestInMemoryTurnRepository:
         assert fetched["id"] == created["id"]
         assert fetched["player_input"] == "look"
 
-    async def test_get_turn_not_found(
-        self, turn_repo: InMemoryTurnRepository
-    ) -> None:
+    async def test_get_turn_not_found(self, turn_repo: InMemoryTurnRepository) -> None:
         assert await turn_repo.get_turn(uuid4()) is None
 
-    async def test_complete_turn(
-        self, turn_repo: InMemoryTurnRepository
-    ) -> None:
+    async def test_complete_turn(self, turn_repo: InMemoryTurnRepository) -> None:
         sid = uuid4()
         turn = await turn_repo.create_turn(sid, 1, "go north")
         tokens = {"prompt": 100, "completion": 50, "total": 150}
@@ -322,13 +285,9 @@ class TestInMemoryTurnRepository:
         self, turn_repo: InMemoryTurnRepository
     ) -> None:
         with pytest.raises(ValueError, match="turn not found"):
-            await turn_repo.complete_turn(
-                uuid4(), "text", "model", 100.0, {}
-            )
+            await turn_repo.complete_turn(uuid4(), "text", "model", 100.0, {})
 
-    async def test_update_status(
-        self, turn_repo: InMemoryTurnRepository
-    ) -> None:
+    async def test_update_status(self, turn_repo: InMemoryTurnRepository) -> None:
         sid = uuid4()
         turn = await turn_repo.create_turn(sid, 1, "wait")
         await turn_repo.update_status(turn["id"], "failed")
@@ -342,14 +301,10 @@ class TestInMemoryTurnRepository:
         with pytest.raises(ValueError, match="turn not found"):
             await turn_repo.update_status(uuid4(), "failed")
 
-    async def test_get_processing_turn(
-        self, turn_repo: InMemoryTurnRepository
-    ) -> None:
+    async def test_get_processing_turn(self, turn_repo: InMemoryTurnRepository) -> None:
         sid = uuid4()
         t1 = await turn_repo.create_turn(sid, 1, "first")
-        await turn_repo.complete_turn(
-            t1["id"], "done", "m", 1.0, {}
-        )
+        await turn_repo.complete_turn(t1["id"], "done", "m", 1.0, {})
         t2 = await turn_repo.create_turn(sid, 2, "second")
 
         processing = await turn_repo.get_processing_turn(sid)
@@ -362,9 +317,7 @@ class TestInMemoryTurnRepository:
     ) -> None:
         sid = uuid4()
         t = await turn_repo.create_turn(sid, 1, "done")
-        await turn_repo.complete_turn(
-            t["id"], "ok", "m", 1.0, {}
-        )
+        await turn_repo.complete_turn(t["id"], "ok", "m", 1.0, {})
         assert await turn_repo.get_processing_turn(sid) is None
 
     async def test_get_processing_turn_wrong_session(
@@ -380,12 +333,8 @@ class TestInMemoryTurnRepository:
     ) -> None:
         sid = uuid4()
         key = uuid4()
-        created = await turn_repo.create_turn(
-            sid, 1, "look", idempotency_key=key
-        )
-        found = await turn_repo.get_turn_by_idempotency_key(
-            sid, key
-        )
+        created = await turn_repo.create_turn(sid, 1, "look", idempotency_key=key)
+        found = await turn_repo.get_turn_by_idempotency_key(sid, key)
         assert found is not None
         assert found["id"] == created["id"]
 
@@ -393,11 +342,7 @@ class TestInMemoryTurnRepository:
         self, turn_repo: InMemoryTurnRepository
     ) -> None:
         sid = uuid4()
-        assert (
-            await turn_repo.get_turn_by_idempotency_key(
-                sid, uuid4()
-            )
-        ) is None
+        assert (await turn_repo.get_turn_by_idempotency_key(sid, uuid4())) is None
 
     async def test_get_turn_by_idempotency_key_wrong_session(
         self, turn_repo: InMemoryTurnRepository
@@ -405,12 +350,8 @@ class TestInMemoryTurnRepository:
         sid1 = uuid4()
         sid2 = uuid4()
         key = uuid4()
-        await turn_repo.create_turn(
-            sid1, 1, "x", idempotency_key=key
-        )
-        assert (
-            await turn_repo.get_turn_by_idempotency_key(sid2, key)
-        ) is None
+        await turn_repo.create_turn(sid1, 1, "x", idempotency_key=key)
+        assert (await turn_repo.get_turn_by_idempotency_key(sid2, key)) is None
 
     async def test_duplicate_turn_number_raises(
         self, turn_repo: InMemoryTurnRepository
@@ -425,26 +366,16 @@ class TestInMemoryTurnRepository:
     ) -> None:
         sid = uuid4()
         key = uuid4()
-        await turn_repo.create_turn(
-            sid, 1, "first", idempotency_key=key
-        )
-        with pytest.raises(
-            ValueError, match="duplicate idempotency_key"
-        ):
-            await turn_repo.create_turn(
-                sid, 2, "second", idempotency_key=key
-            )
+        await turn_repo.create_turn(sid, 1, "first", idempotency_key=key)
+        with pytest.raises(ValueError, match="duplicate idempotency_key"):
+            await turn_repo.create_turn(sid, 2, "second", idempotency_key=key)
 
     async def test_same_idempotency_key_different_session_ok(
         self, turn_repo: InMemoryTurnRepository
     ) -> None:
         key = uuid4()
-        t1 = await turn_repo.create_turn(
-            uuid4(), 1, "a", idempotency_key=key
-        )
-        t2 = await turn_repo.create_turn(
-            uuid4(), 1, "b", idempotency_key=key
-        )
+        t1 = await turn_repo.create_turn(uuid4(), 1, "a", idempotency_key=key)
+        t2 = await turn_repo.create_turn(uuid4(), 1, "b", idempotency_key=key)
         assert t1["id"] != t2["id"]
 
     async def test_turn_created_at_is_utc(
@@ -500,9 +431,7 @@ class TestInMemoryWorldEventRepository:
     ) -> None:
         sid = uuid4()
         for i in range(10):
-            await event_repo.create_world_event(
-                sid, uuid4(), f"evt_{i}", f"e-{i}", {}
-            )
+            await event_repo.create_world_event(sid, uuid4(), f"evt_{i}", f"e-{i}", {})
 
         recent = await event_repo.get_recent_events(sid, limit=3)
         assert len(recent) == 3
@@ -518,12 +447,8 @@ class TestInMemoryWorldEventRepository:
     ) -> None:
         s1 = uuid4()
         s2 = uuid4()
-        await event_repo.create_world_event(
-            s1, uuid4(), "a", "e1", {}
-        )
-        await event_repo.create_world_event(
-            s2, uuid4(), "b", "e2", {}
-        )
+        await event_repo.create_world_event(s1, uuid4(), "a", "e1", {})
+        await event_repo.create_world_event(s2, uuid4(), "b", "e2", {})
 
         events = await event_repo.get_recent_events(s1)
         assert len(events) == 1
@@ -533,12 +458,8 @@ class TestInMemoryWorldEventRepository:
         self, event_repo: InMemoryWorldEventRepository
     ) -> None:
         sid = uuid4()
-        e1 = await event_repo.create_world_event(
-            sid, uuid4(), "first", "e1", {}
-        )
-        e2 = await event_repo.create_world_event(
-            sid, uuid4(), "second", "e2", {}
-        )
+        e1 = await event_repo.create_world_event(sid, uuid4(), "first", "e1", {})
+        e2 = await event_repo.create_world_event(sid, uuid4(), "second", "e2", {})
 
         recent = await event_repo.get_recent_events(sid, limit=10)
         assert recent[0].created_at >= recent[-1].created_at
@@ -596,8 +517,6 @@ class TestProtocolCompliance:
             WorldEventRepository,
         )
 
-        repo: WorldEventRepository = (
-            InMemoryWorldEventRepository()
-        )
+        repo: WorldEventRepository = InMemoryWorldEventRepository()
         assert hasattr(repo, "create_world_event")
         assert hasattr(repo, "get_recent_events")

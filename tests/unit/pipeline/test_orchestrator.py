@@ -6,8 +6,6 @@ import asyncio
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-import pytest
-
 from tta.llm.testing import MockLLMClient
 from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.orchestrator import run_pipeline
@@ -47,9 +45,7 @@ def _make_deps(
     post_gen = AsyncMock()
 
     if safety_pre_input is None:
-        pre_input.pre_generation_check = AsyncMock(
-            return_value=safe
-        )
+        pre_input.pre_generation_check = AsyncMock(return_value=safe)
     pre_gen.pre_generation_check = AsyncMock(return_value=safe)
     post_gen.post_generation_check = AsyncMock(return_value=safe)
 
@@ -99,9 +95,7 @@ async def test_pipeline_early_exit_on_safety_block() -> None:
     """Safety blocking in understand → pipeline stops early."""
     blocked = SafetyResult(safe=False, flags=["blocked"])
     safety = AsyncMock()
-    safety.pre_generation_check = AsyncMock(
-        return_value=blocked
-    )
+    safety.pre_generation_check = AsyncMock(return_value=blocked)
     state = _make_state()
     deps = _make_deps(safety_pre_input=safety)
     result = await run_pipeline(state, deps)
@@ -128,9 +122,7 @@ async def test_stage_timeout_fails_pipeline() -> None:
     try:
         config = PipelineConfig(
             stages=[
-                StageConfig(
-                    name=StageName.UNDERSTAND, timeout_seconds=0.05
-                ),
+                StageConfig(name=StageName.UNDERSTAND, timeout_seconds=0.05),
                 StageConfig(name=StageName.CONTEXT),
                 StageConfig(name=StageName.GENERATE),
                 StageConfig(name=StageName.DELIVER),
@@ -156,9 +148,7 @@ async def test_stage_exception_fails_pipeline() -> None:
     from tta.pipeline import orchestrator
 
     original = orchestrator.STAGE_MAP[StageName.UNDERSTAND]
-    orchestrator.STAGE_MAP[StageName.UNDERSTAND] = (
-        _broken_understand
-    )
+    orchestrator.STAGE_MAP[StageName.UNDERSTAND] = _broken_understand
     try:
         state = _make_state()
         deps = _make_deps()

@@ -5,8 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-import pytest
-
 from tta.models.turn import ParsedIntent, TurnState
 from tta.pipeline.stages.context import context_stage
 from tta.pipeline.types import PipelineDeps
@@ -47,11 +45,7 @@ async def test_context_includes_game_state() -> None:
 
 
 async def test_context_includes_intent() -> None:
-    state = _make_state(
-        parsed_intent=ParsedIntent(
-            intent="examine", confidence=0.9
-        )
-    )
+    state = _make_state(parsed_intent=ParsedIntent(intent="examine", confidence=0.9))
     result = await context_stage(state, _make_deps())
 
     assert result.world_context is not None

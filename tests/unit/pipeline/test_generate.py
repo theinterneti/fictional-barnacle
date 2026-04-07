@@ -6,8 +6,6 @@ import json
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-import pytest
-
 from tta.llm.client import LLMResponse
 from tta.llm.testing import MockLLMClient
 from tta.models.turn import (
@@ -27,9 +25,7 @@ def _make_state(**overrides: object) -> TurnState:
         "turn_number": 1,
         "player_input": "look around",
         "game_state": {},
-        "parsed_intent": ParsedIntent(
-            intent="examine", confidence=0.9
-        ),
+        "parsed_intent": ParsedIntent(intent="examine", confidence=0.9),
         "world_context": {"game_state": {}, "intent": "examine"},
     }
     defaults.update(overrides)
@@ -52,9 +48,7 @@ def _make_deps(
     if safety_pre_gen is None:
         pre_gen.pre_generation_check = AsyncMock(return_value=safe)
     if safety_post_gen is None:
-        post_gen.post_generation_check = AsyncMock(
-            return_value=safe
-        )
+        post_gen.post_generation_check = AsyncMock(return_value=safe)
     return PipelineDeps(
         llm=llm or MockLLMClient(),
         world=AsyncMock(),
@@ -110,11 +104,7 @@ async def test_generate_calls_llm_with_generation_role() -> None:
     deps = _make_deps(llm=mock_llm)
     await generate_stage(state, deps)
 
-    gen_calls = [
-        c
-        for c in mock_llm.call_history
-        if c["role"] == "generation"
-    ]
+    gen_calls = [c for c in mock_llm.call_history if c["role"] == "generation"]
     assert len(gen_calls) == 1
 
 
@@ -135,9 +125,7 @@ async def test_generate_calls_extraction_after_generation() -> None:
 async def test_pre_gen_safety_blocks() -> None:
     blocked = SafetyResult(safe=False, flags=["injection"])
     pre_gen = AsyncMock()
-    pre_gen.pre_generation_check = AsyncMock(
-        return_value=blocked
-    )
+    pre_gen.pre_generation_check = AsyncMock(return_value=blocked)
     state = _make_state()
     deps = _make_deps(safety_pre_gen=pre_gen)
     result = await generate_stage(state, deps)
@@ -150,9 +138,7 @@ async def test_pre_gen_safety_blocks() -> None:
 async def test_post_gen_safety_blocks() -> None:
     blocked = SafetyResult(safe=False, flags=["harmful_content"])
     post_gen = AsyncMock()
-    post_gen.post_generation_check = AsyncMock(
-        return_value=blocked
-    )
+    post_gen.post_generation_check = AsyncMock(return_value=blocked)
     state = _make_state()
     deps = _make_deps(safety_post_gen=post_gen)
     result = await generate_stage(state, deps)
@@ -164,13 +150,9 @@ async def test_post_gen_safety_blocks() -> None:
 
 async def test_post_gen_safety_modifies_content() -> None:
     """Safety hook can replace content via modified_content."""
-    modified = SafetyResult(
-        safe=True, modified_content="Sanitized narrative."
-    )
+    modified = SafetyResult(safe=True, modified_content="Sanitized narrative.")
     post_gen = AsyncMock()
-    post_gen.post_generation_check = AsyncMock(
-        return_value=modified
-    )
+    post_gen.post_generation_check = AsyncMock(return_value=modified)
     state = _make_state()
     deps = _make_deps(safety_post_gen=post_gen)
     result = await generate_stage(state, deps)
@@ -193,9 +175,7 @@ async def test_extraction_returns_empty_on_invalid_json() -> None:
 
 async def test_extraction_returns_parsed_list() -> None:
     """LLM returns valid JSON array → stored as world_state_updates."""
-    changes = [
-        {"type": "location_change", "description": "moved north"}
-    ]
+    changes = [{"type": "location_change", "description": "moved north"}]
     # First call = generation, second call = extraction
     call_count = 0
 

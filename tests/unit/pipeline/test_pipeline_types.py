@@ -98,14 +98,10 @@ def test_async_function_matches_stage_type() -> None:
 async def test_stage_composability() -> None:
     """Two stages chained: each enriches TurnState."""
 
-    async def understand(
-        state: TurnState, deps: PipelineDeps
-    ) -> TurnState:
+    async def understand(state: TurnState, deps: PipelineDeps) -> TurnState:
         return state.model_copy(update={"generation_prompt": "enriched"})
 
-    async def generate(
-        state: TurnState, deps: PipelineDeps
-    ) -> TurnState:
+    async def generate(state: TurnState, deps: PipelineDeps) -> TurnState:
         return state.model_copy(update={"narrative_output": "story text"})
 
     state = _make_turn_state()

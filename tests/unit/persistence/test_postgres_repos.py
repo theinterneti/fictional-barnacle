@@ -101,9 +101,7 @@ def test_player_repo_has_async_method(
     repo = PostgresPlayerRepository(_MOCK_SF)
     method = getattr(repo, method_name, None)
     assert method is not None, f"missing {method_name}"
-    assert inspect.iscoroutinefunction(method), (
-        f"{method_name} must be async"
-    )
+    assert inspect.iscoroutinefunction(method), f"{method_name} must be async"
 
 
 @pytest.mark.parametrize("method_name", SESSION_METHODS)
@@ -113,9 +111,7 @@ def test_session_repo_has_async_method(
     repo = PostgresSessionRepository(_MOCK_SF)
     method = getattr(repo, method_name, None)
     assert method is not None, f"missing {method_name}"
-    assert inspect.iscoroutinefunction(method), (
-        f"{method_name} must be async"
-    )
+    assert inspect.iscoroutinefunction(method), f"{method_name} must be async"
 
 
 @pytest.mark.parametrize("method_name", GAME_METHODS)
@@ -125,9 +121,7 @@ def test_game_repo_has_async_method(
     repo = PostgresGameRepository(_MOCK_SF)
     method = getattr(repo, method_name, None)
     assert method is not None, f"missing {method_name}"
-    assert inspect.iscoroutinefunction(method), (
-        f"{method_name} must be async"
-    )
+    assert inspect.iscoroutinefunction(method), f"{method_name} must be async"
 
 
 @pytest.mark.parametrize("method_name", TURN_METHODS)
@@ -137,9 +131,7 @@ def test_turn_repo_has_async_method(
     repo = PostgresTurnRepository(_MOCK_SF)
     method = getattr(repo, method_name, None)
     assert method is not None, f"missing {method_name}"
-    assert inspect.iscoroutinefunction(method), (
-        f"{method_name} must be async"
-    )
+    assert inspect.iscoroutinefunction(method), f"{method_name} must be async"
 
 
 @pytest.mark.parametrize("method_name", WORLD_EVENT_METHODS)
@@ -149,9 +141,7 @@ def test_world_event_repo_has_async_method(
     repo = PostgresWorldEventRepository(_MOCK_SF)
     method = getattr(repo, method_name, None)
     assert method is not None, f"missing {method_name}"
-    assert inspect.iscoroutinefunction(method), (
-        f"{method_name} must be async"
-    )
+    assert inspect.iscoroutinefunction(method), f"{method_name} must be async"
 
 
 # ── Engine module ────────────────────────────────────────────────

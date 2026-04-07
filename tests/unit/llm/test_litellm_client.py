@@ -116,15 +116,11 @@ class TestGenerate:
     @pytest.mark.asyncio
     @patch(_COST, return_value=0.001)
     @patch(_ACOMPLETION)
-    async def test_happy_path(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
-    ) -> None:
+    async def test_happy_path(self, mock_ac: AsyncMock, mock_cost: MagicMock) -> None:
         mock_ac.return_value = _mock_response()
         client = LiteLLMClient(role_configs=_role_configs())
 
-        resp = await client.generate(
-            ModelRole.GENERATION, MESSAGES, PARAMS
-        )
+        resp = await client.generate(ModelRole.GENERATION, MESSAGES, PARAMS)
 
         assert isinstance(resp, LLMResponse)
         assert resp.content == "Hello world"
@@ -160,16 +156,12 @@ class TestStream:
     @pytest.mark.asyncio
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
-    async def test_happy_path(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
-    ) -> None:
+    async def test_happy_path(self, mock_ac: AsyncMock, mock_cost: MagicMock) -> None:
         chunks = _mock_stream_chunks("Hello world")
         mock_ac.return_value = _async_iter(chunks)
         client = LiteLLMClient(role_configs=_role_configs())
 
-        resp = await client.stream(
-            ModelRole.GENERATION, MESSAGES, PARAMS
-        )
+        resp = await client.stream(ModelRole.GENERATION, MESSAGES, PARAMS)
 
         assert isinstance(resp, LLMResponse)
         assert "Hello" in resp.content
@@ -183,9 +175,7 @@ class TestStream:
     async def test_stream_no_usage_defaults_to_zero(
         self, mock_ac: AsyncMock, mock_cost: MagicMock
     ) -> None:
-        chunks = _mock_stream_chunks(
-            "hi", include_usage=False
-        )
+        chunks = _mock_stream_chunks("hi", include_usage=False)
         mock_ac.return_value = _async_iter(chunks)
         client = LiteLLMClient(role_configs=_role_configs())
 
@@ -196,9 +186,7 @@ class TestStream:
 
     @pytest.mark.asyncio
     @patch(_ACOMPLETION)
-    async def test_stream_error_during_iteration(
-        self, mock_ac: AsyncMock
-    ) -> None:
+    async def test_stream_error_during_iteration(self, mock_ac: AsyncMock) -> None:
         """Error mid-stream is classified and surfaces."""
 
         async def _exploding_stream() -> Any:
@@ -211,9 +199,7 @@ class TestStream:
             _exploding_stream(),
             _exploding_stream(),
         ]
-        client = LiteLLMClient(
-            role_configs=_role_configs(fallback=None)
-        )
+        client = LiteLLMClient(role_configs=_role_configs(fallback=None))
 
         with pytest.raises(AllTiersFailedError):
             await client.stream(ModelRole.GENERATION, MESSAGES)
@@ -248,13 +234,9 @@ class TestFallback:
 
     @pytest.mark.asyncio
     @patch(_ACOMPLETION)
-    async def test_all_tiers_failed(
-        self, mock_ac: AsyncMock
-    ) -> None:
+    async def test_all_tiers_failed(self, mock_ac: AsyncMock) -> None:
         """Both tiers exhaust retries → AllTiersFailedError."""
-        mock_ac.side_effect = TransientLLMError(
-            "down", model="test"
-        )
+        mock_ac.side_effect = TransientLLMError("down", model="test")
         client = LiteLLMClient(role_configs=_role_configs())
 
         with pytest.raises(AllTiersFailedError):
@@ -265,13 +247,9 @@ class TestFallback:
 
     @pytest.mark.asyncio
     @patch(_ACOMPLETION)
-    async def test_no_fallback_role_only_three_calls(
-        self, mock_ac: AsyncMock
-    ) -> None:
+    async def test_no_fallback_role_only_three_calls(self, mock_ac: AsyncMock) -> None:
         """Role with no fallback exhausts retries in 3 calls."""
-        mock_ac.side_effect = TransientLLMError(
-            "down", model="test/primary"
-        )
+        mock_ac.side_effect = TransientLLMError("down", model="test/primary")
         client = LiteLLMClient(role_configs=_no_fallback_configs())
 
         with pytest.raises(AllTiersFailedError):
@@ -281,13 +259,9 @@ class TestFallback:
 
     @pytest.mark.asyncio
     @patch(_ACOMPLETION)
-    async def test_permanent_error_no_fallback(
-        self, mock_ac: AsyncMock
-    ) -> None:
+    async def test_permanent_error_no_fallback(self, mock_ac: AsyncMock) -> None:
         """PermanentLLMError stops immediately, no fallback attempted."""
-        mock_ac.side_effect = PermanentLLMError(
-            "auth failed", model="test/primary"
-        )
+        mock_ac.side_effect = PermanentLLMError("auth failed", model="test/primary")
         client = LiteLLMClient(role_configs=_role_configs())
 
         with pytest.raises(PermanentLLMError, match="auth failed"):
@@ -331,9 +305,7 @@ class TestErrorClassification:
         """Exception classified as transient is retried 3×."""
         RateLimitError = type("RateLimitError", (Exception,), {})
         mock_ac.side_effect = RateLimitError("rate limited")
-        client = LiteLLMClient(
-            role_configs=_no_fallback_configs()
-        )
+        client = LiteLLMClient(role_configs=_no_fallback_configs())
 
         with pytest.raises(AllTiersFailedError):
             await client.generate(ModelRole.GENERATION, MESSAGES)
@@ -348,9 +320,7 @@ class TestErrorClassification:
         """Exception classified as permanent is not retried."""
         AuthError = type("AuthenticationError", (Exception,), {})
         mock_ac.side_effect = AuthError("bad key")
-        client = LiteLLMClient(
-            role_configs=_no_fallback_configs()
-        )
+        client = LiteLLMClient(role_configs=_no_fallback_configs())
 
         with pytest.raises(PermanentLLMError):
             await client.generate(ModelRole.GENERATION, MESSAGES)
