@@ -255,14 +255,14 @@ migrations/neo4j/
 **Version tracking:**
 
 ```cypher
-MERGE (v:SchemaVersion {id: 'current'})
+MERGE (v:_SchemaVersion {id: 'current'})
 SET v.version = 1, v.applied_at = datetime(), v.migration = '001_initial_schema'
 ```
 
 **Migration rules:**
 - Every migration is idempotent (`IF NOT EXISTS`, `MERGE`, conditional `SET`).
 - Migrations run at application startup before accepting requests.
-- A migration runner reads the `SchemaVersion` node, applies un-applied scripts in order.
+- A migration runner reads the `_SchemaVersion` node, applies un-applied scripts in order.
 - Destructive migrations (property removal, node deletion) are a separate category
   requiring explicit confirmation flag.
 

@@ -1,10 +1,569 @@
 {
-  "spec_count": 23,
-  "total_words": 66838,
-  "total_acceptance_criteria": 320,
+  "spec_count": 38,
+  "total_words": 125439,
+  "total_acceptance_criteria": 347,
   "specs": [
     {
-      "file": "00-project-charter.md",
+      "file": ".github/copilot-instructions.md",
+      "number": "",
+      "title": "copilot-instructions",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "Project",
+        "SDD Methodology",
+        "Rules",
+        "Routing Table",
+        "Tech Stack",
+        "Quality Gate",
+        "Non-Negotiables",
+        "Spec Reference",
+        "Conventions",
+        "Agent Roster"
+      ],
+      "word_count": 579,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
+      ]
+    },
+    {
+      "file": "AGENTS.md",
+      "number": "",
+      "title": "AGENTS",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "What This Repo Is",
+        "Repository Structure",
+        "SDD Phases",
+        "Tech Stack",
+        "Non-Negotiables",
+        "Quality Gate",
+        "How to Navigate",
+        "Spec Inventory (23 specs)",
+        "Plans Inventory (6 plans)",
+        "Agent Roster"
+      ],
+      "word_count": 572,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": false,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
+      ]
+    },
+    {
+      "file": "CLAUDE.md",
+      "number": "",
+      "title": "CLAUDE",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "Project",
+        "SDD Workflow",
+        "Routing Table",
+        "Quality Gate",
+        "Tech Stack (from `plans/system.md`)",
+        "Non-Negotiables",
+        "Spec Reference",
+        "Plans Reference",
+        "Agent Roster"
+      ],
+      "word_count": 807,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": false,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
+      ]
+    },
+    {
+      "file": "NEXT_STEPS.md",
+      "number": "",
+      "title": "NEXT_STEPS",
+      "status": "Strategic recommendations \u2014 not yet a technical plan",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "OSS Stack Assessment",
+        "The Ink Question",
+        "MVP Scope",
+        "SDD Phase 2: Technical Plan Outline",
+        "SDD Phase 3: Task Decomposition Strategy",
+        "Repo Bootstrap Checklist",
+        "Open Architectural Questions",
+        "Risk Register",
+        "What This Document Is Not",
+        "Recommended Next Action"
+      ],
+      "word_count": 4179,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": true,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No edge cases section",
+        "No 'Out of Scope' section"
+      ]
+    },
+    {
+      "file": "plans/.research/coherence-report.md",
+      "number": "",
+      "title": "coherence-report",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "Broken References",
+        "Contradictions",
+        "Missing Coverage",
+        "Consistency Issues",
+        "Dependency Graph Validation",
+        "Issue \u2194 Spec Traceability",
+        "Recommended Fixes",
+        "Summary"
+      ],
+      "word_count": 2028,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
+      ]
+    },
+    {
+      "file": "plans/.research/fastapi-sqlmodel-neo4j.md",
+      "number": "",
+      "title": "fastapi-sqlmodel-neo4j",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "Current Versions & Bumps Needed",
+        "API Changes Affecting Our Plans",
+        "Code Patterns to Adopt",
+        "Integration: FastAPI + SQLModel + Alembic (Async)",
+        "Risks",
+        "Summary: What to Change in system.md",
+        "Sources"
+      ],
+      "word_count": 1091,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": false,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
+      ]
+    },
+    {
+      "file": "plans/.research/langfuse-observability.md",
+      "number": "",
+      "title": "langfuse-observability",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "Current Versions",
+        "Langfuse SDK v4 \u2014 Actual API",
+        "Langfuse + LiteLLM Integration",
+        "Self-Hosted Docker Reference",
+        "structlog \u2014 Current State",
+        "OpenTelemetry \u2014 Current State",
+        "Prometheus + FastAPI \u2014 Current State",
+        "Risks & Recommendations",
+        "Sources"
+      ],
+      "word_count": 1296,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": true,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": false,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
+      ]
+    },
+    {
+      "file": "plans/.research/litellm-openrouter.md",
+      "number": "",
+      "title": "litellm-openrouter",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "Current Versions & Version Bumps",
+        "API Changes Affecting Our Plans",
+        "OpenRouter SDK Analysis",
+        "Code Patterns to Adopt",
+        "Risks & Concerns",
+        "Recommendations for system.md Updates",
+        "Sources"
+      ],
+      "word_count": 1263,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
+      ]
+    },
+    {
+      "file": "plans/TECHNICAL_REVIEW.md",
+      "number": "",
+      "title": "TECHNICAL_REVIEW",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "Dependency Audit Summary",
+        "Critical Findings",
+        "OSS vs Custom Code Analysis",
+        "Integration Verification",
+        "Plan Updates Required",
+        "Risks and Mitigations",
+        "Conclusion"
+      ],
+      "word_count": 1946,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": false,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section"
+      ]
+    },
+    {
+      "file": "plans/api-and-sessions.md",
+      "number": "",
+      "title": "api-and-sessions",
+      "status": "\ud83d\udcdd Draft",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "2026-04-07",
+      "sections": [
+        "FastAPI Application Structure",
+        "Route Specifications",
+        "SSE Implementation",
+        "Session Management (v1 \u2014 Anonymous Auth)",
+        "Persistence Layer",
+        "Game Lifecycle",
+        "Error Handling",
+        "Minimal Web Client",
+        "Testing Strategy",
+        "Configuration Summary",
+        "File Placement"
+      ],
+      "word_count": 7494,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section"
+      ]
+    },
+    {
+      "file": "plans/llm-and-pipeline.md",
+      "number": "",
+      "title": "llm-and-pipeline",
+      "status": "\ud83d\udcdd Draft",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "2026-04-07",
+      "sections": [
+        "Resolved Conflicts and Normative Decisions",
+        "LiteLLM Wrapper Design",
+        "Pipeline Stage Contracts",
+        "Input Understanding",
+        "Context Assembly",
+        "Generation",
+        "Delivery",
+        "Pipeline Orchestrator",
+        "Testing Strategy",
+        "Appendix A \u2014 Dependency Summary",
+        "Appendix B \u2014 Configuration Reference"
+      ],
+      "word_count": 6046,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": true,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No 'Out of Scope' section"
+      ]
+    },
+    {
+      "file": "plans/ops.md",
+      "number": "",
+      "title": "ops",
+      "status": "\ud83d\udcdd Draft",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "2026-04-07",
+      "sections": [
+        "Spec Alignment Notes",
+        "Docker Configuration",
+        "CI/CD Pipeline (GitHub Actions)",
+        "Makefile Commands",
+        "Observability Wiring",
+        "Test Infrastructure",
+        "Database Migrations",
+        "Development Environment Setup",
+        "Monitoring and Alerting (v1)",
+        "Appendix A: Observability Data Flow",
+        "Appendix B: Sensitive Data Classification",
+        "Appendix C: Complete File Inventory"
+      ],
+      "word_count": 7125,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 1,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section"
+      ]
+    },
+    {
+      "file": "plans/prompts.md",
+      "number": "",
+      "title": "prompts",
+      "status": "\ud83d\udcdd Draft",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "2026-04-07",
+      "sections": [
+        "Design Posture",
+        "Template Format",
+        "Narrator Role",
+        "World Context",
+        "Your Task",
+        "Prompt Registry",
+        "Prompt Composition Pipeline",
+        "Prompt Versioning Strategy",
+        "Prompt Snapshot Tests and Prompt Testing",
+        "Narrator Voice",
+        "Genre: Noir Detective",
+        "Prompt Security",
+        "Testing Strategy",
+        "Python Module Structure",
+        "Dependencies",
+        "Implementation Wave Mapping",
+        "Key Interfaces Summary",
+        "Appendix A \u2014 S09 Functional Requirement Coverage"
+      ],
+      "word_count": 6925,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 1,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section"
+      ]
+    },
+    {
+      "file": "plans/system.md",
+      "number": "",
+      "title": "system",
+      "status": "\ud83d\udcdd Draft",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "2026-04-07",
+      "sections": [
+        "Technology Stack and Frameworks",
+        "Architecture and Boundaries",
+        "Data Models and Schemas",
+        "Interfaces and Contracts",
+        "Non-Functional Requirements and Constraints",
+        "Resolved Architectural Questions",
+        "Development Workflow",
+        "Docker Compose (v1)",
+        "Implementation Wave Strategy",
+        "Open Items for Component Plans"
+      ],
+      "word_count": 5393,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
+      ]
+    },
+    {
+      "file": "plans/world-and-genesis.md",
+      "number": "",
+      "title": "world-and-genesis",
+      "status": "\ud83d\udcdd Draft",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "2026-04-07",
+      "sections": [
+        "Neo4j Schema",
+        "Cypher Query Patterns",
+        "World Template Format",
+        "Genesis-Lite Workflow",
+        "World State Management",
+        "World Query Performance",
+        "Session Isolation",
+        "Testing Strategy",
+        "Appendix A: Mapping to system.md",
+        "Appendix B: Naming Reconciliation"
+      ],
+      "word_count": 7165,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 2,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section"
+      ]
+    },
+    {
+      "file": "specs/00-project-charter.md",
       "number": "S00",
       "title": "Project Charter",
       "status": "\ud83d\udcdd Draft",
@@ -45,7 +604,7 @@
       ]
     },
     {
-      "file": "01-gameplay-loop.md",
+      "file": "specs/01-gameplay-loop.md",
       "number": "S01",
       "title": "Gameplay Loop & Progression",
       "status": "\ud83d\udcdd Draft",
@@ -79,7 +638,7 @@
       "warnings": []
     },
     {
-      "file": "02-genesis-onboarding.md",
+      "file": "specs/02-genesis-onboarding.md",
       "number": "S02",
       "title": "Genesis Onboarding",
       "status": "\ud83d\udcdd Draft",
@@ -113,7 +672,7 @@
       "warnings": []
     },
     {
-      "file": "03-narrative-engine.md",
+      "file": "specs/03-narrative-engine.md",
       "number": "S03",
       "title": "Narrative Engine",
       "status": "\ud83d\udcdd Draft",
@@ -147,7 +706,7 @@
       "warnings": []
     },
     {
-      "file": "04-world-model.md",
+      "file": "specs/04-world-model.md",
       "number": "S04",
       "title": "World Model",
       "status": "\ud83d\udcdd Draft",
@@ -181,7 +740,7 @@
       "warnings": []
     },
     {
-      "file": "05-choice-and-consequence.md",
+      "file": "specs/05-choice-and-consequence.md",
       "number": "S05",
       "title": "Choice & Consequence",
       "status": "\ud83d\udcdd Draft",
@@ -215,7 +774,7 @@
       "warnings": []
     },
     {
-      "file": "06-character-system.md",
+      "file": "specs/06-character-system.md",
       "number": "S06",
       "title": "Character System",
       "status": "\ud83d\udcdd Draft",
@@ -249,16 +808,16 @@
       "warnings": []
     },
     {
-      "file": "07-llm-integration.md",
+      "file": "specs/07-llm-integration.md",
       "number": "S07",
       "title": "LLM Integration",
       "status": "\ud83d\udcdd Draft",
       "level": "2 \u2014 AI & Content",
       "dependencies": [
         "S01 (Core Game Loop)",
-        "S03 (World Model)"
+        "S03 (Narrative Engine)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "\u2014 Purpose",
         "\u2014 User Stories",
@@ -274,35 +833,34 @@
         "\u2014 Testing",
         "\u2014 Edge Cases",
         "\u2014 Acceptance Criteria",
+        "\u2014 Out of Scope",
         "\u2014 Open Questions",
         "Appendix A \u2014 Glossary"
       ],
-      "word_count": 3558,
+      "word_count": 3991,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 31,
       "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [
-        "No 'Out of Scope' section"
-      ]
+      "warnings": []
     },
     {
-      "file": "08-turn-processing-pipeline.md",
+      "file": "specs/08-turn-processing-pipeline.md",
       "number": "S08",
       "title": "Turn Processing Pipeline",
       "status": "\ud83d\udcdd Draft",
       "level": "2 \u2014 AI & Content",
       "dependencies": [
         "S01 (Core Game Loop)",
-        "S03 (World Model)",
+        "S03 (Narrative Engine)",
         "S07 (LLM Integration)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "\u2014 Purpose",
         "\u2014 User Stories",
@@ -318,27 +876,25 @@
         "\u2014 Pipeline Observability",
         "\u2014 Edge Cases",
         "\u2014 Acceptance Criteria",
+        "\u2014 Out of Scope",
         "\u2014 Open Questions",
         "Appendix A \u2014 Glossary",
         "Appendix B \u2014 Intent Categories"
       ],
-      "word_count": 4757,
+      "word_count": 5958,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 34,
+      "acceptance_criteria_count": 7,
       "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
-      "has_gherkin_scenarios": false,
-      "gherkin_scenario_count": 0,
-      "warnings": [
-        "No 'Out of Scope' section",
-        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
-      ]
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 24,
+      "warnings": []
     },
     {
-      "file": "09-prompt-and-content.md",
+      "file": "specs/09-prompt-and-content.md",
       "number": "S09",
       "title": "Prompt & Content Management",
       "status": "\ud83d\udcdd Draft",
@@ -347,7 +903,7 @@
         "S07 (LLM Integration)",
         "S08 (Turn Processing Pipeline)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "\u2014 Purpose",
         "\u2014 User Stories",
@@ -366,26 +922,25 @@
         "\u2014 Guardrails",
         "\u2014 Edge Cases",
         "\u2014 Acceptance Criteria",
+        "\u2014 Out of Scope",
         "\u2014 Open Questions",
         "Appendix A \u2014 Glossary",
         "Appendix B \u2014 Prompt Template Syntax Quick Reference"
       ],
-      "word_count": 4875,
+      "word_count": 5436,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 44,
       "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 1,
-      "warnings": [
-        "No 'Out of Scope' section"
-      ]
+      "warnings": []
     },
     {
-      "file": "10-api-and-streaming.md",
+      "file": "specs/10-api-and-streaming.md",
       "number": "S10",
       "title": "API & Streaming",
       "status": "\ud83d\udcdd Draft",
@@ -395,7 +950,7 @@
         "S11 (Player Identity & Sessions)",
         "S12 (Persistence Strategy)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "Purpose",
         "Design Philosophy",
@@ -411,25 +966,23 @@
         "API Documentation",
         "Edge Cases & Failure Modes",
         "Acceptance Criteria",
+        "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 3134,
-      "has_acceptance_criteria": false,
-      "acceptance_criteria_count": 0,
+      "word_count": 3453,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 12,
       "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [
-        "Missing acceptance criteria",
-        "No 'Out of Scope' section"
-      ]
+      "warnings": []
     },
     {
-      "file": "11-player-identity-and-sessions.md",
+      "file": "specs/11-player-identity-and-sessions.md",
       "number": "S11",
       "title": "Player Identity & Sessions",
       "status": "\ud83d\udcdd Draft",
@@ -437,7 +990,7 @@
       "dependencies": [
         "S12 (Persistence Strategy)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "Purpose",
         "Design Philosophy",
@@ -452,27 +1005,23 @@
         "Account Deletion (GDPR)",
         "Security Considerations",
         "Acceptance Criteria",
+        "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 3473,
-      "has_acceptance_criteria": false,
-      "acceptance_criteria_count": 0,
-      "has_user_stories": false,
+      "word_count": 3935,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 14,
+      "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
-      "has_gherkin_scenarios": false,
-      "gherkin_scenario_count": 0,
-      "warnings": [
-        "Missing acceptance criteria",
-        "No user stories found",
-        "No 'Out of Scope' section",
-        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
-      ]
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": []
     },
     {
-      "file": "12-persistence-strategy.md",
+      "file": "specs/12-persistence-strategy.md",
       "number": "S12",
       "title": "Persistence Strategy",
       "status": "\ud83d\udcdd Draft",
@@ -481,7 +1030,7 @@
         "S04 (World Model)",
         "S13 (World Graph Schema)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "Purpose",
         "Design Philosophy",
@@ -497,26 +1046,23 @@
         "Backup & Recovery",
         "Acceptance Criteria",
         "Edge Cases",
+        "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 3559,
-      "has_acceptance_criteria": false,
-      "acceptance_criteria_count": 0,
-      "has_user_stories": false,
+      "word_count": 3697,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 12,
+      "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [
-        "Missing acceptance criteria",
-        "No user stories found",
-        "No 'Out of Scope' section"
-      ]
+      "warnings": []
     },
     {
-      "file": "13-world-graph-schema.md",
+      "file": "specs/13-world-graph-schema.md",
       "number": "S13",
       "title": "World Graph Schema",
       "status": "\ud83d\udcdd Draft",
@@ -524,7 +1070,7 @@
       "dependencies": [
         "S04 (World Model)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "Purpose",
         "Design Philosophy",
@@ -541,26 +1087,23 @@
         "Player Session Representation in Graph",
         "Acceptance Criteria",
         "Edge Cases",
+        "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 5279,
-      "has_acceptance_criteria": false,
-      "acceptance_criteria_count": 0,
-      "has_user_stories": false,
+      "word_count": 5431,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 16,
+      "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [
-        "Missing acceptance criteria",
-        "No user stories found",
-        "No 'Out of Scope' section"
-      ]
+      "warnings": []
     },
     {
-      "file": "14-deployment.md",
+      "file": "specs/14-deployment.md",
       "number": "S14",
       "title": "Deployment & Infrastructure",
       "status": "\ud83d\udcdd Draft",
@@ -570,7 +1113,7 @@
         "S08 (Turn Pipeline)",
         "S10 (API)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "Overview",
         "Container Architecture",
@@ -583,27 +1126,25 @@
         "Database Provisioning",
         "Health Checks",
         "Scaling Considerations (Future)",
+        "Key Scenarios (Gherkin)",
         "Appendix A: Container Dependency Graph",
         "Appendix B: Port Map",
         "Appendix C: Makefile Quick Reference"
       ],
-      "word_count": 2905,
+      "word_count": 3223,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 34,
       "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": false,
       "has_given_when_then": true,
-      "has_gherkin_scenarios": false,
-      "gherkin_scenario_count": 0,
-      "warnings": [
-        "No 'Out of Scope' section",
-        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
-      ]
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": []
     },
     {
-      "file": "15-observability.md",
+      "file": "specs/15-observability.md",
       "number": "S15",
       "title": "Observability",
       "status": "\ud83d\udcdd Draft",
@@ -612,7 +1153,7 @@
         "S08 (Turn Pipeline)",
         "S14 (Deployment)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "Overview",
         "Logging",
@@ -624,37 +1165,35 @@
         "Correlation",
         "Sensitive Data Handling",
         "Cost Tracking",
+        "Key Scenarios (Gherkin)",
         "Appendix A: Recommended OSS Stack",
         "Appendix B: OpenTelemetry Configuration"
       ],
-      "word_count": 2974,
+      "word_count": 3387,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 32,
       "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": false,
       "has_given_when_then": true,
-      "has_gherkin_scenarios": false,
-      "gherkin_scenario_count": 0,
-      "warnings": [
-        "No 'Out of Scope' section",
-        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
-      ]
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": []
     },
     {
-      "file": "16-testing-infrastructure.md",
+      "file": "specs/16-testing-infrastructure.md",
       "number": "S16",
       "title": "Testing Infrastructure",
       "status": "\ud83d\udcdd Draft",
       "level": "4 \u2014 Operations",
       "dependencies": [
         "S00 (Testing Charter)",
-        "S01 (Architecture)",
+        "S01 (Gameplay Loop)",
         "S14 (Deployment)",
         "S15 (Observability)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "Overview",
         "CI Pipeline",
@@ -667,37 +1206,35 @@
         "Flaky Test Handling",
         "Mutation Testing",
         "Test Organization & Conventions",
+        "Key Scenarios (Gherkin)",
         "Appendix A: CI Pipeline Diagram",
         "Appendix B: pytest.ini / pyproject.toml Test Config"
       ],
-      "word_count": 3058,
+      "word_count": 3407,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 36,
       "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": false,
       "has_given_when_then": true,
-      "has_gherkin_scenarios": false,
-      "gherkin_scenario_count": 0,
-      "warnings": [
-        "No 'Out of Scope' section",
-        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
-      ]
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": []
     },
     {
-      "file": "17-data-privacy.md",
+      "file": "specs/17-data-privacy.md",
       "number": "S17",
       "title": "Data Privacy",
       "status": "\ud83d\udcdd Draft",
       "level": "4 \u2014 Operations",
       "dependencies": [
-        "S01 (Architecture)",
-        "S05 (Game State)",
+        "S01 (Gameplay Loop)",
+        "S05 (Choice & Consequence)",
         "S14 (Deployment)",
         "S15 (Observability)"
       ],
-      "last_updated": "2025-07-24",
+      "last_updated": "2026-04-07",
       "sections": [
         "Overview",
         "Data Inventory",
@@ -712,27 +1249,25 @@
         "Data Anonymization",
         "Data Breach Response",
         "Privacy Policy",
+        "Key Scenarios (Gherkin)",
         "Appendix A: Data Flow Diagram",
         "Appendix B: GDPR Quick Reference",
         "Appendix C: v1 vs Future Privacy Maturity"
       ],
-      "word_count": 3801,
+      "word_count": 4147,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 44,
       "has_user_stories": true,
       "has_edge_cases": true,
-      "has_out_of_scope": false,
+      "has_out_of_scope": true,
       "has_open_questions": false,
       "has_given_when_then": true,
-      "has_gherkin_scenarios": false,
-      "gherkin_scenario_count": 0,
-      "warnings": [
-        "No 'Out of Scope' section",
-        "No Gherkin scenarios \u2014 ACs should use Given/When/Then"
-      ]
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": []
     },
     {
-      "file": "future/18-therapeutic-framework.md",
+      "file": "specs/future/18-therapeutic-framework.md",
       "number": "S18",
       "title": "Therapeutic Framework",
       "status": "\ud83d\udcdd Stub (Future)",
@@ -768,7 +1303,7 @@
       ]
     },
     {
-      "file": "future/19-crisis-and-content-safety.md",
+      "file": "specs/future/19-crisis-and-content-safety.md",
       "number": "S19",
       "title": "Crisis & Content Safety",
       "status": "\ud83d\udcdd Stub (Future)",
@@ -804,7 +1339,7 @@
       ]
     },
     {
-      "file": "future/20-story-sharing.md",
+      "file": "specs/future/20-story-sharing.md",
       "number": "S20",
       "title": "Story Sharing",
       "status": "\ud83d\udcdd Stub (Future)",
@@ -841,7 +1376,7 @@
       ]
     },
     {
-      "file": "future/21-collaborative-writing.md",
+      "file": "specs/future/21-collaborative-writing.md",
       "number": "S21",
       "title": "Collaborative Writing",
       "status": "\ud83d\udcdd Stub (Future)",
@@ -879,7 +1414,7 @@
       ]
     },
     {
-      "file": "future/22-community.md",
+      "file": "specs/future/22-community.md",
       "number": "S22",
       "title": "Community",
       "status": "\ud83d\udcdd Stub (Future)",

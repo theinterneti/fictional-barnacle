@@ -6,12 +6,12 @@
 
 | Plan | Wave | Lines | Words | Code Blocks | Specs Referenced | Normative | Warnings |
 |------|------|------:|------:|:-----------:|:----------------:|:---------:|----------|
-| [System Technical Plan](system.md) | — | 949 | 5,351 | 15 | S00, S01, S10, S11, S17 +2 | ✅ | 1 |
+| [System Technical Plan](system.md) | — | 954 | 5,393 | 15 | S00, S01, S05, S06, S10 +4 | ✅ | 1 |
 | [Technical Review — Dependency Verification & OSS Analysis](TECHNICAL_REVIEW.md) | — | 294 | 1,946 | 5 |  | — | 2 |
-| [API & Sessions — Component Technical Plan](api-and-sessions.md) | 4 (depends on Waves 2 + 3: pipeline + world/genesis) | 1,963 | 7,489 | 52 | S10, S11, S12 | ✅ | — |
+| [API & Sessions — Component Technical Plan](api-and-sessions.md) | 4 (depends on Waves 2 + 3: pipeline + world/genesis) | 1,963 | 7,494 | 52 | S10, S11, S12 | ✅ | — |
 | [LLM Integration + Turn Processing Pipeline — Component Technical Plan](llm-and-pipeline.md) | Wave 2 | 1,241 | 6,046 | 36 | S07, S08 | ✅ | — |
-| [Operations Technical Plan — Deployment, Observability, Testing](ops.md) | — | 2,090 | 7,111 | 42 | S14, S15, S16 | — | — |
-| [Prompt & Content Management — Technical Plan](prompts.md) | — | 1,383 | 6,903 | 36 | S03, S07, S08, S09 | — | — |
+| [Operations Technical Plan — Deployment, Observability, Testing](ops.md) | — | 2,091 | 7,125 | 42 | S14, S15, S16 | — | — |
+| [Prompt & Content Management — Technical Plan](prompts.md) | — | 1,384 | 6,925 | 36 | S03, S07, S08, S09, S19 | — | — |
 | [World Model + Genesis — Component Technical Plan](world-and-genesis.md) | 3 (World + Genesis — see system.md §9) | 1,446 | 7,165 | 41 | S02, S04, S13 | — | — |
 
 ## Section Coverage
@@ -53,6 +53,8 @@ These sections are **locked** — component plans may extend but must not alter 
 - **S02** → world-and-genesis.md
 - **S03** → prompts.md
 - **S04** → world-and-genesis.md
+- **S05** → system.md
+- **S06** → system.md
 - **S07** → llm-and-pipeline.md, prompts.md
 - **S08** → llm-and-pipeline.md, prompts.md
 - **S09** → prompts.md
@@ -65,13 +67,13 @@ These sections are **locked** — component plans may extend but must not alter 
 - **S16** → ops.md
 - **S17** → system.md
 - **S18** → system.md
-- **S19** → system.md
+- **S19** → system.md, prompts.md
 
 ## Summary
 
 - **Total plans**: 7
-- **Total lines**: 9,366
-- **Total words**: 42,011
+- **Total lines**: 9,373
+- **Total words**: 42,094
 - **Total code blocks**: 227
-- **Unique specs referenced**: 18
+- **Unique specs referenced**: 20
 - **Plans with warnings**: 2/7

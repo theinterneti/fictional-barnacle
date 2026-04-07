@@ -2,7 +2,7 @@
 
 > **Status**: 📝 Draft
 > **Level**: 2 — AI & Content
-> **Dependencies**: S01 (Core Game Loop), S03 (World Model), S07 (LLM Integration)
+> **Dependencies**: S01 (Core Game Loop), S03 (Narrative Engine), S07 (LLM Integration)
 > **Last Updated**: 2026-04-07
 
 ## 1 — Purpose

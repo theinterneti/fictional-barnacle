@@ -18,6 +18,8 @@ This spec defines the infrastructure, tooling, and automation that supports test
 - **Security / penetration test automation** — manual review for v1 — S17 (Data Privacy) covers policy
 - **pytest-bdd for Gherkin execution** — Gherkin in specs is for human-readable ACs, not automated BDD test runner — may adopt later
 
+> **Note**: Overridden by system.md §1.3 — pytest-bdd is included for v1 to enable executable Gherkin acceptance tests.
+
 ---
 
 ## 1. CI Pipeline

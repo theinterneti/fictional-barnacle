@@ -174,7 +174,8 @@ services:
       - tta-net
 
   tta-langfuse:
-    image: langfuse/langfuse:latest
+    # Langfuse server images use v3 tag; the Python SDK is v4 (separate versioning)
+    image: langfuse/langfuse:3
     ports:
       - "${TTA_OBS_LANGFUSE_PORT:-3001}:3000"
     environment:

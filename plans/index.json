@@ -1,7 +1,7 @@
 {
   "plan_count": 7,
-  "total_lines": 9366,
-  "total_words": 42011,
+  "total_lines": 9373,
+  "total_words": 42094,
   "plans": [
     {
       "file": "system.md",
@@ -62,8 +62,8 @@
         "7.3 \u2014 Branching Strategy",
         "7.4 \u2014 Configuration"
       ],
-      "word_count": 5351,
-      "line_count": 949,
+      "word_count": 5393,
+      "line_count": 954,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -80,6 +80,8 @@
       "spec_refs": [
         "S00",
         "S01",
+        "S05",
+        "S06",
         "S10",
         "S11",
         "S17",
@@ -251,7 +253,7 @@
         "9.5 \u2014 BDD Mapping",
         "9.6 \u2014 Test Markers"
       ],
-      "word_count": 7489,
+      "word_count": 7494,
       "line_count": 1963,
       "has_tech_stack": true,
       "has_architecture": true,
@@ -477,8 +479,8 @@
         "8.3 \u2014 Alert Conditions",
         "8.4 \u2014 Grafana Dashboards (Optional)"
       ],
-      "word_count": 7111,
-      "line_count": 2090,
+      "word_count": 7125,
+      "line_count": 2091,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -585,8 +587,8 @@
         "10.1 \u2014 New Python dependencies",
         "10.2 \u2014 No new infrastructure"
       ],
-      "word_count": 6903,
-      "line_count": 1383,
+      "word_count": 6925,
+      "line_count": 1384,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -600,10 +602,10 @@
         "S03",
         "S07",
         "S08",
-        "S09"
+        "S09",
+        "S19"
       ],
       "plan_refs": [
-        "safety.md",
         "system.md"
       ],
       "section_refs": [
@@ -613,6 +615,7 @@
         "\u00a72.1",
         "\u00a72.2",
         "\u00a72.3",
+        "\u00a72.4",
         "\u00a72.5",
         "\u00a73.3",
         "\u00a73.4",

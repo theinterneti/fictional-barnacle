@@ -38,6 +38,8 @@ This spec describes behavior: what a developer or operator does, and what the sy
 |-----------|---------|---------|
 | `tta-api` | FastAPI application server — handles HTTP/SSE | Port 8000 |
 | `tta-worker` | Background task worker (turn processing, async jobs) | No external port |
+
+> **Note**: `tta-worker` is deferred to post-v1 per system.md §2.2. V1 runs as a single container.
 | `tta-neo4j` | Neo4j graph database (world state, narrative graph) | Ports 7474 (browser), 7687 (bolt) |
 | `tta-redis` | Redis (session cache, pub/sub, task queue) | Port 6379 |
 | `tta-postgres` | PostgreSQL (player accounts, system config, audit log) | Port 5432 |

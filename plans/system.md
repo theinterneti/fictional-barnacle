@@ -18,15 +18,15 @@
 | **Package manager** | uv | latest | Fast, lockfile-based, replaces pip+venv |
 | **API framework** | FastAPI | ≥ 0.135 | Async, typed, **native SSE** (`fastapi.sse.EventSourceResponse`), auto OpenAPI docs |
 | **ASGI server** | Uvicorn | ≥ 0.30 | Standard, `--reload` for dev |
-| **LLM gateway** | LiteLLM | ≥ 1.50 | Library mode (not proxy). Unified API, streaming, fallback, cost tracking |
+| **LLM gateway** | LiteLLM | ≥ 1.75 | Library mode (not proxy). Unified API, streaming, fallback, cost tracking |
 | **World graph** | Neo4j Community | 5.x | Native graph for world state. Cypher queries. CE is sufficient for v1 scale. |
 | **Relational DB** | PostgreSQL | 16+ | Player data, sessions, transcripts. Use everywhere — including dev. No SQLite. |
 | **Session cache** | Redis | 7+ | Active session state, SSE pub/sub. Ephemeral only — never the source of truth. Use `redis.asyncio` (redis-py ≥ 5.0) — NOT standalone `aioredis`. |
 | **ORM / query** | SQLModel | ≥ 0.0.38 | Thin Pydantic+SQLAlchemy 2.0 layer. Raw asyncpg for hot paths if needed. |
-| **Neo4j driver** | neo4j (Python) | ≥ 6.0 | Official async driver (`AsyncGraphDatabase.driver()`) |
+| **Neo4j driver** | neo4j (Python) | ≥ 6.0 | Official async driver (`AsyncGraphDatabase.driver()`). Install `neo4j` package (not deprecated `neo4j-driver`). Use `.execute_read()`/`.execute_write()` (v6 replaced `.read_transaction()`/`.write_transaction()`). |
 | **Resilience** | tenacity | ≥ 9.0 | Retry with backoff. Do NOT build custom retry/circuit-breaker logic. |
 | **SQL driver (app)** | asyncpg | latest | Async Postgres driver for FastAPI runtime |
-| **SQL driver (migrations)** | psycopg[binary] | latest | Sync Postgres driver for Alembic CLI commands |
+
 | **HTTP client** | httpx | ≥ 0.27 | Async HTTP for internal calls and testing |
 
 ### 1.2 — Observability
@@ -738,7 +738,7 @@ class Settings(BaseSettings):
 
     # Databases
     postgres_url: str = "postgresql+asyncpg://tta:tta@localhost:5432/tta"
-    postgres_url_sync: str = "postgresql+psycopg://tta:tta@localhost:5432/tta"  # For Alembic CLI
+
     neo4j_url: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str  # No default — must be set
@@ -813,7 +813,8 @@ services:
       retries: 5
 
   tta-langfuse:
-    image: langfuse/langfuse:4
+    # Langfuse server images use v3 tag; the Python SDK is v4 (separate versioning)
+    image: langfuse/langfuse:3
     profiles: ["langfuse"]
     ports: ["3001:3000"]
     environment:
@@ -842,7 +843,7 @@ services:
         condition: service_started
 
   langfuse-worker:
-    image: langfuse/langfuse-worker:4
+    image: langfuse/langfuse-worker:3
     profiles: ["langfuse"]
     environment:
       DATABASE_URL: "postgresql://tta:tta@langfuse-postgres:5432/langfuse"
@@ -929,6 +930,10 @@ Waves define the build order. Each wave produces independently testable delivera
 | **5** | Integration | End-to-end playtest, prompt tuning, BDD tests, error hardening | Wave 4 |
 
 Component plans (`plans/llm-and-pipeline.md`, etc.) detail each wave's internals.
+
+> **Coverage note**: S01 (Gameplay Loop), S05 (Choice & Consequence), and S06 (Character System)
+> are covered implicitly by the pipeline and world plans. Dedicated implementation plans for
+> these specs will be created during Wave 2–3 planning if gaps are identified.
 
 ---
 

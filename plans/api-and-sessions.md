@@ -582,7 +582,7 @@ Client                                      Server
 ```python
 # src/tta/api/routes/games.py (SSE endpoint)
 
-from fastapi.responses import StreamingResponse
+from starlette.responses import StreamingResponse  # or use sse-starlette EventSourceResponse
 
 @router.get("/games/{game_id}/stream")
 async def game_stream(
