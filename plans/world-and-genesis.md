@@ -1444,3 +1444,35 @@ Feature: World State Management
 | `PlayerSession` | `Player` | `PlayerSession` | `PlayerSession` |
 
 system.md is authoritative. S13 names are used in this document only for cross-reference.
+
+## Appendix C: Future Component Candidate — Hindsight Memory System
+
+> **Status**: Evaluation complete — candidate for post-v1 integration
+> **Evaluated**: 2026-04-07
+
+[Hindsight](https://github.com/vectorize-io/hindsight) is a biomimetic memory system
+for AI agents (retain/recall/reflect over a Postgres-backed knowledge graph with
+multi-strategy retrieval). It was evaluated as a potential component in TTA's
+persistence layer.
+
+**Verdict**: Hindsight is a **complementary candidate** for NPC cognition and narrative
+recall — not a replacement for the core persistence layer (Neo4j world graph, Postgres
+game state, Redis cache).
+
+**Where it fits (post-v1)**:
+
+| Feature | Why Hindsight | Current V1 approach |
+|---------|---------------|---------------------|
+| NPC memory/knowledge (S06 US-6.7) | Fuzzy recall, temporal queries, disposition traits map to NPC personalities | `KNOWS_ABOUT` relationships in Neo4j (rigid, non-temporal) |
+| Player experience recall | Temporal queries + reflect → narrative recaps | Not implemented in v1 |
+| Pipeline context enrichment | Multi-strategy recall surfaces relevant facts | Stub in context stage |
+
+**Where it does NOT fit**: World graph (needs typed schema + Cypher traversal), atomic
+state mutations (needs transactions), simulation logic (needs deterministic queries),
+spatial queries (needs graph hops, not semantic search).
+
+**Integration advantage**: TTA already uses LiteLLM → `hindsight-litellm` is drop-in.
+Both use Postgres and async Python. Low integration cost when features mature.
+
+**Action**: When NPC memory (S06) or narrative recall features move beyond v1 stubs,
+evaluate Hindsight before building a custom equivalent.
