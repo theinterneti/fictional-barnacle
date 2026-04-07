@@ -9,11 +9,12 @@ WORKDIR /app
 # Copy dependency files first (cache layer)
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies (no dev deps)
-RUN uv sync --no-dev --frozen
+# Install dependencies only (cache layer — no project install yet)
+RUN uv sync --no-dev --frozen --no-install-project
 
-# Copy source
+# Copy source and install the project package
 COPY src/ src/
+RUN uv sync --no-dev --frozen
 
 # Stage 2: Runtime
 FROM python:3.12-slim AS runtime

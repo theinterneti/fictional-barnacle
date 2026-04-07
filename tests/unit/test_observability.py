@@ -42,9 +42,7 @@ def _fake_llm_response(
         completion_tokens=5,
         total_tokens=15,
     )
-    return SimpleNamespace(
-        choices=[choice], model=model, usage=usage
-    )
+    return SimpleNamespace(choices=[choice], model=model, usage=usage)
 
 
 @pytest.fixture(autouse=True)
@@ -74,9 +72,7 @@ class TestInitLangfuse:
         assert get_langfuse() is None
 
     @patch("tta.observability.Langfuse", create=True)
-    def test_with_host_creates_client(
-        self, mock_cls: MagicMock
-    ) -> None:
+    def test_with_host_creates_client(self, mock_cls: MagicMock) -> None:
         """When langfuse_host is set, a Langfuse client is created."""
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
@@ -157,9 +153,7 @@ class TestTraceLlmWithClient:
 
         await _call()
 
-        mock.trace.assert_called_once_with(
-            name="generate", tags=["user_input"]
-        )
+        mock.trace.assert_called_once_with(name="generate", tags=["user_input"])
 
     async def test_generation_recorded(self) -> None:
         """A generation is recorded with model, usage, and output."""
@@ -168,9 +162,7 @@ class TestTraceLlmWithClient:
 
         @trace_llm(name="gen")
         async def _call() -> SimpleNamespace:
-            return _fake_llm_response(
-                text="world", model="gpt-4o"
-            )
+            return _fake_llm_response(text="world", model="gpt-4o")
 
         await _call()
 
@@ -196,9 +188,7 @@ class TestTraceLlmWithClient:
         with pytest.raises(RuntimeError, match="oops"):
             await _call()
 
-        mock_trace.update.assert_called_once_with(
-            level="ERROR", status_message="oops"
-        )
+        mock_trace.update.assert_called_once_with(level="ERROR", status_message="oops")
 
     async def test_kwargs_passed_as_input(self) -> None:
         """Function kwargs are passed as generation input."""
@@ -235,9 +225,7 @@ class TestPrivacy:
 
         await _call()
 
-        mock.trace.assert_called_once_with(
-            name="chat", tags=["user_input"]
-        )
+        mock.trace.assert_called_once_with(name="chat", tags=["user_input"])
 
     def test_sanitize_removes_pii(self) -> None:
         """_sanitize_input strips known PII fields."""

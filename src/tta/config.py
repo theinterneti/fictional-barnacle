@@ -3,6 +3,7 @@
 from enum import StrEnum
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +32,14 @@ class Settings(BaseSettings):
     # PostgreSQL (required)
     database_url: str
 
+    @field_validator("database_url")
+    @classmethod
+    def _validate_database_url(cls, v: str) -> str:
+        if not v.startswith(("postgresql://", "postgresql+asyncpg://")):
+            msg = "database_url must start with postgresql:// or postgresql+asyncpg://"
+            raise ValueError(msg)
+        return v
+
     # Redis
     redis_url: str = "redis://localhost:6379"
 
@@ -49,7 +58,7 @@ class Settings(BaseSettings):
     langfuse_secret_key: str | None = None
 
     # CORS
-    cors_origins: list[str] = ["*"]
+    cors_origins: list[str] = ["http://localhost:3000"]
 
     # Application
     session_token_ttl: int = 86400

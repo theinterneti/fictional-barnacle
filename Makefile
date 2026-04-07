@@ -75,8 +75,9 @@ check: lint test ## Full CI gate (lint + test)
 # ---------------------------------------------------------------------------
 # Development
 # ---------------------------------------------------------------------------
-dev: up ## Start services then run uvicorn with reload
-	uv run uvicorn tta.api.app:app --reload --host 0.0.0.0 --port 8000
+dev: ## Start dependency services and run API locally with reload
+	docker compose up -d postgres neo4j redis
+	uv run uvicorn tta.api.app:create_app --factory --reload --host 0.0.0.0 --port 8000
 
 # ---------------------------------------------------------------------------
 # Infrastructure

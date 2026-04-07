@@ -108,15 +108,11 @@ class TestTableDefinitions:
     def test_turns_session_turn_unique(self, migration_source: str) -> None:
         assert "uq_turns_session_turn" in migration_source
 
-    def test_turns_idempotency_partial_index(self, migration_source: str) -> None:
-        assert "ix_turns_session_idempotency" in migration_source
-        assert "idempotency_key IS NOT NULL" in migration_source
+    def test_turns_idempotency_unique_constraint(self, migration_source: str) -> None:
+        assert "uq_turns_session_idempotency" in migration_source
 
-    def test_turns_session_id_index(self, migration_source: str) -> None:
-        assert "ix_turns_session_id" in migration_source
-
-    def test_world_events_session_id_index(self, migration_source: str) -> None:
-        assert "ix_world_events_session_id" in migration_source
+    def test_world_events_session_index(self, migration_source: str) -> None:
+        assert "idx_world_events_session" in migration_source
 
 
 class TestDowngrade:

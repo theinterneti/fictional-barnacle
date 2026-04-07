@@ -58,9 +58,7 @@ class TestRequestIDMiddleware:
         resp = client.get("/api/v1/health")
         assert "x-request-id" in resp.headers
 
-    def test_generated_id_is_valid_uuid(
-        self, client: TestClient
-    ) -> None:
+    def test_generated_id_is_valid_uuid(self, client: TestClient) -> None:
         resp = client.get("/api/v1/health")
         # Should not raise
         uuid.UUID(resp.headers["x-request-id"])

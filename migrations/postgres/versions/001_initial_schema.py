@@ -43,26 +43,31 @@ def upgrade() -> None:
     op.create_table(
         "players",
         sa.Column("id", **_UUID_PK),
-        sa.Column("handle", sa.VARCHAR(), nullable=False, unique=True),
+        sa.Column("handle", sa.Text(), nullable=False, unique=True),
         sa.Column("created_at", **_CREATED_AT),
         sa.Column("updated_at", **_UPDATED_AT),
         sa.PrimaryKeyConstraint("id"),
     )
 
     # ── player_sessions ───────────────────────────────────────────
+    # Normative: token TEXT PRIMARY KEY (no UUID id column)
     op.create_table(
         "player_sessions",
-        sa.Column("id", **_UUID_PK),
+        sa.Column("token", sa.Text(), nullable=False),
         sa.Column("player_id", sa.UUID(), nullable=False),
-        sa.Column("token", sa.VARCHAR(), nullable=False, unique=True),
         sa.Column(
             "expires_at",
             sa.DateTime(timezone=True),
             nullable=False,
         ),
         sa.Column("created_at", **_CREATED_AT),
-        sa.PrimaryKeyConstraint("id"),
+        sa.PrimaryKeyConstraint("token"),
         sa.ForeignKeyConstraint(["player_id"], ["players.id"], ondelete="CASCADE"),
+    )
+    op.create_index(
+        "idx_player_sessions_player",
+        "player_sessions",
+        ["player_id"],
     )
 
     # ── game_sessions ─────────────────────────────────────────────
@@ -73,9 +78,14 @@ def upgrade() -> None:
         sa.Column(
             "world_seed",
             sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
-            nullable=True,
+            nullable=False,
         ),
-        sa.Column("status", sa.VARCHAR(), nullable=False),
+        sa.Column(
+            "status",
+            sa.Text(),
+            nullable=False,
+            server_default="active",
+        ),
         sa.Column("created_at", **_CREATED_AT),
         sa.Column("updated_at", **_UPDATED_AT),
         sa.PrimaryKeyConstraint("id"),
@@ -88,23 +98,38 @@ def upgrade() -> None:
         sa.Column("id", **_UUID_PK),
         sa.Column("session_id", sa.UUID(), nullable=False),
         sa.Column("turn_number", sa.Integer(), nullable=False),
+        sa.Column("idempotency_key", sa.UUID(), nullable=True),
+        sa.Column(
+            "status",
+            sa.Text(),
+            nullable=False,
+            server_default="processing",
+        ),
         sa.Column("player_input", sa.Text(), nullable=False),
+        sa.Column(
+            "parsed_intent",
+            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            nullable=True,
+        ),
+        sa.Column(
+            "world_context",
+            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            nullable=True,
+        ),
         sa.Column("narrative_output", sa.Text(), nullable=True),
-        sa.Column("model_used", sa.VARCHAR(), nullable=True),
+        sa.Column("model_used", sa.Text(), nullable=True),
+        sa.Column("latency_ms", sa.Integer(), nullable=True),
         sa.Column(
             "token_count",
             sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
             nullable=True,
         ),
-        sa.Column("latency_ms", sa.Integer(), nullable=True),
-        sa.Column("status", sa.VARCHAR(), nullable=False),
-        sa.Column("idempotency_key", sa.UUID(), nullable=True),
+        sa.Column("created_at", **_CREATED_AT),
         sa.Column(
-            "safety_flags",
-            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            "completed_at",
+            sa.DateTime(timezone=True),
             nullable=True,
         ),
-        sa.Column("created_at", **_CREATED_AT),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(
             ["session_id"],
@@ -116,21 +141,11 @@ def upgrade() -> None:
             "turn_number",
             name="uq_turns_session_turn",
         ),
-    )
-
-    # Partial unique index: idempotency_key only when non-null
-    op.create_index(
-        "ix_turns_session_idempotency",
-        "turns",
-        ["session_id", "idempotency_key"],
-        unique=True,
-        postgresql_where=sa.text("idempotency_key IS NOT NULL"),
-    )
-
-    op.create_index(
-        "ix_turns_session_id",
-        "turns",
-        ["session_id"],
+        sa.UniqueConstraint(
+            "session_id",
+            "idempotency_key",
+            name="uq_turns_session_idempotency",
+        ),
     )
 
     # ── world_events ──────────────────────────────────────────────
@@ -138,13 +153,13 @@ def upgrade() -> None:
         "world_events",
         sa.Column("id", **_UUID_PK),
         sa.Column("session_id", sa.UUID(), nullable=False),
-        sa.Column("turn_id", sa.UUID(), nullable=True),
-        sa.Column("event_type", sa.VARCHAR(), nullable=False),
-        sa.Column("entity_id", sa.VARCHAR(), nullable=False),
+        sa.Column("turn_id", sa.UUID(), nullable=False),
+        sa.Column("event_type", sa.Text(), nullable=False),
+        sa.Column("entity_id", sa.Text(), nullable=False),
         sa.Column(
             "payload",
             sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
-            nullable=True,
+            nullable=False,
         ),
         sa.Column("created_at", **_CREATED_AT),
         sa.PrimaryKeyConstraint("id"),
@@ -153,13 +168,13 @@ def upgrade() -> None:
             ["game_sessions.id"],
             ondelete="CASCADE",
         ),
-        sa.ForeignKeyConstraint(["turn_id"], ["turns.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["turn_id"], ["turns.id"]),
     )
 
     op.create_index(
-        "ix_world_events_session_id",
+        "idx_world_events_session",
         "world_events",
-        ["session_id"],
+        ["session_id", sa.text("created_at DESC")],
     )
 
 
