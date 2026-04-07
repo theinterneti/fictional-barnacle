@@ -11,6 +11,7 @@ docs/
 .env.*
 !.env.example
 *.md
+!README.md
 .ruff_cache/
 .pytest_cache/
 .pyright/

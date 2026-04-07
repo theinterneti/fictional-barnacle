@@ -18,16 +18,16 @@ help: ## Show this help
 # Spec & plan validation
 # ---------------------------------------------------------------------------
 validate-specs: ## Run spec indexer with validation
-	python3 specs/index_specs.py --validate
+	uv run python specs/index_specs.py --validate
 
 validate-plans: ## Run plan indexer with validation
-	python3 specs/index_plans.py --validate
+	uv run python specs/index_plans.py --validate
 
 validate-all: validate-specs validate-plans ## Run both validators
 
 regen-indexes: ## Regenerate spec and plan index files
-	python3 specs/index_specs.py
-	python3 specs/index_plans.py
+	uv run python specs/index_specs.py
+	uv run python specs/index_plans.py
 
 # ---------------------------------------------------------------------------
 # Code quality (once src/ exists)
