@@ -30,7 +30,7 @@ from tta.world.service import WorldService
 def _make_driver() -> MagicMock:
     """Return a mocked neo4j.AsyncDriver.
 
-    ``async_session()`` is synchronous on a real driver,
+    ``session()`` is synchronous on a real driver,
     so we use ``MagicMock`` as the top-level mock.
     """
     return MagicMock()
@@ -137,7 +137,7 @@ def _setup_session_run(
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=False)
 
-    driver.async_session.return_value = mock_session
+    driver.session.return_value = mock_session
     return mock_session
 
 
@@ -159,7 +159,7 @@ def _setup_tx_session(
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=False)
 
-    driver.async_session.return_value = mock_session
+    driver.session.return_value = mock_session
     return mock_session, mock_tx
 
 
@@ -558,7 +558,7 @@ class TestCleanupSession:
         mock_session.run = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
-        driver.async_session.return_value = mock_session
+        driver.session.return_value = mock_session
 
         await svc.cleanup_session(uuid4())
         mock_session.run.assert_awaited_once()

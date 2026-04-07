@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 import structlog
-from neo4j import AsyncDriver
+from neo4j import AsyncDriver, Query
 
 from tta.models.world import (
     NPC,
@@ -47,6 +47,31 @@ _REVERSE_DIRECTION: dict[str, str] = {
 }
 
 
+def _location_context_query(depth: int) -> str:
+    """Build a location context query for a given hop depth."""
+    return f"""
+    MATCH (loc:Location {{id: $location_id,
+                         session_id: $session_id}})
+    OPTIONAL MATCH (loc)-[:CONNECTS_TO*1..{depth}]->(adj:Location)
+    OPTIONAL MATCH (npc:NPC)-[:IS_AT]->(loc)
+        WHERE npc.alive = true
+    OPTIONAL MATCH (item:Item)-[:IS_AT]->(loc)
+        WHERE item.hidden = false
+    RETURN loc,
+           collect(DISTINCT adj) AS exits,
+           collect(DISTINCT npc) AS npcs,
+           collect(DISTINCT item) AS items
+    """
+
+
+# Pre-built queries keyed by depth (1–5), wrapped as Query objects
+# to satisfy neo4j's LiteralString typing requirement.
+_LOCATION_CONTEXT_QUERIES: dict[int, Query] = {
+    d: Query(_location_context_query(d))  # type: ignore[arg-type]
+    for d in range(1, 6)
+}
+
+
 class Neo4jWorldService:
     """WorldService backed by a Neo4j graph database.
 
@@ -68,24 +93,12 @@ class Neo4jWorldService:
         """Return a location with its exits, NPCs, and items.
 
         ``depth`` controls how many hops of adjacent locations to
-        include (default 1 = immediate neighbors only).
+        include (default 1 = immediate neighbors only, max 5).
         """
         sid = str(session_id)
         safe_depth = max(1, min(depth, 5))
-        query = f"""
-        MATCH (loc:Location {{id: $location_id,
-                             session_id: $session_id}})
-        OPTIONAL MATCH (loc)-[:CONNECTS_TO*1..{safe_depth}]->(adj:Location)
-        OPTIONAL MATCH (npc:NPC)-[:IS_AT]->(loc)
-            WHERE npc.alive = true
-        OPTIONAL MATCH (item:Item)-[:IS_AT]->(loc)
-            WHERE item.hidden = false
-        RETURN loc,
-               collect(DISTINCT adj) AS exits,
-               collect(DISTINCT npc) AS npcs,
-               collect(DISTINCT item) AS items
-        """
-        async with self._driver.async_session() as session:
+        query = _LOCATION_CONTEXT_QUERIES[safe_depth]
+        async with self._driver.session() as session:
             result = await session.run(
                 query,
                 location_id=location_id,
@@ -136,7 +149,7 @@ class Neo4jWorldService:
         sid = str(session_id)
         log = logger.bind(session_id=sid)
 
-        async with self._driver.async_session() as session:
+        async with self._driver.session() as session:
             async with await session.begin_transaction() as tx:
                 for change in changes:
                     await _dispatch_change(tx, sid, change, log)
@@ -155,7 +168,7 @@ class Neo4jWorldService:
               -[:IS_AT]->(loc:Location)
         RETURN loc
         """
-        async with self._driver.async_session() as session:
+        async with self._driver.session() as session:
             result = await session.run(query, session_id=sid)
             record = await result.single()
 
@@ -180,7 +193,7 @@ class Neo4jWorldService:
         # Build an id_map from template keys → generated IDs.
         id_map: dict[str, str] = {}
 
-        async with self._driver.async_session() as session:
+        async with self._driver.session() as session:
             async with await session.begin_transaction() as tx:
                 # 1. World node
                 world_id = _gen_id()
@@ -456,7 +469,7 @@ class Neo4jWorldService:
         MATCH (n {session_id: $session_id})
         DETACH DELETE n
         """
-        async with self._driver.async_session() as session:
+        async with self._driver.session() as session:
             await session.run(query, session_id=sid)
 
         logger.info("session_cleaned_up", session_id=sid)
@@ -479,7 +492,7 @@ class Neo4jWorldService:
                            session_id: $sid})
         RETURN c.is_locked AS locked
         """
-        async with self._driver.async_session() as session:
+        async with self._driver.session() as session:
             result = await session.run(
                 query,
                 from_id=from_id,
@@ -513,7 +526,7 @@ class Neo4jWorldService:
                collect(DISTINCT npc) AS npcs,
                collect(DISTINCT item) AS items
         """
-        async with self._driver.async_session() as session:
+        async with self._driver.session() as session:
             result = await session.run(query, sid=sid)
             record = await result.single()
 
