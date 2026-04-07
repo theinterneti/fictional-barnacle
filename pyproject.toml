@@ -68,6 +68,15 @@ testpaths = ["tests"]
 markers = [
     "unit: Unit tests (no external services)",
     "integration: Integration tests (require Docker services)",
+    "e2e: End-to-end tests",
+    "slow: Slow tests (>5s)",
+    "neo4j: Requires Neo4j",
+    "redis: Requires Redis",
+    "postgres: Requires PostgreSQL",
+    "golden: Golden file comparison tests",
+    "flaky: Known flaky tests",
+    "llm_live: Tests that call real LLM APIs",
+    "hypothesis: Property-based tests",
     "bdd: BDD acceptance tests",
 ]
 

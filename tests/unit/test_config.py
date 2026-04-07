@@ -22,18 +22,14 @@ def _set_required_env(monkeypatch: pytest.MonkeyPatch) -> None:
 class TestSettingsInstantiation:
     """Settings can be created with required env vars."""
 
-    def test_with_required_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_with_required_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         for key, val in REQUIRED_ENV.items():
             monkeypatch.setenv(key, val)
         s = Settings()
         assert s.database_url == REQUIRED_ENV["TTA_DATABASE_URL"]
         assert s.neo4j_password == REQUIRED_ENV["TTA_NEO4J_PASSWORD"]
 
-    def test_missing_database_url_raises(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_missing_database_url_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TTA_NEO4J_PASSWORD", "secret")
         with pytest.raises(ValidationError):
             Settings()
@@ -41,9 +37,7 @@ class TestSettingsInstantiation:
     def test_missing_neo4j_password_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv(
-            "TTA_DATABASE_URL", "postgresql://x@localhost/tta"
-        )
+        monkeypatch.setenv("TTA_DATABASE_URL", "postgresql://x@localhost/tta")
         with pytest.raises(ValidationError):
             Settings()
 
@@ -113,12 +107,8 @@ class TestEnumValidation:
 class TestEnvPrefix:
     """TTA_ prefix maps env vars to fields."""
 
-    def test_prefix_mapping(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv(
-            "TTA_DATABASE_URL", "postgresql://x@localhost/tta"
-        )
+    def test_prefix_mapping(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("TTA_DATABASE_URL", "postgresql://x@localhost/tta")
         monkeypatch.setenv("TTA_NEO4J_PASSWORD", "pw")
         monkeypatch.setenv("TTA_LOG_LEVEL", "DEBUG")
         monkeypatch.setenv("TTA_ENVIRONMENT", "production")
@@ -130,9 +120,7 @@ class TestEnvPrefix:
 class TestGetSettings:
     """get_settings() returns a cached singleton."""
 
-    def test_returns_same_instance(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_returns_same_instance(self, monkeypatch: pytest.MonkeyPatch) -> None:
         for key, val in REQUIRED_ENV.items():
             monkeypatch.setenv(key, val)
         # Clear any prior cache
