@@ -27,23 +27,41 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     # Try to get live world context from WorldService
     try:
-        world_context = await get_full_context(deps.world, state.session_id)
+        world_context = await get_full_context(
+            deps.world, state.session_id
+        )
         world_context["intent"] = intent
         world_context["turn_number"] = state.turn_number
         context_partial = False
     except Exception as exc:
-        # Fallback to V1 stub behavior
+        # Fallback: still try to get recent events from Postgres
         log.warning(
             "context_fallback",
             reason="world_service_unavailable",
             error=str(exc),
             exc_info=True,
         )
+        recent_events: list[dict] = []
+        try:
+            events = await deps.world.get_recent_events(
+                state.session_id, limit=5
+            )
+            recent_events = [
+                e.model_dump(mode="json") for e in events
+            ]
+        except Exception:
+            log.warning(
+                "context_events_fetch_failed",
+                session_id=str(state.session_id),
+                exc_info=True,
+            )
+
         world_context = {
             "game_state": state.game_state,
             "intent": intent,
             "turn_number": state.turn_number,
             "session_id": str(state.session_id),
+            "recent_events": recent_events,
         }
         context_partial = True
 
