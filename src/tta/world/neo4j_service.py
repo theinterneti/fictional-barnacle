@@ -776,6 +776,18 @@ async def _dispatch_change(
             sid=sid,
             state=payload.get("state", "idle"),
         )
+    elif ct == WorldChangeType.NPC_TIER_CHANGED:
+        await tx.run(
+            """
+            MATCH (n:NPC {id: $eid, session_id: $sid})
+            SET n.tier = $tier
+            """,
+            eid=eid,
+            sid=sid,
+            tier=payload.get("tier", "background"),
+        )
+    elif ct == WorldChangeType.RELATIONSHIP_CHANGED:
+        pass  # Handled by RelationshipService
     else:  # pragma: no cover
         log.warning(
             "unknown_change_type",

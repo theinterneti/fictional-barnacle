@@ -419,3 +419,12 @@ class InMemoryWorldService:
             if eid in npcs:
                 npc, loc_id = npcs[eid]
                 npc.state = payload.get("state", "idle")
+
+        elif ct == WorldChangeType.NPC_TIER_CHANGED:
+            npcs = self._npcs.get(sid, {})
+            if eid in npcs:
+                npc, loc_id = npcs[eid]
+                npc.tier = payload.get("tier", npc.tier)
+
+        elif ct == WorldChangeType.RELATIONSHIP_CHANGED:
+            pass  # Handled by RelationshipService
