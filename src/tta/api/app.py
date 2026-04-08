@@ -21,7 +21,9 @@ from tta.api.errors import (
 )
 from tta.api.health import router as health_router
 from tta.api.middleware import RequestIDMiddleware
+from tta.api.prometheus_middleware import PrometheusMiddleware
 from tta.api.routes.games import router as games_router
+from tta.api.routes.metrics import router as metrics_router
 from tta.api.routes.players import router as players_router
 from tta.logging import configure_logging
 
@@ -174,9 +176,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(PrometheusMiddleware)
 
     # --- Routers ---
 
+    app.include_router(metrics_router)
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(players_router, prefix="/api/v1")
     app.include_router(games_router, prefix="/api/v1")

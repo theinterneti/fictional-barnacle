@@ -14,6 +14,7 @@ import structlog
 
 from tta.logging import bind_context
 from tta.models.turn import TurnState, TurnStatus
+from tta.observability.metrics import TURN_DURATION, TURN_TOTAL
 from tta.pipeline.stages.context import context_stage
 from tta.pipeline.stages.deliver import deliver_stage
 from tta.pipeline.stages.generate import generate_stage
@@ -71,6 +72,7 @@ async def run_pipeline(
                         stage=stage_name,
                         timeout=stage_config.timeout_seconds,
                     )
+                    TURN_TOTAL.labels(status="failure").inc()
                     return state.model_copy(update={"status": TurnStatus.failed})
                 except Exception:
                     log.error(
@@ -78,9 +80,13 @@ async def run_pipeline(
                         stage=stage_name,
                         exc_info=True,
                     )
+                    TURN_TOTAL.labels(status="failure").inc()
                     return state.model_copy(update={"status": TurnStatus.failed})
 
                 stage_ms = round((time.monotonic() - stage_start) * 1000, 1)
+                TURN_DURATION.labels(stage=stage_name).observe(
+                    time.monotonic() - stage_start
+                )
                 log.debug(
                     "stage_complete",
                     stage=stage_name,
@@ -94,6 +100,7 @@ async def run_pipeline(
                         stage=stage_name,
                         status=state.status,
                     )
+                    TURN_TOTAL.labels(status="failure").inc()
                     return state
 
     except TimeoutError:
@@ -101,6 +108,8 @@ async def run_pipeline(
             "pipeline_overall_timeout",
             timeout=config.overall_timeout_seconds,
         )
+        TURN_TOTAL.labels(status="failure").inc()
         return state.model_copy(update={"status": TurnStatus.failed})
 
+    TURN_TOTAL.labels(status="success").inc()
     return state

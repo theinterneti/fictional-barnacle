@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tta import observability
 from tta.config import Settings
 from tta.observability import (
     _sanitize_input,
@@ -17,6 +16,7 @@ from tta.observability import (
     shutdown_langfuse,
     trace_llm,
 )
+from tta.observability import langfuse as observability
 
 # -- helpers -----------------------------------------------------------
 
@@ -71,14 +71,14 @@ class TestInitLangfuse:
         init_langfuse(settings)
         assert get_langfuse() is None
 
-    @patch("tta.observability.Langfuse", create=True)
+    @patch("tta.observability.langfuse.Langfuse", create=True)
     def test_with_host_creates_client(self, mock_cls: MagicMock) -> None:
         """When langfuse_host is set, a Langfuse client is created."""
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
 
         with patch(
-            "tta.observability.init_langfuse",
+            "tta.observability.langfuse.init_langfuse",
             wraps=init_langfuse,
         ):
             # Patch the import inside init_langfuse
