@@ -12,6 +12,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from tta.logging import bind_context, bind_correlation_id, clear_contextvars
+from tta.observability.tracing import current_trace_id
 
 log = structlog.get_logger()
 
@@ -21,7 +22,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
     Propagated IDs:
     - X-Request-ID → correlation_id (generated if absent)
-    - X-Trace-Id → trace_id (passed through if present)
+    - X-Trace-Id → trace_id (from OTel span context, or upstream header)
 
     All IDs are bound to structlog context vars for correlated logging
     and added as response headers.  Request duration is logged on
@@ -32,14 +33,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
-        trace_id = request.headers.get("x-trace-id")
 
         request.state.request_id = request_id
         bind_correlation_id(request_id)
-
-        # Bind trace_id when provided by upstream (e.g. OTel gateway).
-        if trace_id:
-            bind_context(trace_id=trace_id)
 
         start = time.monotonic()
         status_code = 500
@@ -58,6 +54,11 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             clear_contextvars()
 
         response.headers["x-request-id"] = request_id
+
+        # Prefer OTel trace_id; fall back to upstream X-Trace-Id header.
+        trace_id = current_trace_id() or request.headers.get("x-trace-id")
         if trace_id:
+            bind_context(trace_id=trace_id)
             response.headers["x-trace-id"] = trace_id
+
         return response

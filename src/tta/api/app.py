@@ -38,6 +38,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = app.state.settings
     # --- Startup ---
 
+    # 0. OpenTelemetry tracing (before other services so spans are captured)
+    from tta.observability.tracing import init_tracing, shutdown_tracing
+
+    init_tracing(
+        enabled=settings.otel_enabled,
+        endpoint=settings.otel_endpoint,
+    )
+
     # 1. Postgres engine + session factory
     from tta.persistence.engine import build_engine, build_session_factory
 
@@ -124,6 +132,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # --- Shutdown ---
+    shutdown_tracing()
     await app.state.redis.aclose()
     await engine.dispose()
     log.info("app_shutdown_complete")
