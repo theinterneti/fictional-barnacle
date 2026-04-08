@@ -446,17 +446,19 @@ Build the choice-consequence pipeline that makes player decisions meaningful.
 
 | Task | Issue | Status | Deliverable |
 |------|-------|--------|-------------|
-| Choice classification (6 types) | #35 | Pending | Intent→choice type mapping |
-| Consequence chain model | #36 | Pending | Timescale tracking, chain data model |
-| World mutation pipeline | #37 | Pending | Changes→Neo4j write path |
-| Consequence injection in context | #38 | Pending | Active consequences in prompt assembly |
-| Narrative anchor & divergence | #39 | Pending | Story tracking, divergence points |
-| Hidden consequence foreshadowing | #40 | Pending | Subtle narrative hints |
+| Choice classification (6 types) | #35 | ✅ Done (PR #49) | ChoiceType enum, rules-first classifier + LLM fallback |
+| Consequence chain model | #36 | ✅ Done (PR #49) | ConsequenceChain/Entry with branching, 30-chain cap |
+| World mutation pipeline | #37 | ✅ Done (PR #49) | ConsequenceService protocol + InMemory, evaluate/prune |
+| Consequence injection in context | #38 | ✅ Done (PR #49) | `_enrich_consequences()` in context stage |
+| Narrative anchor & divergence | #39 | ✅ Done (PR #49) | NarrativeAnchor, DivergenceScore, anchor service |
+| Hidden consequence foreshadowing | #40 | ✅ Done (PR #49) | Hidden entry tracking, foreshadowing hints, reveal |
 
-**Dependencies on Wave 5**: Choice classification may use NPCTier to weight
-NPC-related choices. World mutation pipeline uses `RELATIONSHIP_CHANGED` and
-`NPC_TIER_CHANGED` WorldChangeType members. Consequence injection can include
-relationship state via `build_dialogue_context()`.
+**Delivered**: 853 tests (98 new), 0 pyright errors. New packages:
+`tta.choices` (classifier, consequence_service). New models: ChoiceType,
+ImpactLevel, Reversibility, ChoiceClassification, ConsequenceEntry,
+ConsequenceChain, NarrativeAnchor, DivergenceScore. Pipeline integration:
+choice classification in understand stage, consequence injection in context
+stage. Both non-blocking with graceful degradation.
 
 #### Wave 7: Observability (Issues #41-#46)
 Production-ready observability, testing, and privacy.
@@ -733,15 +735,12 @@ in the project.
 
 ## 10. Recommended Next Action
 
-1. **Merge PR #48** (Wave 5: Characters & World Depth). CI should be green
-   with 755 tests, 88% coverage, 0 pyright errors.
-2. **Start Wave 6: Choice & Consequences** (#35-#40). Begin with #35 (choice
-   classification) and #36 (consequence chain model) as foundations.
-3. **Read S05 (Choice & Consequence) spec** before starting Wave 6.
-   The consequence chain model depends on understanding timescale tracking
-   and the 6 choice types.
-4. **Consider an end-to-end playtest** after Wave 6. With characters + choices +
-   consequences, you'll have enough game mechanics to test whether the
+1. **Merge PR #49** (Wave 6: Choice & Consequences). CI should be green
+   with 853 tests, 0 pyright errors.
+2. **Consider an end-to-end playtest**. With characters + choices +
+   consequences, you now have enough game mechanics to test whether the
    narrative loop is actually fun. Fun is the metric.
-5. **Wave 7 (Observability)** can proceed in parallel if needed — it's
-   infrastructure, not gameplay logic. Good candidate for a separate branch.
+3. **Start Wave 7: Observability** (#41-#46). Begin with #41 (Langfuse)
+   and #42 (structured logging) as foundations. Read specs S14-S16.
+4. **Wave 7 (Observability)** is infrastructure, not gameplay logic.
+   Good candidate for parallel work if needed.
