@@ -27,6 +27,14 @@ ConnectionDirection = Literal[
     "down",
     "in",
     "out",
+    "north",
+    "south",
+    "east",
+    "west",
+    "northeast",
+    "northwest",
+    "southeast",
+    "southwest",
 ]
 EventType = Literal["narrative", "combat", "trade", "discovery", "quest"]
 EventSeverity = Literal["minor", "notable", "major", "critical"]
@@ -43,13 +51,13 @@ class Location(BaseModel):
     id: str
     name: str
     description: str
-    type: str
+    type: LocationType
     visited: bool = False
     # Wave 3 optional extensions
     region_id: str | None = None
     description_visited: str | None = None
     is_accessible: bool = True
-    light_level: str = "lit"
+    light_level: LightLevel = "lit"
     tags: list[str] = Field(default_factory=list)
     template_key: str | None = None
     session_id: str | None = None
@@ -66,8 +74,8 @@ class NPC(BaseModel):
     disposition: str
     alive: bool = True
     # Wave 3 optional extensions
-    role: str | None = None
-    state: str = "idle"
+    role: NPCRole | None = None
+    state: NPCState = "idle"
     personality: str | None = None
     dialogue_style: str | None = None
     tags: list[str] = Field(default_factory=list)
@@ -86,7 +94,7 @@ class Item(BaseModel):
     portable: bool = True
     hidden: bool = False
     # Wave 3 optional extensions
-    item_type: str | None = None
+    item_type: ItemType | None = None
     is_usable: bool = False
     use_effect: str | None = None
     tags: list[str] = Field(default_factory=list)
@@ -115,7 +123,7 @@ class Connection(BaseModel):
 
     from_id: str
     to_id: str
-    direction: str
+    direction: ConnectionDirection
     description: str | None = None
     is_locked: bool = False
     lock_description: str | None = None
@@ -143,7 +151,7 @@ class GraphEvent(BaseModel):
     session_id: str
     type: str
     description: str
-    severity: str = "minor"
+    severity: EventSeverity = "minor"
     is_public: bool = True
     triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -156,8 +164,8 @@ class Quest(BaseModel):
     session_id: str
     name: str
     description: str
-    status: str = "available"
-    difficulty: str | None = None
+    status: QuestStatus = "available"
+    difficulty: QuestDifficulty | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -246,10 +254,10 @@ class TemplateLocation(BaseModel):
 
     key: str
     region_key: str
-    type: str
+    type: LocationType
     archetype: str
     is_starting_location: bool = False
-    light_level: str = "lit"
+    light_level: LightLevel = "lit"
     tags: list[str] = Field(default_factory=list)
 
 
@@ -258,7 +266,7 @@ class TemplateConnection(BaseModel):
 
     from_key: str
     to_key: str
-    direction: str
+    direction: ConnectionDirection
     bidirectional: bool = True
     is_locked: bool = False
     is_hidden: bool = False
@@ -269,7 +277,7 @@ class TemplateNPC(BaseModel):
 
     key: str
     location_key: str
-    role: str
+    role: NPCRole
     archetype: str
     disposition: str = "neutral"
 
@@ -280,7 +288,7 @@ class TemplateItem(BaseModel):
     key: str
     location_key: str | None = None
     npc_key: str | None = None
-    type: str
+    type: ItemType
     archetype: str
     portable: bool = True
     hidden: bool = False

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -86,7 +86,7 @@ def _make_seed() -> WorldSeed:
     )
 
 
-async def _setup_world() -> tuple[InMemoryWorldService, uuid4.__class__]:
+async def _setup_world() -> tuple[InMemoryWorldService, UUID]:
     """Create a service with a seeded world; return (svc, sid)."""
     svc = InMemoryWorldService()
     sid = uuid4()

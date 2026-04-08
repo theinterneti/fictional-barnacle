@@ -34,7 +34,7 @@ def _location(**overrides: object) -> Location:
         "id": "loc-1",
         "name": "Town Square",
         "description": "A bustling square.",
-        "type": "outdoor",
+        "type": "exterior",
     }
     return Location(**{**defaults, **overrides})
 
@@ -82,7 +82,7 @@ class TestLocation:
         loc = _location()
         assert loc.id == "loc-1"
         assert loc.name == "Town Square"
-        assert loc.type == "outdoor"
+        assert loc.type == "exterior"
 
     def test_wave3_optional_defaults(self) -> None:
         loc = _location()

@@ -163,7 +163,7 @@ class TestInMemoryGameRepository:
         assert isinstance(game, GameSession)
         assert game.player_id == pid
         assert game.world_seed == {"theme": "forest"}
-        assert game.status == GameStatus.active
+        assert game.status == GameStatus.created
 
     async def test_get_game(self, game_repo: InMemoryGameRepository) -> None:
         pid = uuid4()
@@ -178,7 +178,7 @@ class TestInMemoryGameRepository:
     async def test_update_game_status(self, game_repo: InMemoryGameRepository) -> None:
         pid = uuid4()
         game = await game_repo.create_game(pid, {})
-        assert game.status == GameStatus.active
+        assert game.status == GameStatus.created
 
         await game_repo.update_game_status(game.id, GameStatus.paused)
         updated = await game_repo.get_game(game.id)
@@ -189,7 +189,7 @@ class TestInMemoryGameRepository:
         self, game_repo: InMemoryGameRepository
     ) -> None:
         with pytest.raises(ValueError, match="game not found"):
-            await game_repo.update_game_status(uuid4(), GameStatus.completed)
+            await game_repo.update_game_status(uuid4(), GameStatus.ended)
 
     async def test_list_player_games(self, game_repo: InMemoryGameRepository) -> None:
         p1 = uuid4()
@@ -217,7 +217,7 @@ class TestInMemoryGameRepository:
         pid = uuid4()
         game = await game_repo.create_game(pid, {})
         original_updated_at = game.updated_at
-        await game_repo.update_game_status(game.id, GameStatus.completed)
+        await game_repo.update_game_status(game.id, GameStatus.ended)
         updated = await game_repo.get_game(game.id)
         assert updated is not None
         assert updated.updated_at >= original_updated_at

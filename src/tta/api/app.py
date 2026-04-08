@@ -7,11 +7,20 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from tta import __version__
+from tta.api.errors import (
+    AppError,
+    app_error_handler,
+    unhandled_error_handler,
+    validation_error_handler,
+)
 from tta.api.health import router as health_router
 from tta.api.middleware import RequestIDMiddleware
+from tta.api.routes.games import router as games_router
+from tta.api.routes.players import router as players_router
 from tta.logging import configure_logging
 
 if TYPE_CHECKING:
@@ -48,6 +57,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=_lifespan,
     )
 
+    # --- Exception handlers ---
+
+    app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(Exception, unhandled_error_handler)  # type: ignore[arg-type]
+
     # --- Middleware (added in reverse order — last added runs first) ---
 
     allow_credentials = "*" not in settings.cors_origins
@@ -63,5 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # --- Routers ---
 
     app.include_router(health_router, prefix="/api/v1")
+    app.include_router(players_router, prefix="/api/v1")
+    app.include_router(games_router, prefix="/api/v1")
 
     return app

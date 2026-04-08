@@ -131,7 +131,7 @@ class TestGameSession:
 
     def test_defaults(self):
         gs = GameSession(player_id=uuid4())
-        assert gs.status == GameStatus.active
+        assert gs.status == GameStatus.created
         assert gs.world_seed == {}
 
 
@@ -201,6 +201,9 @@ class TestEnums:
         assert TurnStatus.failed == "failed"
 
     def test_game_status_values(self):
+        assert GameStatus.created == "created"
         assert GameStatus.active == "active"
         assert GameStatus.paused == "paused"
-        assert GameStatus.completed == "completed"
+        assert GameStatus.ended == "ended"
+        assert GameStatus.expired == "expired"
+        assert GameStatus.abandoned == "abandoned"
