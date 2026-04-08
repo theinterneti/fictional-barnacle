@@ -7,7 +7,7 @@
         lint format typecheck test test-unit test-integration test-watch \
         test-bdd test-hypothesis \
         test-up test-down quality check check-format \
-        dev up down build logs shell \
+        dev playtest up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean
 
@@ -92,6 +92,9 @@ check: ## Full CI gate (mirrors CI quality + test jobs)
 dev: ## Start dependency services and run API locally with reload
 	docker compose up -d postgres neo4j redis
 	uv run uvicorn tta.api.app:create_app --factory --reload --host 0.0.0.0 --port 8000
+
+playtest: ## Interactive CLI playtest (server must be running via 'make dev')
+	uv run python scripts/playtest.py
 
 # ---------------------------------------------------------------------------
 # Infrastructure
