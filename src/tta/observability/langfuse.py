@@ -2,10 +2,11 @@
 
 Provides conditional Langfuse initialization (no-op when unconfigured)
 and a ``@trace_llm`` decorator that records input, output, model,
-latency, and token counts for every LLM call.
+latency, token counts, and estimated cost for every LLM call.
 
-Privacy: traces are tagged ``user_input`` so player content is
-filterable inside the Langfuse dashboard (spec S17 / AC-3).
+Privacy: PII is sanitized before trace/generation creation (S17 / AC-3).
+Traces carry session_id and correlation_id for cross-system linking (S15 §7).
+Langfuse unavailability does not block gameplay (EC-15.5).
 """
 
 from __future__ import annotations
@@ -15,11 +16,19 @@ import time
 from collections.abc import Callable
 from typing import Any, ParamSpec, TypeVar
 
+import structlog
+
 P = ParamSpec("P")
 T = TypeVar("T")
 
+_log = structlog.get_logger(__name__)
+
 # Populated by init_langfuse(); remains None when Langfuse is disabled.
 _langfuse_client: Any = None
+
+# Throttle Langfuse failure warnings to once per minute (EC-15.5).
+_WARNING_INTERVAL_S: float = 60.0
+_last_warning_time: float = 0.0
 
 # Fields stripped from trace input to avoid leaking PII (AC-3).
 _PII_FIELDS = frozenset(
@@ -34,7 +43,8 @@ def init_langfuse(settings: Any) -> None:
     """Initialise the Langfuse client **if** configured (AC-1).
 
     When ``settings.langfuse_host`` is falsy the client stays ``None``
-    and every downstream call becomes a silent no-op.
+    and every downstream call becomes a silent no-op.  A warning is
+    logged at startup when disabled (FR-15.19).
     """
     global _langfuse_client  # noqa: PLW0603
 
@@ -48,6 +58,7 @@ def init_langfuse(settings: Any) -> None:
         )
     else:
         _langfuse_client = None
+        _log.warning("langfuse_disabled", reason="langfuse_host not configured")
 
 
 def get_langfuse() -> Any:
@@ -64,10 +75,13 @@ def shutdown_langfuse() -> None:
 def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
     """Decorator that traces an ``async`` LLM call via Langfuse (AC-2).
 
-    Recorded fields: input, output, model, latency_ms, token counts.
-    The trace is tagged ``user_input`` for privacy filtering (AC-3).
+    Recorded fields: input, output, model, latency_ms, token counts,
+    estimated cost, associated session_id and correlation_id.
 
     When Langfuse is disabled the decorated function executes unchanged.
+    If Langfuse is unreachable, the LLM call proceeds without
+    instrumentation and a warning is throttled to once per minute
+    (EC-15.5).
     """
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
@@ -76,18 +90,52 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
             if _langfuse_client is None:
                 return await func(*args, **kwargs)  # type: ignore[misc]
 
-            trace = _langfuse_client.trace(name=name, tags=["user_input"])
-            start = time.monotonic()
+            ctx = _get_context_ids()
+            trace_kwargs: dict[str, Any] = {
+                "name": name,
+                "tags": ["user_input"],
+                "metadata": {"correlation_id": ctx.get("correlation_id")},
+            }
+            if ctx.get("session_id"):
+                trace_kwargs["session_id"] = ctx["session_id"]
 
+            try:
+                trace = _langfuse_client.trace(**trace_kwargs)
+            except Exception:
+                _warn_langfuse_error("langfuse_trace_failed", name=name)
+                return await func(*args, **kwargs)  # type: ignore[misc]
+
+            start = time.monotonic()
             try:
                 result = await func(*args, **kwargs)  # type: ignore[misc]
                 latency_ms = int((time.monotonic() - start) * 1000)
 
-                gen_kwargs = _build_generation_kwargs(name, result, latency_ms, kwargs)
-                trace.generation(**gen_kwargs)
+                gen_kwargs = _build_generation_kwargs(
+                    name,
+                    result,
+                    latency_ms,
+                    kwargs,
+                    ctx,
+                )
+                try:
+                    trace.generation(**gen_kwargs)
+                except Exception:
+                    _warn_langfuse_error(
+                        "langfuse_generation_failed",
+                        name=name,
+                    )
                 return result  # type: ignore[return-value]
             except Exception as exc:
-                trace.update(level="ERROR", status_message=str(exc))
+                try:
+                    trace.update(
+                        level="ERROR",
+                        status_message=_sanitize_error(str(exc)),
+                    )
+                except Exception:
+                    _warn_langfuse_error(
+                        "langfuse_update_failed",
+                        name=name,
+                    )
                 raise
 
         return wrapper  # type: ignore[return-value]
@@ -98,9 +146,34 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
 # -- helpers -----------------------------------------------------------
 
 
+def _get_context_ids() -> dict[str, str | None]:
+    """Read correlation_id, session_id, turn_id from structlog context."""
+    ctx = structlog.contextvars.get_contextvars()
+    return {
+        "correlation_id": ctx.get("correlation_id"),
+        "session_id": ctx.get("session_id"),
+        "turn_id": ctx.get("turn_id"),
+    }
+
+
+def _warn_langfuse_error(event: str, **extra: Any) -> None:
+    """Log a Langfuse error throttled to once per minute (EC-15.5)."""
+    global _last_warning_time  # noqa: PLW0603
+    now = time.monotonic()
+    if now - _last_warning_time >= _WARNING_INTERVAL_S:
+        _last_warning_time = now
+        _log.warning(event, **extra)
+
+
 def _sanitize_input(kwargs: dict[str, Any]) -> dict[str, Any]:
     """Strip PII fields from the keyword arguments before tracing."""
     return {k: v for k, v in kwargs.items() if k not in _PII_FIELDS}
+
+
+def _sanitize_error(message: str) -> str:
+    """Truncate error messages to avoid leaking PII in traces."""
+    max_len = 200
+    return message[:max_len] + "..." if len(message) > max_len else message
 
 
 def _build_generation_kwargs(
@@ -108,12 +181,20 @@ def _build_generation_kwargs(
     result: Any,
     latency_ms: int,
     call_kwargs: dict[str, Any],
+    ctx: dict[str, str | None],
 ) -> dict[str, Any]:
     """Build the kwargs dict passed to ``trace.generation()``."""
+    metadata: dict[str, Any] = {
+        "latency_ms": latency_ms,
+        "correlation_id": ctx.get("correlation_id"),
+    }
+    if ctx.get("turn_id"):
+        metadata["turn_id"] = ctx["turn_id"]
+
     gen: dict[str, Any] = {
         "name": name,
         "input": _sanitize_input(call_kwargs),
-        "metadata": {"latency_ms": latency_ms},
+        "metadata": metadata,
     }
 
     # LiteLLM responses expose .model and .usage
