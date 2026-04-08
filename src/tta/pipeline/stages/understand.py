@@ -11,6 +11,7 @@ import re
 
 import structlog
 
+from tta.choices.classifier import classify_choice
 from tta.llm.client import Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.models.turn import ParsedIntent, TurnState, TurnStatus
@@ -85,6 +86,8 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     # 2. Rules-first classification (ordered, meta has priority)
     player_input = state.player_input
+    intent_state: TurnState | None = None
+
     for intent_name, pattern in INTENT_PATTERNS:
         if pattern.search(player_input):
             log.debug(
@@ -92,45 +95,74 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                 intent=intent_name,
                 input=player_input[:80],
             )
-            return state.model_copy(
+            intent_state = state.model_copy(
                 update={
                     "parsed_intent": ParsedIntent(intent=intent_name, confidence=0.9),
                 }
             )
+            break
 
     # 3. LLM fallback for ambiguous input
-    messages = [
-        Message(
-            role=MessageRole.SYSTEM,
-            content=_CLASSIFICATION_SYSTEM_PROMPT,
-        ),
-        Message(role=MessageRole.USER, content=state.player_input),
-    ]
+    if intent_state is None:
+        messages = [
+            Message(
+                role=MessageRole.SYSTEM,
+                content=_CLASSIFICATION_SYSTEM_PROMPT,
+            ),
+            Message(role=MessageRole.USER, content=state.player_input),
+        ]
+        try:
+            response = await deps.llm.generate(
+                role=ModelRole.CLASSIFICATION, messages=messages
+            )
+            intent = response.content.strip().lower()
+            if intent not in VALID_INTENTS:
+                intent = "other"
+            log.debug(
+                "intent_classified_llm",
+                intent=intent,
+                input=player_input[:80],
+            )
+            intent_state = state.model_copy(
+                update={
+                    "parsed_intent": ParsedIntent(intent=intent, confidence=0.7),
+                }
+            )
+        except Exception:
+            log.warning(
+                "llm_classification_failed",
+                exc_info=True,
+                fallback="other",
+            )
+            intent_state = state.model_copy(
+                update={
+                    "parsed_intent": ParsedIntent(intent="other", confidence=0.3),
+                }
+            )
+
+    # 4. Choice classification (S05 FR-2) — non-blocking
+    return _enrich_choice_classification(intent_state)
+
+
+def _enrich_choice_classification(state: TurnState) -> TurnState:
+    """Classify player input into choice type(s). Non-blocking."""
     try:
-        response = await deps.llm.generate(
-            role=ModelRole.CLASSIFICATION, messages=messages
-        )
-        intent = response.content.strip().lower()
-        if intent not in VALID_INTENTS:
-            intent = "other"
-        log.debug(
-            "intent_classified_llm",
+        intent = state.parsed_intent.intent if state.parsed_intent else "other"
+        confidence = state.parsed_intent.confidence if state.parsed_intent else 0.3
+        classification = classify_choice(
+            player_input=state.player_input,
             intent=intent,
-            input=player_input[:80],
+            confidence=confidence,
         )
-        return state.model_copy(
-            update={
-                "parsed_intent": ParsedIntent(intent=intent, confidence=0.7),
-            }
+        log.debug(
+            "choice_classified",
+            types=[str(t) for t in classification.types],
+            primary=str(classification.primary_type),
         )
+        return state.model_copy(update={"choice_classification": classification})
     except Exception:
         log.warning(
-            "llm_classification_failed",
+            "choice_classification_failed",
             exc_info=True,
-            fallback="other",
         )
-        return state.model_copy(
-            update={
-                "parsed_intent": ParsedIntent(intent="other", confidence=0.3),
-            }
-        )
+        return state

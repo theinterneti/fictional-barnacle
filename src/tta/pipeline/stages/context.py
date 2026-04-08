@@ -68,6 +68,9 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     # Enrich with NPC dialogue contexts (S06 FR-6)
     world_context = await _enrich_npc_dialogue(world_context, state, deps)
 
+    # Enrich with active consequence data (S05 FR-3)
+    world_context = await _enrich_consequences(world_context, state, deps)
+
     log.debug(
         "context_assembled",
         intent=intent,
@@ -108,6 +111,52 @@ async def _enrich_npc_dialogue(
     except Exception:
         log.warning(
             "npc_dialogue_context_failed",
+            session_id=str(state.session_id),
+            exc_info=True,
+        )
+
+    return world_context
+
+
+async def _enrich_consequences(
+    world_context: dict,
+    state: TurnState,
+    deps: PipelineDeps,
+) -> dict:
+    """Add active consequences and foreshadowing hints to context (S05 FR-3)."""
+    consequence_svc = getattr(deps, "consequence_service", None)
+    if consequence_svc is None:
+        return world_context
+
+    try:
+        chains = await consequence_svc.get_active_chains(state.session_id)
+        if not chains:
+            return world_context
+
+        # Evaluate pending consequences for this turn
+        result = await consequence_svc.evaluate(
+            state.session_id, state.turn_number, state.player_input
+        )
+
+        # Summaries for the generation prompt
+        chain_summaries = [
+            {
+                "id": str(c.id),
+                "trigger_description": c.root_trigger,
+                "entries_count": len(c.entries),
+                "is_resolved": c.is_resolved,
+            }
+            for c in chains
+            if not c.is_resolved
+        ]
+        world_context["active_consequences"] = chain_summaries
+
+        if result.hints:
+            world_context["foreshadowing_hints"] = result.hints
+
+    except Exception:
+        log.warning(
+            "consequence_enrichment_failed",
             session_id=str(state.session_id),
             exc_info=True,
         )

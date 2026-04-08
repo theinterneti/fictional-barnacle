@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from tta.models.turn import TurnState
 
 if TYPE_CHECKING:
+    from tta.choices.consequence_service import ConsequenceService
     from tta.config import Settings
     from tta.llm.client import LLMClient
     from tta.persistence.repositories import (
@@ -43,6 +44,7 @@ class PipelineDeps:
     safety_post_gen: SafetyHook
     langfuse_trace: Any | None = None
     settings: Settings | None = None
+    consequence_service: ConsequenceService | None = None
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState

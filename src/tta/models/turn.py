@@ -4,11 +4,16 @@ Covers the pipeline's internal contract (system.md §4.3) and
 public request/response types for turn processing.
 """
 
+from __future__ import annotations
+
 from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from tta.models.choice import ChoiceClassification
+from tta.models.consequence import ConsequenceChain
 
 
 class TurnStatus(StrEnum):
@@ -86,3 +91,7 @@ class TurnState(BaseModel):
     suggested_actions: list[str] | None = None
     extraction_latency_ms: int | None = None
     context_partial: bool = False
+
+    # --- choice & consequence (S05) ---
+    choice_classification: ChoiceClassification | None = None
+    active_consequences: list[ConsequenceChain] | None = None
