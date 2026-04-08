@@ -1,5 +1,7 @@
 """Tests for TTA configuration model."""
 
+import os
+
 import pytest
 from pydantic import ValidationError
 
@@ -10,6 +12,14 @@ REQUIRED_ENV = {
     "TTA_DATABASE_URL": "postgresql://user:pass@localhost/tta",
     "TTA_NEO4J_PASSWORD": "secret",
 }
+
+
+@pytest.fixture(autouse=True)
+def _clean_tta_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove all TTA_ env vars so host env doesn't leak into tests."""
+    for key in list(os.environ):
+        if key.startswith("TTA_"):
+            monkeypatch.delenv(key, raising=False)
 
 
 @pytest.fixture()

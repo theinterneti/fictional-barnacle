@@ -159,29 +159,29 @@ async def test_postgres_raises_not_implemented(fn: object, kwargs: dict) -> None
 # ── NotImplementedError checks (redis) ───────────────────────────
 
 
-@pytest.mark.parametrize(
-    "fn, kwargs",
-    [
-        (
-            redis_session.get_active_session,
-            {"session_id": _SESSION_ID},
-        ),
-        (
-            redis_session.set_active_session,
-            {
-                "session_id": _SESSION_ID,
-                "state": GameState(session_id=_SESSION_ID),
-            },
-        ),
-        (
-            redis_session.delete_active_session,
-            {"session_id": _SESSION_ID},
-        ),
-    ],
-)
-async def test_redis_raises_not_implemented(fn: object, kwargs: dict) -> None:
-    with pytest.raises(NotImplementedError):
-        await fn(**kwargs)  # type: ignore[operator]
+# ── Signature checks (redis) ─────────────────────────────────────
+
+
+def test_redis_get_active_session_accepts_redis_param() -> None:
+    sig = inspect.signature(redis_session.get_active_session)
+    params = list(sig.parameters)
+    assert "redis" in params, "get_active_session must accept a redis param"
+    assert "session_id" in params
+
+
+def test_redis_set_active_session_accepts_redis_param() -> None:
+    sig = inspect.signature(redis_session.set_active_session)
+    params = list(sig.parameters)
+    assert "redis" in params, "set_active_session must accept a redis param"
+    assert "session_id" in params
+    assert "state" in params
+
+
+def test_redis_delete_active_session_accepts_redis_param() -> None:
+    sig = inspect.signature(redis_session.delete_active_session)
+    params = list(sig.parameters)
+    assert "redis" in params, "delete_active_session must accept a redis param"
+    assert "session_id" in params
 
 
 # ── Type-annotation checks ───────────────────────────────────────

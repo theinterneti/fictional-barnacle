@@ -16,7 +16,15 @@ def _settings() -> Settings:
 
 
 @pytest.fixture()
-def client(_settings: Settings) -> TestClient:
+def client(_settings: Settings, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    # Stub health checks so unit tests don't need real services.
+    async def _ok(_request: object) -> str:
+        return "ok"
+
+    monkeypatch.setattr("tta.api.health._check_postgres", _ok)
+    monkeypatch.setattr("tta.api.health._check_neo4j", _ok)
+    monkeypatch.setattr("tta.api.health._check_redis", _ok)
+
     app = create_app(settings=_settings)
     return TestClient(app)
 
@@ -66,13 +74,21 @@ class TestReadiness:
 
     def test_returns_503_when_check_fails(
         self,
-        client: TestClient,
         monkeypatch: pytest.MonkeyPatch,
+        _settings: Settings,
     ) -> None:
-        async def _fail() -> str:
+        async def _ok(_request: object) -> str:
+            return "ok"
+
+        async def _fail(_request: object) -> str:
             raise ConnectionError("database is down")
 
         monkeypatch.setattr("tta.api.health._check_postgres", _fail)
+        monkeypatch.setattr("tta.api.health._check_neo4j", _ok)
+        monkeypatch.setattr("tta.api.health._check_redis", _ok)
+
+        app = create_app(settings=_settings)
+        client = TestClient(app)
 
         resp = client.get("/api/v1/health/ready")
         assert resp.status_code == 503
@@ -80,6 +96,5 @@ class TestReadiness:
         data = resp.json()
         assert data["status"] == "not_ready"
         assert data["checks"]["postgres"] == "unavailable"
-        # Other checks should still pass
         assert data["checks"]["neo4j"] == "ok"
         assert data["checks"]["redis"] == "ok"
