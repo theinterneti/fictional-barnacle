@@ -742,14 +742,31 @@ in the project.
 
 ---
 
-## 10. Recommended Next Action
+## 10. Wave 8 — Vertical Integration (In Progress)
 
-1. **Merge PR #50** (Wave 7: Observability). CI should be green
-   with 999 tests, 0 pyright errors.
-2. **Consider an end-to-end playtest**. With characters + choices +
-   consequences + full observability, you can now trace a complete
-   player session through logs, metrics, and traces.
-3. **Plan Wave 8** or shift to vertical integration — connecting
-   real LLM calls through the pipeline with proper world graph data.
-4. **Review Grafana dashboards**. Prometheus metrics are exposed;
-   dashboard JSON definitions are a natural next step.
+**Status**: 4 of 6 issues complete. 1009 tests, 0 pyright errors.
+
+### Completed (PRs merged)
+
+| PR | Issue | Summary |
+|----|-------|---------|
+| #57 | #53, #51 | Wire Neo4jWorldService (opt-in via `neo4j_uri`) + inject ConsequenceService into PipelineDeps |
+| #58 | #54 | TurnResultStore protocol — InMemory + Redis implementations, SUBSCRIBE-before-GET pattern |
+| #59 | #52 | `make playtest` CLI — interactive httpx-based script with SSE streaming, color output |
+
+### Key decisions
+
+- **Neo4j opt-in**: `neo4j_uri` defaults to `""` (not `bolt://localhost:7687`). Set it to enable Neo4j; otherwise InMemoryWorldService is used. This avoids breaking unit tests that don't have Neo4j running.
+- **TurnResultStore**: Protocol-based with InMemory (asyncio.Event) and Redis (pub/sub + TTL) backends. Keyed by `turn_id`, not `game_id`. No DELETE on read — TTL handles cleanup.
+- **Playtest CLI**: Standalone `scripts/playtest.py`, reads `TTA_BASE_URL` env var, supports `--base-url` override. Decoupled from Docker orchestration.
+
+### Remaining issues
+
+- **#55 — Integration test suite**: Full POST /turns → pipeline → SSE flow with actual services (Postgres, Neo4j, Redis via docker-compose.test.yml). At least 5 integration tests.
+- **#56 — Minimal web playtest client**: Single `static/playtest.html` (vanilla HTML + JS), `make playtest-web` target.
+
+### Recommended next action
+
+1. **Start with Issue #55** — integration tests exercise the full vertical stack and validate that all wiring works end-to-end. These are the highest-confidence tests before real playtesting.
+2. **Then Issue #56** — web client gives a browser-based way to playtest with SSE streaming visible in DevTools.
+3. **After Wave 8**: Consider Grafana dashboard definitions, real LLM provider testing, or advancing spec areas (S18-S22 future stubs).
