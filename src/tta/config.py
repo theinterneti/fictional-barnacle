@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     max_input_length: int = 2000
     log_level: LogLevel = LogLevel.INFO
     log_format: str = "json"
+    log_sensitive: bool = False
     environment: Environment = Environment.DEVELOPMENT
 
 

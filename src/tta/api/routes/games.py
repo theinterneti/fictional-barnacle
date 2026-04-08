@@ -19,6 +19,7 @@ from tta.api.deps import get_current_player, get_pg
 from tta.api.errors import AppError
 from tta.api.sse import SSECounter
 from tta.config import get_settings
+from tta.logging import bind_context
 from tta.models.events import (
     ErrorEvent,
     NarrativeBlockEvent,
@@ -62,6 +63,9 @@ async def _dispatch_pipeline(
     """Run the pipeline as a background task and persist results."""
     deps = app_state.pipeline_deps  # type: ignore[attr-defined]
     turn_repo = deps.turn_repo
+
+    # Bind game/turn context for correlated logging (S15 §7).
+    bind_context(session_id=game_id, turn_id=turn_id)
 
     state = TurnState(
         session_id=game_id,

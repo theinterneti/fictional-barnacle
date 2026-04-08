@@ -8,9 +8,11 @@ returns the TurnState with status=failed.
 from __future__ import annotations
 
 import asyncio
+import time
 
 import structlog
 
+from tta.logging import bind_context
 from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.stages.context import context_stage
 from tta.pipeline.stages.deliver import deliver_stage
@@ -46,12 +48,20 @@ async def run_pipeline(
     """
     config = config or PipelineConfig()
 
+    # Bind session/turn IDs to structlog context for all stage logs.
+    bind_context(
+        session_id=state.session_id,
+        turn_id=state.turn_id,
+        turn_number=state.turn_number,
+    )
+
     try:
         async with asyncio.timeout(config.overall_timeout_seconds):
             for stage_config in config.stages:
                 stage_fn = STAGE_MAP[stage_config.name]
                 stage_name = stage_config.name.value
 
+                stage_start = time.monotonic()
                 try:
                     async with asyncio.timeout(stage_config.timeout_seconds):
                         state = await stage_fn(state, deps)
@@ -69,6 +79,13 @@ async def run_pipeline(
                         exc_info=True,
                     )
                     return state.model_copy(update={"status": TurnStatus.failed})
+
+                stage_ms = round((time.monotonic() - stage_start) * 1000, 1)
+                log.debug(
+                    "stage_complete",
+                    stage=stage_name,
+                    duration_ms=stage_ms,
+                )
 
                 # Early return if stage marked turn as failed
                 if state.status == TurnStatus.failed:
