@@ -465,12 +465,21 @@ Production-ready observability, testing, and privacy.
 
 | Task | Issue | Status | Deliverable |
 |------|-------|--------|-------------|
-| Langfuse v4 integration | #41 | Pending | LLM tracing, cost tracking |
-| Structured logging with correlation IDs | #42 | Pending | structlog + request tracing |
-| Prometheus metrics endpoint | #43 | Pending | `/metrics`, key counters/histograms |
-| OpenTelemetry distributed tracing | #44 | Pending | Spans for pipeline stages |
-| BDD feature files for core gameplay | #45 | Pending | Gherkin scenarios for key flows |
-| Privacy-aware logging & cost tracking | #46 | Pending | PII redaction, retention rules |
+| Structured logging with correlation IDs | #42 | ✅ Done (PR #50) | structlog JSON + contextvars correlation_id, X-Trace-Id propagation |
+| Prometheus metrics endpoint | #43 | ✅ Done (PR #50) | 15 metrics, `/metrics` endpoint, PrometheusMiddleware |
+| Langfuse v4 integration | #41 | ✅ Done (PR #50) | PII-sanitized traces, session hierarchy, graceful degradation |
+| OpenTelemetry distributed tracing | #44 | ✅ Done (PR #50) | Span hierarchy HTTP→pipeline→stage→llm_call, Jaeger export |
+| BDD feature files for core gameplay | #45 | ✅ Done (PR #50) | 3 feature files (11 BDD tests), 20 Hypothesis property tests |
+| Privacy-aware logging & cost tracking | #46 | ✅ Done (PR #50) | 4-tier data classification, 7 retention policies, cost tracker, GDPR stubs |
+
+**Delivered**: 999 tests (146 new), 0 pyright errors. New packages:
+`tta.observability` (metrics, tracing, langfuse), `tta.privacy`
+(classification, retention, cost). Architecture: three separate observability
+flows (logs/metrics/traces) unified by correlation_id. Prometheus metrics with
+low-cardinality labels. OTel span hierarchy with Jaeger export. Langfuse with
+pseudonymized player IDs. Data classification matrix (22 fields, 4 tiers).
+Retention policies for 7 storage categories. LLM cost tracking with daily
+alerting. BDD scenarios via pytest-bdd, Hypothesis property tests with profiles.
 
 ### Ordering Rationale
 
@@ -735,12 +744,12 @@ in the project.
 
 ## 10. Recommended Next Action
 
-1. **Merge PR #49** (Wave 6: Choice & Consequences). CI should be green
-   with 853 tests, 0 pyright errors.
+1. **Merge PR #50** (Wave 7: Observability). CI should be green
+   with 999 tests, 0 pyright errors.
 2. **Consider an end-to-end playtest**. With characters + choices +
-   consequences, you now have enough game mechanics to test whether the
-   narrative loop is actually fun. Fun is the metric.
-3. **Start Wave 7: Observability** (#41-#46). Begin with #41 (Langfuse)
-   and #42 (structured logging) as foundations. Read specs S14-S16.
-4. **Wave 7 (Observability)** is infrastructure, not gameplay logic.
-   Good candidate for parallel work if needed.
+   consequences + full observability, you can now trace a complete
+   player session through logs, metrics, and traces.
+3. **Plan Wave 8** or shift to vertical integration — connecting
+   real LLM calls through the pipeline with proper world graph data.
+4. **Review Grafana dashboards**. Prometheus metrics are exposed;
+   dashboard JSON definitions are a natural next step.
