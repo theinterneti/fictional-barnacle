@@ -742,9 +742,9 @@ in the project.
 
 ---
 
-## 10. Wave 8 — Vertical Integration (In Progress)
+## 10. Wave 8 — Vertical Integration (Complete ✅)
 
-**Status**: 4 of 6 issues complete. 1009 tests, 0 pyright errors.
+**Status**: All 6 issues complete. 1021 tests (12 integration), 0 pyright errors.
 
 ### Completed (PRs merged)
 
@@ -753,20 +753,107 @@ in the project.
 | #57 | #53, #51 | Wire Neo4jWorldService (opt-in via `neo4j_uri`) + inject ConsequenceService into PipelineDeps |
 | #58 | #54 | TurnResultStore protocol — InMemory + Redis implementations, SUBSCRIBE-before-GET pattern |
 | #59 | #52 | `make playtest` CLI — interactive httpx-based script with SSE streaming, color output |
+| — | #55 | Integration test suite: 12 tests across 5 classes exercising full turn cycle with real Postgres+Redis |
+| — | #56 | Web playtest client: `static/playtest.html` with EventSource SSE streaming, cookie auth, dark theme |
 
 ### Key decisions
 
 - **Neo4j opt-in**: `neo4j_uri` defaults to `""` (not `bolt://localhost:7687`). Set it to enable Neo4j; otherwise InMemoryWorldService is used. This avoids breaking unit tests that don't have Neo4j running.
 - **TurnResultStore**: Protocol-based with InMemory (asyncio.Event) and Redis (pub/sub + TTL) backends. Keyed by `turn_id`, not `game_id`. No DELETE on read — TTL handles cleanup.
 - **Playtest CLI**: Standalone `scripts/playtest.py`, reads `TTA_BASE_URL` env var, supports `--base-url` override. Decoupled from Docker orchestration.
+- **JSONB encoding fix**: Discovered that `sa.type_coerce(value, sa.JSON)` doesn't work with `sa.text()` + asyncpg — replaced with `json.dumps(value)` in 3 places in postgres.py.
+- **EventSource auth**: Browser EventSource can't send custom headers, but supports `withCredentials: true` for cookie-based auth. CORS `allow_credentials` was already enabled.
+- **Podman compatibility**: `podman-compose` doesn't support `--wait` — replaced with `pg_isready` polling loop in Makefile.
 
-### Remaining issues
+---
 
-- **#55 — Integration test suite**: Full POST /turns → pipeline → SSE flow with actual services (Postgres, Neo4j, Redis via docker-compose.test.yml). At least 5 integration tests.
-- **#56 — Minimal web playtest client**: Single `static/playtest.html` (vanilla HTML + JS), `make playtest-web` target.
+## 11. Spec Gap Analysis
 
-### Recommended next action
+A comprehensive review of S00–S22 identified gaps in the specification suite. These
+are areas that a v1 production release would need but are not yet covered by any spec.
 
-1. **Start with Issue #55** — integration tests exercise the full vertical stack and validate that all wiring works end-to-end. These are the highest-confidence tests before real playtesting.
-2. **Then Issue #56** — web client gives a browser-based way to playtest with SSE streaming visible in DevTools.
-3. **After Wave 8**: Consider Grafana dashboard definitions, real LLM provider testing, or advancing spec areas (S18-S22 future stubs).
+### Critical Gaps (block production readiness)
+
+#### S23 — Error Handling & Resilience (proposed)
+
+No spec governs the **cross-cutting error handling strategy**. Currently:
+- S07 mentions LLM retry/fallback, S10 lists some HTTP error codes, S14 mentions health checks
+- But nobody owns: error taxonomy, circuit breaker policy, graceful degradation, user-facing error messages, retry budget across the full stack
+
+**Impact**: Without this, each component will invent its own error strategy, leading to inconsistent UX and brittle failure modes.
+
+#### S24 — Content Moderation v1 (proposed)
+
+S19 (Crisis & Content Safety) is deferred as a future stub, but **basic input/output filtering** is needed before any public exposure:
+- Profanity / hate speech in player input
+- LLM hallucinating harmful content in narrative output
+- PII leaking into generated text
+
+**Impact**: Even an internal playtest needs guardrails against model misbehavior.
+
+#### Contradiction: Data Deletion Timeline
+
+- **S11 §6.2** says player data deletion within **72 hours** of account deletion
+- **S17 §4.3** says anonymization within **30 days**
+
+These must be reconciled before implementing the deletion pipeline.
+
+### Important Gaps (should be specified before v1)
+
+| Proposed Spec | Description |
+|---------------|-------------|
+| **S25 — Rate Limiting & Anti-Abuse** | Per-player and global rate limits, abuse detection, IP-based throttling |
+| **S26 — Admin & Operator Tooling** | Player lookup, game inspection, manual intervention, metrics dashboards |
+| **S27 — Save/Load UX** | S12 covers persistence mechanics but not the player-facing save/load/resume experience |
+| **S28 — Performance & Scaling** | Target latencies, throughput SLOs, connection limits, horizontal scaling strategy |
+
+### Spec Overlaps & Contradictions to Resolve
+
+| Area | Specs | Issue |
+|------|-------|-------|
+| Anonymous player lifecycle | S10, S11 | S10 defines token-based identity, S11 defines session lifecycle — neither owns conversion to permanent account |
+| Session timeout semantics | S01, S11 | S01 says "resume any time", S11 defines session expiry — unclear what happens to game state when session expires |
+| LLM context ownership | S03, S08 | Both claim ownership of prompt assembly — S03 (narrative engine) and S08 (turn pipeline) |
+| Data retention scope | S11, S17 | Conflicting deletion timelines (see critical gap above) |
+
+### Coverage Assessment
+
+- **Well-covered (~70%)**: Core gameplay loop, world model, LLM integration, API contracts, persistence, observability
+- **Partially covered (~20%)**: Error handling (scattered), security (deferred), player UX (mechanics without experience)
+- **Not covered (~10%)**: Rate limiting, admin tooling, performance SLOs, content moderation basics
+
+### Recommended Actions
+
+1. **Immediate**: Reconcile S11/S17 data deletion conflict
+2. **Before playtesting**: Write S24 (Content Moderation v1) — even a simple blocklist/filter
+3. **Before v1**: Write S23 (Error Handling), S25 (Rate Limiting), S28 (Performance)
+4. **Can defer**: S26 (Admin Tooling), S27 (Save/Load UX)
+
+---
+
+## 12. Wave 9+ Recommendations
+
+With Wave 8 complete, the foundation is solid: full vertical stack wired, 1021 tests,
+integration tests with real services, two playtest clients (CLI + web).
+
+### Wave 9 — Hardening & Operational Readiness
+
+1. **Error handling spec (S23)** + cross-cutting implementation
+2. **Content moderation v1 (S24)** — input/output filtering before any public exposure
+3. **Reconcile S11/S17** data deletion conflict
+4. **Real LLM provider testing** — run against OpenAI/Anthropic in staging
+5. **Grafana dashboard definitions** for Prometheus metrics already being collected
+
+### Wave 10 — Production Preparation
+
+1. **Rate limiting (S25)** — per-player + global limits
+2. **Performance baselines (S28)** — establish SLOs, load test
+3. **CI improvements** — integration tests in CI (currently local only)
+4. **Container image** — finalize Dockerfile for deployment
+
+### Beyond v1
+
+- S18-S22 future stubs (therapeutic framework, crisis safety, sharing, co-authoring, community)
+- Admin tooling (S26)
+- Save/Load UX (S27)
+- Horizontal scaling, read replicas, CDN
