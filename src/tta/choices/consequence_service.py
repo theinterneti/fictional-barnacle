@@ -117,8 +117,8 @@ class ConsequenceService(Protocol):
         root_trigger: str,
         *,
         entries: list[ConsequenceEntry] | None = None,
-        impact_level: str = ImpactLevel.ATMOSPHERIC,
-        reversibility: str = Reversibility.MODERATE,
+        impact_level: ImpactLevel = ImpactLevel.ATMOSPHERIC,
+        reversibility: Reversibility = Reversibility.MODERATE,
         turn: int = 0,
         parent_chain_id: UUID | None = None,
     ) -> ConsequenceChain:
@@ -203,8 +203,8 @@ class InMemoryConsequenceService:
         root_trigger: str,
         *,
         entries: list[ConsequenceEntry] | None = None,
-        impact_level: str = ImpactLevel.ATMOSPHERIC,
-        reversibility: str = Reversibility.MODERATE,
+        impact_level: ImpactLevel = ImpactLevel.ATMOSPHERIC,
+        reversibility: Reversibility = Reversibility.MODERATE,
         turn: int = 0,
         parent_chain_id: UUID | None = None,
     ) -> ConsequenceChain:
@@ -266,13 +266,19 @@ class InMemoryConsequenceService:
                 should_activate = False
 
                 if entry.timescale == ConsequenceTimescale.IMMEDIATE:
-                    should_activate = turns_elapsed >= 0
+                    should_activate = turns_elapsed == 0
                 elif entry.timescale == ConsequenceTimescale.SHORT_TERM:
                     should_activate = 1 <= turns_elapsed <= 10
                 elif entry.timescale == ConsequenceTimescale.LONG_TERM:
                     should_activate = turns_elapsed > 10
 
                 if should_activate:
+                    # Hidden entries use a two-phase flow (S05 FR-7):
+                    # Phase 1 — while PENDING, produce foreshadowing hints
+                    #   so the narrative can allude to unseen consequences.
+                    # Phase 2 — when the story is ready, call
+                    #   reveal_hidden_entry() to transition to VISIBLE/ACTIVE,
+                    #   at which point the entry produces world changes.
                     if entry.visibility == ConsequenceVisibility.HIDDEN:
                         if entry.narrative_hook:
                             hints.append(entry.narrative_hook)

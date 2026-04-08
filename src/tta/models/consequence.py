@@ -13,6 +13,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from tta.models.choice import ImpactLevel, Reversibility
+
 # Cap on active consequence chains per story (S05 FR-3.6)
 MAX_ACTIVE_CHAINS = 30
 
@@ -87,8 +89,8 @@ class ConsequenceChain(BaseModel):
     root_trigger: str
     entries: list[ConsequenceEntry] = Field(default_factory=list)
     parent_chain_id: UUID | None = None
-    reversibility: str = "moderate"
-    impact_level: str = "atmospheric"
+    reversibility: Reversibility = Reversibility.MODERATE
+    impact_level: ImpactLevel = ImpactLevel.ATMOSPHERIC
     turn_created: int = 0
     last_active_turn: int = 0
     is_dormant: bool = False

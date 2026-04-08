@@ -141,7 +141,26 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             )
 
     # 4. Choice classification (S05 FR-2) — non-blocking
-    return _enrich_choice_classification(intent_state)
+    classified_state = _enrich_choice_classification(intent_state)
+
+    # 5. Consequence evaluation (S05 FR-3) — evaluate pending consequences
+    classified_state = await _evaluate_consequences(classified_state, deps)
+
+    return classified_state
+
+
+async def _evaluate_consequences(state: TurnState, deps: PipelineDeps) -> TurnState:
+    """Evaluate pending consequences for this turn. Non-blocking."""
+    consequence_svc = getattr(deps, "consequence_service", None)
+    if consequence_svc is None:
+        return state
+    try:
+        await consequence_svc.evaluate(
+            state.session_id, state.turn_number, state.player_input
+        )
+    except Exception:
+        log.warning("consequence_evaluation_failed", exc_info=True)
+    return state
 
 
 def _enrich_choice_classification(state: TurnState) -> TurnState:

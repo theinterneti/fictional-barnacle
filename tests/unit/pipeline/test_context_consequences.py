@@ -267,3 +267,6 @@ async def test_consequence_data_stored_in_turnstate() -> None:
 
     # world_context should have the data
     assert "active_consequences" in result.world_context
+    # TurnState.active_consequences should also be populated
+    assert result.active_consequences is not None
+    assert len(result.active_consequences) >= 1
