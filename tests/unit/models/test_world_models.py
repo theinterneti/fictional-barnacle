@@ -5,14 +5,21 @@ from uuid import UUID, uuid4
 
 from tta.models.world import (
     NPC,
+    RELATIONSHIP_CLAMP_DRAMATIC,
+    RELATIONSHIP_CLAMP_NORMAL,
     Connection,
     GraphEvent,
     Item,
     Location,
     LocationContext,
+    NPCDialogueContext,
+    NPCRelationship,
+    NPCTier,
     PlayerSession,
     Quest,
     Region,
+    RelationshipChange,
+    RelationshipDimensions,
     TemplateConnection,
     TemplateItem,
     TemplateKnowledge,
@@ -26,6 +33,8 @@ from tta.models.world import (
     WorldEvent,
     WorldSeed,
     WorldTemplate,
+    apply_relationship_change,
+    trust_to_label,
 )
 
 
@@ -345,6 +354,8 @@ class TestWorldChange:
             "QUEST_STATUS_CHANGED",
             "ITEM_VISIBILITY_CHANGED",
             "NPC_STATE_CHANGED",
+            "RELATIONSHIP_CHANGED",
+            "NPC_TIER_CHANGED",
         }
         assert {m.name for m in WorldChangeType} == expected
 
@@ -635,3 +646,251 @@ class TestWorldSeed:
         assert seed.tone is None
         assert seed.tech_level is None
         assert seed.character_name is None
+
+
+# -- Wave 5: Character depth --
+
+
+class TestNPCTier:
+    def test_values(self) -> None:
+        assert NPCTier.KEY == "key"
+        assert NPCTier.SUPPORTING == "supporting"
+        assert NPCTier.BACKGROUND == "background"
+
+    def test_is_str(self) -> None:
+        assert isinstance(NPCTier.KEY, str)
+
+
+class TestNPCWave5Fields:
+    """NPC model extensions from S06 FR-3."""
+
+    def test_defaults(self) -> None:
+        npc = _npc()
+        assert npc.tier == NPCTier.BACKGROUND
+        assert npc.traits == []
+        assert npc.goals_short is None
+        assert npc.goals_long is None
+        assert npc.knowledge_summary is None
+        assert npc.schedule is None
+        assert npc.voice is None
+        assert npc.occupation is None
+        assert npc.mannerisms is None
+        assert npc.appearance is None
+        assert npc.backstory is None
+        assert npc.interaction_count == 0
+
+    def test_overrides(self) -> None:
+        npc = _npc(
+            tier=NPCTier.KEY,
+            traits=["cunning", "loyal"],
+            goals_short="find the artifact",
+            goals_long="restore the kingdom",
+            knowledge_summary="knows the location of the ruin",
+            schedule="patrols the wall at dawn",
+            voice="gravelly whisper",
+            occupation="guard captain",
+            mannerisms="taps sword hilt when nervous",
+            appearance="scarred, tall",
+            backstory="veteran of the border wars",
+            interaction_count=5,
+        )
+        assert npc.tier == NPCTier.KEY
+        assert npc.traits == ["cunning", "loyal"]
+        assert npc.goals_short == "find the artifact"
+        assert npc.goals_long == "restore the kingdom"
+        assert npc.knowledge_summary == "knows the location of the ruin"
+        assert npc.schedule == "patrols the wall at dawn"
+        assert npc.voice == "gravelly whisper"
+        assert npc.occupation == "guard captain"
+        assert npc.mannerisms == "taps sword hilt when nervous"
+        assert npc.appearance == "scarred, tall"
+        assert npc.backstory == "veteran of the border wars"
+        assert npc.interaction_count == 5
+
+    def test_backward_compat_minimal_npc(self) -> None:
+        """Existing code creating NPCs with only required fields still works."""
+        npc = NPC(
+            id="npc-old",
+            name="Old NPC",
+            description="Test",
+            disposition="neutral",
+        )
+        assert npc.tier == NPCTier.BACKGROUND
+        assert npc.traits == []
+        assert npc.interaction_count == 0
+
+
+class TestTrustToLabel:
+    def test_hostile(self) -> None:
+        assert trust_to_label(-100) == "hostile"
+        assert trust_to_label(-51) == "hostile"
+
+    def test_cold(self) -> None:
+        assert trust_to_label(-50) == "cold"
+        assert trust_to_label(-11) == "cold"
+
+    def test_neutral(self) -> None:
+        assert trust_to_label(-10) == "neutral"
+        assert trust_to_label(0) == "neutral"
+        assert trust_to_label(9) == "neutral"
+
+    def test_warm(self) -> None:
+        assert trust_to_label(10) == "warm"
+        assert trust_to_label(49) == "warm"
+
+    def test_loyal(self) -> None:
+        assert trust_to_label(50) == "loyal"
+        assert trust_to_label(100) == "loyal"
+
+
+class TestRelationshipDimensions:
+    def test_defaults(self) -> None:
+        dims = RelationshipDimensions()
+        assert dims.trust == 0
+        assert dims.affinity == 0
+        assert dims.respect == 0
+        assert dims.fear == 0
+        assert dims.familiarity == 0
+        assert dims.label == "neutral"
+
+    def test_label_from_trust(self) -> None:
+        d = RelationshipDimensions(trust=60)
+        assert d.label == "loyal"
+
+    def test_validation_bounds(self) -> None:
+        d = RelationshipDimensions(trust=100, affinity=-100, fear=100, familiarity=0)
+        assert d.trust == 100
+        assert d.affinity == -100
+
+    def test_rejects_out_of_range(self) -> None:
+        import pytest
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            RelationshipDimensions(trust=101)
+        with pytest.raises(ValidationError):
+            RelationshipDimensions(fear=-1)
+
+
+class TestRelationshipChange:
+    def test_clamped_normal(self) -> None:
+        change = RelationshipChange(trust=50, affinity=-50)
+        clamped = change.clamped()
+        assert clamped.trust == RELATIONSHIP_CLAMP_NORMAL
+        assert clamped.affinity == -RELATIONSHIP_CLAMP_NORMAL
+
+    def test_clamped_dramatic(self) -> None:
+        change = RelationshipChange(trust=50, dramatic=True)
+        clamped = change.clamped()
+        assert clamped.trust == RELATIONSHIP_CLAMP_DRAMATIC
+
+    def test_within_limit_unchanged(self) -> None:
+        change = RelationshipChange(trust=5, affinity=-3)
+        clamped = change.clamped()
+        assert clamped.trust == 5
+        assert clamped.affinity == -3
+
+
+class TestApplyRelationshipChange:
+    def test_basic_apply(self) -> None:
+        dims = RelationshipDimensions(trust=0, familiarity=0)
+        result = apply_relationship_change(
+            dims, RelationshipChange(trust=10, familiarity=10)
+        )
+        assert result.trust == 10
+        assert result.familiarity == 10
+
+    def test_clamped_at_bounds(self) -> None:
+        dims = RelationshipDimensions(trust=95)
+        result = apply_relationship_change(dims, RelationshipChange(trust=15))
+        assert result.trust == 100  # capped at 100
+
+    def test_fear_stays_non_negative(self) -> None:
+        dims = RelationshipDimensions(fear=5)
+        result = apply_relationship_change(dims, RelationshipChange(fear=-15))
+        assert result.fear == 0
+
+
+class TestNPCRelationship:
+    def test_label_delegation(self) -> None:
+        rel = NPCRelationship(
+            source_id="player-1",
+            target_id="npc-1",
+            session_id="sess-1",
+            dimensions=RelationshipDimensions(trust=-60),
+        )
+        assert rel.label == "hostile"
+
+    def test_default_dimensions(self) -> None:
+        rel = NPCRelationship(
+            source_id="a",
+            target_id="b",
+            session_id="s",
+        )
+        assert rel.dimensions.trust == 0
+        assert rel.label == "neutral"
+
+
+class TestNPCDialogueContext:
+    def test_defaults(self) -> None:
+        ctx = NPCDialogueContext(npc_id="npc-1", npc_name="Ada")
+        assert ctx.disposition == "neutral"
+        assert ctx.traits == []
+        assert ctx.relationship_label == "neutral"
+        assert ctx.relationship_trust == 0
+
+    def test_full_context(self) -> None:
+        ctx = NPCDialogueContext(
+            npc_id="npc-1",
+            npc_name="Ada",
+            personality="gruff but kind",
+            voice="gravelly whisper",
+            traits=["cunning"],
+            knowledge_summary="knows the secret",
+            goals_short="guard the gate",
+            relationship_label="warm",
+            relationship_trust=35,
+            relationship_affinity=20,
+            emotional_state="wary",
+            occupation="guard",
+            mannerisms="taps sword",
+        )
+        assert ctx.voice == "gravelly whisper"
+        assert ctx.relationship_label == "warm"
+
+
+class TestWorldChangeTypeWave5:
+    def test_relationship_changed(self) -> None:
+        assert WorldChangeType.RELATIONSHIP_CHANGED == "relationship_changed"
+
+    def test_npc_tier_changed(self) -> None:
+        assert WorldChangeType.NPC_TIER_CHANGED == "npc_tier_changed"
+
+
+class TestTemplateNPCWave5:
+    def test_defaults(self) -> None:
+        tnpc = TemplateNPC(
+            key="guard",
+            location_key="gate",
+            role="ambient",
+            archetype="silent watcher",
+        )
+        assert tnpc.tier == NPCTier.BACKGROUND
+        assert tnpc.traits == []
+        assert tnpc.goals_hint is None
+        assert tnpc.backstory_hint is None
+
+    def test_key_npc_template(self) -> None:
+        tnpc = TemplateNPC(
+            key="mentor",
+            location_key="tower",
+            role="quest_giver",
+            archetype="wise sage",
+            tier=NPCTier.KEY,
+            traits=["wise", "patient"],
+            goals_hint="guide the hero",
+            backstory_hint="former court wizard",
+        )
+        assert tnpc.tier == NPCTier.KEY
+        assert tnpc.traits == ["wise", "patient"]
+        assert tnpc.goals_hint == "guide the hero"

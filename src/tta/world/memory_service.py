@@ -218,6 +218,8 @@ class InMemoryWorldService:
                 role=npc.role,
                 disposition=npc.disposition,
                 template_key=npc.key,
+                tier=npc.tier,
+                traits=list(npc.traits),
             )
             self._npcs[sid][nid] = (npc_model, loc_id)
 

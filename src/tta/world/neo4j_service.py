@@ -350,7 +350,10 @@ class Neo4jWorldService:
                             disposition: $disp,
                             alive: true,
                             state: 'idle',
-                            template_key: $key
+                            template_key: $key,
+                            tier: $tier,
+                            traits: $traits,
+                            interaction_count: 0
                         })
                         CREATE (n)-[:IS_AT]->(l)
                         """,
@@ -361,6 +364,8 @@ class Neo4jWorldService:
                         role=npc.role,
                         disp=npc.disposition,
                         loc_id=loc_id,
+                        tier=npc.tier.value,
+                        traits=list(npc.traits),
                     )
 
                 # 6. Items
@@ -567,6 +572,10 @@ def _node_to_location(node: dict) -> Location:  # type: ignore[type-arg]
 
 def _node_to_npc(node: dict) -> NPC:  # type: ignore[type-arg]
     """Convert a Neo4j node dict to an NPC model."""
+    raw_tags = node.get("tags")
+    tags = list(raw_tags) if raw_tags else []
+    raw_traits = node.get("traits")
+    traits = list(raw_traits) if raw_traits else []
     return NPC(
         id=node["id"],
         name=node["name"],
@@ -575,7 +584,23 @@ def _node_to_npc(node: dict) -> NPC:  # type: ignore[type-arg]
         alive=node.get("alive", True),
         role=node.get("role"),
         state=node.get("state", "idle"),
+        personality=node.get("personality"),
+        dialogue_style=node.get("dialogue_style"),
+        tags=tags,
         template_key=node.get("template_key"),
+        session_id=node.get("session_id"),
+        tier=node.get("tier", "background"),
+        traits=traits,
+        goals_short=node.get("goals_short"),
+        goals_long=node.get("goals_long"),
+        knowledge_summary=node.get("knowledge_summary"),
+        schedule=node.get("schedule"),
+        voice=node.get("voice"),
+        occupation=node.get("occupation"),
+        mannerisms=node.get("mannerisms"),
+        appearance=node.get("appearance"),
+        backstory=node.get("backstory"),
+        interaction_count=node.get("interaction_count", 0),
     )
 
 
