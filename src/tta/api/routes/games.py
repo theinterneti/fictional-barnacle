@@ -84,9 +84,7 @@ async def _dispatch_pipeline(
     # Persist turn result via repository
     try:
         if result.status == TurnStatus.complete and result.narrative_output:
-            token_dict = (
-                result.token_count.model_dump() if result.token_count else {}
-            )
+            token_dict = result.token_count.model_dump() if result.token_count else {}
             await turn_repo.complete_turn(
                 turn_id=turn_id,
                 narrative_output=result.narrative_output,
@@ -449,8 +447,7 @@ async def submit_turn(
     )
     in_flight = await pg.execute(
         sa.text(
-            "SELECT id FROM turns "
-            "WHERE session_id = :sid AND status = 'processing'"
+            "SELECT id FROM turns WHERE session_id = :sid AND status = 'processing'"
         ),
         {"sid": game_id},
     )
