@@ -106,6 +106,11 @@ dev: ## Start dependency services and run API locally with reload
 playtest: ## Interactive CLI playtest (server must be running via 'make dev')
 	uv run python scripts/playtest.py
 
+playtest-web: ## Serve web playtest client on http://localhost:8080 (server must be running via 'make dev')
+	@echo "Open http://localhost:8080/playtest.html in your browser"
+	@echo "Make sure 'make dev' is running and TTA_CORS_ORIGINS includes http://localhost:8080"
+	python -m http.server 8080 -d static
+
 # ---------------------------------------------------------------------------
 # Infrastructure
 # ---------------------------------------------------------------------------

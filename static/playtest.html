@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TTA Playtest</title>
+<style>
+  :root {
+    --bg: #1a1a2e; --surface: #16213e; --border: #0f3460;
+    --text: #e0e0e0; --dim: #888; --accent: #53c6c6;
+    --green: #6bcb77; --red: #ff6b6b; --yellow: #ffd93d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+  }
+  header h1 { font-size: 1.2rem; color: var(--accent); }
+  #status { font-size: 0.85rem; color: var(--dim); }
+  #status.connected { color: var(--green); }
+  #status.error { color: var(--red); }
+  #narrative {
+    flex: 1; overflow-y: auto; padding: 20px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .msg { max-width: 720px; line-height: 1.6; }
+  .msg.system { color: var(--dim); font-style: italic; font-size: 0.9rem; }
+  .msg.narrative { color: var(--accent); white-space: pre-wrap; }
+  .msg.error { color: var(--red); }
+  .msg.meta {
+    color: var(--dim); font-size: 0.8rem;
+    border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;
+  }
+  .msg.choices { color: var(--yellow); }
+  #input-bar {
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 12px 20px; display: flex; gap: 10px;
+  }
+  #turn-input {
+    flex: 1; padding: 10px 14px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: 1rem; outline: none;
+  }
+  #turn-input:focus { border-color: var(--accent); }
+  #turn-input:disabled { opacity: 0.5; }
+  button {
+    padding: 10px 20px; border-radius: 6px; border: none;
+    background: var(--accent); color: var(--bg); font-weight: 600;
+    cursor: pointer; font-size: 1rem;
+  }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #config {
+    background: var(--surface); padding: 40px 20px;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; flex: 1; gap: 16px;
+  }
+  #config label { color: var(--dim); font-size: 0.9rem; }
+  #config input {
+    padding: 10px 14px; border-radius: 6px; width: 360px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: 1rem; text-align: center;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>⚔ TTA Playtest</h1>
+    <span id="status">disconnected</span>
+  </header>
+
+  <!-- Setup screen -->
+  <div id="config">
+    <label for="api-url">API Base URL</label>
+    <input id="api-url" value="http://localhost:8000/api/v1" spellcheck="false">
+    <button id="connect-btn" onclick="startSession()">Connect &amp; Play</button>
+  </div>
+
+  <!-- Game screen (hidden initially) -->
+  <div id="narrative" style="display:none"></div>
+  <div id="input-bar" style="display:none">
+    <input id="turn-input" placeholder="What do you do?" autofocus
+           onkeydown="if(event.key==='Enter')submitTurn()">
+    <button id="send-btn" onclick="submitTurn()">Send</button>
+  </div>
+
+<script>
+let BASE = '';
+let gameId = null;
+let token = null;
+let eventSource = null;
+
+const $ = id => document.getElementById(id);
+
+function setStatus(text, cls) {
+  const el = $('status');
+  el.textContent = text;
+  el.className = cls || '';
+}
+
+function addMsg(text, cls = '') {
+  const el = document.createElement('div');
+  el.className = 'msg ' + cls;
+  el.textContent = text;
+  $('narrative').appendChild(el);
+  $('narrative').scrollTop = $('narrative').scrollHeight;
+  return el;
+}
+
+function setInputEnabled(enabled) {
+  $('turn-input').disabled = !enabled;
+  $('send-btn').disabled = !enabled;
+  if (enabled) $('turn-input').focus();
+}
+
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',  // send/receive cookies cross-origin
+  };
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const resp = await fetch(BASE + path, opts);
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`${resp.status}: ${text}`);
+  }
+  return resp.json();
+}
+
+async function startSession() {
+  BASE = $('api-url').value.replace(/\/+$/, '');
+  $('connect-btn').disabled = true;
+  setStatus('connecting...');
+
+  try {
+    // Register player
+    const handle = 'web-' + Math.random().toString(36).slice(2, 10);
+    const regData = await api('POST', '/players', { handle });
+    token = regData.data.session_token;
+    const playerId = regData.data.player_id;
+
+    // Create game
+    const gameData = await api('POST', '/games', {});
+    gameId = gameData.data.game_id;
+
+    // Show game UI
+    $('config').style.display = 'none';
+    $('narrative').style.display = 'flex';
+    $('input-bar').style.display = 'flex';
+    setStatus('connected · ' + playerId.slice(0, 8), 'connected');
+
+    addMsg(`Player: ${playerId}`, 'system');
+    addMsg(`Game: ${gameId}`, 'system');
+    addMsg('Type your action and press Enter.', 'system');
+    setInputEnabled(true);
+
+    // Connect SSE stream
+    connectSSE();
+  } catch (err) {
+    setStatus('connection failed', 'error');
+    console.error(err);
+    $('connect-btn').disabled = false;
+    alert('Failed to connect: ' + err.message);
+  }
+}
+
+function connectSSE() {
+  if (eventSource) eventSource.close();
+
+  const url = BASE + '/games/' + gameId + '/stream';
+  eventSource = new EventSource(url, { withCredentials: true });
+
+  // Buffer for streaming tokens
+  let tokenEl = null;
+
+  eventSource.addEventListener('turn_start', e => {
+    const d = JSON.parse(e.data);
+    addMsg(`--- Turn ${d.turn_number || '?'} ---`, 'system');
+    tokenEl = null;
+  });
+
+  eventSource.addEventListener('narrative_block', e => {
+    const d = JSON.parse(e.data);
+    const text = d.full_text || d.text || '';
+    if (text) {
+      addMsg(text, 'narrative');
+      tokenEl = null;
+    }
+  });
+
+  eventSource.addEventListener('narrative_token', e => {
+    const d = JSON.parse(e.data);
+    const text = d.text || '';
+    if (text) {
+      if (!tokenEl) {
+        tokenEl = addMsg('', 'narrative');
+      }
+      tokenEl.textContent += text;
+      $('narrative').scrollTop = $('narrative').scrollHeight;
+    }
+  });
+
+  eventSource.addEventListener('turn_complete', e => {
+    const d = JSON.parse(e.data);
+    const model = d.model_used || '?';
+    const latency = d.latency_ms ? d.latency_ms.toFixed(0) + 'ms' : '?';
+    const tokens = d.token_count;
+    let meta = `${model} · ${latency}`;
+    if (tokens) {
+      const prompt = tokens.prompt_tokens || 0;
+      const comp = tokens.completion_tokens || 0;
+      meta += ` · ${prompt}+${comp} tokens`;
+    }
+    addMsg(meta, 'meta');
+    tokenEl = null;
+    setInputEnabled(true);
+  });
+
+  eventSource.addEventListener('choices', e => {
+    const d = JSON.parse(e.data);
+    const choices = d.choices || [];
+    if (choices.length) {
+      const text = choices.map((c, i) =>
+        `  ${i + 1}. ${c.text || c.label || c}`
+      ).join('\n');
+      addMsg('Choices:\n' + text, 'choices');
+    }
+  });
+
+  eventSource.addEventListener('error', e => {
+    if (e.data) {
+      const d = JSON.parse(e.data);
+      addMsg(`Error: ${d.code || 'UNKNOWN'} — ${d.message || ''}`, 'error');
+    }
+  });
+
+  eventSource.addEventListener('thinking', () => {
+    setStatus('thinking...', 'connected');
+  });
+
+  eventSource.addEventListener('still_thinking', () => {
+    setStatus('still thinking...', 'connected');
+  });
+
+  eventSource.onerror = () => {
+    // EventSource auto-reconnects; just update status briefly
+    setStatus('reconnecting...', '');
+    setTimeout(() => {
+      if (eventSource && eventSource.readyState === EventSource.OPEN) {
+        setStatus('connected', 'connected');
+      }
+    }, 3000);
+  };
+}
+
+async function submitTurn() {
+  const input = $('turn-input');
+  const text = input.value.trim();
+  if (!text || input.disabled) return;
+
+  input.value = '';
+  setInputEnabled(false);
+  setStatus('processing...', 'connected');
+
+  addMsg('> ' + text, 'system');
+
+  try {
+    await api('POST', '/games/' + gameId + '/turns', { input: text });
+    // SSE stream will deliver the response
+  } catch (err) {
+    addMsg('Failed to submit turn: ' + err.message, 'error');
+    setInputEnabled(true);
+  }
+}
+</script>
+</body>
+</html>
