@@ -248,7 +248,7 @@ def discover_plans(plans_dir: Path) -> list[PlanMeta]:
     """Find and parse all plan files in the directory."""
     plans: list[PlanMeta] = []
     for md in sorted(plans_dir.glob("*.md")):
-        if md.name in ("README.md", "index.md"):
+        if md.name in ("README.md", "index.md", "TECHNICAL_REVIEW.md"):
             continue
         meta = parse_plan(md)
         plans.append(meta)

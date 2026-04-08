@@ -1,7 +1,7 @@
 {
   "plan_count": 7,
-  "total_lines": 9373,
-  "total_words": 42094,
+  "total_lines": 10822,
+  "total_words": 46821,
   "plans": [
     {
       "file": "system.md",
@@ -62,8 +62,8 @@
         "7.3 \u2014 Branching Strategy",
         "7.4 \u2014 Configuration"
       ],
-      "word_count": 5393,
-      "line_count": 954,
+      "word_count": 5474,
+      "line_count": 963,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -107,79 +107,17 @@
       ]
     },
     {
-      "file": "TECHNICAL_REVIEW.md",
-      "title": "Technical Review \u2014 Dependency Verification & OSS Analysis",
-      "scope": "All production dependencies in system.md and component plans",
-      "wave": "",
-      "status": "Unknown",
-      "last_updated": "",
-      "specs_covered": [],
-      "sections": [
-        "1. Dependency Audit Summary",
-        "2. Critical Findings",
-        "3. OSS vs Custom Code Analysis",
-        "4. Integration Verification",
-        "5. Plan Updates Required",
-        "6. Risks and Mitigations",
-        "7. Conclusion"
-      ],
-      "subsections": [
-        "2.1 \u2014 \ud83d\udd34 Langfuse v4 Docker Infrastructure (CRITICAL)",
-        "2.2 \u2014 \u26a0\ufe0f Langfuse SDK v4 API Changes",
-        "2.3 \u2014 \u26a0\ufe0f FastAPI Native SSE",
-        "2.4 \u2014 \u26a0\ufe0f Alembic Async Needs Sync Driver",
-        "3.1 \u2014 Full OSS (Zero Custom Code)",
-        "3.2 \u2014 Thin Wrappers (~500 lines)",
-        "3.3 \u2014 Custom Domain Logic (~1,800 lines)",
-        "3.4 \u2014 The Ratio",
-        "4.1 \u2014 SQLModel + Alembic + asyncpg",
-        "4.2 \u2014 FastAPI Native SSE + Redis Pub/Sub",
-        "4.3 \u2014 LiteLLM Streaming + Buffer-then-Stream",
-        "4.4 \u2014 Langfuse + LiteLLM",
-        "4.5 \u2014 structlog + Langfuse + FastAPI"
-      ],
-      "word_count": 1946,
-      "line_count": 294,
-      "has_tech_stack": true,
-      "has_architecture": true,
-      "has_data_models": false,
-      "has_interfaces": true,
-      "has_testing": false,
-      "has_code_blocks": true,
-      "code_block_count": 5,
-      "has_normative_markers": false,
-      "normative_sections": [],
-      "spec_refs": [],
-      "plan_refs": [
-        "api-and-sessions.md",
-        "llm-and-pipeline.md",
-        "ops.md"
-      ],
-      "section_refs": [
-        "\u00a71.1",
-        "\u00a71.2",
-        "\u00a71.9",
-        "\u00a72.4",
-        "\u00a75.3",
-        "\u00a77",
-        "\u00a78"
-      ],
-      "warnings": [
-        "No testing section found",
-        "No spec references found (S01, S02, etc.)"
-      ]
-    },
-    {
       "file": "api-and-sessions.md",
       "title": "API & Sessions \u2014 Component Technical Plan",
-      "scope": "HTTP API layer, session management, persistence wiring, minimal web client",
+      "scope": "HTTP API layer, session management, persistence wiring, minimal web client, game lifecycle & save/load",
       "wave": "4 (depends on Waves 2 + 3: pipeline + world/genesis)",
       "status": "\ud83d\udcdd Draft",
-      "last_updated": "2026-04-07",
+      "last_updated": "2026-04-09",
       "specs_covered": [
         "S10 (API & Streaming)",
         "S11 (Player Identity & Sessions)",
-        "S12 (Persistence Strategy)"
+        "S12 (Persistence Strategy)",
+        "S27 (Save/Load & Game Management)"
       ],
       "sections": [
         "1. FastAPI Application Structure",
@@ -192,7 +130,18 @@
         "8. Minimal Web Client",
         "9. Testing Strategy",
         "10. Configuration Summary",
-        "11. File Placement"
+        "11. File Placement",
+        "B.1 Spec Alignment Notes",
+        "B.2 Game Lifecycle State Machine",
+        "B.3 Game Model",
+        "B.4 Game Creation Flow",
+        "B.5 Automatic Post-Turn Persistence",
+        "B.6 Game Listing with Cursor Pagination",
+        "B.7 Game Resume with Context Summary",
+        "B.8 Soft Delete and Purge",
+        "B.9 API Routes Summary (S27)",
+        "B.10 Settings (S27)",
+        "B.11 File Inventory (S27)"
       ],
       "subsections": [
         "1.1 \u2014 Application Factory",
@@ -251,17 +200,19 @@
         "9.3 \u2014 SSE Stream Testing",
         "9.4 \u2014 Session Management Tests",
         "9.5 \u2014 BDD Mapping",
-        "9.6 \u2014 Test Markers"
+        "9.6 \u2014 Test Markers",
+        "Delete endpoint",
+        "Purge background task"
       ],
-      "word_count": 7494,
-      "line_count": 1963,
+      "word_count": 8903,
+      "line_count": 2333,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
       "has_testing": true,
       "has_code_blocks": true,
-      "code_block_count": 52,
+      "code_block_count": 65,
       "has_normative_markers": true,
       "normative_sections": [
         "(top-level)",
@@ -269,9 +220,15 @@
         "5.1 \u2014 SQLModel Table Definitions"
       ],
       "spec_refs": [
+        "S01",
+        "S02",
+        "S08",
         "S10",
         "S11",
-        "S12"
+        "S12",
+        "S13",
+        "S23",
+        "S27"
       ],
       "plan_refs": [
         "system.md"
@@ -413,15 +370,17 @@
     },
     {
       "file": "ops.md",
-      "title": "Operations Technical Plan \u2014 Deployment, Observability, Testing",
-      "scope": "DevOps, CI/CD, observability wiring, test infrastructure, database migrations",
+      "title": "Operations Technical Plan \u2014 Deployment, Observability, Testing, Admin, Performance",
+      "scope": "DevOps, CI/CD, observability wiring, test infrastructure, database migrations, admin tooling, performance & scaling",
       "wave": "",
-      "status": "\ud83d\udcdd Draft",
-      "last_updated": "2026-04-07",
+      "status": "\u2705 Implemented (Wave 7 \u2014 PR #50) | S26, S28 sections: \ud83d\udcdd Draft",
+      "last_updated": "2026-04-09",
       "specs_covered": [
         "S14 (Deployment)",
         "S15 (Observability)",
-        "S16 (Testing Infrastructure)"
+        "S16 (Testing Infrastructure)",
+        "S26 (Admin & Operator Tooling)",
+        "S28 (Performance & Scaling)"
       ],
       "sections": [
         "Spec Alignment Notes",
@@ -435,7 +394,26 @@
         "8. Monitoring and Alerting (v1)",
         "Appendix A: Observability Data Flow",
         "Appendix B: Sensitive Data Classification",
-        "Appendix C: Complete File Inventory"
+        "Appendix C: Complete File Inventory",
+        "B.1 Spec Alignment Notes",
+        "B.2 Admin Authentication & Authorization",
+        "B.3 Player Management Endpoints",
+        "B.4 Game Inspection Endpoints",
+        "B.5 System Health & Diagnostics",
+        "B.6 Moderation Queue Management",
+        "B.7 Rate-Limit Management",
+        "B.8 Audit Log",
+        "B.9 Implementation Notes",
+        "C.1 Spec Alignment Notes",
+        "C.2 Connection Pool Configuration",
+        "C.3 LLM Concurrency Control",
+        "C.4 Prometheus Metrics (Performance)",
+        "C.5 Memory Management",
+        "C.6 Graceful Degradation",
+        "C.7 Horizontal Scaling Readiness",
+        "C.8 SSE Connection Lifetime",
+        "C.9 Benchmarking",
+        "C.10 File Inventory (S28)"
       ],
       "subsections": [
         "1.1 \u2014 Dockerfile (Multi-Stage Build)",
@@ -477,23 +455,53 @@
         "8.1 \u2014 What to Monitor",
         "8.2 \u2014 Log Aggregation (v1)",
         "8.3 \u2014 Alert Conditions",
-        "8.4 \u2014 Grafana Dashboards (Optional)"
+        "8.4 \u2014 Grafana Dashboards (Optional)",
+        "Role in Player Model",
+        "Search players",
+        "Inspect player",
+        "Suspend / Unsuspend",
+        "Full game state",
+        "Turn history (paginated)",
+        "Force-terminate game",
+        "Health report",
+        "Metrics (Prometheus)",
+        "List flags",
+        "Review a flag",
+        "Inspect player rate-limit state",
+        "Reset player rate limits",
+        "Inspect / unblock IP",
+        "Query audit log",
+        "Service Layer",
+        "File Inventory (S26)",
+        "PostgreSQL Engine",
+        "Redis Pool",
+        "Neo4j Pool"
       ],
-      "word_count": 7125,
-      "line_count": 2091,
+      "word_count": 9518,
+      "line_count": 2739,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
       "has_testing": true,
       "has_code_blocks": true,
-      "code_block_count": 42,
+      "code_block_count": 75,
       "has_normative_markers": false,
       "normative_sections": [],
       "spec_refs": [
+        "S07",
+        "S10",
+        "S11",
+        "S12",
         "S14",
         "S15",
-        "S16"
+        "S16",
+        "S23",
+        "S24",
+        "S25",
+        "S26",
+        "S27",
+        "S28"
       ],
       "plan_refs": [
         "system.md"
@@ -639,6 +647,78 @@
       "warnings": []
     },
     {
+      "file": "resilience-and-safety.md",
+      "title": "Resilience & Safety \u2014 Component Technical Plan",
+      "scope": "Error handling, content moderation pipeline, rate limiting middleware",
+      "wave": "",
+      "status": "\ud83d\udcdd Draft",
+      "last_updated": "2026-04-09",
+      "specs_covered": [
+        "S23 (Error Handling & Resilience)",
+        "S24 (Content Moderation v1)",
+        "S25 (Rate Limiting & Anti-Abuse)"
+      ],
+      "sections": [
+        "Spec Alignment Notes",
+        "1. Error Handling Architecture (S23)",
+        "2. Content Moderation Pipeline (S24)",
+        "3. Rate Limiting Middleware (S25)",
+        "4. Configuration Summary",
+        "5. Database Migrations",
+        "6. File Inventory",
+        "7. Implementation Waves"
+      ],
+      "subsections": [
+        "1.1 \u2014 Error Taxonomy",
+        "1.2 \u2014 Error Envelope",
+        "1.3 \u2014 Retry and Circuit Breaker (tenacity)",
+        "1.4 \u2014 Turn Atomicity",
+        "1.5 \u2014 SSE Error Events",
+        "1.6 \u2014 Health Endpoint Enhancement",
+        "2.1 \u2014 Architecture",
+        "2.2 \u2014 Content Classifier",
+        "2.3 \u2014 Moderation Strategies",
+        "2.4 \u2014 Block Response",
+        "2.5 \u2014 Audit Trail",
+        "2.6 \u2014 Configuration",
+        "3.1 \u2014 Architecture",
+        "3.2 \u2014 Sliding Window Implementation",
+        "3.3 \u2014 Endpoint Group Defaults",
+        "3.4 \u2014 Response Headers",
+        "3.5 \u2014 Anti-Abuse Detection",
+        "3.6 \u2014 In-Memory Fallback",
+        "5.1 \u2014 Moderation Audit Table"
+      ],
+      "word_count": 2319,
+      "line_count": 663,
+      "has_tech_stack": false,
+      "has_architecture": true,
+      "has_data_models": true,
+      "has_interfaces": true,
+      "has_testing": false,
+      "has_code_blocks": true,
+      "code_block_count": 20,
+      "has_normative_markers": true,
+      "normative_sections": [
+        "(top-level)"
+      ],
+      "spec_refs": [
+        "S23",
+        "S24",
+        "S25"
+      ],
+      "plan_refs": [
+        "system.md"
+      ],
+      "section_refs": [
+        "\u00a72.4"
+      ],
+      "warnings": [
+        "No technology/framework section found",
+        "No testing section found"
+      ]
+    },
+    {
       "file": "world-and-genesis.md",
       "title": "World Model + Genesis \u2014 Component Technical Plan",
       "scope": "World graph schema, world state management, Genesis-lite onboarding",
@@ -660,7 +740,8 @@
         "7. Session Isolation",
         "8. Testing Strategy",
         "Appendix A: Mapping to system.md",
-        "Appendix B: Naming Reconciliation"
+        "Appendix B: Naming Reconciliation",
+        "Appendix C: Future Component Candidate \u2014 Hindsight Memory System"
       ],
       "subsections": [
         "1.1 \u2014 Design Principles",
@@ -702,10 +783,10 @@
         "8.5 \u2014 World Mutation Tests",
         "8.6 \u2014 BDD Tests (Gherkin)"
       ],
-      "word_count": 7165,
-      "line_count": 1446,
+      "word_count": 7636,
+      "line_count": 1499,
       "has_tech_stack": true,
-      "has_architecture": false,
+      "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
       "has_testing": true,
@@ -716,6 +797,7 @@
       "spec_refs": [
         "S02",
         "S04",
+        "S06",
         "S13"
       ],
       "plan_refs": [

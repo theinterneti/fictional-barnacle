@@ -452,12 +452,15 @@ def main() -> None:
     )
     parser.add_argument(
         "--dir",
-        default=".",
-        help="Specs directory to scan (default: current directory)",
+        default=None,
+        help="Specs directory to scan (default: directory containing this script)",
     )
     args = parser.parse_args()
 
-    specs_dir = Path(args.dir).resolve()
+    if args.dir:
+        specs_dir = Path(args.dir).resolve()
+    else:
+        specs_dir = Path(__file__).resolve().parent
     if not specs_dir.is_dir():
         print(f"Error: {specs_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
