@@ -1,10 +1,10 @@
-# Operations Technical Plan — Deployment, Observability, Testing
+# Operations Technical Plan — Deployment, Observability, Testing, Admin, Performance
 
 > **Phase**: SDD Phase 2 — Component Technical Plan
-> **Scope**: DevOps, CI/CD, observability wiring, test infrastructure, database migrations
-> **Input specs**: S14 (Deployment), S15 (Observability), S16 (Testing Infrastructure)
+> **Scope**: DevOps, CI/CD, observability wiring, test infrastructure, database migrations, admin tooling, performance & scaling
+> **Input specs**: S14 (Deployment), S15 (Observability), S16 (Testing Infrastructure), S26 (Admin & Operator Tooling), S28 (Performance & Scaling)
 > **Parent plan**: `plans/system.md`
-> **Status**: ✅ Implemented (Wave 7 — PR #50)
+> **Status**: ✅ Implemented (Wave 7 — PR #50) | S26, S28 sections: 📝 Draft
 > **Last Updated**: 2026-04-09
 
 ---
@@ -2089,3 +2089,651 @@ Files this plan introduces or modifies:
 | `tests/fixtures/` | Test data (worlds, sessions, golden) | New |
 | `monitoring/grafana/dashboards/` | Dashboard JSON (optional) | New |
 | `pyproject.toml` | pytest + coverage config sections | Modified |
+
+---
+
+# Part B — Admin & Operator Tooling (S26)
+
+> **Input specs**: S26 (Admin & Operator Tooling)
+> **Dependencies**: S10 (API), S11 (Identity), S15 (Observability), S23 (Error Handling), S24 (Content Moderation), S25 (Rate Limiting)
+> **Status**: 📝 Draft
+
+## B.1 Spec Alignment Notes
+
+| Spec | Concern | Resolution |
+|------|---------|------------|
+| S26 + S11 | Admin authentication | S26 uses the same JWT mechanism as S11, adding an `admin` role claim. No separate auth system. |
+| S26 + S10 | API conventions | Admin endpoints follow the same error envelope (S23), pagination, and response format as player-facing APIs. |
+| S26 + S24 | Moderation queue | Admin endpoints expose S24's flagged content queue for human review. |
+| S26 + S25 | Rate-limit overrides | Admin endpoints allow inspecting and resetting per-player/per-IP rate-limit state. |
+| S26 Q-26.3 | Separate port for admin? | **Decision: No.** Single-process constraint (system plan) makes a separate port impractical. Use `/admin` prefix with middleware-level role checking instead. Network isolation can be achieved via ingress/proxy rules. |
+| S26 Q-26.1 | Multiple admin roles? | **Decision: v1 uses a single `admin` role.** RBAC deferred to v2. |
+
+## B.2 Admin Authentication & Authorization
+
+All admin endpoints live under the `/admin` prefix and require a valid JWT with
+`role: "admin"` in the claims. The auth flow reuses S11's token infrastructure.
+
+```python
+# src/tta/api/deps.py — admin dependency
+from fastapi import Depends, HTTPException, status
+
+async def require_admin(
+    player: Player = Depends(get_current_player),
+) -> Player:
+    """Dependency that enforces admin role on a route."""
+    if player.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return player
+```
+
+Admin routes are registered in a dedicated router with the dependency applied
+at the router level:
+
+```python
+# src/tta/api/routes/admin.py
+from fastapi import APIRouter, Depends
+from tta.api.deps import require_admin
+
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
+```
+
+### Role in Player Model
+
+The `Player` SQLModel gains a `role` field:
+
+```python
+class Player(SQLModel, table=True):
+    id: str = Field(primary_key=True)
+    display_name: str
+    role: str = Field(default="player")  # "player" | "admin"
+    is_suspended: bool = Field(default=False)
+    suspended_at: datetime | None = None
+    suspended_reason: str | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+```
+
+Migration: `ALTER TABLE player ADD COLUMN role VARCHAR DEFAULT 'player'`.
+
+## B.3 Player Management Endpoints
+
+### Search players
+
+```
+GET /admin/players?search={query}&cursor={cursor}&limit={limit}
+```
+
+- Searches by `player_id` (exact) or `display_name` (case-insensitive substring)
+- Returns cursor-paginated results (same pattern as S27's game listing)
+- Response includes: player profile, game count, suspension status, last active date
+
+### Inspect player
+
+```
+GET /admin/players/{player_id}
+```
+
+- Returns full player profile, game list, suspension history, rate-limit state
+
+### Suspend / Unsuspend
+
+```
+POST /admin/players/{player_id}/suspend
+Body: {"reason": "string"}
+
+POST /admin/players/{player_id}/unsuspend
+```
+
+- Suspend sets `is_suspended=True`, records `suspended_at` and `suspended_reason`
+- Suspended players receive 403 on all game endpoints (enforced by auth middleware)
+- Unsuspend clears the suspension flag but preserves history in audit log
+
+## B.4 Game Inspection Endpoints
+
+### Full game state
+
+```
+GET /admin/games/{game_id}
+```
+
+Returns: game metadata, current world state snapshot, player info, turn count,
+created/updated timestamps, game status.
+
+### Turn history (paginated)
+
+```
+GET /admin/games/{game_id}/turns?cursor={cursor}&limit={limit}
+```
+
+Returns: turn number, player input, narrative output, pipeline stages with
+timing, content moderation flags (if any), timestamps.
+
+### Force-terminate game
+
+```
+POST /admin/games/{game_id}/terminate
+Body: {"reason": "string"}
+```
+
+- Sets game status to `terminated`
+- Cancels any in-flight turn processing
+- Closes active SSE streams with `stream_end` event
+- Records termination in audit log
+
+## B.5 System Health & Diagnostics
+
+### Health report
+
+```
+GET /admin/health
+```
+
+Extended health report beyond the player-facing `/health` endpoint:
+
+```json
+{
+  "status": "healthy",
+  "uptime_seconds": 86400,
+  "subsystems": {
+    "postgres": {"status": "healthy", "pool_active": 3, "pool_idle": 7, "pool_max": 20},
+    "redis": {"status": "healthy", "connections": 5, "memory_used_mb": 12},
+    "neo4j": {"status": "healthy", "connections": 2},
+    "llm": {"status": "healthy", "circuit_state": "closed", "inflight_requests": 4, "queue_depth": 0}
+  },
+  "rates": {
+    "turns_per_minute": 12,
+    "active_sse_connections": 8,
+    "active_games": 15
+  }
+}
+```
+
+### Metrics (Prometheus)
+
+```
+GET /admin/metrics
+```
+
+Exposes the Prometheus endpoint (already implemented in Wave 7). This admin route
+is an alias or proxy ensuring metrics are behind admin auth rather than publicly
+accessible.
+
+## B.6 Moderation Queue Management
+
+### List flags
+
+```
+GET /admin/moderation/flags?status={pending|reviewed|dismissed}&cursor={cursor}&limit={limit}
+```
+
+Returns: flag ID, game ID, turn number, content category (from S24), severity,
+flagged text excerpt, created timestamp, reviewer (if reviewed).
+
+### Review a flag
+
+```
+POST /admin/moderation/flags/{flag_id}/review
+Body: {"action": "confirm" | "dismiss", "note": "optional string"}
+```
+
+- `confirm`: Marks content as confirmed violation, may trigger player warning
+- `dismiss`: Marks flag as false positive, no further action
+- Both record the reviewer, action, and note in audit log
+
+## B.7 Rate-Limit Management
+
+### Inspect player rate-limit state
+
+```
+GET /admin/rate-limits/player/{player_id}
+```
+
+Returns: current window counts per endpoint group, cooldown status, abuse score.
+
+### Reset player rate limits
+
+```
+POST /admin/rate-limits/player/{player_id}/reset
+```
+
+Clears all rate-limit counters for the player. Recorded in audit log.
+
+### Inspect / unblock IP
+
+```
+GET /admin/rate-limits/ip/{ip}
+POST /admin/rate-limits/ip/{ip}/unblock
+```
+
+Returns IP's current block status and request counts. Unblock clears the block
+and resets counters.
+
+## B.8 Audit Log
+
+Every admin action produces an audit log entry:
+
+```python
+class AuditLogEntry(SQLModel, table=True):
+    id: str = Field(primary_key=True, default_factory=generate_id)
+    timestamp: datetime = Field(default_factory=utcnow)
+    admin_id: str = Field(index=True)
+    action: str  # e.g., "player.suspend", "game.terminate", "flag.review"
+    target_type: str  # "player" | "game" | "flag" | "rate_limit"
+    target_id: str
+    detail: dict = Field(sa_column=Column(JSON))  # Action-specific payload
+```
+
+### Query audit log
+
+```
+GET /admin/audit-log?admin_id={id}&action={action}&target_type={type}&since={iso}&until={iso}&cursor={cursor}&limit={limit}
+```
+
+The audit log is **append-only** — entries are never modified or deleted.
+
+## B.9 Implementation Notes
+
+### Service Layer
+
+```python
+# src/tta/admin/service.py
+class AdminService:
+    """Orchestrates admin operations with audit logging."""
+
+    def __init__(
+        self,
+        db: AsyncSession,
+        audit: AuditLogService,
+        moderation: ModerationService,
+        rate_limiter: RateLimiter,
+    ) -> None: ...
+
+    async def suspend_player(
+        self, admin_id: str, player_id: str, reason: str
+    ) -> Player: ...
+
+    async def terminate_game(
+        self, admin_id: str, game_id: str, reason: str
+    ) -> Game: ...
+
+    async def review_flag(
+        self, admin_id: str, flag_id: str, action: str, note: str | None
+    ) -> ModerationFlag: ...
+```
+
+### File Inventory (S26)
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `src/tta/api/routes/admin.py` | Admin API router with all endpoints | New |
+| `src/tta/api/deps.py` | `require_admin` dependency (extend existing) | Modified |
+| `src/tta/admin/__init__.py` | Admin package init | New |
+| `src/tta/admin/service.py` | Admin service orchestrator | New |
+| `src/tta/admin/audit.py` | Audit log service | New |
+| `src/tta/models/admin.py` | AuditLogEntry, admin-specific models | New |
+| `migrations/versions/xxx_add_admin_role_and_audit.py` | Alembic migration | New |
+| `tests/unit/admin/test_service.py` | Admin service unit tests | New |
+| `tests/unit/api/test_admin_routes.py` | Admin route unit tests | New |
+| `tests/bdd/features/admin_tooling.feature` | BDD acceptance tests | New |
+| `tests/bdd/step_defs/test_admin_tooling.py` | BDD step implementations | New |
+
+---
+
+# Part C — Performance & Scaling (S28)
+
+> **Input specs**: S28 (Performance & Scaling)
+> **Dependencies**: S07 (LLM Integration), S10 (API), S12 (Persistence), S14 (Deployment), S15 (Observability)
+> **Status**: 📝 Draft
+
+## C.1 Spec Alignment Notes
+
+| Spec | Concern | Resolution |
+|------|---------|------------|
+| S28 + S07 | LLM concurrency | S28 FR-28.11 adds a semaphore around LiteLLM calls. S07's LLMClient gains `acquire_slot()` before each request. |
+| S28 + S10 | Endpoint latency | S28 defines per-endpoint p95 budgets; S10's FastAPI middleware records histogram metrics. |
+| S28 + S12 | Connection pools | S28 specifies pool config per database. S12's persistence layer accepts pool config from Settings. |
+| S28 + S14 | Resource limits | S28 process-level limits align with S14's container resource requests/limits. |
+| S28 + S15 | Metrics | S28 requires Prometheus exposure of pool, latency, and throughput metrics — extends S15's metrics. |
+
+## C.2 Connection Pool Configuration
+
+All pool sizes are centralized in `TTASettings`:
+
+```python
+# src/tta/config.py — additions
+class TTASettings(BaseSettings):
+    # PostgreSQL pool
+    pg_pool_min: int = 5
+    pg_pool_max: int = 20
+    pg_pool_timeout: int = 5          # seconds
+    pg_pool_idle_timeout: int = 300   # seconds
+
+    # Redis pool
+    redis_max_connections: int = 20
+    redis_connect_timeout: int = 2    # seconds
+    redis_retry_on_error: bool = True
+    redis_retry_count: int = 3
+
+    # Neo4j pool
+    neo4j_max_connections: int = 10
+    neo4j_connect_timeout: int = 5    # seconds
+    neo4j_liveness_check: int = 60    # seconds
+
+    # LLM concurrency
+    llm_max_concurrent: int = 10
+    llm_queue_max: int = 50
+    llm_request_timeout: int = 30     # seconds
+
+    # Memory
+    memory_limit_mb: int = 512
+```
+
+### PostgreSQL Engine
+
+```python
+# src/tta/persistence/postgres.py — engine creation
+from sqlalchemy.ext.asyncio import create_async_engine
+
+engine = create_async_engine(
+    settings.database_url,
+    pool_size=settings.pg_pool_max,
+    pool_pre_ping=True,
+    pool_timeout=settings.pg_pool_timeout,
+    pool_recycle=settings.pg_pool_idle_timeout,
+    max_overflow=0,  # hard cap at pool_max
+)
+```
+
+### Redis Pool
+
+```python
+# src/tta/persistence/redis.py
+from redis.asyncio import ConnectionPool, Redis
+
+pool = ConnectionPool.from_url(
+    settings.redis_url,
+    max_connections=settings.redis_max_connections,
+    socket_connect_timeout=settings.redis_connect_timeout,
+    retry_on_timeout=settings.redis_retry_on_error,
+)
+redis = Redis(connection_pool=pool)
+```
+
+### Neo4j Pool
+
+```python
+# src/tta/world/neo4j.py
+from neo4j import AsyncGraphDatabase
+
+driver = AsyncGraphDatabase.driver(
+    settings.neo4j_uri,
+    auth=(settings.neo4j_user, settings.neo4j_password),
+    max_connection_pool_size=settings.neo4j_max_connections,
+    connection_acquisition_timeout=settings.neo4j_connect_timeout,
+    liveness_check_timeout=settings.neo4j_liveness_check,
+)
+```
+
+## C.3 LLM Concurrency Control
+
+An `asyncio.Semaphore` + bounded queue controls LLM request pressure:
+
+```python
+# src/tta/llm/concurrency.py
+import asyncio
+from tta.config import TTASettings
+
+class LLMConcurrencyManager:
+    """Bounds concurrent LLM requests with queuing."""
+
+    def __init__(self, settings: TTASettings) -> None:
+        self._semaphore = asyncio.Semaphore(settings.llm_max_concurrent)
+        self._queue_depth = 0
+        self._queue_max = settings.llm_queue_max
+        self._timeout = settings.llm_request_timeout
+
+    async def acquire(self) -> None:
+        if self._queue_depth >= self._queue_max:
+            raise ServiceUnavailableError("LLM queue full")
+        self._queue_depth += 1
+        try:
+            await asyncio.wait_for(
+                self._semaphore.acquire(),
+                timeout=self._timeout,
+            )
+        except asyncio.TimeoutError:
+            raise ServiceUnavailableError("LLM request timeout")
+        finally:
+            self._queue_depth -= 1
+
+    def release(self) -> None:
+        self._semaphore.release()
+
+    @property
+    def stats(self) -> dict:
+        return {
+            "inflight": self._semaphore._value,
+            "queue_depth": self._queue_depth,
+            "queue_max": self._queue_max,
+        }
+```
+
+Usage in turn pipeline:
+
+```python
+async def process_turn(turn: Turn, llm_mgr: LLMConcurrencyManager) -> TurnResult:
+    await llm_mgr.acquire()
+    try:
+        result = await llm_client.generate(...)
+    finally:
+        llm_mgr.release()
+```
+
+## C.4 Prometheus Metrics (Performance)
+
+Extends the existing Prometheus middleware (Wave 7) with pool and performance
+metrics:
+
+```python
+# src/tta/observability/metrics.py — additions
+from prometheus_client import Gauge, Histogram
+
+# Connection pool gauges
+pg_pool_active = Gauge("tta_pg_pool_active", "Active PostgreSQL connections")
+pg_pool_idle = Gauge("tta_pg_pool_idle", "Idle PostgreSQL connections")
+redis_pool_active = Gauge("tta_redis_pool_active", "Active Redis connections")
+neo4j_pool_active = Gauge("tta_neo4j_pool_active", "Active Neo4j connections")
+
+# LLM concurrency gauges
+llm_inflight = Gauge("tta_llm_inflight_requests", "In-flight LLM requests")
+llm_queue_depth = Gauge("tta_llm_queue_depth", "Queued LLM requests")
+
+# Latency histograms (per-endpoint, extends existing request_duration)
+turn_total_duration = Histogram(
+    "tta_turn_total_seconds",
+    "Total turn processing time including LLM",
+    buckets=[0.5, 1.0, 2.0, 5.0, 7.0, 10.0, 15.0, 30.0],
+)
+turn_first_token = Histogram(
+    "tta_turn_first_token_seconds",
+    "Time to first SSE narrative_token event",
+    buckets=[0.5, 1.0, 2.0, 3.0, 5.0],
+)
+
+# Memory gauge
+process_memory_rss = Gauge("tta_process_memory_rss_bytes", "Process RSS memory")
+```
+
+## C.5 Memory Management
+
+A background task periodically checks memory usage:
+
+```python
+# src/tta/observability/memory.py
+import asyncio
+import resource
+import gc
+
+async def memory_monitor(settings: TTASettings) -> None:
+    """Background task: checks RSS, logs warnings, triggers GC."""
+    limit_bytes = settings.memory_limit_mb * 1024 * 1024
+    warn_threshold = 0.9
+
+    while True:
+        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
+        process_memory_rss.set(rss)
+
+        if rss > limit_bytes * warn_threshold:
+            logger.warning(
+                "memory_pressure",
+                rss_mb=rss / (1024 * 1024),
+                limit_mb=settings.memory_limit_mb,
+            )
+            gc.collect()
+
+        await asyncio.sleep(30)
+```
+
+Started as a background task in the FastAPI lifespan:
+
+```python
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(memory_monitor(settings))
+    yield
+    task.cancel()
+```
+
+## C.6 Graceful Degradation
+
+The degradation controller implements S28 FR-28.18's priority order:
+
+```python
+# src/tta/api/degradation.py
+from enum import IntEnum
+
+class DegradationTier(IntEnum):
+    NORMAL = 0
+    ELEVATED = 1   # >80% capacity: slow new game creation
+    HIGH = 2       # >90% capacity: defer context summaries
+    CRITICAL = 3   # >95% capacity: reject new games
+
+class DegradationController:
+    def __init__(self, settings: TTASettings) -> None:
+        self._tier = DegradationTier.NORMAL
+
+    def update_tier(self, load_pct: float) -> None:
+        if load_pct > 0.95:
+            self._tier = DegradationTier.CRITICAL
+        elif load_pct > 0.90:
+            self._tier = DegradationTier.HIGH
+        elif load_pct > 0.80:
+            self._tier = DegradationTier.ELEVATED
+        else:
+            self._tier = DegradationTier.NORMAL
+
+    def allow_new_game(self) -> bool:
+        return self._tier < DegradationTier.CRITICAL
+
+    def use_cached_summary(self) -> bool:
+        return self._tier >= DegradationTier.HIGH
+```
+
+## C.7 Horizontal Scaling Readiness
+
+The system is designed for single-instance v1 but must not preclude horizontal scaling:
+
+1. **Process-level statelessness** (FR-28.20): All state in PostgreSQL/Redis/Neo4j. No global mutable state except caches (which are warm-up optimizations, not correctness requirements).
+
+2. **SSE via Redis** (FR-28.21): TurnResultStore already uses Redis pub/sub. Multiple instances can each serve SSE connections, all subscribing to the same Redis channels.
+
+3. **Distributed migration lock** (FR-28.23): Alembic migrations use a PostgreSQL advisory lock:
+
+```python
+# src/tta/persistence/migration.py
+async def run_migrations_with_lock(engine: AsyncEngine) -> None:
+    async with engine.begin() as conn:
+        acquired = await conn.execute(
+            text("SELECT pg_try_advisory_lock(1)")
+        )
+        if acquired.scalar():
+            try:
+                # Run Alembic
+                ...
+            finally:
+                await conn.execute(text("SELECT pg_advisory_unlock(1)"))
+```
+
+4. **Shared rate-limit counters** (FR-28.22 + S25): Redis-backed sliding window counters are already shared across instances.
+
+## C.8 SSE Connection Lifetime
+
+Per FR-28.16, SSE connections have a maximum lifetime to prevent resource leaks:
+
+```python
+# In SSE streaming handler
+async def stream_turn(game_id: str, settings: TTASettings):
+    max_lifetime = settings.sse_max_lifetime_seconds  # default: 1800 (30 min)
+    start = time.monotonic()
+
+    async for event in turn_result_store.subscribe(turn_id):
+        if time.monotonic() - start > max_lifetime:
+            yield ServerSentEvent(
+                event="stream_end",
+                data=json.dumps({"reason": "max_lifetime_exceeded"}),
+            )
+            break
+        yield event
+```
+
+## C.9 Benchmarking
+
+A `make benchmark` target runs a lightweight load test against a local instance:
+
+```makefile
+benchmark:
+	@echo "Running performance benchmark..."
+	uv run python scripts/benchmark.py --target http://localhost:8080 --concurrency 20 --duration 60
+```
+
+The benchmark script:
+- Creates N concurrent "players" submitting turns
+- Records p50, p95, p99 latencies per endpoint
+- Reports throughput (turns/sec, requests/sec)
+- Compares against S28 latency budgets, marking PASS/FAIL
+
+## C.10 File Inventory (S28)
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `src/tta/config.py` | Pool size, LLM concurrency, memory settings | Modified |
+| `src/tta/llm/concurrency.py` | LLM semaphore + queue manager | New |
+| `src/tta/observability/metrics.py` | Pool + performance Prometheus gauges | Modified |
+| `src/tta/observability/memory.py` | Memory monitor background task | New |
+| `src/tta/api/degradation.py` | Graceful degradation controller | New |
+| `src/tta/persistence/postgres.py` | Pool config from settings | Modified |
+| `src/tta/persistence/redis.py` | Pool config from settings | Modified |
+| `src/tta/world/neo4j.py` | Pool config from settings | Modified |
+| `src/tta/persistence/migration.py` | Advisory lock for distributed migrations | New |
+| `scripts/benchmark.py` | Performance benchmark script | New |
+| `Makefile` | `benchmark` target | Modified |
+| `tests/unit/llm/test_concurrency.py` | LLM concurrency unit tests | New |
+| `tests/unit/api/test_degradation.py` | Degradation controller tests | New |
+| `tests/unit/observability/test_memory.py` | Memory monitor tests | New |
+
+---
+
+# Implementation Waves — S26 + S28
+
+| Wave | Scope | Specs | Estimate |
+|------|-------|-------|----------|
+| Wave 10 | Admin foundation: auth, player management, audit log | S26 §B.2-B.3, §B.8 | 1 sprint |
+| Wave 11 | Admin operations: game inspection, moderation queue, rate-limit mgmt | S26 §B.4-B.7 | 1 sprint |
+| Wave 12 | Performance: connection pools, LLM concurrency, Prometheus metrics | S28 §C.2-C.4 | 1 sprint |
+| Wave 13 | Performance: memory management, degradation, SSE lifetime, benchmarks | S28 §C.5-C.9 | 1 sprint |

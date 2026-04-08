@@ -28,6 +28,12 @@ Status tracker for all TTA specifications. Each spec follows the [template](TEMP
 | S05 | [Choice & Consequence](05-choice-and-consequence.md) | 📝 Draft | Player agency, branching, impact |
 | S06 | [Character System](06-character-system.md) | 📝 Draft | PCs, NPCs, relationships, development |
 
+## Level 1b: Core Game (Extended)
+
+| # | Spec | Status | Description |
+|---|------|--------|-------------|
+| S27 | [Save/Load & Game Management](27-save-load-and-game-management.md) | 📝 Draft | Game lifecycle, auto-save, listing, resume, deletion |
+
 ## Level 2: AI & Content
 
 | # | Spec | Status | Description |
@@ -35,6 +41,7 @@ Status tracker for all TTA specifications. Each spec follows the [template](TEMP
 | S07 | [LLM Integration](07-llm-integration.md) | 📝 Draft | Model abstraction, streaming, fallbacks |
 | S08 | [Turn Processing Pipeline](08-turn-processing-pipeline.md) | 📝 Draft | Input→Context→Narrative behavior |
 | S09 | [Prompt & Content Management](09-prompt-and-content.md) | 📝 Draft | Prompt versioning, authoring, testing |
+| S24 | [Content Moderation v1](24-content-moderation-v1.md) | 📝 Draft | Input/output moderation, flagging, audit trail |
 
 ## Level 3: Platform
 
@@ -44,6 +51,8 @@ Status tracker for all TTA specifications. Each spec follows the [template](TEMP
 | S11 | [Player Identity & Sessions](11-player-identity-and-sessions.md) | 📝 Draft | Auth, profiles, session lifecycle |
 | S12 | [Persistence Strategy](12-persistence-strategy.md) | 📝 Draft | Storage requirements → tech choices |
 | S13 | [World Graph Schema](13-world-graph-schema.md) | 📝 Draft | Graph schema for world state |
+| S23 | [Error Handling & Resilience](23-error-handling-and-resilience.md) | 📝 Draft | Error taxonomy, retries, circuit-breakers, turn atomicity |
+| S25 | [Rate Limiting & Anti-Abuse](25-rate-limiting-and-anti-abuse.md) | 📝 Draft | Per-player/IP rate limits, sliding window, anti-abuse |
 
 ## Level 4: Operations
 
@@ -53,6 +62,8 @@ Status tracker for all TTA specifications. Each spec follows the [template](TEMP
 | S15 | [Observability](15-observability.md) | 📝 Draft | Logging, metrics, tracing |
 | S16 | [Testing Infrastructure](16-testing-infrastructure.md) | 📝 Draft | CI gates, coverage, test environments |
 | S17 | [Data Privacy](17-data-privacy.md) | 📝 Draft | GDPR, retention, encryption |
+| S26 | [Admin & Operator Tooling](26-admin-and-operator-tooling.md) | 📝 Draft | Admin API, player management, audit log |
+| S28 | [Performance & Scaling](28-performance-and-scaling.md) | 📝 Draft | Latency budgets, throughput, scaling readiness |
 
 ## Level 5: Future (Boundary Stubs)
 
@@ -71,13 +82,19 @@ These are **not full specs**. They define boundaries and constraints on v1 desig
 ```
 S00 (Charter)
  ├── S01-S06 (Core Game)  ← The heart. Write these first.
+ │    └── S27 (Save/Load) ← Game lifecycle atop S01, S02
  ├── S07 (LLM Integration) ← Enables S08
  │    └── S08 (Turn Pipeline) ← Consumes S01-S06 + S07
- │         └── S09 (Prompts) ← Content layer over S08
+ │         ├── S09 (Prompts) ← Content layer over S08
+ │         └── S24 (Content Moderation v1) ← Filters S08 output, fills S19 gap
  ├── S10-S11 (API, Identity) ← Platform for S01-S06
  ├── S12 (Persistence) ← Storage for S04, S06, S11
  │    └── S13 (World Graph) ← Schema for S04 specifically
+ ├── S23 (Error Handling) ← Cross-cutting, referenced by most specs
+ ├── S25 (Rate Limiting) ← Depends on S11, S23
  ├── S14-S17 (Ops) ← Cross-cutting, can be written in parallel
+ ├── S26 (Admin Tooling) ← Depends on S11, S23, S24, S25
+ ├── S28 (Performance) ← Capstone, references all platform specs
  └── S18-S22 (Future) ← Stubs, boundary constraints only
 ```
 

@@ -1,12 +1,12 @@
 # API & Sessions — Component Technical Plan
 
 > **Phase**: SDD Phase 2 — Component Plan
-> **Scope**: HTTP API layer, session management, persistence wiring, minimal web client
-> **Input specs**: S10 (API & Streaming), S11 (Player Identity & Sessions), S12 (Persistence Strategy)
+> **Scope**: HTTP API layer, session management, persistence wiring, minimal web client, game lifecycle & save/load
+> **Input specs**: S10 (API & Streaming), S11 (Player Identity & Sessions), S12 (Persistence Strategy), S27 (Save/Load & Game Management)
 > **Parent plan**: `plans/system.md` (normative architecture)
 > **Wave**: 4 (depends on Waves 2 + 3: pipeline + world/genesis)
 > **Status**: 📝 Draft
-> **Last Updated**: 2026-04-07
+> **Last Updated**: 2026-04-09
 
 ---
 
@@ -1961,3 +1961,373 @@ src/tta/
 │   └── index.html          # Minimal web client (§8)
 └── config.py               # Settings (§10, shared with system.md §7.4)
 ```
+
+---
+
+# Part B — Save/Load & Game Management (S27)
+
+> **Input specs**: S27 (Save/Load & Game Management)
+> **Dependencies**: S01 (Gameplay Loop), S02 (Genesis), S08 (Turn Pipeline), S10 (API), S11 (Identity), S12 (Persistence), S13 (World Graph), S23 (Error Handling)
+> **Status**: 📝 Draft
+
+## B.1 Spec Alignment Notes
+
+| Spec | Concern | Resolution |
+|------|---------|------------|
+| S27 + S01 | Game completion | S01 defines narrative closure mechanics. S27 tracks the resulting `completed` state. The game state machine is owned by S27; the *trigger* for completion comes from S01. |
+| S27 + S02 | Game creation | Genesis pipeline (S02) runs during game creation. S27 adds title generation and game metadata persistence on top of the genesis output. |
+| S27 + S08 | Automatic save | S08 defines turn completion. S27 hooks into the post-turn step to atomically persist all state. The turn pipeline signals "turn complete", and S27's persistence kicks in. |
+| S27 + S12 | Persistence strategy | S12 defines how data is stored. S27 defines *what* is persisted and *when*. S27 calls S12's persistence layer — it does not bypass it. |
+| S27 + S23 | Failure handling | S27 FR-27.07 defines recovery when persistence fails. The error semantics (error envelopes, logging) follow S23. |
+| S27 + S11 | Data deletion timeline | S27 FR-27.17 soft-delete purge (72h) is consistent with S11 FR-11.62 erasure timeline. |
+
+## B.2 Game Lifecycle State Machine
+
+```
+    ┌──────────┐   genesis   ┌──────────┐   narrative   ┌───────────┐
+    │  (none)  │───complete──▶│  active  │───closure────▶│ completed │
+    └──────────┘             └──────────┘               └───────────┘
+                                  │
+                                  │ player deletes
+                                  ▼
+                             ┌───────────┐   72h TTL    ┌─────────┐
+                             │ abandoned │─────purge───▶│ (gone)  │
+                             └───────────┘              └─────────┘
+```
+
+Transitions are enforced in the `GameService`:
+
+```python
+# src/tta/game/service.py
+from enum import StrEnum
+
+class GameState(StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
+
+VALID_TRANSITIONS: dict[GameState, set[GameState]] = {
+    GameState.ACTIVE: {GameState.COMPLETED, GameState.ABANDONED},
+    GameState.COMPLETED: set(),   # terminal
+    GameState.ABANDONED: set(),   # terminal
+}
+
+class GameService:
+    async def transition(self, game: Game, new_state: GameState) -> Game:
+        if new_state not in VALID_TRANSITIONS.get(game.state, set()):
+            raise InvalidStateTransitionError(game.state, new_state)
+        game.state = new_state
+        if new_state == GameState.ABANDONED:
+            game.deleted_at = utcnow()
+        await self._repo.save(game)
+        return game
+```
+
+## B.3 Game Model
+
+```python
+# src/tta/models/game.py
+from sqlmodel import SQLModel, Field
+from datetime import datetime
+
+class Game(SQLModel, table=True):
+    id: str = Field(primary_key=True)  # UUID v4
+    player_id: str = Field(index=True)
+    title: str = Field(max_length=80)
+    summary: str = Field(max_length=200, default="")
+    state: str = Field(default="active", index=True)  # GameState
+    turn_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=utcnow)
+    last_played_at: datetime = Field(default_factory=utcnow)
+    deleted_at: datetime | None = None
+    needs_recovery: bool = Field(default=False)  # FR-27.07
+    summary_generated_at: datetime | None = None  # for 24h cache check
+```
+
+## B.4 Game Creation Flow
+
+```python
+async def create_game(
+    self,
+    player_id: str,
+    genre: str | None = None,
+    seed_text: str | None = None,
+) -> Game:
+    # Check concurrent game limit (FR-27.04)
+    active_count = await self._repo.count_active_games(player_id)
+    if active_count >= self._settings.max_active_games:
+        raise ConflictError("Maximum active games reached")
+
+    game_id = str(uuid4())
+
+    # Run genesis pipeline (S02)
+    genesis_result = await self._genesis.run(
+        game_id=game_id,
+        genre=genre,
+        seed_text=seed_text,
+    )
+
+    # Generate title (FR-27.20)
+    title = await self._generate_title(genesis_result)
+
+    game = Game(
+        id=game_id,
+        player_id=player_id,
+        title=title,
+        summary=genesis_result.opening_summary,
+        state=GameState.ACTIVE,
+    )
+
+    await self._repo.save(game)
+    return game
+```
+
+## B.5 Automatic Post-Turn Persistence
+
+After each turn completes (S08), the pipeline calls the save hook:
+
+```python
+async def save_turn_state(
+    self,
+    game: Game,
+    turn_result: TurnResult,
+) -> None:
+    """Atomically persist all state changes from a turn (FR-27.05, FR-27.06)."""
+    async with self._db.begin() as txn:
+        # Turn history
+        await self._turn_repo.save_turn(txn, game.id, turn_result)
+
+        # World state changes
+        await self._world_repo.apply_changes(txn, game.id, turn_result.world_changes)
+
+        # Character state changes
+        await self._char_repo.apply_changes(txn, game.id, turn_result.char_changes)
+
+        # Game metadata
+        game.turn_count += 1
+        game.last_played_at = utcnow()
+        game.needs_recovery = False  # clear if previously set
+        await self._game_repo.save(txn, game)
+
+        # Regenerate summary every N turns (FR-27.21)
+        if game.turn_count % self._settings.summary_regen_interval == 0:
+            await self._schedule_summary_regen(game.id)
+```
+
+If the transaction fails (FR-27.07):
+
+```python
+except Exception as e:
+    logger.error("turn_persist_failed", game_id=game.id, error=str(e))
+    game.needs_recovery = True
+    await self._game_repo.update_flag(game.id, needs_recovery=True)
+    # Narrative was already streamed to player — do NOT withhold it
+```
+
+## B.6 Game Listing with Cursor Pagination
+
+```python
+# src/tta/game/repository.py
+async def list_games(
+    self,
+    player_id: str,
+    cursor: datetime | None = None,
+    limit: int = 10,
+) -> tuple[list[Game], str | None]:
+    """Cursor-paginated game listing, ordered by last_played_at DESC (FR-27.08-11)."""
+    query = (
+        select(Game)
+        .where(Game.player_id == player_id)
+        .where(Game.state != GameState.ABANDONED)
+        .order_by(Game.last_played_at.desc())
+        .limit(limit + 1)  # fetch one extra to detect next page
+    )
+    if cursor:
+        query = query.where(Game.last_played_at < cursor)
+
+    result = await self._session.execute(query)
+    games = list(result.scalars().all())
+
+    next_cursor = None
+    if len(games) > limit:
+        games = games[:limit]
+        next_cursor = games[-1].last_played_at.isoformat()
+
+    return games, next_cursor
+```
+
+API response shape:
+
+```json
+{
+  "games": [
+    {
+      "game_id": "uuid",
+      "title": "The Whispering Caverns",
+      "state": "active",
+      "created_at": "2026-04-09T12:00:00Z",
+      "last_played_at": "2026-04-09T14:30:00Z",
+      "turn_count": 12,
+      "summary": "You ventured deep into the crystalline caves, befriending a lost miner."
+    }
+  ],
+  "next_cursor": "2026-04-08T10:00:00Z"
+}
+```
+
+## B.7 Game Resume with Context Summary
+
+```python
+async def resume_game(self, game: Game) -> ResumePayload:
+    """Load game context for resume (FR-27.12-15)."""
+    # Recovery check (FR-27.15)
+    if game.needs_recovery:
+        await self._attempt_recovery(game)
+
+    # Load recent turns
+    turns = await self._turn_repo.get_recent(
+        game.id, limit=self._settings.resume_turn_count
+    )
+
+    # Load world and character state
+    world_summary = await self._world_repo.get_summary(game.id)
+    characters = await self._char_repo.get_active(game.id)
+
+    # Context summary (FR-27.13-14)
+    summary = await self._get_or_regen_summary(game)
+
+    return ResumePayload(
+        game_id=game.id,
+        title=game.title,
+        state=game.state,
+        turn_count=game.turn_count,
+        recent_turns=turns,
+        world_summary=world_summary,
+        active_characters=characters,
+        context_summary=summary,
+    )
+
+async def _get_or_regen_summary(self, game: Game) -> str:
+    """Return cached summary or regenerate if stale (FR-27.14)."""
+    if (
+        game.summary_generated_at
+        and (utcnow() - game.summary_generated_at).total_seconds() < 86400
+    ):
+        return game.summary
+
+    # Regenerate
+    new_summary = await self._llm.generate_summary(game.id)
+    game.summary = new_summary
+    game.summary_generated_at = utcnow()
+    await self._game_repo.save(game)
+    return new_summary
+```
+
+## B.8 Soft Delete and Purge
+
+### Delete endpoint
+
+```python
+@router.delete("/games/{game_id}")
+async def delete_game(
+    game_id: str,
+    confirm: bool = Query(False),
+    player: Player = Depends(get_current_player),
+    game_service: GameService = Depends(get_game_service),
+):
+    if not confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Deletion is permanent. Pass confirm=true to proceed.",
+        )
+    game = await game_service.get_game(game_id, player.id)
+    await game_service.transition(game, GameState.ABANDONED)
+    return {"status": "deleted", "purge_at": (utcnow() + timedelta(hours=72)).isoformat()}
+```
+
+### Purge background task
+
+A periodic task runs in the FastAPI lifespan to permanently delete abandoned games
+past the 72-hour retention window (FR-27.17):
+
+```python
+# src/tta/game/purge.py
+async def purge_abandoned_games(db: AsyncSession) -> int:
+    """Delete games abandoned more than 72 hours ago."""
+    cutoff = utcnow() - timedelta(hours=72)
+    result = await db.execute(
+        delete(Game)
+        .where(Game.state == GameState.ABANDONED)
+        .where(Game.deleted_at <= cutoff)
+    )
+    # Also cascade-delete turns, world state, character state
+    await db.commit()
+    return result.rowcount
+```
+
+Started as a periodic background task (every hour):
+
+```python
+async def lifespan(app: FastAPI):
+    purge_task = asyncio.create_task(_run_purge_loop(db))
+    yield
+    purge_task.cancel()
+
+async def _run_purge_loop(db):
+    while True:
+        count = await purge_abandoned_games(db)
+        if count:
+            logger.info("purged_abandoned_games", count=count)
+        await asyncio.sleep(3600)  # hourly
+```
+
+## B.9 API Routes Summary (S27)
+
+| Method | Endpoint | Description | Reference |
+|--------|----------|-------------|-----------|
+| POST | `/games` | Create new game | FR-27.02-03 |
+| GET | `/games` | List player's games (cursor-paginated) | FR-27.08-11 |
+| GET | `/games/{id}` | Resume game (full context) | FR-27.12-15 |
+| DELETE | `/games/{id}?confirm=true` | Soft-delete game | FR-27.16-19 |
+
+## B.10 Settings (S27)
+
+```python
+# src/tta/config.py — additions
+class TTASettings(BaseSettings):
+    max_active_games: int = 5              # FR-27.04
+    resume_turn_count: int = 10            # FR-27.12
+    summary_regen_interval: int = 5        # FR-27.21 (every N turns)
+    summary_max_length: int = 200          # FR-27.09
+    title_max_length: int = 80             # FR-27.20
+    abandoned_purge_hours: int = 72        # FR-27.17
+    summary_cache_seconds: int = 86400     # FR-27.14 (24h)
+```
+
+## B.11 File Inventory (S27)
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `src/tta/game/__init__.py` | Game package init | New |
+| `src/tta/game/service.py` | GameService: create, resume, delete, state machine | New |
+| `src/tta/game/repository.py` | Game CRUD, cursor pagination, active game count | New |
+| `src/tta/game/purge.py` | Background purge task for abandoned games | New |
+| `src/tta/models/game.py` | Game SQLModel + GameState enum | New |
+| `src/tta/api/routes/games.py` | Game API routes (extend existing) | Modified |
+| `src/tta/config.py` | S27 settings (max_active_games, etc.) | Modified |
+| `migrations/versions/xxx_add_game_lifecycle.py` | Alembic migration for game columns | New |
+| `tests/unit/game/test_service.py` | GameService unit tests | New |
+| `tests/unit/game/test_repository.py` | Game repository unit tests | New |
+| `tests/unit/game/test_purge.py` | Purge task unit tests | New |
+| `tests/unit/api/test_game_routes.py` | Game route unit tests | New |
+| `tests/bdd/features/save_load.feature` | BDD acceptance tests | New |
+| `tests/bdd/step_defs/test_save_load.py` | BDD step implementations | New |
+
+---
+
+# Implementation Waves — S27
+
+| Wave | Scope | Specs | Estimate |
+|------|-------|-------|----------|
+| Wave 9 | Game lifecycle: model, state machine, create, list, delete, purge | S27 §B.2-B.6, §B.8 | 1 sprint |
+| Wave 9 | Game resume: context loading, summary regen, recovery | S27 §B.7 | 1 sprint |

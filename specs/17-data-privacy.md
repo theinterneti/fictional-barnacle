@@ -157,7 +157,15 @@ DELETE /api/player/me
 5. Submit a Langfuse data deletion request for the player's pseudonymized ID.
 6. Log the deletion request and completion (the log itself does not contain deleted data).
 
-**FR-17.11**: Erasure SHALL be completed within 30 days. The player SHALL receive confirmation when erasure is complete.
+**FR-17.11**: Erasure timelines are tiered by data location:
+- **TTA-controlled data** (PostgreSQL, Neo4j, Redis) SHALL be erased within
+  **72 hours**, consistent with S11 FR-11.62.
+- **Third-party observability data** (Langfuse traces and spans) SHALL be erased
+  within **30 days**, as deletion requires an API request to an external service
+  and may involve manual operator verification.
+- The player SHALL receive immediate confirmation that the deletion request was
+  accepted, and a final confirmation when all erasure (including third-party) is
+  complete.
 
 **FR-17.12**: Some data MAY be retained after erasure if legally required:
 - Consent records (proof that consent was given/withdrawn).

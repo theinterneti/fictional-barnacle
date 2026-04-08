@@ -767,93 +767,87 @@ in the project.
 
 ---
 
-## 11. Spec Gap Analysis
+## 11. Spec Gap Analysis — RESOLVED
 
-A comprehensive review of S00–S22 identified gaps in the specification suite. These
-are areas that a v1 production release would need but are not yet covered by any spec.
+A comprehensive review of S00–S22 identified 6 missing v1 specs and the S11/S17 data
+deletion contradiction. **All gaps are now addressed:**
 
-### Critical Gaps (block production readiness)
+### Specs Written
 
-#### S23 — Error Handling & Resilience (proposed)
+| ID | Title | Plan | Lines |
+|----|-------|------|------:|
+| S23 | Error Handling & Resilience | `plans/resilience-and-safety.md` | ~430 |
+| S24 | Content Moderation v1 | `plans/resilience-and-safety.md` | ~470 |
+| S25 | Rate Limiting & Anti-Abuse | `plans/resilience-and-safety.md` | ~400 |
+| S26 | Admin & Operator Tooling | `plans/ops.md` Part B | ~530 |
+| S27 | Save/Load & Game Management | `plans/api-and-sessions.md` Part B | ~500 |
+| S28 | Performance & Scaling | `plans/ops.md` Part C | ~500 |
 
-No spec governs the **cross-cutting error handling strategy**. Currently:
-- S07 mentions LLM retry/fallback, S10 lists some HTTP error codes, S14 mentions health checks
-- But nobody owns: error taxonomy, circuit breaker policy, graceful degradation, user-facing error messages, retry budget across the full stack
+### Plans Created / Extended
 
-**Impact**: Without this, each component will invent its own error strategy, leading to inconsistent UX and brittle failure modes.
+- **NEW**: `plans/resilience-and-safety.md` — covers S23, S24, S25 (663 lines)
+- **EXTENDED**: `plans/ops.md` — Part B (S26 Admin Tooling), Part C (S28 Performance)
+- **EXTENDED**: `plans/api-and-sessions.md` — Part B (S27 Save/Load)
 
-#### S24 — Content Moderation v1 (proposed)
+### Contradiction Resolved
 
-S19 (Crisis & Content Safety) is deferred as a future stub, but **basic input/output filtering** is needed before any public exposure:
-- Profanity / hate speech in player input
-- LLM hallucinating harmful content in narrative output
-- PII leaking into generated text
+- **S11/S17 data deletion**: S17 FR-17.11 amended with tiered timeline — TTA-internal
+  data erased within 72h (per S11 FR-11.62), third-party data (Langfuse) within 30 days.
 
-**Impact**: Even an internal playtest needs guardrails against model misbehavior.
-
-#### Contradiction: Data Deletion Timeline
-
-- **S11 §6.2** says player data deletion within **72 hours** of account deletion
-- **S17 §4.3** says anonymization within **30 days**
-
-These must be reconciled before implementing the deletion pipeline.
-
-### Important Gaps (should be specified before v1)
-
-| Proposed Spec | Description |
-|---------------|-------------|
-| **S25 — Rate Limiting & Anti-Abuse** | Per-player and global rate limits, abuse detection, IP-based throttling |
-| **S26 — Admin & Operator Tooling** | Player lookup, game inspection, manual intervention, metrics dashboards |
-| **S27 — Save/Load UX** | S12 covers persistence mechanics but not the player-facing save/load/resume experience |
-| **S28 — Performance & Scaling** | Target latencies, throughput SLOs, connection limits, horizontal scaling strategy |
-
-### Spec Overlaps & Contradictions to Resolve
+### Remaining Overlaps to Track
 
 | Area | Specs | Issue |
 |------|-------|-------|
-| Anonymous player lifecycle | S10, S11 | S10 defines token-based identity, S11 defines session lifecycle — neither owns conversion to permanent account |
-| Session timeout semantics | S01, S11 | S01 says "resume any time", S11 defines session expiry — unclear what happens to game state when session expires |
-| LLM context ownership | S03, S08 | Both claim ownership of prompt assembly — S03 (narrative engine) and S08 (turn pipeline) |
-| Data retention scope | S11, S17 | Conflicting deletion timelines (see critical gap above) |
+| Anonymous player lifecycle | S10, S11 | Neither owns conversion to permanent account |
+| Session timeout semantics | S01, S11 | Unclear game state behavior on session expiry |
+| LLM context ownership | S03, S08 | Both claim prompt assembly ownership |
 
-### Coverage Assessment
+### Coverage Assessment (Updated)
 
-- **Well-covered (~70%)**: Core gameplay loop, world model, LLM integration, API contracts, persistence, observability
-- **Partially covered (~20%)**: Error handling (scattered), security (deferred), player UX (mechanics without experience)
-- **Not covered (~10%)**: Rate limiting, admin tooling, performance SLOs, content moderation basics
-
-### Recommended Actions
-
-1. **Immediate**: Reconcile S11/S17 data deletion conflict
-2. **Before playtesting**: Write S24 (Content Moderation v1) — even a simple blocklist/filter
-3. **Before v1**: Write S23 (Error Handling), S25 (Rate Limiting), S28 (Performance)
-4. **Can defer**: S26 (Admin Tooling), S27 (Save/Load UX)
+- **Well-covered (~90%)**: Core gameplay, world model, LLM integration, API contracts,
+  persistence, observability, error handling, content moderation, rate limiting,
+  performance targets, admin tooling, save/load UX
+- **Partially covered (~5%)**: Security (S19 stub + S24 v1 minimum), player UX polish
+- **Deferred (~5%)**: Therapeutic framework (S18), crisis safety (S19 full), sharing (S20),
+  co-authoring (S21), community (S22)
 
 ---
 
 ## 12. Wave 9+ Recommendations
 
-With Wave 8 complete, the foundation is solid: full vertical stack wired, 1021 tests,
-integration tests with real services, two playtest clients (CLI + web).
+With Wave 8 complete and specs S23-S28 written, the specification suite is comprehensive.
+The foundation: full vertical stack, 1021 tests, integration tests, two playtest clients.
 
-### Wave 9 — Hardening & Operational Readiness
+### Wave 9 — Error Handling & Content Safety
 
-1. **Error handling spec (S23)** + cross-cutting implementation
-2. **Content moderation v1 (S24)** — input/output filtering before any public exposure
-3. **Reconcile S11/S17** data deletion conflict
-4. **Real LLM provider testing** — run against OpenAI/Anthropic in staging
-5. **Grafana dashboard definitions** for Prometheus metrics already being collected
+Implementation of the new safety-critical specs:
 
-### Wave 10 — Production Preparation
+1. **S23 Error Handling** — error taxonomy, circuit breakers, error envelope, turn atomicity
+2. **S24 Content Moderation v1** — input/output filtering, stream interruption, flagging
+3. **Real LLM provider testing** — run against OpenAI/Anthropic in staging
+4. Plan: `plans/resilience-and-safety.md` (S23 + S24 sections)
 
-1. **Rate limiting (S25)** — per-player + global limits
-2. **Performance baselines (S28)** — establish SLOs, load test
-3. **CI improvements** — integration tests in CI (currently local only)
-4. **Container image** — finalize Dockerfile for deployment
+### Wave 10 — Rate Limiting & Game Management
+
+1. **S25 Rate Limiting** — sliding window, per-player/IP limits, anti-abuse detection
+2. **S27 Save/Load** — game lifecycle, listing, resume, soft delete
+3. Plan: `plans/resilience-and-safety.md` (S25) + `plans/api-and-sessions.md` Part B (S27)
+
+### Wave 11 — Admin & Performance
+
+1. **S26 Admin Tooling** — admin API, player management, moderation queue, audit log
+2. **S28 Performance** — latency budgets, connection pools, LLM semaphore, load testing
+3. **CI improvements** — integration tests in CI, container image finalization
+4. Plan: `plans/ops.md` Parts B + C
+
+### Wave 12 — Production Polish
+
+1. Grafana dashboard definitions for existing Prometheus metrics
+2. Performance load testing and SLO validation
+3. Security hardening review
+4. Documentation and deployment runbooks
 
 ### Beyond v1
 
-- S18-S22 future stubs (therapeutic framework, crisis safety, sharing, co-authoring, community)
-- Admin tooling (S26)
-- Save/Load UX (S27)
+- S18-S22 future stubs (therapeutic framework, full crisis safety, sharing, co-authoring, community)
 - Horizontal scaling, read replicas, CDN
