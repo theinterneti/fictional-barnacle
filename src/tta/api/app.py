@@ -70,6 +70,17 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         decode_responses=True,
     )
 
+    # 2a. Turn result store (Redis-backed in prod, in-memory for tests)
+    from tta.api.turn_results import (
+        InMemoryTurnResultStore,
+        RedisTurnResultStore,
+    )
+
+    if settings.llm_mock:
+        app.state.turn_result_store = InMemoryTurnResultStore()
+    else:
+        app.state.turn_result_store = RedisTurnResultStore(app.state.redis)
+
     # 3. Prompt registry
     from tta.prompts.loader import FilePromptRegistry
 
