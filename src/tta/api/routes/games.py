@@ -35,22 +35,6 @@ log = structlog.get_logger()
 
 router = APIRouter(prefix="/games", tags=["games"])
 
-# In-memory store for completed turn results, keyed by game_id.
-# SSE endpoint polls this until the result arrives.
-# Production would use Redis pub/sub — this is sufficient for v1.
-_MAX_PENDING_RESULTS = 1000
-_turn_results: dict[str, TurnState] = {}
-
-
-def _store_turn_result(game_id: str, result: TurnState) -> None:
-    """Store a turn result with bounded eviction."""
-    if len(_turn_results) >= _MAX_PENDING_RESULTS:
-        # Evict oldest half (dict is insertion-ordered in 3.7+)
-        keys = list(_turn_results.keys())[: _MAX_PENDING_RESULTS // 2]
-        for k in keys:
-            _turn_results.pop(k, None)
-    _turn_results[game_id] = result
-
 
 async def _dispatch_pipeline(
     app_state: object,
@@ -102,7 +86,15 @@ async def _dispatch_pipeline(
         log.error("turn_persist_failed", turn_id=str(turn_id), exc_info=True)
 
     # Publish result for SSE endpoint
-    _store_turn_result(str(game_id), result)
+    try:
+        store = app_state.turn_result_store  # type: ignore[attr-defined]
+        await store.publish(str(turn_id), result)
+    except Exception:
+        log.error(
+            "turn_result_publish_failed",
+            turn_id=str(turn_id),
+            exc_info=True,
+        )
     log.info(
         "pipeline_dispatch_complete",
         game_id=str(game_id),
@@ -549,37 +541,39 @@ async def stream_turn(
     """SSE endpoint — streams turn processing events to the client."""
     await _get_owned_game(pg, game_id, player)  # ownership check
 
-    # Look up the current processing turn for its number
+    # Look up the latest turn for its ID and number
     proc_result = await pg.execute(
         sa.text(
-            "SELECT turn_number FROM turns "
-            "WHERE session_id = :sid AND status = 'processing' "
-            "LIMIT 1"
+            "SELECT id, turn_number FROM turns "
+            "WHERE session_id = :sid "
+            "ORDER BY turn_number DESC LIMIT 1"
         ),
         {"sid": game_id},
     )
     proc_row = proc_result.one_or_none()
-    current_turn_number = proc_row.turn_number if proc_row else 0
     counter = SSECounter()
 
     async def event_stream():  # noqa: C901
-        gid = str(game_id)
+        if proc_row is None:
+            yield ErrorEvent(
+                code="NO_TURN_FOUND",
+                message="No turn found for this game.",
+            ).format_sse(counter.next_id())
+            return
+
+        current_turn_number = proc_row.turn_number
+        current_turn_id = str(proc_row.id)
 
         # Send turn_start
         yield TurnStartEvent(
             turn_number=current_turn_number,
         ).format_sse(counter.next_id())
 
-        # Poll for pipeline result (max ~120s)
-        result: TurnState | None = None
-        for _ in range(240):
-            if gid in _turn_results:
-                result = _turn_results.pop(gid)
-                break
-            # Check if client disconnected
-            if await request.is_disconnected():
-                return
-            await asyncio.sleep(0.5)
+        # Wait for pipeline result via turn result store
+        store = request.app.state.turn_result_store
+        result: TurnState | None = await store.wait_for_result(
+            current_turn_id, timeout=120.0
+        )
 
         if result is None:
             yield ErrorEvent(
