@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+import structlog
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,12 +28,98 @@ from tta.logging import configure_logging
 if TYPE_CHECKING:
     from tta.config import Settings
 
+log = structlog.get_logger()
+
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Startup: future connection pools, caches, etc.
+    settings = app.state.settings
+    # --- Startup ---
+
+    # 1. Postgres engine + session factory
+    from tta.persistence.engine import build_engine, build_session_factory
+
+    engine = build_engine(
+        settings.database_url,
+        echo=(settings.environment == "development"),
+    )
+    session_factory = build_session_factory(engine)
+    app.state.pg = session_factory
+    app.state.pg_engine = engine
+
+    # 2. Redis connection
+    from redis.asyncio import Redis
+
+    app.state.redis = Redis.from_url(
+        settings.redis_url,
+        decode_responses=True,
+    )
+
+    # 3. Prompt registry
+    from tta.prompts.loader import FilePromptRegistry
+
+    prompts_dir = Path(__file__).resolve().parents[2] / "prompts"
+    app.state.prompt_registry = FilePromptRegistry(
+        templates_dir=prompts_dir / "templates",
+        fragments_dir=prompts_dir / "fragments",
+    )
+
+    # 4. LLM client
+    if settings.llm_mock:
+        from tta.llm.testing import MockLLMClient
+
+        app.state.llm_client = MockLLMClient()
+        log.info("llm_client_mock_enabled")
+    else:
+        from tta.llm.litellm_client import LiteLLMClient
+
+        app.state.llm_client = LiteLLMClient()
+
+    # 5. World service (in-memory for vertical slice, Neo4j later)
+    from tta.world.memory_service import InMemoryWorldService
+
+    app.state.world_service = InMemoryWorldService()
+
+    # 6. Repository instances
+    from tta.persistence.postgres import (
+        PostgresSessionRepository,
+        PostgresTurnRepository,
+    )
+
+    app.state.session_repo = PostgresSessionRepository(session_factory)
+    app.state.turn_repo = PostgresTurnRepository(session_factory)
+
+    # 7. Safety hooks (v1: passthrough)
+    from tta.safety.hooks import PassthroughHook
+
+    passthrough = PassthroughHook()
+
+    # 8. Pipeline deps
+    from tta.pipeline.types import PipelineDeps
+
+    app.state.pipeline_deps = PipelineDeps(
+        llm=app.state.llm_client,
+        world=app.state.world_service,
+        session_repo=app.state.session_repo,
+        turn_repo=app.state.turn_repo,
+        safety_pre_input=passthrough,
+        safety_pre_gen=passthrough,
+        safety_post_gen=passthrough,
+        settings=settings,
+    )
+
+    log.info(
+        "app_startup_complete",
+        database=settings.database_url[:30] + "...",
+        redis=settings.redis_url,
+    )
+
     yield
-    # Shutdown: close connections, flush buffers, etc.
+
+    # --- Shutdown ---
+    await app.state.redis.aclose()
+    await engine.dispose()
+    log.info("app_shutdown_complete")
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -56,6 +144,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=__version__,
         lifespan=_lifespan,
     )
+    app.state.settings = settings
 
     # --- Exception handlers ---
 

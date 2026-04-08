@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     # LiteLLM
     litellm_model: str = "openai/gpt-4o-mini"
     litellm_fallback_model: str = "openai/gpt-4o-mini"
+    llm_mock: bool = False
 
     # Pipeline / cost
     session_cost_cap_usd: float = 1.0

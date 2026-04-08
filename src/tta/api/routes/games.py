@@ -2,21 +2,123 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import time
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
+import structlog
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg
 from tta.api.errors import AppError
+from tta.api.sse import SSECounter, format_sse
 from tta.config import get_settings
+from tta.models.events import (
+    ErrorEvent,
+    NarrativeBlockEvent,
+    TurnCompleteEvent,
+    TurnStartEvent,
+)
 from tta.models.game import GameStatus
 from tta.models.player import Player
+from tta.models.turn import TurnState, TurnStatus
+from tta.pipeline.orchestrator import run_pipeline
+
+log = structlog.get_logger()
 
 router = APIRouter(prefix="/games", tags=["games"])
+
+# In-memory store for completed turn results, keyed by game_id.
+# SSE endpoint polls this until the result arrives.
+# Production would use Redis pub/sub — this is sufficient for v1.
+_turn_results: dict[str, TurnState] = {}
+
+
+async def _dispatch_pipeline(
+    app_state: object,
+    game_id: UUID,
+    turn_id: UUID,
+    turn_number: int,
+    player_input: str,
+    game_state: dict,
+) -> None:
+    """Run the pipeline as a background task and persist results."""
+    deps = app_state.pipeline_deps  # type: ignore[attr-defined]
+    session_factory = app_state.pg  # type: ignore[attr-defined]
+
+    state = TurnState(
+        session_id=game_id,
+        turn_id=turn_id,
+        turn_number=turn_number,
+        player_input=player_input,
+        game_state=game_state,
+    )
+
+    start = time.monotonic()
+    try:
+        result = await run_pipeline(state, deps)
+    except Exception:
+        log.error("pipeline_dispatch_failed", game_id=str(game_id), exc_info=True)
+        result = state.model_copy(update={"status": TurnStatus.failed})
+
+    elapsed_ms = (time.monotonic() - start) * 1000
+    result = result.model_copy(update={"latency_ms": elapsed_ms})
+
+    # Persist turn result to Postgres
+    try:
+        async with session_factory() as pg:
+            if result.status == TurnStatus.complete and result.narrative_output:
+                token_dict = (
+                    result.token_count.model_dump() if result.token_count else {}
+                )
+                await pg.execute(
+                    sa.text(
+                        "UPDATE turns SET "
+                        "narrative_output = :narrative, "
+                        "model_used = :model, "
+                        "latency_ms = :latency, "
+                        "token_count = cast(:tokens AS jsonb), "
+                        "status = 'complete', "
+                        "completed_at = :now "
+                        "WHERE id = :id"
+                    ),
+                    {
+                        "id": turn_id,
+                        "narrative": result.narrative_output,
+                        "model": result.model_used or "unknown",
+                        "latency": elapsed_ms,
+                        "tokens": json.dumps(token_dict),
+                        "now": datetime.now(UTC),
+                    },
+                )
+            else:
+                await pg.execute(
+                    sa.text(
+                        "UPDATE turns SET status = 'failed', "
+                        "completed_at = :now WHERE id = :id"
+                    ),
+                    {"id": turn_id, "now": datetime.now(UTC)},
+                )
+            await pg.commit()
+    except Exception:
+        log.error("turn_persist_failed", turn_id=str(turn_id), exc_info=True)
+
+    # Publish result for SSE endpoint
+    _turn_results[str(game_id)] = result
+    log.info(
+        "pipeline_dispatch_complete",
+        game_id=str(game_id),
+        turn_id=str(turn_id),
+        status=result.status,
+        latency_ms=round(elapsed_ms, 1),
+    )
+
 
 # Valid state transitions (plan §6.1)
 _VALID_TRANSITIONS: dict[str, set[str]] = {
@@ -195,7 +297,7 @@ async def create_game(
             "id": game_id,
             "pid": player.id,
             "status": GameStatus.created.value,
-            "seed": sa.type_coerce(world_seed, sa.JSON),
+            "seed": json.dumps(world_seed),
             "now": now,
         },
     )
@@ -419,7 +521,17 @@ async def submit_turn(
 
     await pg.commit()
 
-    # TODO: dispatch pipeline as background task (Wave 5)
+    # Dispatch pipeline as background task
+    asyncio.create_task(
+        _dispatch_pipeline(
+            app_state=request.app.state,
+            game_id=game_id,
+            turn_id=turn_id,
+            turn_number=turn_number,
+            player_input=body.input,
+            game_state=row.world_seed if row.world_seed else {},
+        )
+    )
 
     return {
         "data": TurnAccepted(
@@ -428,6 +540,94 @@ async def submit_turn(
             stream_url=f"/api/v1/games/{game_id}/stream",
         ).model_dump(mode="json")
     }
+
+
+@router.get("/{game_id}/stream")
+async def stream_turn(
+    game_id: UUID,
+    request: Request,
+    player: Player = Depends(get_current_player),
+    pg: AsyncSession = Depends(get_pg),
+) -> StreamingResponse:
+    """SSE endpoint — streams turn processing events to the client."""
+    await _get_owned_game(pg, game_id, player)  # ownership check
+    counter = SSECounter()
+
+    async def event_stream():  # noqa: C901
+        gid = str(game_id)
+
+        # Send turn_start
+        yield format_sse(
+            "turn_start",
+            TurnStartEvent(turn_number=0).model_dump(
+                exclude={"event_type"}, mode="json"
+            ),
+            counter.next_id(),
+        )
+
+        # Poll for pipeline result (max ~120s)
+        result: TurnState | None = None
+        for _ in range(240):
+            if gid in _turn_results:
+                result = _turn_results.pop(gid)
+                break
+            # Check if client disconnected
+            if await request.is_disconnected():
+                return
+            await asyncio.sleep(0.5)
+
+        if result is None:
+            yield format_sse(
+                "error",
+                ErrorEvent(
+                    code="PIPELINE_TIMEOUT",
+                    message="Turn processing timed out.",
+                ).model_dump(exclude={"event_type"}, mode="json"),
+                counter.next_id(),
+            )
+            return
+
+        if result.status == TurnStatus.failed:
+            yield format_sse(
+                "error",
+                ErrorEvent(
+                    code="PIPELINE_FAILED",
+                    message="Turn processing failed.",
+                ).model_dump(exclude={"event_type"}, mode="json"),
+                counter.next_id(),
+            )
+            return
+
+        # Stream the narrative as a complete block
+        if result.narrative_output:
+            yield format_sse(
+                "narrative_block",
+                NarrativeBlockEvent(
+                    full_text=result.narrative_output,
+                ).model_dump(exclude={"event_type"}, mode="json"),
+                counter.next_id(),
+            )
+
+        # Turn complete
+        yield format_sse(
+            "turn_complete",
+            TurnCompleteEvent(
+                turn_number=result.turn_number,
+                model_used=result.model_used or "unknown",
+                latency_ms=result.latency_ms or 0.0,
+            ).model_dump(exclude={"event_type"}, mode="json"),
+            counter.next_id(),
+        )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/{game_id}/save")
