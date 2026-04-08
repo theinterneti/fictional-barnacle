@@ -66,6 +66,8 @@ class Settings(BaseSettings):
 
     # Application
     session_token_ttl: int = 86400
+    max_active_games: int = 5
+    max_input_length: int = 2000
     log_level: LogLevel = LogLevel.INFO
     log_format: str = "json"
     environment: Environment = Environment.DEVELOPMENT

@@ -24,6 +24,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+        request.state.request_id = request_id
         bind_correlation_id(request_id)
         try:
             response = await call_next(request)
