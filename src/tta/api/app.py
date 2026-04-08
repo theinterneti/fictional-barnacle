@@ -90,10 +90,35 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         app.state.llm_client = LiteLLMClient()
 
-    # 5. World service (in-memory for vertical slice, Neo4j later)
-    from tta.world.memory_service import InMemoryWorldService
+    # 5. World service — Neo4j when explicitly configured, in-memory fallback
+    app.state.neo4j_driver = None
+    if settings.neo4j_uri:
+        from neo4j import AsyncGraphDatabase
 
-    app.state.world_service = InMemoryWorldService()
+        from tta.world.neo4j_service import Neo4jWorldService
+
+        driver = AsyncGraphDatabase.driver(
+            settings.neo4j_uri,
+            auth=(settings.neo4j_user, settings.neo4j_password),
+        )
+        try:
+            await driver.verify_connectivity()
+        except Exception:
+            await driver.close()
+            raise
+        app.state.neo4j_driver = driver
+        app.state.world_service = Neo4jWorldService(driver)
+        _host = (
+            settings.neo4j_uri.split("@")[-1]
+            if "@" in settings.neo4j_uri
+            else settings.neo4j_uri
+        )
+        log.info("world_service_neo4j", host=_host)
+    else:
+        from tta.world.memory_service import InMemoryWorldService
+
+        app.state.world_service = InMemoryWorldService()
+        log.info("world_service_in_memory")
 
     # 6. Repository instances
     from tta.persistence.postgres import (
@@ -110,7 +135,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     passthrough = PassthroughHook()
 
     # 8. Pipeline deps
+    from tta.choices.consequence_service import InMemoryConsequenceService
     from tta.pipeline.types import PipelineDeps
+
+    consequence_svc = InMemoryConsequenceService()
 
     app.state.pipeline_deps = PipelineDeps(
         llm=app.state.llm_client,
@@ -121,6 +149,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         safety_pre_gen=passthrough,
         safety_post_gen=passthrough,
         settings=settings,
+        consequence_service=consequence_svc,
     )
 
     # Redact credentials from DSN before logging
@@ -139,6 +168,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # --- Shutdown ---
     shutdown_langfuse()
     shutdown_tracing()
+    if app.state.neo4j_driver is not None:
+        await app.state.neo4j_driver.close()
     await app.state.redis.aclose()
     await engine.dispose()
     log.info("app_shutdown_complete")
