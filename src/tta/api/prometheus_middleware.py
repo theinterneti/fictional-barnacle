@@ -28,7 +28,7 @@ def _get_route_pattern(request: Request) -> str:
         match, _ = route.matches(request.scope)
         if match == Match.FULL:
             return getattr(route, "path", request.url.path)
-    return request.url.path
+    return "unmatched"
 
 
 class PrometheusMiddleware(BaseHTTPMiddleware):

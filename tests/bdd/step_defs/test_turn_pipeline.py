@@ -9,7 +9,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
-from pytest_bdd import given, parsers, scenario, then, when
+from pytest_bdd import parsers, scenario, then, when
 
 from tests.bdd.conftest import (
     _GAME_ID,
@@ -25,7 +25,7 @@ def test_submit_turn_accepted():
     pass
 
 
-@scenario(FEATURE, "Narrative output is generated for valid input")
+@scenario(FEATURE, "Accepted turn includes a stream URL for narrative")
 def test_narrative_generated():
     pass
 
@@ -33,18 +33,6 @@ def test_narrative_generated():
 @scenario(FEATURE, "Empty input is rejected by validation")
 def test_empty_input_rejected():
     pass
-
-
-# ---- GIVEN ----
-
-
-@given(
-    parsers.parse('the LLM responds with "{response_text}"'),
-    target_fixture="ctx",
-)
-def mock_llm_response(ctx: dict, response_text: str) -> dict:
-    ctx["expected_narrative"] = response_text
-    return ctx
 
 
 # ---- WHEN ----
@@ -86,11 +74,6 @@ def submit_empty_turn(ctx: dict, client: TestClient, pg: AsyncMock) -> dict:
     return ctx
 
 
-@when("the turn is processed through the pipeline")
-def pipeline_processed(ctx: dict) -> None:
-    pass
-
-
 # ---- THEN ----
 
 
@@ -99,6 +82,8 @@ def check_turn_status(ctx: dict, code: int) -> None:
     assert ctx["response"].status_code == code
 
 
-@then(parsers.parse('the narrative output contains "{fragment}"'))
-def narrative_contains(ctx: dict, fragment: str) -> None:
-    assert fragment in ctx.get("expected_narrative", "")
+@then("the response includes a stream URL")
+def response_has_stream_url(ctx: dict) -> None:
+    body = ctx["response"].json()
+    assert "data" in body, f"Expected 'data' key in response: {body}"
+    assert "stream_url" in body["data"], f"Expected 'stream_url' in data: {body}"

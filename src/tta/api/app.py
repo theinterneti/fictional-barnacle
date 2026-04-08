@@ -38,7 +38,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = app.state.settings
     # --- Startup ---
 
-    # 0. OpenTelemetry tracing (before other services so spans are captured)
+    # 0a. Langfuse LLM tracing (optional, graceful degradation)
+    from tta.observability.langfuse import init_langfuse, shutdown_langfuse
+
+    init_langfuse(settings)
+
+    # 0b. OpenTelemetry tracing (before other services so spans are captured)
     from tta.observability.tracing import init_tracing, shutdown_tracing
 
     init_tracing(
@@ -132,6 +137,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # --- Shutdown ---
+    shutdown_langfuse()
     shutdown_tracing()
     await app.state.redis.aclose()
     await engine.dispose()
@@ -161,12 +167,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=_lifespan,
     )
     app.state.settings = settings
-
-    # --- Exception handlers ---
-
-    app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(Exception, unhandled_error_handler)  # type: ignore[arg-type]
 
     # --- Exception handlers ---
 

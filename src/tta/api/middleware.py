@@ -37,6 +37,11 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         bind_correlation_id(request_id)
 
+        # Bind trace_id early so the http_request log includes it.
+        trace_id = current_trace_id() or request.headers.get("x-trace-id")
+        if trace_id:
+            bind_context(trace_id=trace_id)
+
         start = time.monotonic()
         status_code = 500
         try:
@@ -54,11 +59,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             clear_contextvars()
 
         response.headers["x-request-id"] = request_id
-
-        # Prefer OTel trace_id; fall back to upstream X-Trace-Id header.
-        trace_id = current_trace_id() or request.headers.get("x-trace-id")
         if trace_id:
-            bind_context(trace_id=trace_id)
             response.headers["x-trace-id"] = trace_id
 
         return response

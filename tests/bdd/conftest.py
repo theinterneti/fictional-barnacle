@@ -34,6 +34,7 @@ def _settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
         neo4j_password="test",
+        llm_mock=True,
     )
 
 

@@ -201,10 +201,9 @@ async def request_data_export(
 
     Stub — full async job system deferred to post-v1.
     """
-    return {
-        "data": DataExportResponse().model_dump(),
-        "player_id": str(player.id),
-    }
+    data = DataExportResponse().model_dump()
+    data["player_id"] = str(player.id)
+    return {"data": data}
 
 
 @router.delete("/me", status_code=202)
@@ -215,7 +214,6 @@ async def request_account_deletion(
 
     Stub — full 30-day erasure pipeline deferred to post-v1.
     """
-    return {
-        "data": AccountDeletionResponse().model_dump(),
-        "player_id": str(player.id),
-    }
+    data = AccountDeletionResponse().model_dump()
+    data["player_id"] = str(player.id)
+    return {"data": data}

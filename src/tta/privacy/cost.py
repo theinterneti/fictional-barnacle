@@ -6,6 +6,7 @@ cost tracker that feeds into Prometheus metrics and Langfuse metadata.
 
 from __future__ import annotations
 
+import contextvars
 from dataclasses import dataclass
 
 import structlog
@@ -128,20 +129,23 @@ class LLMCostTracker:
         }
 
 
-# Module-level singleton for convenience (reset per request).
-_tracker: LLMCostTracker | None = None
+# Per-request tracker via contextvars (safe for concurrent async requests).
+_tracker_var: contextvars.ContextVar[LLMCostTracker | None] = contextvars.ContextVar(
+    "llm_cost_tracker", default=None
+)
 
 
 def get_cost_tracker() -> LLMCostTracker:
     """Get the current cost tracker (creates one if needed)."""
-    global _tracker  # noqa: PLW0603
-    if _tracker is None:
-        _tracker = LLMCostTracker()
-    return _tracker
+    tracker = _tracker_var.get()
+    if tracker is None:
+        tracker = LLMCostTracker()
+        _tracker_var.set(tracker)
+    return tracker
 
 
 def reset_cost_tracker(session_id: str | None = None) -> LLMCostTracker:
     """Reset and return a fresh tracker for a new request."""
-    global _tracker  # noqa: PLW0603
-    _tracker = LLMCostTracker(session_id=session_id)
-    return _tracker
+    tracker = LLMCostTracker(session_id=session_id)
+    _tracker_var.set(tracker)
+    return tracker

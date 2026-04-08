@@ -69,7 +69,7 @@ test-watch: ## Continuous selective testing (reruns affected tests on save)
 	uv run ptw . -- --testmon -x --tb=short
 
 test-bdd: ## Run BDD acceptance tests only
-	uv run pytest tests/bdd/ -m bdd -v
+	uv run pytest tests/bdd/ -v
 
 test-hypothesis: ## Run Hypothesis property-based tests only
 	uv run pytest -m hypothesis -v

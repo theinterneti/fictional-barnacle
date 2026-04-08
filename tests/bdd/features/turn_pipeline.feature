@@ -10,11 +10,10 @@ Feature: Turn Processing Pipeline
     When the player submits turn text "look around"
     Then the turn is accepted with status 202
 
-  Scenario: Narrative output is generated for valid input
-    Given the LLM responds with "The forest stirs around you."
+  Scenario: Accepted turn includes a stream URL for narrative
     When the player submits turn text "look around"
-    And the turn is processed through the pipeline
-    Then the narrative output contains "forest"
+    Then the turn is accepted with status 202
+    And the response includes a stream URL
 
   Scenario: Empty input is rejected by validation
     When the player submits empty turn text
