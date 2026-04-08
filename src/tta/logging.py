@@ -34,6 +34,9 @@ PII_CONTENT_FIELDS = frozenset(
         "phone",
         "address",
         "ip_address",
+        "display_name",
+        "player_name",
+        "handle",
     }
 )
 
@@ -48,10 +51,10 @@ def _privacy_filter(
 ) -> structlog.types.EventDict:
     """Redact sensitive fields from log entries.
 
-    Two-tier filtering:
+    Two-tier filtering (FR-15.6, FR-17.5):
     1. Credential fields (REDACTED_FIELDS) — always redacted.
     2. PII content fields (PII_CONTENT_FIELDS) — redacted unless
-       log_sensitive=True (dev mode only).
+       log_sensitive=True (dev mode only, FR-15.7).
     """
     for key in list(event_dict.keys()):
         key_lower = key.lower()
@@ -65,6 +68,8 @@ def _privacy_filter(
 def configure_logging(settings: Settings | None = None) -> None:
     """Configure structlog with JSON output, timestamps, and
     privacy filter.
+
+    FR-15.7: log_sensitive is forced False in staging/production.
     """
     global _log_sensitive  # noqa: PLW0603
 
@@ -73,7 +78,15 @@ def configure_logging(settings: Settings | None = None) -> None:
 
         settings = get_settings()
 
-    _log_sensitive = settings.log_sensitive
+    # FR-15.7: log_sensitive only allowed in development
+    if settings.log_sensitive and settings.environment.value != "development":
+        _log_sensitive = False
+        logging.getLogger(__name__).warning(
+            "log_sensitive=True ignored in %s environment",
+            settings.environment.value,
+        )
+    else:
+        _log_sensitive = settings.log_sensitive
 
     # Apply log_level to stdlib logging so structlog respects it
     logging.basicConfig(

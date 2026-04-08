@@ -116,6 +116,14 @@ SESSION_TURNS = Histogram(
     registry=REGISTRY,
 )
 
+# -- Cost tracking metrics (S15 §4 US-15.11) ------------------------------
+
+LLM_COST_DAILY_USD = Gauge(
+    "tta_llm_cost_daily_usd",
+    "Cumulative LLM cost in USD since last reset (daily)",
+    registry=REGISTRY,
+)
+
 
 def metrics_output() -> bytes:
     """Generate Prometheus metrics output from the registry."""

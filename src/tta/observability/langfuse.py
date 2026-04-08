@@ -6,12 +6,14 @@ latency, token counts, and estimated cost for every LLM call.
 
 Privacy: PII is sanitized before trace/generation creation (S17 / AC-3).
 Traces carry session_id and correlation_id for cross-system linking (S15 §7).
+Player IDs are pseudonymized via SHA-256 hash (FR-15.21).
 Langfuse unavailability does not block gameplay (EC-15.5).
 """
 
 from __future__ import annotations
 
 import functools
+import hashlib
 import time
 from collections.abc import Callable
 from typing import Any, ParamSpec, TypeVar
@@ -98,6 +100,10 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
             }
             if ctx.get("session_id"):
                 trace_kwargs["session_id"] = ctx["session_id"]
+            # FR-15.21: pseudonymize player IDs in Langfuse
+            player_id = ctx.get("player_id")
+            if player_id:
+                trace_kwargs["user_id"] = pseudonymize_player_id(str(player_id))
 
             try:
                 trace = _langfuse_client.trace(**trace_kwargs)
@@ -147,12 +153,14 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
 
 
 def _get_context_ids() -> dict[str, str | None]:
-    """Read correlation_id, session_id, turn_id from structlog context."""
+    """Read correlation_id, session_id, turn_id, player_id from
+    structlog context."""
     ctx = structlog.contextvars.get_contextvars()
     return {
         "correlation_id": ctx.get("correlation_id"),
         "session_id": ctx.get("session_id"),
         "turn_id": ctx.get("turn_id"),
+        "player_id": ctx.get("player_id"),
     }
 
 
@@ -174,6 +182,14 @@ def _sanitize_error(message: str) -> str:
     """Truncate error messages to avoid leaking PII in traces."""
     max_len = 200
     return message[:max_len] + "..." if len(message) > max_len else message
+
+
+def pseudonymize_player_id(player_id: str) -> str:
+    """Hash a player ID for Langfuse (FR-15.21).
+
+    Uses SHA-256 truncated to 16 chars. Not reversible.
+    """
+    return hashlib.sha256(player_id.encode()).hexdigest()[:16]
 
 
 def _build_generation_kwargs(

@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # Cost tracking (S15 §4 US-15.11)
+    daily_llm_cost_alert_usd: float = 50.0
+
     # Application
     session_token_ttl: int = 86400
     max_active_games: int = 5
