@@ -1,5 +1,6 @@
-"""Tests for WorldService protocol conformance."""
+"""Tests for WorldService protocol conformance and DefaultWorldService."""
 
+from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -14,7 +15,7 @@ from tta.models.world import (
     WorldSeed,
     WorldTemplate,
 )
-from tta.world.service import WorldService
+from tta.world.service import DefaultWorldService, WorldService
 
 # ── Mock implementation ──────────────────────────────────────────
 
@@ -202,3 +203,115 @@ class TestMockWorldService:
     ) -> None:
         ctx = await svc.get_world_state(session_id)
         assert ctx.current_location.id == "tavern"
+
+
+# ── DefaultWorldService tests ────────────────────────────────────
+
+
+class TestDefaultWorldService:
+    """Tests for the concrete DefaultWorldService."""
+
+    @pytest.fixture
+    def event_repo(self) -> AsyncMock:
+        repo = AsyncMock()
+        repo.get_recent_events.return_value = []
+        return repo
+
+    @pytest.fixture
+    def svc(self, event_repo: AsyncMock) -> DefaultWorldService:
+        return DefaultWorldService(event_repo=event_repo)
+
+    @pytest.fixture
+    def session_id(self) -> UUID:
+        return uuid4()
+
+    def test_satisfies_protocol(self, svc: DefaultWorldService) -> None:
+        """DefaultWorldService is a valid WorldService."""
+        assert isinstance(svc, WorldService)
+
+    async def test_get_recent_events_delegates(
+        self,
+        svc: DefaultWorldService,
+        event_repo: AsyncMock,
+        session_id: UUID,
+    ) -> None:
+        """Delegates to the event repository."""
+        sid = session_id
+        event = WorldEvent(
+            session_id=sid,
+            event_type="npc_moved",
+            entity_id="npc-1",
+        )
+        event_repo.get_recent_events.return_value = [event]
+
+        result = await svc.get_recent_events(sid, limit=3)
+
+        assert result == [event]
+        event_repo.get_recent_events.assert_awaited_once_with(sid, 3)
+
+    async def test_get_recent_events_empty(
+        self,
+        svc: DefaultWorldService,
+        session_id: UUID,
+    ) -> None:
+        """Returns empty list when no events exist."""
+        result = await svc.get_recent_events(session_id)
+        assert result == []
+
+    async def test_get_location_context_not_implemented(
+        self,
+        svc: DefaultWorldService,
+        session_id: UUID,
+    ) -> None:
+        with pytest.raises(NotImplementedError, match="Neo4j"):
+            await svc.get_location_context(session_id, "tavern")
+
+    async def test_apply_world_changes_not_implemented(
+        self,
+        svc: DefaultWorldService,
+        session_id: UUID,
+    ) -> None:
+        with pytest.raises(NotImplementedError, match="Neo4j"):
+            await svc.apply_world_changes(session_id, [])
+
+    async def test_get_player_location_not_implemented(
+        self,
+        svc: DefaultWorldService,
+        session_id: UUID,
+    ) -> None:
+        with pytest.raises(NotImplementedError, match="Neo4j"):
+            await svc.get_player_location(session_id)
+
+    async def test_create_world_graph_not_implemented(
+        self,
+        svc: DefaultWorldService,
+        session_id: UUID,
+    ) -> None:
+        meta = TemplateMetadata(template_key="t", display_name="T")
+        seed = WorldSeed(template=WorldTemplate(metadata=meta))
+        with pytest.raises(NotImplementedError, match="Neo4j"):
+            await svc.create_world_graph(session_id, seed)
+
+    async def test_cleanup_session_not_implemented(
+        self,
+        svc: DefaultWorldService,
+        session_id: UUID,
+    ) -> None:
+        with pytest.raises(NotImplementedError, match="Neo4j"):
+            await svc.cleanup_session(session_id)
+
+    async def test_validate_movement_not_implemented(
+        self,
+        svc: DefaultWorldService,
+        session_id: UUID,
+    ) -> None:
+        with pytest.raises(NotImplementedError, match="Neo4j"):
+            await svc.validate_movement(session_id, "loc-1", "loc-2")
+
+    async def test_get_world_state_not_implemented(
+        self,
+        svc: DefaultWorldService,
+        session_id: UUID,
+    ) -> None:
+        with pytest.raises(NotImplementedError, match="Neo4j"):
+            await svc.get_world_state(session_id)
