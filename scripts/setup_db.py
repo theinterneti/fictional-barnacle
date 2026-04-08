@@ -33,7 +33,10 @@ async def main() -> None:
 
     async with engine.connect() as conn:
         # Check if user exists
-        r = await conn.execute(sa.text("SELECT 1 FROM pg_roles WHERE rolname = :u"), {"u": _TTA_USER})
+        r = await conn.execute(
+            sa.text("SELECT 1 FROM pg_roles WHERE rolname = :u"),
+            {"u": _TTA_USER},
+        )
         if r.scalar() is None:
             # DDL doesn't support parameterised passwords; values come from env
             await conn.execute(

@@ -32,7 +32,8 @@ class SSEEvent(BaseModel):
         """Format as SSE wire format."""
         data = self.model_dump(exclude={"event_type"}, mode="json")
         id_line = f"id: {event_id}\n" if event_id is not None else ""
-        return f"{id_line}event: {self.event_type}\ndata: {json.dumps(data, default=str)}\n\n"
+        payload = json.dumps(data, default=str)
+        return f"{id_line}event: {self.event_type}\ndata: {payload}\n\n"
 
 
 class TurnStartEvent(SSEEvent):

@@ -119,9 +119,9 @@ async def main() -> None:
                 if line.startswith("event:"):
                     event_types.append(line[6:].strip())
 
-        print(
-            f"\n=== SMOKE TEST {'PASSED' if 'narrative_block' in event_types else 'FAILED'} ==="
-        )
+        passed = "narrative_block" in event_types
+        verdict = "PASSED" if passed else "FAILED"
+        print(f"\n=== SMOKE TEST {verdict} ===")
         print(f"Events received: {event_types}")
 
         if "narrative_block" not in event_types:
