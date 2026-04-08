@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from tta.models.world import (
     TemplateMetadata,
     TemplateNPC,
     TemplateRegion,
+    WorldEvent,
     WorldSeed,
     WorldTemplate,
 )
@@ -35,7 +37,10 @@ def _make_state(**overrides: object) -> TurnState:
 def _make_deps() -> PipelineDeps:
     """Deps with a failing world mock — triggers fallback."""
     world = AsyncMock()
-    world.get_player_location.side_effect = ValueError("no world data")
+    world.get_player_location.side_effect = ValueError(
+        "no world data"
+    )
+    world.get_recent_events.return_value = []
     return PipelineDeps(
         llm=AsyncMock(),
         world=world,
@@ -138,7 +143,11 @@ async def test_context_includes_game_state() -> None:
 
 
 async def test_context_includes_intent() -> None:
-    state = _make_state(parsed_intent=ParsedIntent(intent="examine", confidence=0.9))
+    state = _make_state(
+        parsed_intent=ParsedIntent(
+            intent="examine", confidence=0.9
+        )
+    )
     result = await context_stage(state, _make_deps())
 
     assert result.world_context is not None
@@ -170,8 +179,8 @@ async def test_context_includes_session_id() -> None:
     assert result.world_context["session_id"] == str(sid)
 
 
-async def test_context_partial_is_true_for_stub() -> None:
-    """V1 stub sets context_partial=True."""
+async def test_context_partial_is_true() -> None:
+    """context_partial=True while location context unavailable."""
     state = _make_state()
     result = await context_stage(state, _make_deps())
     assert result.context_partial is True
@@ -184,6 +193,55 @@ async def test_original_state_not_mutated() -> None:
     assert state.world_context is None
     assert result.world_context is not None
     assert state is not result
+
+
+# ── Recent events in fallback path ────────────────────────────────
+
+
+async def test_context_includes_recent_events() -> None:
+    """Recent events from WorldService are serialized into context."""
+    sid = uuid4()
+    event = WorldEvent(
+        session_id=sid,
+        event_type="npc_moved",
+        entity_id="npc-1",
+        payload={"from": "tavern", "to": "market"},
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
+    )
+    deps = _make_deps()
+    deps.world.get_recent_events.return_value = [event]
+    state = _make_state(session_id=sid)
+
+    result = await context_stage(state, deps)
+
+    assert result.world_context is not None
+    events = result.world_context["recent_events"]
+    assert len(events) == 1
+    assert events[0]["event_type"] == "npc_moved"
+    assert events[0]["entity_id"] == "npc-1"
+
+
+async def test_context_empty_recent_events() -> None:
+    """Empty events list is included when no events exist."""
+    result = await context_stage(_make_state(), _make_deps())
+
+    assert result.world_context is not None
+    assert result.world_context["recent_events"] == []
+
+
+async def test_context_event_fetch_failure_graceful() -> None:
+    """WorldService event errors don't crash the stage."""
+    deps = _make_deps()
+    deps.world.get_recent_events.side_effect = RuntimeError(
+        "db down"
+    )
+    state = _make_state()
+
+    result = await context_stage(state, deps)
+
+    assert result.world_context is not None
+    assert result.world_context["recent_events"] == []
+    assert result.context_partial is True
 
 
 # ── WorldService integration ─────────────────────────────────────
@@ -258,7 +316,9 @@ async def test_live_context_includes_intent() -> None:
     sid = uuid4()
     state = _make_state(
         session_id=sid,
-        parsed_intent=ParsedIntent(intent="examine", confidence=0.9),
+        parsed_intent=ParsedIntent(
+            intent="examine", confidence=0.9
+        ),
         turn_number=3,
     )
     deps, _ = await _make_live_deps(sid)
@@ -274,7 +334,10 @@ async def test_live_context_includes_intent() -> None:
 async def test_fallback_on_world_service_error() -> None:
     """Explicit test: exception in WorldService → fallback."""
     world = AsyncMock()
-    world.get_player_location.side_effect = RuntimeError("service down")
+    world.get_player_location.side_effect = RuntimeError(
+        "service down"
+    )
+    world.get_recent_events.return_value = []
     deps = PipelineDeps(
         llm=AsyncMock(),
         world=world,
