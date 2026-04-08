@@ -118,7 +118,7 @@ async def register_player(
         key="tta_session",
         value=token,
         httponly=True,
-        secure=True,
+        secure=settings.environment != "development",
         samesite="lax",
         path="/",
         max_age=settings.session_token_ttl,

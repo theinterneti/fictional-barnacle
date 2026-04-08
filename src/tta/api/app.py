@@ -58,7 +58,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # 3. Prompt registry
     from tta.prompts.loader import FilePromptRegistry
 
-    prompts_dir = Path(__file__).resolve().parents[2] / "prompts"
+    prompts_dir = Path(__file__).resolve().parents[3] / "prompts"
     app.state.prompt_registry = FilePromptRegistry(
         templates_dir=prompts_dir / "templates",
         fragments_dir=prompts_dir / "fragments",
@@ -108,9 +108,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings=settings,
     )
 
+    # Redact credentials from DSN before logging
+    from urllib.parse import urlparse
+
+    _parsed = urlparse(settings.database_url)
+    _safe_db = f"{_parsed.scheme}://{_parsed.hostname}:{_parsed.port}/{_parsed.path.lstrip('/')}"
     log.info(
         "app_startup_complete",
-        database=settings.database_url[:30] + "...",
+        database=_safe_db,
         redis=settings.redis_url,
     )
 

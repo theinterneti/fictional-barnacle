@@ -17,7 +17,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg
 from tta.api.errors import AppError
-from tta.api.sse import SSECounter, format_sse
+from tta.api.sse import SSECounter
 from tta.config import get_settings
 from tta.models.events import (
     ErrorEvent,
@@ -37,7 +37,18 @@ router = APIRouter(prefix="/games", tags=["games"])
 # In-memory store for completed turn results, keyed by game_id.
 # SSE endpoint polls this until the result arrives.
 # Production would use Redis pub/sub — this is sufficient for v1.
+_MAX_PENDING_RESULTS = 1000
 _turn_results: dict[str, TurnState] = {}
+
+
+def _store_turn_result(game_id: str, result: TurnState) -> None:
+    """Store a turn result with bounded eviction."""
+    if len(_turn_results) >= _MAX_PENDING_RESULTS:
+        # Evict oldest half (dict is insertion-ordered in 3.7+)
+        keys = list(_turn_results.keys())[: _MAX_PENDING_RESULTS // 2]
+        for k in keys:
+            _turn_results.pop(k, None)
+    _turn_results[game_id] = result
 
 
 async def _dispatch_pipeline(
@@ -50,7 +61,7 @@ async def _dispatch_pipeline(
 ) -> None:
     """Run the pipeline as a background task and persist results."""
     deps = app_state.pipeline_deps  # type: ignore[attr-defined]
-    session_factory = app_state.pg  # type: ignore[attr-defined]
+    turn_repo = deps.turn_repo
 
     state = TurnState(
         session_id=game_id,
@@ -70,47 +81,26 @@ async def _dispatch_pipeline(
     elapsed_ms = (time.monotonic() - start) * 1000
     result = result.model_copy(update={"latency_ms": elapsed_ms})
 
-    # Persist turn result to Postgres
+    # Persist turn result via repository
     try:
-        async with session_factory() as pg:
-            if result.status == TurnStatus.complete and result.narrative_output:
-                token_dict = (
-                    result.token_count.model_dump() if result.token_count else {}
-                )
-                await pg.execute(
-                    sa.text(
-                        "UPDATE turns SET "
-                        "narrative_output = :narrative, "
-                        "model_used = :model, "
-                        "latency_ms = :latency, "
-                        "token_count = cast(:tokens AS jsonb), "
-                        "status = 'complete', "
-                        "completed_at = :now "
-                        "WHERE id = :id"
-                    ),
-                    {
-                        "id": turn_id,
-                        "narrative": result.narrative_output,
-                        "model": result.model_used or "unknown",
-                        "latency": elapsed_ms,
-                        "tokens": json.dumps(token_dict),
-                        "now": datetime.now(UTC),
-                    },
-                )
-            else:
-                await pg.execute(
-                    sa.text(
-                        "UPDATE turns SET status = 'failed', "
-                        "completed_at = :now WHERE id = :id"
-                    ),
-                    {"id": turn_id, "now": datetime.now(UTC)},
-                )
-            await pg.commit()
+        if result.status == TurnStatus.complete and result.narrative_output:
+            token_dict = (
+                result.token_count.model_dump() if result.token_count else {}
+            )
+            await turn_repo.complete_turn(
+                turn_id=turn_id,
+                narrative_output=result.narrative_output,
+                model_used=result.model_used or "unknown",
+                latency_ms=elapsed_ms,
+                token_count=token_dict,
+            )
+        else:
+            await turn_repo.update_status(turn_id, "failed")
     except Exception:
         log.error("turn_persist_failed", turn_id=str(turn_id), exc_info=True)
 
     # Publish result for SSE endpoint
-    _turn_results[str(game_id)] = result
+    _store_turn_result(str(game_id), result)
     log.info(
         "pipeline_dispatch_complete",
         game_id=str(game_id),
@@ -452,12 +442,15 @@ async def submit_turn(
             f"Cannot submit turns for a game in '{row.status}' status.",
         )
 
-    # Concurrent turn check (serialized via FOR UPDATE)
+    # Concurrent turn check — advisory lock serialises per-game
+    await pg.execute(
+        sa.text("SELECT pg_advisory_xact_lock(hashtext(:gid))"),
+        {"gid": str(game_id)},
+    )
     in_flight = await pg.execute(
         sa.text(
             "SELECT id FROM turns "
-            "WHERE session_id = :sid AND status = 'processing' "
-            "FOR UPDATE"
+            "WHERE session_id = :sid AND status = 'processing'"
         ),
         {"sid": game_id},
     )
@@ -522,6 +515,9 @@ async def submit_turn(
     await pg.commit()
 
     # Dispatch pipeline as background task
+    game_state = row.world_seed if row.world_seed else {}
+    if isinstance(game_state, str):
+        game_state = json.loads(game_state)
     asyncio.create_task(
         _dispatch_pipeline(
             app_state=request.app.state,
@@ -529,7 +525,7 @@ async def submit_turn(
             turn_id=turn_id,
             turn_number=turn_number,
             player_input=body.input,
-            game_state=row.world_seed if row.world_seed else {},
+            game_state=game_state,
         )
     )
 
@@ -551,19 +547,27 @@ async def stream_turn(
 ) -> StreamingResponse:
     """SSE endpoint — streams turn processing events to the client."""
     await _get_owned_game(pg, game_id, player)  # ownership check
+
+    # Look up the current processing turn for its number
+    proc_result = await pg.execute(
+        sa.text(
+            "SELECT turn_number FROM turns "
+            "WHERE session_id = :sid AND status = 'processing' "
+            "LIMIT 1"
+        ),
+        {"sid": game_id},
+    )
+    proc_row = proc_result.one_or_none()
+    current_turn_number = proc_row.turn_number if proc_row else 0
     counter = SSECounter()
 
     async def event_stream():  # noqa: C901
         gid = str(game_id)
 
         # Send turn_start
-        yield format_sse(
-            "turn_start",
-            TurnStartEvent(turn_number=0).model_dump(
-                exclude={"event_type"}, mode="json"
-            ),
-            counter.next_id(),
-        )
+        yield TurnStartEvent(
+            turn_number=current_turn_number,
+        ).format_sse(counter.next_id())
 
         # Poll for pipeline result (max ~120s)
         result: TurnState | None = None
@@ -577,47 +581,31 @@ async def stream_turn(
             await asyncio.sleep(0.5)
 
         if result is None:
-            yield format_sse(
-                "error",
-                ErrorEvent(
-                    code="PIPELINE_TIMEOUT",
-                    message="Turn processing timed out.",
-                ).model_dump(exclude={"event_type"}, mode="json"),
-                counter.next_id(),
-            )
+            yield ErrorEvent(
+                code="PIPELINE_TIMEOUT",
+                message="Turn processing timed out.",
+            ).format_sse(counter.next_id())
             return
 
         if result.status == TurnStatus.failed:
-            yield format_sse(
-                "error",
-                ErrorEvent(
-                    code="PIPELINE_FAILED",
-                    message="Turn processing failed.",
-                ).model_dump(exclude={"event_type"}, mode="json"),
-                counter.next_id(),
-            )
+            yield ErrorEvent(
+                code="PIPELINE_FAILED",
+                message="Turn processing failed.",
+            ).format_sse(counter.next_id())
             return
 
         # Stream the narrative as a complete block
         if result.narrative_output:
-            yield format_sse(
-                "narrative_block",
-                NarrativeBlockEvent(
-                    full_text=result.narrative_output,
-                ).model_dump(exclude={"event_type"}, mode="json"),
-                counter.next_id(),
-            )
+            yield NarrativeBlockEvent(
+                full_text=result.narrative_output,
+            ).format_sse(counter.next_id())
 
         # Turn complete
-        yield format_sse(
-            "turn_complete",
-            TurnCompleteEvent(
-                turn_number=result.turn_number,
-                model_used=result.model_used or "unknown",
-                latency_ms=result.latency_ms or 0.0,
-            ).model_dump(exclude={"event_type"}, mode="json"),
-            counter.next_id(),
-        )
+        yield TurnCompleteEvent(
+            turn_number=result.turn_number,
+            model_used=result.model_used or "unknown",
+            latency_ms=result.latency_ms or 0.0,
+        ).format_sse(counter.next_id())
 
     return StreamingResponse(
         event_stream(),
