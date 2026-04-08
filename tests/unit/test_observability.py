@@ -7,16 +7,18 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import structlog
 
-from tta import observability
 from tta.config import Settings
 from tta.observability import (
+    _sanitize_error,
     _sanitize_input,
     get_langfuse,
     init_langfuse,
     shutdown_langfuse,
     trace_llm,
 )
+from tta.observability import langfuse as observability
 
 # -- helpers -----------------------------------------------------------
 
@@ -47,10 +49,20 @@ def _fake_llm_response(
 
 @pytest.fixture(autouse=True)
 def _reset_client() -> Any:
-    """Reset the module-level client before and after each test."""
+    """Reset the module-level client and warning throttle."""
     observability._langfuse_client = None
+    observability._last_warning_time = 0.0
     yield
     observability._langfuse_client = None
+    observability._last_warning_time = 0.0
+
+
+@pytest.fixture(autouse=True)
+def _clear_structlog_ctx() -> Any:
+    """Ensure structlog contextvars are clean for each test."""
+    structlog.contextvars.clear_contextvars()
+    yield
+    structlog.contextvars.clear_contextvars()
 
 
 # -- AC-1: conditional initialization ---------------------------------
@@ -71,14 +83,14 @@ class TestInitLangfuse:
         init_langfuse(settings)
         assert get_langfuse() is None
 
-    @patch("tta.observability.Langfuse", create=True)
+    @patch("tta.observability.langfuse.Langfuse", create=True)
     def test_with_host_creates_client(self, mock_cls: MagicMock) -> None:
         """When langfuse_host is set, a Langfuse client is created."""
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
 
         with patch(
-            "tta.observability.init_langfuse",
+            "tta.observability.langfuse.init_langfuse",
             wraps=init_langfuse,
         ):
             # Patch the import inside init_langfuse
@@ -104,6 +116,13 @@ class TestInitLangfuse:
         """Disabling Langfuse never raises an exception."""
         settings = _make_settings()
         init_langfuse(settings)  # should not raise
+
+    def test_disabled_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """FR-15.19: A warning is logged when Langfuse is disabled."""
+        settings = _make_settings(langfuse_host=None)
+        with caplog.at_level("WARNING"):
+            init_langfuse(settings)
+        assert any("langfuse_disabled" in r.message for r in caplog.records)
 
 
 # -- AC-2: trace_llm decorator ----------------------------------------
@@ -153,7 +172,11 @@ class TestTraceLlmWithClient:
 
         await _call()
 
-        mock.trace.assert_called_once_with(name="generate", tags=["user_input"])
+        mock.trace.assert_called_once()
+        call_kw = mock.trace.call_args.kwargs
+        assert call_kw["name"] == "generate"
+        assert "user_input" in call_kw["tags"]
+        assert "metadata" in call_kw
 
     async def test_generation_recorded(self) -> None:
         """A generation is recorded with model, usage, and output."""
@@ -188,7 +211,10 @@ class TestTraceLlmWithClient:
         with pytest.raises(RuntimeError, match="oops"):
             await _call()
 
-        mock_trace.update.assert_called_once_with(level="ERROR", status_message="oops")
+        mock_trace.update.assert_called_once()
+        update_kw = mock_trace.update.call_args.kwargs
+        assert update_kw["level"] == "ERROR"
+        assert update_kw["status_message"] == "oops"
 
     async def test_kwargs_passed_as_input(self) -> None:
         """Function kwargs are passed as generation input."""
@@ -205,6 +231,123 @@ class TestTraceLlmWithClient:
 
         gen_kw = mock_trace.generation.call_args.kwargs
         assert gen_kw["input"] == {"messages": ["hello"]}
+
+    async def test_session_id_in_trace(self) -> None:
+        """session_id from structlog context is passed to Langfuse trace."""
+        mock = self._install_mock_client()
+        structlog.contextvars.bind_contextvars(session_id="sess-123")
+
+        @trace_llm(name="gen")
+        async def _call() -> SimpleNamespace:
+            return _fake_llm_response()
+
+        await _call()
+
+        call_kw = mock.trace.call_args.kwargs
+        assert call_kw["session_id"] == "sess-123"
+
+    async def test_correlation_id_in_metadata(self) -> None:
+        """correlation_id from structlog context appears in trace metadata."""
+        mock = self._install_mock_client()
+        structlog.contextvars.bind_contextvars(correlation_id="corr-456")
+
+        @trace_llm(name="gen")
+        async def _call() -> SimpleNamespace:
+            return _fake_llm_response()
+
+        await _call()
+
+        call_kw = mock.trace.call_args.kwargs
+        assert call_kw["metadata"]["correlation_id"] == "corr-456"
+
+    async def test_turn_id_in_generation_metadata(self) -> None:
+        """turn_id from structlog context appears in generation metadata."""
+        mock = self._install_mock_client()
+        mock_trace = mock.trace.return_value
+        structlog.contextvars.bind_contextvars(turn_id="turn-789")
+
+        @trace_llm(name="gen")
+        async def _call() -> SimpleNamespace:
+            return _fake_llm_response()
+
+        await _call()
+
+        gen_kw = mock_trace.generation.call_args.kwargs
+        assert gen_kw["metadata"]["turn_id"] == "turn-789"
+
+    async def test_no_session_id_omitted_from_trace(self) -> None:
+        """When no session_id in context, it is not passed to trace."""
+        mock = self._install_mock_client()
+
+        @trace_llm(name="gen")
+        async def _call() -> SimpleNamespace:
+            return _fake_llm_response()
+
+        await _call()
+
+        call_kw = mock.trace.call_args.kwargs
+        assert "session_id" not in call_kw
+
+
+# -- EC-15.5: graceful degradation ------------------------------------
+
+
+class TestGracefulDegradation:
+    """Langfuse failures don't block LLM calls (EC-15.5)."""
+
+    async def test_trace_creation_failure(self) -> None:
+        """LLM call succeeds even when trace creation fails."""
+        mock = MagicMock()
+        mock.trace.side_effect = ConnectionError("Langfuse down")
+        observability._langfuse_client = mock
+
+        @trace_llm(name="gen")
+        async def _call() -> str:
+            return "result"
+
+        result = await _call()
+        assert result == "result"
+
+    async def test_generation_record_failure(self) -> None:
+        """LLM call succeeds even when generation recording fails."""
+        mock = MagicMock()
+        mock_trace = MagicMock()
+        mock_trace.generation.side_effect = ConnectionError("Langfuse down")
+        mock.trace.return_value = mock_trace
+        observability._langfuse_client = mock
+
+        @trace_llm(name="gen")
+        async def _call() -> SimpleNamespace:
+            return _fake_llm_response()
+
+        result = await _call()
+        assert result.choices[0].message.content == "Hello!"
+
+    async def test_error_update_failure(self) -> None:
+        """Exception still propagates when trace.update fails."""
+        mock = MagicMock()
+        mock_trace = MagicMock()
+        mock_trace.update.side_effect = ConnectionError("Langfuse down")
+        mock.trace.return_value = mock_trace
+        observability._langfuse_client = mock
+
+        @trace_llm(name="gen")
+        async def _call() -> None:
+            raise ValueError("app error")
+
+        with pytest.raises(ValueError, match="app error"):
+            await _call()
+
+    def test_warning_throttled(self) -> None:
+        """Warnings are throttled to once per _WARNING_INTERVAL_S."""
+        observability._last_warning_time = 0.0
+        observability._warn_langfuse_error("test_event", name="x")
+        first_time = observability._last_warning_time
+        assert first_time > 0
+
+        # Second call within interval should NOT update _last_warning_time
+        observability._warn_langfuse_error("test_event", name="x")
+        assert observability._last_warning_time == first_time
 
 
 # -- AC-3: privacy compliance -----------------------------------------
@@ -225,7 +368,8 @@ class TestPrivacy:
 
         await _call()
 
-        mock.trace.assert_called_once_with(name="chat", tags=["user_input"])
+        call_kw = mock.trace.call_args.kwargs
+        assert "user_input" in call_kw["tags"]
 
     def test_sanitize_removes_pii(self) -> None:
         """_sanitize_input strips known PII fields."""
@@ -246,6 +390,35 @@ class TestPrivacy:
         raw = {"messages": ["hi"], "temperature": 0.7}
         clean = _sanitize_input(raw)
         assert clean == raw
+
+    def test_sanitize_error_truncates(self) -> None:
+        """_sanitize_error truncates long messages."""
+        short = "short error"
+        assert _sanitize_error(short) == short
+
+        long_msg = "x" * 300
+        result = _sanitize_error(long_msg)
+        assert len(result) == 203  # 200 + "..."
+        assert result.endswith("...")
+
+    async def test_error_message_sanitized_in_trace(self) -> None:
+        """Error messages are truncated before being sent to Langfuse."""
+        mock = MagicMock()
+        mock_trace = MagicMock()
+        mock.trace.return_value = mock_trace
+        observability._langfuse_client = mock
+
+        long_error = "x" * 300
+
+        @trace_llm(name="bad")
+        async def _call() -> None:
+            raise RuntimeError(long_error)
+
+        with pytest.raises(RuntimeError):
+            await _call()
+
+        update_kw = mock_trace.update.call_args.kwargs
+        assert len(update_kw["status_message"]) == 203
 
 
 # -- shutdown ----------------------------------------------------------

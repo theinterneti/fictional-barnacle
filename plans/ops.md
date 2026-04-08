@@ -4,8 +4,8 @@
 > **Scope**: DevOps, CI/CD, observability wiring, test infrastructure, database migrations
 > **Input specs**: S14 (Deployment), S15 (Observability), S16 (Testing Infrastructure)
 > **Parent plan**: `plans/system.md`
-> **Status**: 📝 Draft
-> **Last Updated**: 2026-04-07
+> **Status**: ✅ Implemented (Wave 7 — PR #50)
+> **Last Updated**: 2026-04-09
 
 ---
 

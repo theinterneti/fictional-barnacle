@@ -178,3 +178,42 @@ async def update_profile(
             created_at=player.created_at,
         ).model_dump(mode="json")
     }
+
+
+# --- GDPR endpoint stubs (S17 §3 FR-17.6, FR-17.9) ---
+
+
+class DataExportResponse(BaseModel):
+    status: str = "accepted"
+    message: str = "Data export request queued. Available within 72 hours."
+
+
+class AccountDeletionResponse(BaseModel):
+    status: str = "accepted"
+    message: str = "Account deletion scheduled. Data will be erased within 30 days."
+
+
+@router.get("/me/data-export", status_code=202)
+async def request_data_export(
+    player: Player = Depends(get_current_player),
+) -> dict:
+    """Request an export of all player data (GDPR Art. 20).
+
+    Stub — full async job system deferred to post-v1.
+    """
+    data = DataExportResponse().model_dump()
+    data["player_id"] = str(player.id)
+    return {"data": data}
+
+
+@router.delete("/me", status_code=202)
+async def request_account_deletion(
+    player: Player = Depends(get_current_player),
+) -> dict:
+    """Request account and data erasure (GDPR Art. 17).
+
+    Stub — full 30-day erasure pipeline deferred to post-v1.
+    """
+    data = AccountDeletionResponse().model_dump()
+    data["player_id"] = str(player.id)
+    return {"data": data}

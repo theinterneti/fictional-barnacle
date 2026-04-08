@@ -3,9 +3,25 @@
 from __future__ import annotations
 
 import pytest
+from hypothesis import HealthCheck
+from hypothesis import settings as h_settings
 
 from tta.config import Settings
 from tta.llm.testing import MockLLMClient
+
+# ---------------------------------------------------------------------------
+# Hypothesis profiles (S16 §10)
+# ---------------------------------------------------------------------------
+h_settings.register_profile(
+    "dev", max_examples=10, suppress_health_check=[HealthCheck.too_slow]
+)
+h_settings.register_profile("default", max_examples=100)
+h_settings.register_profile(
+    "ci",
+    max_examples=500,
+    suppress_health_check=[HealthCheck.too_slow],
+)
+h_settings.load_profile("default")
 
 
 @pytest.fixture()

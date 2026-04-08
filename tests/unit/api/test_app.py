@@ -71,6 +71,17 @@ class TestRequestIDMiddleware:
         )
         assert resp.headers["x-request-id"] == custom_id
 
+    def test_propagates_x_trace_id(self, client: TestClient) -> None:
+        resp = client.get(
+            "/api/v1/health",
+            headers={"x-trace-id": "abc-trace-123"},
+        )
+        assert resp.headers["x-trace-id"] == "abc-trace-123"
+
+    def test_no_x_trace_id_when_absent(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/health")
+        assert "x-trace-id" not in resp.headers
+
 
 # ------------------------------------------------------------------
 # CORS middleware

@@ -21,7 +21,9 @@ from tta.api.errors import (
 )
 from tta.api.health import router as health_router
 from tta.api.middleware import RequestIDMiddleware
+from tta.api.prometheus_middleware import PrometheusMiddleware
 from tta.api.routes.games import router as games_router
+from tta.api.routes.metrics import router as metrics_router
 from tta.api.routes.players import router as players_router
 from tta.logging import configure_logging
 
@@ -35,6 +37,19 @@ log = structlog.get_logger()
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = app.state.settings
     # --- Startup ---
+
+    # 0a. Langfuse LLM tracing (optional, graceful degradation)
+    from tta.observability.langfuse import init_langfuse, shutdown_langfuse
+
+    init_langfuse(settings)
+
+    # 0b. OpenTelemetry tracing (before other services so spans are captured)
+    from tta.observability.tracing import init_tracing, shutdown_tracing
+
+    init_tracing(
+        enabled=settings.otel_enabled,
+        endpoint=settings.otel_endpoint,
+    )
 
     # 1. Postgres engine + session factory
     from tta.persistence.engine import build_engine, build_session_factory
@@ -122,6 +137,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # --- Shutdown ---
+    shutdown_langfuse()
+    shutdown_tracing()
     await app.state.redis.aclose()
     await engine.dispose()
     log.info("app_shutdown_complete")
@@ -157,12 +174,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_error_handler)  # type: ignore[arg-type]
 
-    # --- Exception handlers ---
-
-    app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(Exception, unhandled_error_handler)  # type: ignore[arg-type]
-
     # --- Middleware (added in reverse order — last added runs first) ---
 
     allow_credentials = "*" not in settings.cors_origins
@@ -174,9 +185,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(PrometheusMiddleware)
 
     # --- Routers ---
 
+    app.include_router(metrics_router)
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(players_router, prefix="/api/v1")
     app.include_router(games_router, prefix="/api/v1")

@@ -62,8 +62,15 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
 
+    # OpenTelemetry (optional)
+    otel_enabled: bool = False
+    otel_endpoint: str = "http://localhost:4317"
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
+
+    # Cost tracking (S15 §4 US-15.11)
+    daily_llm_cost_alert_usd: float = 50.0
 
     # Application
     session_token_ttl: int = 86400
@@ -71,6 +78,7 @@ class Settings(BaseSettings):
     max_input_length: int = 2000
     log_level: LogLevel = LogLevel.INFO
     log_format: str = "json"
+    log_sensitive: bool = False
     environment: Environment = Environment.DEVELOPMENT
 
 
