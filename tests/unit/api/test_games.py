@@ -223,6 +223,7 @@ class TestSubmitTurn:
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row()]),  # _get_owned_game
+                _make_result(),  # advisory lock
                 _make_result(),  # in-flight check (none)
                 _make_result(scalar=0),  # max turn number
                 _make_result(),  # INSERT turn
@@ -259,6 +260,7 @@ class TestSubmitTurn:
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row()]),  # _get_owned_game
+                _make_result(),  # advisory lock
                 _make_result([{"id": uuid4()}]),  # in-flight turn exists
             ]
         )
@@ -285,6 +287,7 @@ class TestSubmitTurn:
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row()]),  # _get_owned_game
+                _make_result(),  # advisory lock
                 _make_result(),  # in-flight check (none)
                 _make_result(
                     [

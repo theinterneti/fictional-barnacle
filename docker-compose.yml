@@ -3,13 +3,13 @@
 
 services:
   tta-postgres:
-    image: postgres:16-alpine
+    image: docker.io/postgres:16-alpine
     environment:
       POSTGRES_USER: tta
       POSTGRES_PASSWORD: tta
       POSTGRES_DB: tta
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - tta-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   tta-neo4j:
-    image: neo4j:5-community
+    image: docker.io/neo4j:5-community
     environment:
       NEO4J_AUTH: neo4j/changeme
       NEO4J_PLUGINS: '["apoc"]'
@@ -39,7 +39,7 @@ services:
     restart: unless-stopped
 
   tta-redis:
-    image: redis:7-alpine
+    image: docker.io/redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
 
   langfuse-db:
-    image: postgres:16-alpine
+    image: docker.io/postgres:16-alpine
     environment:
       POSTGRES_USER: langfuse
       POSTGRES_PASSWORD: langfuse
@@ -68,7 +68,7 @@ services:
     restart: unless-stopped
 
   langfuse:
-    image: langfuse/langfuse:3
+    image: docker.io/langfuse/langfuse:3
     ports:
       - "3000:3000"
     environment:
