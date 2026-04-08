@@ -139,11 +139,10 @@ class TestCreateGame:
 
 class TestListGames:
     def test_returns_games_list(self, client: TestClient, pg: AsyncMock) -> None:
+        row = _game_row()
+        row["turn_count"] = 3
         pg.execute = AsyncMock(
-            side_effect=[
-                _make_result([_game_row()]),  # SELECT games
-                _make_result(scalar=3),  # turn count for game
-            ]
+            return_value=_make_result([row]),
         )
 
         resp = client.get("/api/v1/games")
@@ -300,7 +299,7 @@ class TestSubmitTurn:
 
         resp = client.post(
             f"/api/v1/games/{_GAME_ID}/turns",
-            json={"input": "test", "idempotency_key": "abc123"},
+            json={"input": "test", "idempotency_key": str(uuid4())},
         )
 
         assert resp.status_code == 202

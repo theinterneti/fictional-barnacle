@@ -6,7 +6,7 @@ from tta.api.sse import SSECounter, format_sse
 
 
 class TestSSECounter:
-    def test_starts_at_zero(self) -> None:
+    def test_first_id_is_one(self) -> None:
         counter = SSECounter()
         assert counter.next_id() == 1
 

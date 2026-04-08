@@ -64,7 +64,7 @@ class SubmitTurnRequest(BaseModel):
         max_length=2000,
         description="Player's natural-language input.",
     )
-    idempotency_key: str | None = Field(
+    idempotency_key: UUID | None = Field(
         None,
         description="Client-generated UUID for deduplication.",
     )
@@ -91,7 +91,13 @@ class SaveResult(BaseModel):
 
 
 class UpdateGameRequest(BaseModel):
-    status: str = Field(..., description="Target status. v1 only supports 'paused'.")
+    status: str = Field(
+        ...,
+        description=(
+            "Target status. Supported transitions depend on current "
+            "game status (e.g. active → paused, paused → active/ended)."
+        ),
+    )
 
 
 class GameEndedData(BaseModel):
@@ -212,28 +218,34 @@ async def list_games(
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
     status: str | None = Query(None),
-    cursor: str | None = Query(None),
+    cursor: datetime | None = Query(None),
     limit: int = Query(20, ge=1, le=50),
 ) -> dict:
     """List the authenticated player's games."""
     params: dict = {"pid": player.id, "lim": limit + 1}
-    where_clauses = ["player_id = :pid"]
+    where_clauses = ["gs.player_id = :pid"]
 
     if status is not None:
-        where_clauses.append("status = :status")
+        where_clauses.append("gs.status = :status")
         params["status"] = status
     if cursor is not None:
-        where_clauses.append("updated_at < :cursor")
+        where_clauses.append("gs.updated_at < :cursor")
         params["cursor"] = cursor
 
     where = " AND ".join(where_clauses)
     result = await pg.execute(
         sa.text(
-            f"SELECT id, player_id, status, world_seed, "  # noqa: S608
-            f"created_at, updated_at "
-            f"FROM game_sessions "
+            f"SELECT gs.id, gs.player_id, gs.status, gs.world_seed, "  # noqa: S608
+            f"gs.created_at, gs.updated_at, "
+            f"coalesce(tc.cnt, 0) AS turn_count "
+            f"FROM game_sessions gs "
+            f"LEFT JOIN ("
+            f"  SELECT session_id, count(*) AS cnt "
+            f"  FROM turns WHERE status = 'complete' "
+            f"  GROUP BY session_id"
+            f") tc ON tc.session_id = gs.id "
             f"WHERE {where} "
-            f"ORDER BY updated_at DESC LIMIT :lim"
+            f"ORDER BY gs.updated_at DESC LIMIT :lim"
         ),
         params,
     )
@@ -241,18 +253,16 @@ async def list_games(
     has_more = len(rows) > limit
     items = rows[:limit]
 
-    games = []
-    for r in items:
-        tc = await _get_turn_count(pg, r.id)
-        games.append(
-            GameSummary(
-                game_id=str(r.id),
-                status=r.status,
-                turn_count=tc,
-                created_at=r.created_at,
-                updated_at=r.updated_at,
-            ).model_dump(mode="json")
-        )
+    games = [
+        GameSummary(
+            game_id=str(r.id),
+            status=r.status,
+            turn_count=r.turn_count,
+            created_at=r.created_at,
+            updated_at=r.updated_at,
+        ).model_dump(mode="json")
+        for r in items
+    ]
 
     next_cursor = items[-1].updated_at.isoformat() if has_more and items else None
 

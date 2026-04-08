@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 from tta.models.world import (
     NPC,
     Connection,
+    ConnectionDirection,
     Item,
     Location,
     LocationContext,
@@ -20,7 +21,7 @@ from tta.models.world import (
 
 # Reverse direction lookup for bidirectional connections.
 # Supports both abbreviated and full-word directions.
-_REVERSE_DIRECTION: dict[str, str] = {
+_REVERSE_DIRECTION: dict[str, ConnectionDirection] = {
     "n": "s",
     "s": "n",
     "e": "w",
@@ -191,7 +192,10 @@ class InMemoryWorldService:
                 )
             )
             if conn.bidirectional:
-                rev = _REVERSE_DIRECTION.get(conn.direction, conn.direction)
+                if conn.direction not in _REVERSE_DIRECTION:
+                    msg = f"Unknown direction '{conn.direction}' for reverse lookup"
+                    raise ValueError(msg)
+                rev = _REVERSE_DIRECTION[conn.direction]
                 self._connections[sid].append(
                     Connection(
                         from_id=tid,

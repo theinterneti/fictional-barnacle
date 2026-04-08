@@ -22,7 +22,7 @@ def format_sse(
     data: Any,
     event_id: int | None = None,
 ) -> str:
-    """Format a single SSE event per RFC 8895.
+    """Format a single SSE event per the HTML Living Standard (EventSource).
 
     Parameters
     ----------

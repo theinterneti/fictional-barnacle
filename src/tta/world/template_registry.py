@@ -99,7 +99,7 @@ class TemplateRegistry:
             TemplateValidationError,
             Exception,
         ) as exc:
-            logger.error(
+            logger.exception(
                 "template_load_failed",
                 path=str(path),
                 error=str(exc),
