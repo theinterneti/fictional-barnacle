@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import signal
 import sys
 import uuid
 
 import httpx
 
-DEFAULT_BASE = "http://localhost:8000/api/v1"
+DEFAULT_BASE = os.getenv("TTA_BASE_URL", "http://localhost:8000/api/v1")
 STREAM_TIMEOUT = 120.0
 
 
@@ -97,7 +98,9 @@ def stream_narrative(client: httpx.Client, stream_url: str) -> None:
     with client.stream("GET", stream_url, timeout=STREAM_TIMEOUT) as resp:
         resp.raise_for_status()
         for raw_line in resp.iter_lines():
-            line = raw_line.rstrip("\r\n") if isinstance(raw_line, str) else raw_line
+            line = (
+                raw_line.decode() if isinstance(raw_line, bytes) else raw_line
+            ).rstrip("\r\n")
 
             if not line:
                 if buf:
@@ -127,10 +130,15 @@ def _handle_sse_event(event_type: str | None, data: str | None) -> None:
         turn = payload.get("turn_number", "?")
         print(_dim(f"\n--- Turn {turn} ---"))
 
-    elif event_type == "narrative":
-        text = payload.get("full_text", "")
+    elif event_type in {"narrative", "narrative_block"}:
+        text = payload.get("full_text") or payload.get("text", "")
         if text:
             print(f"\n{_cyan(text)}")
+
+    elif event_type == "narrative_token":
+        text = payload.get("text", "")
+        if text:
+            print(_cyan(text), end="", flush=True)
 
     elif event_type == "turn_complete":
         model = payload.get("model_used", "?")
@@ -169,70 +177,69 @@ def main() -> None:
     print(_green("═" * 60))
     print(_dim(f"  Server: {base_url}\n"))
 
-    client = httpx.Client(base_url=base_url, timeout=30.0)
-
-    # 1. Register
-    print(_dim("Registering player..."), end=" ", flush=True)
-    try:
-        player_id, token = register_player(client)
-    except httpx.HTTPStatusError as e:
-        print(_red(f"FAILED: {e.response.status_code} {e.response.text}"))
-        sys.exit(1)
-    except httpx.ConnectError:
-        print(_red(f"FAILED: Cannot connect to {base_url}"))
-        print(_dim("  Is the server running? Try: make dev"))
-        sys.exit(1)
-
-    print(_green("OK"))
-    print(_dim(f"  Player: {player_id}"))
-
-    # Set auth header for all subsequent requests
-    client.headers["Authorization"] = f"Bearer {token}"
-
-    # 2. Create game
-    print(_dim("Creating game..."), end=" ", flush=True)
-    try:
-        game_id = create_game(client)
-    except httpx.HTTPStatusError as e:
-        print(_red(f"FAILED: {e.response.status_code} {e.response.text}"))
-        sys.exit(1)
-    print(_green("OK"))
-    print(_dim(f"  Game: {game_id}\n"))
-
-    print(_green("Ready! Type your actions below. Ctrl+C to quit.\n"))
-
-    # 3. Turn loop
-    turn_num = 0
-    while True:
-        turn_num += 1
-        prompt = _green(f"[Turn {turn_num}] > ")
+    with httpx.Client(base_url=base_url, timeout=30.0) as client:
+        # 1. Register
+        print(_dim("Registering player..."), end=" ", flush=True)
         try:
-            user_input = input(prompt)
-        except EOFError:
-            print("\n\nBye!")
-            break
-
-        if not user_input.strip():
-            turn_num -= 1
-            continue
-
-        # Submit turn
-        try:
-            stream_url = submit_turn(client, game_id, user_input)
+            player_id, token = register_player(client)
         except httpx.HTTPStatusError as e:
-            print(_red(f"  Error: {e.response.status_code} {e.response.text}"))
-            turn_num -= 1
-            continue
+            print(_red(f"FAILED: {e.response.status_code} {e.response.text}"))
+            sys.exit(1)
+        except httpx.ConnectError:
+            print(_red(f"FAILED: Cannot connect to {base_url}"))
+            print(_dim("  Is the server running? Try: make dev"))
+            sys.exit(1)
 
-        # Stream narrative
+        print(_green("OK"))
+        print(_dim(f"  Player: {player_id}"))
+
+        # Set auth header for all subsequent requests
+        client.headers["Authorization"] = f"Bearer {token}"
+
+        # 2. Create game
+        print(_dim("Creating game..."), end=" ", flush=True)
         try:
-            stream_narrative(client, stream_url)
+            game_id = create_game(client)
         except httpx.HTTPStatusError as e:
-            print(_red(f"  Stream error: {e.response.status_code}"))
-        except httpx.ReadTimeout:
-            print(_red("  Stream timed out."))
+            print(_red(f"FAILED: {e.response.status_code} {e.response.text}"))
+            sys.exit(1)
+        print(_green("OK"))
+        print(_dim(f"  Game: {game_id}\n"))
 
-        print()  # blank line between turns
+        print(_green("Ready! Type your actions below. Ctrl+C to quit.\n"))
+
+        # 3. Turn loop
+        turn_num = 0
+        while True:
+            turn_num += 1
+            prompt = _green(f"[Turn {turn_num}] > ")
+            try:
+                user_input = input(prompt)
+            except EOFError:
+                print("\n\nBye!")
+                break
+
+            if not user_input.strip():
+                turn_num -= 1
+                continue
+
+            # Submit turn
+            try:
+                stream_url = submit_turn(client, game_id, user_input)
+            except httpx.HTTPStatusError as e:
+                print(_red(f"  Error: {e.response.status_code} {e.response.text}"))
+                turn_num -= 1
+                continue
+
+            # Stream narrative
+            try:
+                stream_narrative(client, stream_url)
+            except httpx.HTTPStatusError as e:
+                print(_red(f"  Stream error: {e.response.status_code}"))
+            except httpx.ReadTimeout:
+                print(_red("  Stream timed out."))
+
+            print()  # blank line between turns
 
 
 if __name__ == "__main__":
