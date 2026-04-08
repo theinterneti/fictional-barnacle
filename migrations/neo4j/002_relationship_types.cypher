@@ -50,7 +50,7 @@ FOR (i:Item) ON (i.type, i.is_visible);
 // Neo4j 5.x supports relationship property indexes.
 
 // KNOWS_ABOUT (S13 §6.5)
-// (NPC|Player)-[:KNOWS_ABOUT]->(NPC|Item|Location|Event)
+// (NPC)-[:KNOWS_ABOUT]->(NPC|Item|Location|Event|Quest)
 // Required: knowledge_type (str), detail (str),
 //   is_secret (bool), learned_at (DateTime)
 CREATE INDEX knows_about_knowledge_type IF NOT EXISTS
@@ -60,7 +60,7 @@ CREATE INDEX knows_about_is_secret IF NOT EXISTS
 FOR ()-[r:KNOWS_ABOUT]-() ON (r.is_secret);
 
 // OWNS (S13 §6.6)
-// (NPC|Player)-[:OWNS]->(Item)
+// (NPC|PlayerSession)-[:OWNS]->(Item)
 // Required: acquired_at (DateTime)
 // Optional: acquisition_method (str — "found"|"bought"|
 //   "given"|"crafted"|"stolen")
@@ -71,7 +71,7 @@ CREATE INDEX owns_acquisition_method IF NOT EXISTS
 FOR ()-[r:OWNS]-() ON (r.acquisition_method);
 
 // INVOLVED_IN (S13 §6.7)
-// (NPC|Player|Location|Item)-[:INVOLVED_IN]->(Event|Quest)
+// (NPC|PlayerSession|Location|Item)-[:INVOLVED_IN]->(Event)
 // Required: role (str — "cause"|"witness"|"target"|"location")
 CREATE INDEX involved_in_role IF NOT EXISTS
 FOR ()-[r:INVOLVED_IN]-() ON (r.role);
@@ -99,11 +99,11 @@ FOR ()-[r:INVOLVED_IN]-() ON (r.role);
 
 // --- Relationship types (documented, not enforceable) ---
 //
-// (NPC|Player)-[:KNOWS_ABOUT {knowledge_type, detail,
-//   is_secret, learned_at}]->(NPC|Item|Location|Event)
-// (NPC|Player)-[:OWNS {acquired_at,
+// (NPC)-[:KNOWS_ABOUT {knowledge_type, detail,
+//   is_secret, learned_at}]->(NPC|Item|Location|Event|Quest)
+// (NPC|PlayerSession)-[:OWNS {acquired_at,
 //   acquisition_method?}]->(Item)
-// (NPC|Player|Location|Item)-[:INVOLVED_IN
-//   {role}]->(Event|Quest)
+// (NPC|PlayerSession|Location|Item)-[:INVOLVED_IN
+//   {role}]->(Event)
 //
 // All relationships carry a session_id property.

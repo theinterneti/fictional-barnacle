@@ -37,9 +37,7 @@ def _make_state(**overrides: object) -> TurnState:
 def _make_deps() -> PipelineDeps:
     """Deps with a failing world mock — triggers fallback."""
     world = AsyncMock()
-    world.get_player_location.side_effect = ValueError(
-        "no world data"
-    )
+    world.get_player_location.side_effect = ValueError("no world data")
     world.get_recent_events.return_value = []
     return PipelineDeps(
         llm=AsyncMock(),
@@ -143,11 +141,7 @@ async def test_context_includes_game_state() -> None:
 
 
 async def test_context_includes_intent() -> None:
-    state = _make_state(
-        parsed_intent=ParsedIntent(
-            intent="examine", confidence=0.9
-        )
-    )
+    state = _make_state(parsed_intent=ParsedIntent(intent="examine", confidence=0.9))
     result = await context_stage(state, _make_deps())
 
     assert result.world_context is not None
@@ -232,9 +226,7 @@ async def test_context_empty_recent_events() -> None:
 async def test_context_event_fetch_failure_graceful() -> None:
     """WorldService event errors don't crash the stage."""
     deps = _make_deps()
-    deps.world.get_recent_events.side_effect = RuntimeError(
-        "db down"
-    )
+    deps.world.get_recent_events.side_effect = RuntimeError("db down")
     state = _make_state()
 
     result = await context_stage(state, deps)
@@ -316,9 +308,7 @@ async def test_live_context_includes_intent() -> None:
     sid = uuid4()
     state = _make_state(
         session_id=sid,
-        parsed_intent=ParsedIntent(
-            intent="examine", confidence=0.9
-        ),
+        parsed_intent=ParsedIntent(intent="examine", confidence=0.9),
         turn_number=3,
     )
     deps, _ = await _make_live_deps(sid)
@@ -334,9 +324,7 @@ async def test_live_context_includes_intent() -> None:
 async def test_fallback_on_world_service_error() -> None:
     """Explicit test: exception in WorldService → fallback."""
     world = AsyncMock()
-    world.get_player_location.side_effect = RuntimeError(
-        "service down"
-    )
+    world.get_player_location.side_effect = RuntimeError("service down")
     world.get_recent_events.return_value = []
     deps = PipelineDeps(
         llm=AsyncMock(),

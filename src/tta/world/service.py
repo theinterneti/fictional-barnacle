@@ -96,9 +96,7 @@ class DefaultWorldService:
         session_id: UUID,
         limit: int = 5,
     ) -> list[WorldEvent]:
-        return await self._event_repo.get_recent_events(
-            session_id, limit
-        )
+        return await self._event_repo.get_recent_events(session_id, limit)
 
     async def get_location_context(
         self,
@@ -106,43 +104,33 @@ class DefaultWorldService:
         location_id: str,
         depth: int = 1,
     ) -> LocationContext:
-        raise NotImplementedError(
-            "get_location_context requires Neo4j"
-        )
+        raise NotImplementedError("get_location_context requires Neo4j")
 
     async def apply_world_changes(
         self,
         session_id: UUID,
         changes: list[WorldChange],
     ) -> None:
-        raise NotImplementedError(
-            "apply_world_changes requires Neo4j"
-        )
+        raise NotImplementedError("apply_world_changes requires Neo4j")
 
     async def get_player_location(
         self,
         session_id: UUID,
     ) -> Location:
-        raise NotImplementedError(
-            "get_player_location requires Neo4j"
-        )
+        raise NotImplementedError("get_player_location requires Neo4j")
 
     async def create_world_graph(
         self,
         session_id: UUID,
         world_seed: WorldSeed,
     ) -> None:
-        raise NotImplementedError(
-            "create_world_graph requires Neo4j"
-        )
+        raise NotImplementedError("create_world_graph requires Neo4j")
 
     async def cleanup_session(
         self,
         session_id: UUID,
     ) -> None:
-        raise NotImplementedError(
-            "cleanup_session requires Neo4j"
-        )
+        raise NotImplementedError("cleanup_session requires Neo4j")
 
     async def validate_movement(
         self,
@@ -150,14 +138,10 @@ class DefaultWorldService:
         from_id: str,
         to_id: str,
     ) -> bool:
-        raise NotImplementedError(
-            "validate_movement requires Neo4j"
-        )
+        raise NotImplementedError("validate_movement requires Neo4j")
 
     async def get_world_state(
         self,
         session_id: UUID,
     ) -> WorldContext:
-        raise NotImplementedError(
-            "get_world_state requires Neo4j"
-        )
+        raise NotImplementedError("get_world_state requires Neo4j")

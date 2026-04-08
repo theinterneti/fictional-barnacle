@@ -27,9 +27,7 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     # Try to get live world context from WorldService
     try:
-        world_context = await get_full_context(
-            deps.world, state.session_id
-        )
+        world_context = await get_full_context(deps.world, state.session_id)
         world_context["intent"] = intent
         world_context["turn_number"] = state.turn_number
         context_partial = False
@@ -43,12 +41,8 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         )
         recent_events: list[dict] = []
         try:
-            events = await deps.world.get_recent_events(
-                state.session_id, limit=5
-            )
-            recent_events = [
-                e.model_dump(mode="json") for e in events
-            ]
+            events = await deps.world.get_recent_events(state.session_id, limit=5)
+            recent_events = [e.model_dump(mode="json") for e in events]
         except Exception:
             log.warning(
                 "context_events_fetch_failed",

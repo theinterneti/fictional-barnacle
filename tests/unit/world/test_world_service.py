@@ -104,9 +104,7 @@ class IncompleteWorldService:
         depth: int = 1,
     ) -> LocationContext:
         return LocationContext(
-            location=Location(
-                id="x", name="X", description="X", type="x"
-            )
+            location=Location(id="x", name="X", description="X", type="x")
         )
 
     async def get_recent_events(
@@ -137,9 +135,7 @@ class TestWorldServiceProtocol:
 
     def test_incomplete_class_does_not_satisfy(self) -> None:
         """A class missing a method is NOT a WorldService."""
-        assert not isinstance(
-            IncompleteWorldService(), WorldService
-        )
+        assert not isinstance(IncompleteWorldService(), WorldService)
 
 
 # ── Functional tests on MockWorldService ─────────────────────────
@@ -199,9 +195,7 @@ class TestMockWorldService:
     async def test_validate_movement(
         self, svc: MockWorldService, session_id: UUID
     ) -> None:
-        ok = await svc.validate_movement(
-            session_id, "loc-1", "loc-2"
-        )
+        ok = await svc.validate_movement(session_id, "loc-1", "loc-2")
         assert ok is True
 
     async def test_get_world_state(
@@ -231,9 +225,7 @@ class TestDefaultWorldService:
     def session_id(self) -> UUID:
         return uuid4()
 
-    def test_satisfies_protocol(
-        self, svc: DefaultWorldService
-    ) -> None:
+    def test_satisfies_protocol(self, svc: DefaultWorldService) -> None:
         """DefaultWorldService is a valid WorldService."""
         assert isinstance(svc, WorldService)
 
@@ -255,9 +247,7 @@ class TestDefaultWorldService:
         result = await svc.get_recent_events(sid, limit=3)
 
         assert result == [event]
-        event_repo.get_recent_events.assert_awaited_once_with(
-            sid, 3
-        )
+        event_repo.get_recent_events.assert_awaited_once_with(sid, 3)
 
     async def test_get_recent_events_empty(
         self,
@@ -316,9 +306,7 @@ class TestDefaultWorldService:
         session_id: UUID,
     ) -> None:
         with pytest.raises(NotImplementedError, match="Neo4j"):
-            await svc.validate_movement(
-                session_id, "loc-1", "loc-2"
-            )
+            await svc.validate_movement(session_id, "loc-1", "loc-2")
 
     async def test_get_world_state_not_implemented(
         self,
