@@ -59,7 +59,12 @@ test-unit: ## Run unit tests only (no external services needed)
 	uv run pytest -m "not integration and not e2e"
 
 test-integration: ## Run integration tests (starts/stops test services)
-	docker compose -f docker-compose.test.yml up -d --wait
+	docker compose -f docker-compose.test.yml up -d
+	@echo "Waiting for services to be ready..."
+	@for i in $$(seq 1 30); do \
+		pg_isready -h localhost -p 5433 -U tta_test >/dev/null 2>&1 && break; \
+		sleep 1; \
+	done
 	uv run pytest tests/integration/ -v; \
 	EXIT_CODE=$$?; \
 	docker compose -f docker-compose.test.yml down; \
@@ -75,7 +80,12 @@ test-hypothesis: ## Run Hypothesis property-based tests only
 	uv run pytest -m hypothesis -v
 
 test-up: ## Start test service containers
-	docker compose -f docker-compose.test.yml up -d --wait
+	docker compose -f docker-compose.test.yml up -d
+	@echo "Waiting for services to be ready..."
+	@for i in $$(seq 1 30); do \
+		pg_isready -h localhost -p 5433 -U tta_test >/dev/null 2>&1 && break; \
+		sleep 1; \
+	done
 
 test-down: ## Stop test service containers
 	docker compose -f docker-compose.test.yml down

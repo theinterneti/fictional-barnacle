@@ -5,6 +5,7 @@ SQLAlchemy + asyncpg.  The module-level stub functions are retained
 for backward compatibility with existing tests.
 """
 
+import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -164,7 +165,7 @@ class PostgresGameRepository:
                 {
                     "id": game_id,
                     "player_id": player_id,
-                    "world_seed": sa.type_coerce(world_seed, sa.JSON),
+                    "world_seed": json.dumps(world_seed),
                 },
             )
             row = result.one()
@@ -339,7 +340,7 @@ class PostgresTurnRepository:
                     "narrative_output": narrative_output,
                     "model_used": model_used,
                     "latency_ms": latency_ms,
-                    "token_count": sa.type_coerce(token_count, sa.JSON),
+                    "token_count": json.dumps(token_count),
                     "now": now,
                 },
             )
@@ -449,7 +450,7 @@ class PostgresWorldEventRepository:
                     "turn_id": turn_id,
                     "event_type": event_type,
                     "entity_id": entity_id,
-                    "payload": sa.type_coerce(payload, sa.JSON),
+                    "payload": json.dumps(payload),
                 },
             )
             row = result.one()
