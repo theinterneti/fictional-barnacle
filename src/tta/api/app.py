@@ -152,6 +152,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_error_handler)  # type: ignore[arg-type]
 
+    # --- Exception handlers ---
+
+    app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(Exception, unhandled_error_handler)  # type: ignore[arg-type]
+
     # --- Middleware (added in reverse order — last added runs first) ---
 
     allow_credentials = "*" not in settings.cors_origins
