@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 .PHONY: help validate-specs validate-plans validate-all regen-indexes \
         lint format typecheck test test-unit test-integration test-watch \
-        test-up test-down quality check \
+        test-up test-down quality check check-format \
         dev up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean
@@ -30,23 +30,26 @@ regen-indexes: ## Regenerate spec and plan index files
 	uv run python specs/index_plans.py
 
 # ---------------------------------------------------------------------------
-# Code quality (once src/ exists)
+# Code quality
 # ---------------------------------------------------------------------------
 lint: ## Run ruff linter + pyright type checker
-	uv run ruff check src/
-	uv run pyright src/
+	uv run ruff check
+	uv run pyright
 
-format: ## Run ruff formatter + auto-fix
-	uv run ruff format src/
-	uv run ruff check --fix src/
+format: ## Auto-format and auto-fix code
+	uv run ruff format
+	uv run ruff check --fix
 
 typecheck: ## Run pyright (standalone)
-	uv run pyright src/
+	uv run pyright
 
-quality: lint format ## Run lint + format
+quality: format lint ## Format, then lint + type-check
+
+check-format: ## Verify formatting (CI-style, no mutations)
+	uv run ruff format --check
 
 # ---------------------------------------------------------------------------
-# Testing (once tests/ exist)
+# Testing
 # ---------------------------------------------------------------------------
 test: ## Run all tests with coverage
 	uv run pytest --cov
@@ -70,7 +73,11 @@ test-up: ## Start test service containers
 test-down: ## Stop test service containers
 	docker compose -f docker-compose.test.yml down
 
-check: lint test ## Full CI gate (lint + test)
+check: ## Full CI gate (mirrors CI quality + test jobs)
+	uv run ruff check
+	uv run ruff format --check
+	uv run pyright
+	uv run pytest --cov
 
 # ---------------------------------------------------------------------------
 # Development
@@ -117,4 +124,4 @@ migrate-neo4j: ## Run Neo4j graph migrations
 # ---------------------------------------------------------------------------
 clean: ## Remove caches and build artifacts
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	rm -rf .pytest_cache .ruff_cache .mypy_cache
+	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml
