@@ -407,7 +407,7 @@ class TestWorldChangeHandlers:
         )
         await svc.apply_world_changes(sid, [change])
         npc, _ = svc._npcs[s]["npc-1"]
-        assert npc.tier == "key"
+        assert npc.tier == NPCTier.KEY
 
     async def test_relationship_changed_is_noop(self) -> None:
         from tta.models.world import WorldChange, WorldChangeType

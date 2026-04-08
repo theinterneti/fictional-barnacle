@@ -139,7 +139,8 @@ class InMemoryRelationshipService:
         relationship: NPCRelationship,
     ) -> None:
         key = self._key(session_id, relationship.source_id, relationship.target_id)
-        self._rels[key] = deepcopy(relationship)
+        normalized = relationship.model_copy(update={"session_id": str(session_id)})
+        self._rels[key] = deepcopy(normalized)
 
     async def check_companion_eligible(
         self,

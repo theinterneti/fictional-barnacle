@@ -12,6 +12,7 @@ from tta.models.world import (
     Item,
     Location,
     LocationContext,
+    NPCTier,
     WorldChange,
     WorldChangeType,
     WorldContext,
@@ -438,7 +439,8 @@ class InMemoryWorldService:
             npcs = self._npcs.get(sid, {})
             if eid in npcs:
                 npc, loc_id = npcs[eid]
-                npc.tier = payload.get("tier", npc.tier)
+                raw = payload.get("tier", npc.tier)
+                npc.tier = NPCTier(raw) if isinstance(raw, str) else raw
 
         elif ct == WorldChangeType.RELATIONSHIP_CHANGED:
             pass  # Handled by RelationshipService

@@ -735,11 +735,12 @@ class TestTrustToLabel:
         assert trust_to_label(9) == "neutral"
 
     def test_warm(self) -> None:
-        assert trust_to_label(10) == "warm"
-        assert trust_to_label(49) == "warm"
+        assert trust_to_label(10) == "neutral"
+        assert trust_to_label(11) == "warm"
+        assert trust_to_label(50) == "warm"
 
     def test_loyal(self) -> None:
-        assert trust_to_label(50) == "loyal"
+        assert trust_to_label(51) == "loyal"
         assert trust_to_label(100) == "loyal"
 
 

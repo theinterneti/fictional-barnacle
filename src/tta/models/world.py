@@ -127,8 +127,8 @@ RELATIONSHIP_CLAMP_DRAMATIC: int = 30
 _TRUST_THRESHOLDS: list[tuple[int, DispositionLabel]] = [
     (-50, "hostile"),
     (-10, "cold"),
-    (10, "neutral"),
-    (50, "warm"),
+    (11, "neutral"),
+    (51, "warm"),
 ]
 _DEFAULT_TRUST_LABEL: DispositionLabel = "loyal"
 
