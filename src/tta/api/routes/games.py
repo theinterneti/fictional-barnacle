@@ -551,11 +551,19 @@ async def stream_turn(
         {"sid": game_id},
     )
     proc_row = proc_result.one_or_none()
-    current_turn_number = proc_row.turn_number if proc_row else 0
-    current_turn_id = str(proc_row.id) if proc_row else ""
     counter = SSECounter()
 
     async def event_stream():  # noqa: C901
+        if proc_row is None:
+            yield ErrorEvent(
+                code="NO_TURN_FOUND",
+                message="No turn found for this game.",
+            ).format_sse(counter.next_id())
+            return
+
+        current_turn_number = proc_row.turn_number
+        current_turn_id = str(proc_row.id)
+
         # Send turn_start
         yield TurnStartEvent(
             turn_number=current_turn_number,

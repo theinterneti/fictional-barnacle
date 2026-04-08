@@ -79,9 +79,20 @@ class TestInMemoryTurnResultStore:
         )
         await task
 
-        # At least one waiter gets the result; the other may get it
-        # from the late-client path or the event.
-        assert got1 is not None or got2 is not None
+        assert got1 is not None
+        assert got2 is not None
+        assert got1.status == result.status
+        assert got2.status == result.status
+        assert got1.narrative_output == result.narrative_output
+        assert got2.narrative_output == result.narrative_output
+        assert got1.session_id == result.session_id
+        assert got2.session_id == result.session_id
+        assert got1.turn_number == result.turn_number
+        assert got2.turn_number == result.turn_number
+        assert got1.player_input == result.player_input
+        assert got2.player_input == result.player_input
+        assert got1.game_state == result.game_state
+        assert got2.game_state == result.game_state
 
     async def test_event_cleanup_after_wait(self, store: InMemoryTurnResultStore):
         """Internal event dict is cleaned up after wait completes."""

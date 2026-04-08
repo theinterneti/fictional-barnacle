@@ -141,7 +141,21 @@ class RedisTurnResultStore:
         except Exception:
             log.error("redis_wait_failed", turn_id=turn_id, exc_info=True)
         finally:
-            await pubsub.unsubscribe(channel)
-            await pubsub.aclose()
+            try:
+                await pubsub.unsubscribe(channel)
+            except Exception:
+                log.error(
+                    "redis_wait_cleanup_unsubscribe_failed",
+                    turn_id=turn_id,
+                    exc_info=True,
+                )
+            try:
+                await pubsub.aclose()
+            except Exception:
+                log.error(
+                    "redis_wait_cleanup_close_failed",
+                    turn_id=turn_id,
+                    exc_info=True,
+                )
 
         return None
