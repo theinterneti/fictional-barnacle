@@ -425,16 +425,50 @@ Make it playable from a browser.
 | Session management | Redis-backed active session, Postgres persistence |
 | Minimal web client | HTML page with input box and SSE reader |
 
-#### Wave 5: Integration & Polish (1 week)
-Make it work as a whole, not just as parts.
+#### Wave 5: Characters & World Depth (Issues #29-#34)
+Deepen NPC characterization, relationship tracking, and world graph fidelity.
 
-| Task | Deliverable |
-|------|-------------|
-| End-to-end playtest | Play 10+ turns, fix coherence issues |
-| Prompt tuning | Iterate on generation prompts based on playtesting |
-| Error handling hardening | Graceful failures at every stage |
-| BDD test suite (critical paths) | 5-10 Gherkin scenarios for core gameplay |
-| Documentation | README, API docs, contributing guide |
+| Task | Issue | Status | Deliverable |
+|------|-------|--------|-------------|
+| Neo4j schema verification & extension | #29 | ✅ Done (PR #47) | S13 relationship coverage, migration 001 |
+| Wire `get_recent_events()` to PostgreSQL | #33 | ✅ Done (PR #47) | Event persistence layer |
+| NPC model with tiers & personality | #30 | ✅ Done (PR #48) | NPCTier enum, 12 NPC fields, relationship models |
+| Relationship tracking (5 dimensions) | #31 | ✅ Done (PR #48) | RelationshipService protocol + implementations |
+| NPC dialogue context in generation | #32 | ✅ Done (PR #48) | `dialogue.py`, pipeline context integration |
+| Genesis NPC seeding | #34 | ✅ Done (PR #48) | TemplateRelationship, enriched NPC creation |
+
+**Delivered**: 755 tests, 88% coverage. New services: RelationshipService,
+dialogue context builder. New models: NPCTier, RelationshipDimensions,
+NPCRelationship, NPCDialogueContext, TemplateRelationship.
+
+#### Wave 6: Choice & Consequences (Issues #35-#40)
+Build the choice-consequence pipeline that makes player decisions meaningful.
+
+| Task | Issue | Status | Deliverable |
+|------|-------|--------|-------------|
+| Choice classification (6 types) | #35 | Pending | Intent→choice type mapping |
+| Consequence chain model | #36 | Pending | Timescale tracking, chain data model |
+| World mutation pipeline | #37 | Pending | Changes→Neo4j write path |
+| Consequence injection in context | #38 | Pending | Active consequences in prompt assembly |
+| Narrative anchor & divergence | #39 | Pending | Story tracking, divergence points |
+| Hidden consequence foreshadowing | #40 | Pending | Subtle narrative hints |
+
+**Dependencies on Wave 5**: Choice classification may use NPCTier to weight
+NPC-related choices. World mutation pipeline uses `RELATIONSHIP_CHANGED` and
+`NPC_TIER_CHANGED` WorldChangeType members. Consequence injection can include
+relationship state via `build_dialogue_context()`.
+
+#### Wave 7: Observability (Issues #41-#46)
+Production-ready observability, testing, and privacy.
+
+| Task | Issue | Status | Deliverable |
+|------|-------|--------|-------------|
+| Langfuse v4 integration | #41 | Pending | LLM tracing, cost tracking |
+| Structured logging with correlation IDs | #42 | Pending | structlog + request tracing |
+| Prometheus metrics endpoint | #43 | Pending | `/metrics`, key counters/histograms |
+| OpenTelemetry distributed tracing | #44 | Pending | Spans for pipeline stages |
+| BDD feature files for core gameplay | #45 | Pending | Gherkin scenarios for key flows |
+| Privacy-aware logging & cost tracking | #46 | Pending | PII redaction, retention rules |
 
 ### Ordering Rationale
 
@@ -443,8 +477,13 @@ Make it work as a whole, not just as parts.
 - **Wave 2 before Wave 3**: You can test the pipeline with a hardcoded world
   context before Neo4j is integrated.
 - **Wave 4 after Wave 3**: The API needs something real to serve.
-- **Wave 5 is where fun gets validated**: Everything before Wave 5 is
-  infrastructure. Wave 5 is where you discover if the game is actually fun.
+- **Wave 5 deepens character models**: NPC tiers, relationship dimensions,
+  and dialogue context give the narrative engine material to differentiate
+  characters. These models feed directly into Wave 6's consequence system.
+- **Wave 6 makes choices matter**: The consequence pipeline turns player
+  decisions into durable world state changes — the core value proposition.
+- **Wave 7 is production readiness**: Observability, testing, and privacy
+  are not blockers for gameplay but essential before any external players.
 
 ---
 
@@ -694,12 +733,15 @@ in the project.
 
 ## 10. Recommended Next Action
 
-1. **Approve or challenge this document's recommendations.** Especially: no
-   Ink, no LangGraph, the MVP fence, and the open architectural questions.
-2. **Write the Wave 0 contracts** (TurnState schema, SSE events, persistence
-   matrix, safety hooks). These are the foundation everything else builds on.
-3. **Execute Wave 1** (repo bootstrap). This is mechanical — pyproject.toml,
-   docker-compose, CI, project skeleton.
-4. **Start playing** as soon as Wave 2 is done. Don't wait for a polished
-   product. The pipeline + a hardcoded world + a curl command = your first
-   playtest. Fun is the metric. Ship fun fast.
+1. **Merge PR #48** (Wave 5: Characters & World Depth). CI should be green
+   with 755 tests, 88% coverage, 0 pyright errors.
+2. **Start Wave 6: Choice & Consequences** (#35-#40). Begin with #35 (choice
+   classification) and #36 (consequence chain model) as foundations.
+3. **Read S05 (Choice & Consequence) spec** before starting Wave 6.
+   The consequence chain model depends on understanding timescale tracking
+   and the 6 choice types.
+4. **Consider an end-to-end playtest** after Wave 6. With characters + choices +
+   consequences, you'll have enough game mechanics to test whether the
+   narrative loop is actually fun. Fun is the metric.
+5. **Wave 7 (Observability)** can proceed in parallel if needed — it's
+   infrastructure, not gameplay logic. Good candidate for a separate branch.

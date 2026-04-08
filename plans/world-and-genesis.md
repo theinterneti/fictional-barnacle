@@ -92,10 +92,25 @@ is the structural anchor for session isolation — every other node is reachable
 | `dialogue_style` | String | No | — | Speech pattern guidance |
 | `alive` | Boolean | Yes | — | (system.md §3.3 uses `alive`) |
 | `state` | String | Yes | — | `idle`, `active`, `busy`, `sleeping`, `traveling` |
-| `tags` | List[String] | No | — | |
+| `tier` | String | Yes | Yes | `key`, `supporting`, `background` (S06 §3) |
+| `traits` | List[String] | No | — | Personality trait tags |
+| `goals` | String | No | — | Current motivations |
+| `backstory` | String | No | — | Brief history/background |
+| `voice` | String | No | — | Vocal quality / speech register |
+| `occupation` | String | No | — | Role in the world |
+| `quirks` | List[String] | No | — | Behavioral quirks |
+| `knowledge_level` | String | No | — | How much this NPC knows |
+| `emotional_state` | String | No | — | Current emotional state |
+| `goals_hint` | String | No | — | Template hint for goal generation |
+| `backstory_hint` | String | No | — | Template hint for backstory generation |
+| `tags` | List[String] | No | — | Semantic tags for AI context |
 | `template_key` | String | No | — | |
 | `created_at` | DateTime | Yes | — | |
 | `updated_at` | DateTime | Yes | — | |
+
+> **Added in Wave 5** (#30): `tier`, `traits`, `goals`, `backstory`, `voice`,
+> `occupation`, `quirks`, `knowledge_level`, `emotional_state`, `goals_hint`,
+> `backstory_hint`. See `src/tta/models/world.py` NPC model.
 
 #### Item
 
@@ -180,9 +195,13 @@ transitions.
 | `OWNS` | NPC → Item | `acquired_at` (DateTime), `acquisition_method` (String) | NPC inventory. Mutually exclusive with item `IS_AT`. |
 | `KNOWS_ABOUT` | NPC → Any | `knowledge_type`, `detail`, `is_secret` (Boolean), `learned_at` (DateTime) | system.md §3.3. Target can be Location, Item, NPC, Event, Quest. |
 | `INVOLVED_IN` | Any → Event | `role` (String: `cause`, `witness`, `target`, `location`) | Links entities to events. |
+| `RELATES_TO` | NPC → NPC | `session_id`, `trust` (-100..100), `affinity` (-100..100), `respect` (-100..100), `fear` (0..100), `familiarity` (0..100), `interaction_count`, `last_interaction`, `notes` | S06 §3 relationship dimensions. Clamped ±15 normal, ±30 dramatic. See `RelationshipService`. |
 | `GIVES_QUEST` | NPC → Quest | — | |
 | `REQUIRES` | Quest → Item \| Event | — | Completion requirements |
 | `REWARDS` | Quest → Item | — | |
+
+> **Added in Wave 5** (#31): `RELATES_TO` relationship for NPC-to-NPC and
+> player-to-NPC relationship tracking with 5 dimensions.
 
 **Relationship naming alignment with system.md §3.3:**
 
@@ -453,6 +472,8 @@ class WorldChangeType(str, Enum):
     QUEST_STATUS_CHANGED = "quest_status_changed"
     ITEM_VISIBILITY_CHANGED = "item_visibility_changed"
     NPC_STATE_CHANGED = "npc_state_changed"
+    RELATIONSHIP_CHANGED = "relationship_changed"      # Wave 5 (#31)
+    NPC_TIER_CHANGED = "npc_tier_changed"              # Wave 5 (#31)
 ```
 
 **Mutation patterns by type:**

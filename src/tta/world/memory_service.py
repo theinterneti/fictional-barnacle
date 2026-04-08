@@ -12,6 +12,7 @@ from tta.models.world import (
     Item,
     Location,
     LocationContext,
+    NPCTier,
     WorldChange,
     WorldChangeType,
     WorldContext,
@@ -207,17 +208,33 @@ class InMemoryWorldService:
                 )
 
         # NPCs
+        enriched_npcs: dict[str, dict] = {}
+        ft = world_seed.flavor_text
+        if isinstance(ft, dict) and "npcs" in ft:
+            for entry in ft["npcs"]:
+                if isinstance(entry, dict) and "key" in entry:
+                    enriched_npcs[entry["key"]] = entry
+
         for npc in tmpl.npcs:
             nid = uuid4().hex
             id_map[npc.key] = nid
             loc_id = id_map.get(npc.location_key, "")
+            enr = enriched_npcs.get(npc.key, {})
             npc_model = NPC(
                 id=nid,
-                name=npc.key,
-                description=npc.archetype,
+                name=enr.get("name", npc.key),
+                description=enr.get("description", npc.archetype),
                 role=npc.role,
                 disposition=npc.disposition,
                 template_key=npc.key,
+                tier=npc.tier,
+                traits=list(npc.traits),
+                personality=enr.get("personality"),
+                dialogue_style=enr.get("dialogue_style"),
+                voice=enr.get("voice"),
+                occupation=enr.get("occupation"),
+                goals_short=enr.get("goals_short"),
+                backstory=enr.get("backstory_summary"),
             )
             self._npcs[sid][nid] = (npc_model, loc_id)
 
@@ -417,3 +434,13 @@ class InMemoryWorldService:
             if eid in npcs:
                 npc, loc_id = npcs[eid]
                 npc.state = payload.get("state", "idle")
+
+        elif ct == WorldChangeType.NPC_TIER_CHANGED:
+            npcs = self._npcs.get(sid, {})
+            if eid in npcs:
+                npc, loc_id = npcs[eid]
+                raw = payload.get("tier", npc.tier)
+                npc.tier = NPCTier(raw) if isinstance(raw, str) else raw
+
+        elif ct == WorldChangeType.RELATIONSHIP_CHANGED:
+            pass  # Handled by RelationshipService

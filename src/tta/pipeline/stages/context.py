@@ -10,10 +10,16 @@ from __future__ import annotations
 import structlog
 
 from tta.models.turn import TurnState
+from tta.models.world import NPC
 from tta.pipeline.types import PipelineDeps
+from tta.world.dialogue import build_dialogue_contexts_for_location
+from tta.world.relationship_service import RelationshipService
 from tta.world.state import get_full_context
 
 log = structlog.get_logger()
+
+# Player entity id used as source for relationship lookups
+_PLAYER_SOURCE_ID = "player"
 
 
 async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
@@ -59,6 +65,9 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         }
         context_partial = True
 
+    # Enrich with NPC dialogue contexts (S06 FR-6)
+    world_context = await _enrich_npc_dialogue(world_context, state, deps)
+
     log.debug(
         "context_assembled",
         intent=intent,
@@ -72,3 +81,35 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             "context_partial": context_partial,
         }
     )
+
+
+async def _enrich_npc_dialogue(
+    world_context: dict,
+    state: TurnState,
+    deps: PipelineDeps,
+) -> dict:
+    """Add npc_dialogue_contexts to world_context if NPCs are present."""
+    npcs_raw: list[dict] = world_context.get("npcs_present", [])
+    if not npcs_raw:
+        return world_context
+
+    # Resolve relationship service from deps if available
+    rel_svc: RelationshipService | None = getattr(deps, "relationship_service", None)
+
+    try:
+        npcs = [NPC.model_validate(n) for n in npcs_raw]
+        dialogue_contexts = await build_dialogue_contexts_for_location(
+            npcs=npcs,
+            session_id=state.session_id,
+            source_id=_PLAYER_SOURCE_ID,
+            relationship_service=rel_svc,
+        )
+        world_context["npc_dialogue_contexts"] = dialogue_contexts
+    except Exception:
+        log.warning(
+            "npc_dialogue_context_failed",
+            session_id=str(state.session_id),
+            exc_info=True,
+        )
+
+    return world_context
