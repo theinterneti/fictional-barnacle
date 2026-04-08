@@ -36,6 +36,11 @@ class EnrichedEntity(BaseModel):
     description_visited: str | None = None
     personality: str | None = None
     dialogue_style: str | None = None
+    # Wave 5 — NPC character depth (S06 FR-3)
+    voice: str | None = None
+    occupation: str | None = None
+    goals_short: str | None = None
+    backstory_summary: str | None = None
 
 
 class EnrichedTemplate(BaseModel):
@@ -236,7 +241,7 @@ def _build_template_summary(
     template: WorldTemplate,
 ) -> str:
     """Serialise template entities to compact JSON."""
-    summary: dict[str, list[dict[str, str]]] = {
+    summary: dict[str, list[dict[str, object]]] = {
         "locations": [
             {
                 "key": loc.key,
@@ -250,6 +255,12 @@ def _build_template_summary(
                 "key": npc.key,
                 "archetype": npc.archetype,
                 "role": npc.role,
+                **({"tier": npc.tier} if npc.tier else {}),
+                **({"traits": npc.traits} if npc.traits else {}),
+                **({"goals_hint": npc.goals_hint} if npc.goals_hint else {}),
+                **(
+                    {"backstory_hint": npc.backstory_hint} if npc.backstory_hint else {}
+                ),
             }
             for npc in template.npcs
         ],
@@ -299,16 +310,45 @@ def _default_enrichment(
         )
         for loc in template.locations
     ]
-    npcs = [
-        EnrichedEntity(
-            key=npc.key,
-            name=npc.archetype.replace("_", " ").title(),
-            description=(f"A {npc.role} — the {npc.archetype}."),
-            personality="reserved",
-            dialogue_style="plain spoken",
+    npcs = []
+    for npc in template.npcs:
+        tier = npc.tier or "background"
+        if tier == "key":
+            personality = "complex and driven"
+            dialogue_style = "distinctive and memorable"
+            voice = "authoritative with personal warmth"
+            occupation = npc.role or "leader"
+            goals_short = npc.goals_hint or "pursuing a personal quest"
+            backstory_summary = (
+                npc.backstory_hint or f"A {npc.archetype} with a storied past."
+            )
+        elif tier == "supporting":
+            personality = "helpful and grounded"
+            dialogue_style = "conversational"
+            voice = "friendly and practical"
+            occupation = npc.role or "artisan"
+            goals_short = npc.goals_hint or "supporting the community"
+            backstory_summary = None
+        else:
+            personality = "reserved"
+            dialogue_style = "plain spoken"
+            voice = None
+            occupation = None
+            goals_short = None
+            backstory_summary = None
+        npcs.append(
+            EnrichedEntity(
+                key=npc.key,
+                name=npc.archetype.replace("_", " ").title(),
+                description=(f"A {npc.role} — the {npc.archetype}."),
+                personality=personality,
+                dialogue_style=dialogue_style,
+                voice=voice,
+                occupation=occupation,
+                goals_short=goals_short,
+                backstory_summary=backstory_summary,
+            )
         )
-        for npc in template.npcs
-    ]
     items = [
         EnrichedEntity(
             key=item.key,

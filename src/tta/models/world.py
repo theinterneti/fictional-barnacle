@@ -482,6 +482,18 @@ class TemplateKnowledge(BaseModel):
     is_secret: bool = False
 
 
+class TemplateRelationship(BaseModel):
+    """Pre-authored NPC↔NPC relationship for Genesis seeding."""
+
+    source_npc_key: str
+    target_npc_key: str
+    trust: int = Field(default=0, ge=-100, le=100)
+    affinity: int = Field(default=0, ge=-100, le=100)
+    respect: int = Field(default=0, ge=-100, le=100)
+    fear: int = Field(default=0, ge=0, le=100)
+    familiarity: int = Field(default=0, ge=0, le=100)
+
+
 class WorldTemplate(BaseModel):
     """Typed blueprint for generating a world (plan §3.1)."""
 
@@ -492,6 +504,9 @@ class WorldTemplate(BaseModel):
     npcs: list[TemplateNPC] = Field(default_factory=list)
     items: list[TemplateItem] = Field(default_factory=list)
     knowledge: list[TemplateKnowledge] = Field(default_factory=list)
+    relationships: list[TemplateRelationship] = Field(
+        default_factory=list,
+    )
 
 
 class WorldSeed(BaseModel):

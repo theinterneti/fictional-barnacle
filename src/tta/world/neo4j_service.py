@@ -330,11 +330,19 @@ class Neo4jWorldService:
                             hidden=conn.is_hidden,
                         )
 
-                # 5. NPCs
+                # 5. NPCs — with enrichment from flavor_text
+                enriched_npcs: dict[str, dict] = {}
+                ft = world_seed.flavor_text
+                if isinstance(ft, dict) and "npcs" in ft:
+                    for entry in ft["npcs"]:
+                        if isinstance(entry, dict) and "key" in entry:
+                            enriched_npcs[entry["key"]] = entry
+
                 for npc in tmpl.npcs:
                     nid = _gen_id()
                     id_map[npc.key] = nid
                     loc_id = id_map.get(npc.location_key, "")
+                    enr = enriched_npcs.get(npc.key, {})
                     await tx.run(
                         """
                         MATCH (l:Location {
@@ -344,8 +352,8 @@ class Neo4jWorldService:
                         CREATE (n:NPC {
                             id: $id,
                             session_id: $sid,
-                            name: $key,
-                            description: $archetype,
+                            name: $name,
+                            description: $desc,
                             role: $role,
                             disposition: $disp,
                             alive: true,
@@ -353,20 +361,71 @@ class Neo4jWorldService:
                             template_key: $key,
                             tier: $tier,
                             traits: $traits,
-                            interaction_count: 0
+                            interaction_count: 0,
+                            personality: $personality,
+                            dialogue_style: $dialogue_style,
+                            voice: $voice,
+                            occupation: $occupation,
+                            goals_short: $goals_short,
+                            backstory: $backstory_summary
                         })
                         CREATE (n)-[:IS_AT]->(l)
                         """,
                         id=nid,
                         sid=sid,
                         key=npc.key,
-                        archetype=npc.archetype,
+                        name=enr.get("name", npc.key),
+                        desc=enr.get(
+                            "description",
+                            npc.archetype,
+                        ),
                         role=npc.role,
                         disp=npc.disposition,
                         loc_id=loc_id,
                         tier=npc.tier.value,
                         traits=list(npc.traits),
+                        personality=enr.get("personality"),
+                        dialogue_style=enr.get("dialogue_style"),
+                        voice=enr.get("voice"),
+                        occupation=enr.get("occupation"),
+                        goals_short=enr.get("goals_short"),
+                        backstory_summary=enr.get("backstory_summary"),
                     )
+
+                # 5b. Seed RELATES_TO edges from template
+                for rel in tmpl.relationships:
+                    src_id = id_map.get(rel.source_npc_key)
+                    tgt_id = id_map.get(rel.target_npc_key)
+                    if src_id and tgt_id:
+                        await tx.run(
+                            """
+                            MATCH (a:NPC {
+                                id: $src,
+                                session_id: $sid
+                            })
+                            MATCH (b:NPC {
+                                id: $tgt,
+                                session_id: $sid
+                            })
+                            CREATE (a)-[:RELATES_TO {
+                                session_id: $sid,
+                                trust: $trust,
+                                affinity: $affinity,
+                                respect: $respect,
+                                fear: $fear,
+                                familiarity: $fam,
+                                interaction_count: 0
+                            }]->(b)
+                            """,
+                            src=src_id,
+                            tgt=tgt_id,
+                            sid=sid,
+                            trust=rel.trust,
+                            affinity=rel.affinity,
+                            respect=rel.respect,
+                            fear=rel.fear,
+                            fam=rel.familiarity,
+                        )
 
                 # 6. Items
                 for item in tmpl.items:
