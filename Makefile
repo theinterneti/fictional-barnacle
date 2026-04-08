@@ -5,6 +5,7 @@
 # ---------------------------------------------------------------------------
 .PHONY: help validate-specs validate-plans validate-all regen-indexes \
         lint format typecheck test test-unit test-integration test-watch \
+        test-bdd test-hypothesis \
         test-up test-down quality check check-format \
         dev up down build logs shell \
         docker-up docker-down docker-langfuse \
@@ -66,6 +67,12 @@ test-integration: ## Run integration tests (starts/stops test services)
 
 test-watch: ## Continuous selective testing (reruns affected tests on save)
 	uv run ptw . -- --testmon -x --tb=short
+
+test-bdd: ## Run BDD acceptance tests only
+	uv run pytest tests/bdd/ -m bdd -v
+
+test-hypothesis: ## Run Hypothesis property-based tests only
+	uv run pytest -m hypothesis -v
 
 test-up: ## Start test service containers
 	docker compose -f docker-compose.test.yml up -d --wait
