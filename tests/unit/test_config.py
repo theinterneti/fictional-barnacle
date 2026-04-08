@@ -59,7 +59,7 @@ class TestDefaults:
     def test_default_values(self) -> None:
         s = Settings()
         assert s.redis_url == "redis://localhost:6379"
-        assert s.neo4j_uri == "bolt://localhost:7687"
+        assert s.neo4j_uri == ""
         assert s.neo4j_user == "neo4j"
         assert s.litellm_model == "openai/gpt-4o-mini"
         assert s.litellm_fallback_model == "openai/gpt-4o-mini"

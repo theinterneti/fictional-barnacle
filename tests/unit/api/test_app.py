@@ -15,6 +15,7 @@ def _settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
         neo4j_password="test",
+        neo4j_uri="",
     )
 
 
@@ -100,3 +101,21 @@ class TestCORSMiddleware:
             },
         )
         assert "access-control-allow-origin" in resp.headers
+
+
+# ------------------------------------------------------------------
+# Lifespan wiring
+# ------------------------------------------------------------------
+
+
+class TestLifespanWiring:
+    """Lifespan injects required services into app.state."""
+
+    def test_consequence_service_injected(self, app: FastAPI) -> None:
+        with TestClient(app) as c:
+            deps = c.app.state.pipeline_deps  # type: ignore[union-attr]
+            assert deps.consequence_service is not None
+
+    def test_world_service_injected(self, app: FastAPI) -> None:
+        with TestClient(app) as c:
+            assert c.app.state.world_service is not None  # type: ignore[union-attr]

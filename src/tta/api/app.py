@@ -90,14 +90,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         app.state.llm_client = LiteLLMClient()
 
-    # 5. World service — Neo4j when available, in-memory fallback
-    if settings.llm_mock:
-        from tta.world.memory_service import InMemoryWorldService
-
-        app.state.world_service = InMemoryWorldService()
-        app.state.neo4j_driver = None
-        log.info("world_service_in_memory", reason="llm_mock enabled")
-    else:
+    # 5. World service — Neo4j when explicitly configured, in-memory fallback
+    app.state.neo4j_driver = None
+    if settings.neo4j_uri:
         from neo4j import AsyncGraphDatabase
 
         from tta.world.neo4j_service import Neo4jWorldService
@@ -106,10 +101,24 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.neo4j_uri,
             auth=(settings.neo4j_user, settings.neo4j_password),
         )
-        await driver.verify_connectivity()
+        try:
+            await driver.verify_connectivity()
+        except Exception:
+            await driver.close()
+            raise
         app.state.neo4j_driver = driver
         app.state.world_service = Neo4jWorldService(driver)
-        log.info("world_service_neo4j", uri=settings.neo4j_uri)
+        _host = (
+            settings.neo4j_uri.split("@")[-1]
+            if "@" in settings.neo4j_uri
+            else settings.neo4j_uri
+        )
+        log.info("world_service_neo4j", host=_host)
+    else:
+        from tta.world.memory_service import InMemoryWorldService
+
+        app.state.world_service = InMemoryWorldService()
+        log.info("world_service_in_memory")
 
     # 6. Repository instances
     from tta.persistence.postgres import (
