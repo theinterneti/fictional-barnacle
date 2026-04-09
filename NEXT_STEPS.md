@@ -816,9 +816,9 @@ deletion contradiction. **All gaps are now addressed:**
 ## 12. Wave 9 — Resilience & Safety ✅
 
 **Completed.** S23 (Error Handling & Resilience) + S25 (Rate Limiting & Anti-Abuse).
-1147 tests, 0 pyright errors. HEAD 5c97d00 on main.
+1147 tests, 0 pyright errors. HEAD 27b3329 on main.
 
-Issues #60–#66 (all closed):
+Issues #60–#66, #76 (all closed):
 - #60 Error taxonomy & envelope (S23)
 - #61 Structured error logging & correlation (S23)
 - #62 Retry utilities & circuit breaker (S23)
@@ -826,6 +826,7 @@ Issues #60–#66 (all closed):
 - #64 Turn atomicity & SSE error events (S23)
 - #65 Rate limiting core — sliding window & middleware (S25)
 - #66 Anti-abuse detection with escalating cooldowns (S25)
+- #76 Review comment fixes + BaseHTTPMiddleware → pure ASGI conversion
 
 Key deliverables:
 - 9-category error taxonomy with `correlation_id` envelope
@@ -835,6 +836,7 @@ Key deliverables:
 - SSE error events with standard envelope
 - Sliding window rate limiter (Redis + in-memory fallback)
 - Anti-abuse: rapid-fire + credential stuffing detection, escalating cooldowns
+- All middleware converted from BaseHTTPMiddleware to pure ASGI (fixes SSE + asyncpg)
 
 ## 13. Wave 10+ Recommendations
 
