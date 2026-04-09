@@ -64,6 +64,7 @@ def _game_row(
     deleted_at: datetime | None = None,
     turn_count: int = 0,
     needs_recovery: bool = False,
+    summary_generated_at: datetime | None = None,
 ) -> dict[str, Any]:
     """A typical game_sessions row."""
     return {
@@ -75,6 +76,7 @@ def _game_row(
         "summary": summary,
         "turn_count": turn_count,
         "needs_recovery": needs_recovery,
+        "summary_generated_at": summary_generated_at,
         "created_at": _NOW,
         "updated_at": _NOW,
         "last_played_at": last_played_at,
@@ -389,8 +391,9 @@ class TestResumeGame:
     def test_resumes_paused_game(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(
             side_effect=[
-                _make_result([_game_row(status="paused")]),
-                _make_result(),  # UPDATE status + last_played_at
+                _make_result([_game_row(status="paused")]),  # _get_owned_game
+                _make_result(),  # UPDATE status
+                _make_result([]),  # recent turns
                 _make_result(scalar=3),  # turn count
             ]
         )
@@ -402,13 +405,17 @@ class TestResumeGame:
         body = resp.json()["data"]
         assert body["status"] == "active"
         assert body["turn_count"] == 3
+        assert body["recent_turns"] == []
+        assert body["summary_stale"] is False
+        assert body["recovery_warning"] is None
 
     def test_noop_for_already_active_game(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
         pg.execute = AsyncMock(
             side_effect=[
-                _make_result([_game_row(status="active")]),
+                _make_result([_game_row(status="active")]),  # _get_owned_game
+                _make_result([]),  # recent turns
                 _make_result(scalar=2),  # turn count
             ]
         )
@@ -421,8 +428,9 @@ class TestResumeGame:
     def test_resumes_expired_game(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(
             side_effect=[
-                _make_result([_game_row(status="expired")]),
-                _make_result(),  # UPDATE
+                _make_result([_game_row(status="expired")]),  # _get_owned_game
+                _make_result(),  # UPDATE status
+                _make_result([]),  # recent turns
                 _make_result(scalar=1),  # turn count
             ]
         )
@@ -464,6 +472,207 @@ class TestResumeGame:
 
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "GAME_NOT_RESUMABLE"
+
+    def test_resume_returns_recent_turns(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        turn_id = uuid4()
+        turn_dict = {
+            "id": turn_id,
+            "turn_number": 1,
+            "player_input": "go north",
+            "narrative_output": "You walk north.",
+            "created_at": _NOW,
+        }
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="active")]),  # _get_owned_game
+                _make_result([turn_dict]),  # recent turns
+                _make_result(scalar=1),  # turn count
+            ]
+        )
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert len(body["recent_turns"]) == 1
+        assert body["recent_turns"][0]["player_input"] == "go north"
+        assert body["recent_turns"][0]["narrative_output"] == "You walk north."
+        assert body["recent_turns"][0]["turn_number"] == 1
+
+    def test_resume_includes_title_and_summary(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [
+                        _game_row(
+                            status="active",
+                            title="Dark Forest",
+                            summary="Lost in the woods",
+                            summary_generated_at=datetime.now(UTC),
+                        )
+                    ]
+                ),
+                _make_result([]),  # recent turns
+                _make_result(scalar=5),  # turn count
+            ]
+        )
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body["title"] == "Dark Forest"
+        assert body["context_summary"] == "Lost in the woods"
+        assert body["summary_stale"] is False
+
+    def test_resume_with_recovery(self, client: TestClient, pg: AsyncMock) -> None:
+        """needs_recovery=True triggers metadata re-derivation."""
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="paused", needs_recovery=True)]),
+                _make_result(scalar=7),  # _get_turn_count for recovery
+                _make_result(),  # UPDATE needs_recovery = FALSE
+                _make_result(),  # UPDATE status (paused → active)
+                _make_result([]),  # recent turns
+                _make_result(scalar=7),  # _get_turn_count for response
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body["turn_count"] == 7
+        assert body["recovery_warning"] is None
+
+    def test_resume_with_recovery_failure(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """When recovery fails, player gets warning but resume proceeds."""
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="active", needs_recovery=True)]),
+                RuntimeError("DB unavailable"),  # _get_turn_count fails
+                _make_result([]),  # recent turns
+                _make_result(scalar=3),  # _get_turn_count for response
+            ]
+        )
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body["recovery_warning"] is not None
+        assert "progress" in body["recovery_warning"].lower()
+
+    def test_resume_stale_summary_detected(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Summary older than threshold is flagged as stale."""
+        from datetime import timedelta
+
+        old_time = _NOW - timedelta(hours=48)
+        turn_dict = {
+            "id": uuid4(),
+            "turn_number": 1,
+            "player_input": "look",
+            "narrative_output": "You see a cave.",
+            "created_at": _NOW,
+        }
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [
+                        _game_row(
+                            status="active",
+                            summary="Old summary",
+                            summary_generated_at=old_time,
+                        )
+                    ]
+                ),
+                _make_result([turn_dict]),  # recent turns (non-empty)
+                _make_result(scalar=5),  # turn count
+            ]
+        )
+        # Prevent actual background task
+        monkeypatch.setattr("asyncio.create_task", lambda coro: coro.close())
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body["summary_stale"] is True
+        assert body["context_summary"] == "Old summary"
+
+    def test_resume_fresh_summary_not_stale(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """Summary generated recently is not flagged stale."""
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [
+                        _game_row(
+                            status="active",
+                            summary="Fresh summary",
+                            summary_generated_at=datetime.now(UTC),
+                        )
+                    ]
+                ),
+                _make_result([]),  # recent turns
+                _make_result(scalar=3),  # turn count
+            ]
+        )
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body["summary_stale"] is False
+
+    def test_resume_never_generated_summary_stale_when_turns_exist(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """summary_generated_at=None with turns → stale."""
+        turn_dict = {
+            "id": uuid4(),
+            "turn_number": 1,
+            "player_input": "look",
+            "narrative_output": "A room.",
+            "created_at": _NOW,
+        }
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [
+                        _game_row(
+                            status="active",
+                            summary=None,
+                            summary_generated_at=None,
+                        )
+                    ]
+                ),
+                _make_result([turn_dict]),  # recent turns
+                _make_result(scalar=1),  # turn count
+            ]
+        )
+        monkeypatch.setattr("asyncio.create_task", lambda coro: coro.close())
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        assert resp.json()["data"]["summary_stale"] is True
 
 
 # ------------------------------------------------------------------
@@ -604,3 +813,218 @@ class TestCompletedTransitions:
 
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+# ------------------------------------------------------------------
+# Submit turn with recovery (FR-27.15)
+# ------------------------------------------------------------------
+
+
+class TestSubmitTurnRecovery:
+    def test_recovery_attempted_when_needs_recovery(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """submit_turn with needs_recovery=True re-derives turn_count."""
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(needs_recovery=True)]),  # owned
+                _make_result(scalar=5),  # _get_turn_count (recovery)
+                _make_result(),  # UPDATE recovery
+                _make_result(),  # advisory lock
+                _make_result(),  # in-flight check
+                _make_result(scalar=5),  # max turn number
+                _make_result(),  # INSERT turn
+                _make_result(),  # UPDATE last_played_at
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "look around"},
+        )
+
+        assert resp.status_code == 202
+
+    def test_recovery_failure_does_not_block_turn(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """If recovery fails, the turn still proceeds."""
+        call_count = 0
+
+        async def _side(*args: Any, **kwargs: Any) -> Any:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return _make_result([_game_row(needs_recovery=True)])
+            if call_count == 2:
+                # recovery _get_turn_count fails
+                raise RuntimeError("db unavailable")
+            if call_count == 3:
+                return _make_result()  # advisory lock
+            if call_count == 4:
+                return _make_result()  # in-flight check
+            if call_count == 5:
+                return _make_result(scalar=3)  # max turn number
+            if call_count == 6:
+                return _make_result()  # INSERT turn
+            return _make_result()  # UPDATE last_played_at
+
+        pg.execute = AsyncMock(side_effect=_side)
+        pg.commit = AsyncMock()
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "test"},
+        )
+
+        assert resp.status_code == 202
+
+
+# ------------------------------------------------------------------
+# Background tasks: _generate_title_bg, _regen_summary_bg
+# ------------------------------------------------------------------
+
+
+def _mock_session_factory() -> tuple[MagicMock, AsyncMock]:
+    """Return (sf, mock_session) where sf() is an async ctx mgr."""
+    mock_sess = AsyncMock()
+    ctx = AsyncMock()
+    ctx.__aenter__ = AsyncMock(return_value=mock_sess)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    sf = MagicMock(return_value=ctx)
+    return sf, mock_sess
+
+
+class TestGenerateTitleBg:
+    @pytest.mark.asyncio
+    async def test_title_persisted_on_success(self) -> None:
+        from tta.api.routes.games import _generate_title_bg
+
+        mock_svc = AsyncMock()
+        mock_svc.generate_title = AsyncMock(return_value="Epic Adventure")
+
+        sf, mock_sess = _mock_session_factory()
+        app_state = SimpleNamespace(
+            summary_service=mock_svc,
+            pipeline_deps=SimpleNamespace(turn_repo=SimpleNamespace(_sf=sf)),
+        )
+
+        await _generate_title_bg(app_state, _GAME_ID, "You awaken in a cave.")
+
+        mock_svc.generate_title.assert_awaited_once()
+        mock_sess.execute.assert_awaited_once()
+        mock_sess.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_title_failure_logs_warning(self) -> None:
+        """LLM failure doesn't raise — just logs."""
+        from tta.api.routes.games import _generate_title_bg
+
+        mock_svc = AsyncMock()
+        mock_svc.generate_title = AsyncMock(side_effect=RuntimeError("boom"))
+
+        sf, _ = _mock_session_factory()
+        app_state = SimpleNamespace(
+            summary_service=mock_svc,
+            pipeline_deps=SimpleNamespace(turn_repo=SimpleNamespace(_sf=sf)),
+        )
+
+        # Should NOT raise
+        await _generate_title_bg(app_state, _GAME_ID, "narrative")
+
+    @pytest.mark.asyncio
+    async def test_empty_title_skips_persist(self) -> None:
+        from tta.api.routes.games import _generate_title_bg
+
+        mock_svc = AsyncMock()
+        mock_svc.generate_title = AsyncMock(return_value="")
+
+        sf, mock_sess = _mock_session_factory()
+        app_state = SimpleNamespace(
+            summary_service=mock_svc,
+            pipeline_deps=SimpleNamespace(turn_repo=SimpleNamespace(_sf=sf)),
+        )
+
+        await _generate_title_bg(app_state, _GAME_ID, "narrative")
+
+        # session factory ctx mgr should never be entered
+        sf.assert_not_called()
+
+
+class TestRegenSummaryBg:
+    @pytest.mark.asyncio
+    async def test_summary_persisted_on_success(self) -> None:
+        from tta.api.routes.games import _regen_summary_bg
+
+        mock_svc = AsyncMock()
+        mock_svc.generate_context_summary = AsyncMock(
+            return_value="Player explored a cave."
+        )
+
+        mock_turn_repo = AsyncMock()
+        mock_turn_repo.get_recent_turns = AsyncMock(
+            return_value=[{"player_input": "go", "narrative_output": "cave"}]
+        )
+
+        sf, mock_sess = _mock_session_factory()
+        mock_turn_repo._sf = sf
+
+        app_state = SimpleNamespace(
+            summary_service=mock_svc,
+            pipeline_deps=SimpleNamespace(turn_repo=mock_turn_repo),
+            settings=SimpleNamespace(resume_turn_count=10),
+        )
+
+        await _regen_summary_bg(app_state, _GAME_ID)
+
+        mock_svc.generate_context_summary.assert_awaited_once()
+        mock_sess.execute.assert_awaited_once()
+        mock_sess.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_no_turns_skips_summary(self) -> None:
+        from tta.api.routes.games import _regen_summary_bg
+
+        mock_turn_repo = AsyncMock()
+        mock_turn_repo.get_recent_turns = AsyncMock(return_value=[])
+
+        sf, _ = _mock_session_factory()
+        mock_turn_repo._sf = sf
+
+        mock_svc = AsyncMock()
+        app_state = SimpleNamespace(
+            summary_service=mock_svc,
+            pipeline_deps=SimpleNamespace(turn_repo=mock_turn_repo),
+            settings=SimpleNamespace(resume_turn_count=10),
+        )
+
+        await _regen_summary_bg(app_state, _GAME_ID)
+
+        mock_svc.generate_context_summary.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_summary_failure_does_not_raise(self) -> None:
+        from tta.api.routes.games import _regen_summary_bg
+
+        mock_svc = AsyncMock()
+        mock_svc.generate_context_summary = AsyncMock(
+            side_effect=RuntimeError("LLM down")
+        )
+
+        mock_turn_repo = AsyncMock()
+        mock_turn_repo.get_recent_turns = AsyncMock(
+            return_value=[{"player_input": "hi"}]
+        )
+
+        sf, _ = _mock_session_factory()
+        mock_turn_repo._sf = sf
+
+        app_state = SimpleNamespace(
+            summary_service=mock_svc,
+            pipeline_deps=SimpleNamespace(turn_repo=mock_turn_repo),
+            settings=SimpleNamespace(resume_turn_count=10),
+        )
+
+        # Should NOT raise
+        await _regen_summary_bg(app_state, _GAME_ID)

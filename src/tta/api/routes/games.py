@@ -109,6 +109,61 @@ async def _dispatch_pipeline(
                 exc_info=True,
             )
 
+    # --- FR-27.05/06: Post-turn auto-save (metadata) ---
+    if result.status in (TurnStatus.complete, TurnStatus.moderated):
+        sf = app_state.pipeline_deps.turn_repo._sf  # type: ignore[attr-defined]
+        try:
+            async with sf() as meta_sess:
+                now = datetime.now(UTC)
+                await meta_sess.execute(
+                    sa.text(
+                        "UPDATE game_sessions "
+                        "SET turn_count = turn_count + 1, "
+                        "last_played_at = :now, updated_at = :now "
+                        "WHERE id = :gid"
+                    ),
+                    {"gid": game_id, "now": now},
+                )
+                await meta_sess.commit()
+        except Exception:
+            log.warning(
+                "auto_save_metadata_failed",
+                game_id=str(game_id),
+                exc_info=True,
+            )
+            # FR-27.07: mark needs_recovery so resume can fix it
+            try:
+                async with sf() as recovery_sess:
+                    await recovery_sess.execute(
+                        sa.text(
+                            "UPDATE game_sessions "
+                            "SET needs_recovery = TRUE "
+                            "WHERE id = :gid"
+                        ),
+                        {"gid": game_id},
+                    )
+                    await recovery_sess.commit()
+            except Exception:
+                log.error(
+                    "needs_recovery_flag_failed",
+                    game_id=str(game_id),
+                    exc_info=True,
+                )
+
+        # FR-27.22: fire-and-forget title on first completed turn
+        if turn_number == 1 and result.narrative_output:
+            asyncio.create_task(
+                _generate_title_bg(app_state, game_id, result.narrative_output)
+            )
+
+        # FR-27.20: fire-and-forget summary regen every Nth turn
+        settings = app_state.settings  # type: ignore[attr-defined]
+        if (
+            settings.summary_interval > 0
+            and turn_number % settings.summary_interval == 0
+        ):
+            asyncio.create_task(_regen_summary_bg(app_state, game_id))
+
     # Publish result for SSE endpoint
     try:
         store = app_state.turn_result_store  # type: ignore[attr-defined]
@@ -126,6 +181,67 @@ async def _dispatch_pipeline(
         status=result.status,
         latency_ms=round(elapsed_ms, 1),
     )
+
+
+async def _generate_title_bg(app_state: object, game_id: UUID, narrative: str) -> None:
+    """Fire-and-forget: generate a title from the opening narrative."""
+    try:
+        svc = app_state.summary_service  # type: ignore[attr-defined]
+        title = await svc.generate_title(narrative)
+        if title:
+            sf = app_state.pipeline_deps.turn_repo._sf  # type: ignore[attr-defined]
+            async with sf() as sess:
+                await sess.execute(
+                    sa.text(
+                        "UPDATE game_sessions SET title = :t, "
+                        "updated_at = :now WHERE id = :gid AND title IS NULL"
+                    ),
+                    {
+                        "gid": game_id,
+                        "t": title[:80],
+                        "now": datetime.now(UTC),
+                    },
+                )
+                await sess.commit()
+            log.info("title_generated", game_id=str(game_id))
+    except Exception:
+        log.warning("title_generation_failed", game_id=str(game_id), exc_info=True)
+
+
+async def _regen_summary_bg(app_state: object, game_id: UUID) -> None:
+    """Fire-and-forget: regenerate the context summary for a game."""
+    try:
+        sf = app_state.pipeline_deps.turn_repo._sf  # type: ignore[attr-defined]
+        turn_repo = app_state.pipeline_deps.turn_repo  # type: ignore[attr-defined]
+        settings = app_state.settings  # type: ignore[attr-defined]
+
+        turns = await turn_repo.get_recent_turns(
+            game_id, limit=settings.resume_turn_count
+        )
+        if not turns:
+            return
+
+        svc = app_state.summary_service  # type: ignore[attr-defined]
+        summary = await svc.generate_context_summary(turns)
+        if summary:
+            now = datetime.now(UTC)
+            async with sf() as sess:
+                await sess.execute(
+                    sa.text(
+                        "UPDATE game_sessions "
+                        "SET summary = :s, summary_generated_at = :now, "
+                        "updated_at = :now WHERE id = :gid"
+                    ),
+                    {"gid": game_id, "s": summary[:200], "now": now},
+                )
+                await sess.commit()
+            log.info("summary_regenerated", game_id=str(game_id))
+    except Exception:
+        log.warning(
+            "summary_regeneration_failed",
+            game_id=str(game_id),
+            exc_info=True,
+        )
 
 
 # Valid state transitions (plan §6.1, S27 FR-27.01)
@@ -250,7 +366,7 @@ async def _get_owned_game(pg: AsyncSession, game_id: UUID, player: Player) -> sa
         sa.text(
             "SELECT id, player_id, status, world_seed, "
             "title, summary, turn_count, last_played_at, "
-            "deleted_at, needs_recovery, "
+            "deleted_at, needs_recovery, summary_generated_at, "
             "created_at, updated_at "
             "FROM game_sessions WHERE id = :id"
         ),
@@ -512,6 +628,29 @@ async def submit_turn(
 ) -> dict:
     """Submit a player turn for processing."""
     row = await _get_owned_game(pg, game_id, player)
+
+    # FR-27.15: attempt recovery before accepting new turns
+    if row.needs_recovery:
+        try:
+            actual_tc = await _get_turn_count(pg, game_id)
+            now_rec = datetime.now(UTC)
+            await pg.execute(
+                sa.text(
+                    "UPDATE game_sessions "
+                    "SET turn_count = :tc, needs_recovery = FALSE, "
+                    "last_played_at = :now, updated_at = :now "
+                    "WHERE id = :gid"
+                ),
+                {"gid": game_id, "tc": actual_tc, "now": now_rec},
+            )
+            await pg.commit()
+            log.info("recovery_on_submit", game_id=str(game_id))
+        except Exception:
+            log.warning(
+                "recovery_on_submit_failed",
+                game_id=str(game_id),
+                exc_info=True,
+            )
 
     # Must be active or created
     if row.status not in ("active", "created"):
@@ -775,49 +914,99 @@ async def save_game(
 @router.post("/{game_id}/resume")
 async def resume_game(
     game_id: UUID,
+    request: Request,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
 ) -> dict:
-    """Resume a paused or expired game."""
+    """Resume a game — loads recent turns, context summary, handles recovery.
+
+    FR-27.12–FR-27.15, FR-27.20–FR-27.21.
+    """
     row = await _get_owned_game(pg, game_id, player)
+    settings: Settings = request.app.state.settings
 
-    if row.status == "active":
-        # Already active — return current state (no-op)
-        turn_count = await _get_turn_count(pg, game_id)
-        return {
-            "data": {
-                "game_id": str(row.id),
-                "player_id": str(row.player_id),
-                "status": row.status,
-                "turn_count": turn_count,
-                "title": row.title,
-                "summary": row.summary,
-                "created_at": row.created_at.isoformat(),
-                "updated_at": row.updated_at.isoformat(),
-                "last_played_at": (
-                    row.last_played_at.isoformat() if row.last_played_at else None
-                ),
-            }
-        }
-
-    if row.status not in ("paused", "expired"):
+    if row.status not in ("active", "paused", "expired"):
         raise AppError(
             ErrorCategory.CONFLICT,
             "GAME_NOT_RESUMABLE",
             f"Cannot resume a game in '{row.status}' status.",
         )
 
+    recovery_warning: str | None = None
+
+    # FR-27.15: attempt recovery if previous save failed
+    if row.needs_recovery:
+        try:
+            actual_count = await _get_turn_count(pg, game_id)
+            now_r = datetime.now(UTC)
+            await pg.execute(
+                sa.text(
+                    "UPDATE game_sessions "
+                    "SET turn_count = :tc, needs_recovery = FALSE, "
+                    "last_played_at = :now, updated_at = :now "
+                    "WHERE id = :gid"
+                ),
+                {"gid": game_id, "tc": actual_count, "now": now_r},
+            )
+            await pg.commit()
+            log.info("recovery_succeeded", game_id=str(game_id))
+        except Exception:
+            log.warning("recovery_failed", game_id=str(game_id), exc_info=True)
+            recovery_warning = (
+                "Some progress may not have been saved. "
+                "Continuing from last successful save."
+            )
+
+    # Transition to active if paused/expired
     now = datetime.now(UTC)
-    await pg.execute(
+    if row.status != "active":
+        await pg.execute(
+            sa.text(
+                "UPDATE game_sessions SET status = 'active', "
+                "last_played_at = :now, updated_at = :now WHERE id = :id"
+            ),
+            {"id": game_id, "now": now},
+        )
+        await pg.commit()
+
+    # Load recent turns (FR-27.12)
+    limit = settings.resume_turn_count
+    turns_result = await pg.execute(
         sa.text(
-            "UPDATE game_sessions SET status = 'active', "
-            "last_played_at = :now, updated_at = :now WHERE id = :id"
+            "SELECT id, turn_number, player_input, narrative_output, "
+            "created_at FROM turns "
+            "WHERE session_id = :sid AND status = 'complete' "
+            "ORDER BY turn_number DESC LIMIT :lim"
         ),
-        {"id": game_id, "now": now},
+        {"sid": game_id, "lim": limit},
     )
-    await pg.commit()
+    recent_turns = [
+        {
+            "turn_id": str(t.id),
+            "turn_number": t.turn_number,
+            "player_input": t.player_input,
+            "narrative_output": t.narrative_output,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        }
+        for t in reversed(turns_result.all())
+    ]
 
     turn_count = await _get_turn_count(pg, game_id)
+
+    # FR-27.21: check context_summary staleness
+    context_summary = row.summary
+    summary_stale = False
+    if row.summary_generated_at is not None:
+        age_hours = (now - row.summary_generated_at).total_seconds() / 3600
+        if age_hours > settings.summary_staleness_hours:
+            summary_stale = True
+    elif recent_turns:
+        # Never generated — stale by definition
+        summary_stale = True
+
+    # Fire-and-forget summary regen if stale (FR-27.21)
+    if summary_stale and recent_turns:
+        asyncio.create_task(_regen_summary_bg(request.app.state, game_id))
 
     return {
         "data": {
@@ -826,10 +1015,13 @@ async def resume_game(
             "status": "active",
             "turn_count": turn_count,
             "title": row.title,
-            "summary": row.summary,
+            "context_summary": context_summary,
+            "recent_turns": recent_turns,
             "created_at": row.created_at.isoformat(),
             "updated_at": now.isoformat(),
             "last_played_at": now.isoformat(),
+            "summary_stale": summary_stale,
+            "recovery_warning": recovery_warning,
         }
     }
 

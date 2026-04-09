@@ -463,6 +463,28 @@ class PostgresTurnRepository:
                 return None
             return self._row_to_dict(row)
 
+    async def get_recent_turns(self, session_id: UUID, limit: int = 10) -> list[dict]:
+        """Return the *limit* most recent completed turns, oldest-first."""
+        async with self._sf() as session:
+            result = await session.execute(
+                sa.text(
+                    "SELECT id, session_id, turn_number, "
+                    "player_input, idempotency_key, status, "
+                    "narrative_output, model_used, "
+                    "latency_ms, token_count, "
+                    "created_at, completed_at "
+                    "FROM turns "
+                    "WHERE session_id = :session_id "
+                    "AND status = 'complete' "
+                    "ORDER BY turn_number DESC "
+                    "LIMIT :lim"
+                ),
+                {"session_id": session_id, "lim": limit},
+            )
+            rows = result.all()
+            # Return oldest-first
+            return [self._row_to_dict(r) for r in reversed(rows)]
+
     @staticmethod
     def _row_to_dict(row: sa.Row[tuple]) -> dict:
         return {
