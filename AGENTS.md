@@ -4,26 +4,28 @@ Shared entry point for all AI agents working in the TTA rebuild repository.
 
 ## What This Repo Is
 
-**Therapeutic Text Adventure (TTA)** — AI-powered narrative game where players make meaningful choices in richly simulated worlds. This is a **clean rebuild** using Spec-Driven Development (SDD).
-
-All code is generated from, reviewed against, and validated by written specifications.
+**Therapeutic Text Adventure (TTA)** — AI-powered narrative game where players make
+meaningful choices in richly simulated worlds. This is a **clean rebuild** using
+Spec-Driven Development (SDD). All code is generated from, reviewed against, and
+validated by written specifications.
 
 ## Repository Structure
 
 ```
-specs/          23 functional specifications (source of truth)
+specs/          29 functional specifications (source of truth)
   future/       5 boundary stubs for post-v1 features (S18-S22)
-plans/          System plan + 5 component technical plans
-.github/        CI, issue templates, Copilot config
-(src/)          Will be created during Wave 1 implementation
-(tests/)        Will be created during Wave 1 implementation
+plans/          System plan + 6 component technical plans
+src/            Application source code
+tests/          Unit, integration, and BDD tests
+static/         Web playtest client
+.github/        CI, issue templates, Copilot instructions
 ```
 
 ## SDD Phases
 
 1. **Specify (What)** → Behavior-focused specs with acceptance criteria
 2. **Plan (How)** → Technical plans with stack, architecture, contracts
-3. **Tasks** → GitHub issues (Wave 0: contracts, Wave 1: bootstrap)
+3. **Tasks** → GitHub issues for PR-sized work items
 4. **Implement & Validate** → Code against specs, test against ACs
 
 **Rule**: Read the relevant spec AND plan before writing any code.
@@ -68,32 +70,23 @@ make validate-all   # spec + plan validators
 | API, sessions, streaming | `specs/10-12` + `plans/api-and-sessions.md` |
 | Prompts, content | `specs/09` + `plans/prompts.md` |
 | Deployment, CI, observability | `specs/14-16` + `plans/ops.md` |
+| Error handling, moderation, rate limiting | `specs/23-25` + `plans/resilience-and-safety.md` |
+| Admin, save/load, performance | `specs/26-28` + `plans/ops.md` / `api-and-sessions.md` |
 | Privacy | `specs/17` |
 | Project scope, values | `specs/00-project-charter.md` |
 
-## Spec Inventory (23 specs)
+## Spec & Plan Inventory
 
-| Level | IDs | Topics |
-|---|---|---|
-| 0 — Foundation | S00 | Project Charter |
-| 1 — Core Game | S01-S06 | Gameplay, Genesis, Narrative, World, Choice, Characters |
-| 2 — AI & Content | S07-S09 | LLM Integration, Turn Pipeline, Prompts |
-| 3 — Platform | S10-S13 | API/Streaming, Identity/Sessions, Persistence, World Graph |
-| 4 — Operations | S14-S17 | Deployment, Observability, Testing, Privacy |
-| 5 — Future Stubs | S18-S22 | Therapy, Safety, Sharing, Co-authoring, Community |
+29 specs (S00-S28) across 6 levels — full listing in `specs/README.md`
+7 technical plans — plan index in `plans/index.md`
 
-Full inventory: `specs/README.md` | Spec index: `specs/index.md`
+## Tool Integrations
 
-## Plans Inventory (6 plans)
-
-| Plan | Specs Covered |
-|---|---|
-| `plans/system.md` | Cross-cutting (all) |
-| `plans/world-and-genesis.md` | S02, S04, S13 |
-| `plans/llm-and-pipeline.md` | S07, S08 |
-| `plans/api-and-sessions.md` | S10, S11, S12 |
-| `plans/prompts.md` | S03, S07-S09 |
-| `plans/ops.md` | S14-S16 |
+See `.github/instructions/` for detailed usage guides:
+- **Serena** — Symbol-aware code navigation
+- **CGC** — Dependency analysis and code graph
+- **Hindsight** — Persistent memory across sessions
+- **Context7** — Live external documentation
 
 ## Agent Roster
 

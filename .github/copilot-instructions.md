@@ -10,9 +10,9 @@ generated from, reviewed against, and validated by written specifications.
 
 ## SDD Methodology
 
-1. **Specify (What)** → 23 functional specs in `specs/` — behavior, ACs, scope fences
-2. **Plan (How)** → System plan + 5 component plans in `plans/` — stack, architecture, contracts
-3. **Tasks** → GitHub issues: Wave 0 (contracts), Wave 1 (bootstrap)
+1. **Specify (What)** → 29 functional specs in `specs/` — behavior, ACs, scope fences
+2. **Plan (How)** → 7 technical plans in `plans/` — stack, architecture, contracts
+3. **Tasks** → GitHub issues for PR-sized work items
 4. **Implement & Validate** → Code against specs, test against ACs, fix deviations
 
 **Before writing any code**, read the relevant spec AND plan.
@@ -22,7 +22,6 @@ generated from, reviewed against, and validated by written specifications.
 - **Specs are source of truth** — if code contradicts a spec, the code is wrong
 - **Behavior over implementation** — specs describe *what*, not *how*
 - **OSS-first** — use existing frameworks before building custom (~90% OSS, ~2,200 lines custom)
-- **Sleek** — minimal custom implementation surface area
 - Read the relevant spec before working on any feature
 - Reference spec acceptance criteria when writing tests
 
@@ -36,6 +35,8 @@ generated from, reviewed against, and validated by written specifications.
 | API, sessions, persistence, streaming | `specs/10-12` + `plans/api-and-sessions.md` |
 | Prompts, content management | `specs/09` + `plans/prompts.md` |
 | Deployment, CI, observability, testing | `specs/14-16` + `plans/ops.md` |
+| Error handling, moderation, rate limiting | `specs/23-25` + `plans/resilience-and-safety.md` |
+| Admin, save/load, performance | `specs/26-28` + `plans/ops.md` / `api-and-sessions.md` |
 | Privacy, data retention | `specs/17` |
 | Project scope, values | `specs/00-project-charter.md` |
 
@@ -49,9 +50,7 @@ generated from, reviewed against, and validated by written specifications.
 | Databases | PostgreSQL 16+, Neo4j CE 5.x, Redis 7+ |
 | ORM | SQLModel ≥ 0.0.38 |
 | Observability | Langfuse v4, structlog, OpenTelemetry |
-| Linting | Ruff (88-char, py312) |
-| Types | Pyright `standard` mode |
-| Testing | pytest, asyncio_mode="auto" |
+| Quality | Ruff (88-char, py312), Pyright standard, pytest |
 | Resilience | tenacity ≥ 9.0 |
 
 **Excluded**: LangGraph, LangChain, SQLite, Ink/Twine.
@@ -72,26 +71,25 @@ make validate-all   # spec + plan validators
 - OSS-first — justify any new custom code
 - Single FastAPI process, no microservices
 
-## Spec Reference
+## Spec & Plan Reference
+
+29 specs (S00-S28) across 6 levels — full inventory: `specs/README.md`
+7 technical plans — plan index: `plans/index.md`
 
 | Level | IDs | Topics |
 |---|---|---|
 | 0 — Foundation | S00 | Project Charter |
-| 1 — Core Game | S01-S06 | Gameplay Loop, Genesis, Narrative, World, Choice, Characters |
-| 2 — AI & Content | S07-S09 | LLM Integration, Turn Pipeline, Prompts |
-| 3 — Platform | S10-S13 | API/Streaming, Identity/Sessions, Persistence, World Graph |
-| 4 — Operations | S14-S17 | Deployment, Observability, Testing, Privacy |
+| 1 — Core Game | S01-S06 | Gameplay, Genesis, Narrative, World, Choice, Characters |
+| 2 — AI & Content | S07-S09, S24 | LLM, Turn Pipeline, Prompts, Content Moderation |
+| 3 — Platform | S10-S13, S23, S25 | API, Sessions, Persistence, World Graph, Errors, Rate Limits |
+| 4 — Operations | S14-S17, S26, S28 | Deploy, Observe, Test, Privacy, Admin, Performance |
 | 5 — Future Stubs | S18-S22 | Therapy, Safety, Sharing, Co-authoring, Community |
-
-Full inventory: `specs/README.md` | Dependency graph: `specs/index.md`
+| — | S27 | Save/Load & Game Management |
 
 ## Conventions
 
-- Python 3.12+, `str | None` not `Optional[str]`
-- Conventional Commits
-- Specs use the template at `specs/TEMPLATE.md`
-- 88-char line length (Ruff)
-- AAA test pattern (Arrange-Act-Assert)
+- `str | None` not `Optional[str]`, AAA test pattern, specs follow `specs/TEMPLATE.md`
+- Tool guides (Serena, CGC, Hindsight, Context7): see `.github/instructions/`
 
 ## Agent Roster
 
