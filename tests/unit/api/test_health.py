@@ -48,16 +48,18 @@ def _build_client(
     postgres: str = "ok",
     neo4j: str = "ok",
     redis: str = "ok",
+    moderation: str = "disabled",
 ) -> TestClient:
     """Build a TestClient with per-service stubs.
 
     Pass "ok" for healthy, "unavailable" for a failing check,
-    or "not_configured" for a not-configured stub.
+    or "not_configured" / "disabled" for non-error states.
     """
     for svc, status in [
         ("postgres", postgres),
         ("neo4j", neo4j),
         ("redis", redis),
+        ("moderation", moderation),
     ]:
         if status == "unavailable":
             monkeypatch.setattr(f"tta.api.health._check_{svc}", _make_failing_stub())
@@ -66,7 +68,7 @@ def _build_client(
                 f"tta.api.health._check_{svc}", _make_stub("not_configured")
             )
         else:
-            monkeypatch.setattr(f"tta.api.health._check_{svc}", _make_stub("ok"))
+            monkeypatch.setattr(f"tta.api.health._check_{svc}", _make_stub(status))
 
     app = create_app(settings=settings)
     return TestClient(app)
@@ -213,7 +215,7 @@ class TestReadiness:
 
     def test_body_includes_all_checks(self, client: TestClient) -> None:
         data = client.get("/api/v1/health/ready").json()
-        assert set(data["checks"]) == {"postgres", "neo4j", "redis"}
+        assert set(data["checks"]) == {"postgres", "neo4j", "redis", "moderation"}
 
     def test_returns_503_when_postgres_fails(
         self,
@@ -246,3 +248,48 @@ class TestReadiness:
         resp = c.get("/api/v1/health/ready")
         assert resp.status_code == 200
         assert resp.json()["status"] == "ready"
+
+
+# ------------------------------------------------------------------
+# Moderation health check (FR-24.15)
+# ------------------------------------------------------------------
+
+
+class TestHealthModeration:
+    """Moderation is a non-critical check — disabled/unavailable/ok."""
+
+    def test_moderation_disabled_is_healthy(
+        self,
+        _settings: Settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Disabled moderation does not degrade health."""
+        c = _build_client(monkeypatch, _settings, moderation="disabled")
+        resp = c.get("/api/v1/health")
+        data = resp.json()
+        assert data["status"] == "healthy"
+        assert data["checks"]["moderation"] == "disabled"
+
+    def test_moderation_ok_is_healthy(
+        self,
+        _settings: Settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Enabled and working moderation reports ok."""
+        c = _build_client(monkeypatch, _settings, moderation="ok")
+        resp = c.get("/api/v1/health")
+        data = resp.json()
+        assert data["status"] == "healthy"
+        assert data["checks"]["moderation"] == "ok"
+
+    def test_moderation_unavailable_degrades(
+        self,
+        _settings: Settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Unavailable moderation → degraded status."""
+        c = _build_client(monkeypatch, _settings, moderation="unavailable")
+        resp = c.get("/api/v1/health")
+        data = resp.json()
+        assert data["status"] == "degraded"
+        assert data["checks"]["moderation"] == "unavailable"

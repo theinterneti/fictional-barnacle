@@ -175,7 +175,7 @@ async def test_safety_block_with_redirect() -> None:
     deps = _make_deps(safety_pre_input=safety)
     result = await understand_stage(state, deps)
 
-    assert result.status == TurnStatus.complete
+    assert result.status == TurnStatus.moderated
     assert result.narrative_output == "Redirect."
     assert "moderation:hate_speech" in result.safety_flags
 

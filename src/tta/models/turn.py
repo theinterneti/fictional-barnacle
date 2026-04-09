@@ -22,6 +22,7 @@ class TurnStatus(StrEnum):
     processing = "processing"
     complete = "complete"
     failed = "failed"
+    moderated = "moderated"
 
 
 class TokenCount(BaseModel):
