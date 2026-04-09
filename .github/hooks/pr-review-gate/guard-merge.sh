@@ -30,10 +30,15 @@ if [[ -z "$TOOL_INPUT" ]]; then
   TOOL_INPUT=$(printf '%s' "$INPUT" | grep -oE '"toolInput"\s*:\s*"[^"]*"' | head -1 | sed 's/.*"toolInput"\s*:\s*"//;s/"//')
 fi
 
-COMBINED="${TOOL_NAME} ${TOOL_INPUT}"
+IS_SHELL_TOOL=false
+case "$TOOL_NAME" in
+  bash|sh|shell|zsh)
+    IS_SHELL_TOOL=true
+    ;;
+esac
 
 # Only intercept bash/shell commands containing `gh pr merge`
-if printf '%s\n' "$COMBINED" | grep -qiE 'gh\s+pr\s+merge'; then
+if [[ "$IS_SHELL_TOOL" == "true" ]] && printf '%s\n' "$TOOL_INPUT" | grep -qiE 'gh\s+pr\s+merge'; then
   echo ""
   echo "🚫 PR Review Gate: Direct merging via CLI is blocked."
   echo ""
