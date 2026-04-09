@@ -136,7 +136,7 @@ class TestAppErrorHandler:
         assert err["code"] == "HANDLE_ALREADY_TAKEN"
         assert err["message"] == "Handle is taken."
         assert err["details"] == {"handle": "Zara"}
-        assert "request_id" in err
+        assert "correlation_id" in err
         assert err["retry_after_seconds"] is None
 
     def test_retry_after_header(self, app: FastAPI) -> None:

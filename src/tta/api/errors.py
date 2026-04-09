@@ -65,17 +65,17 @@ class AppError(Exception):
 def _build_envelope(
     code: str,
     message: str,
-    request_id: str,
+    correlation_id: str,
     details: dict | None = None,
     retry_after_seconds: int | None = None,
 ) -> dict:
-    """Build the standard S23 error envelope."""
+    """Build the standard S23 error envelope (FR-23.02)."""
     return {
         "error": {
             "code": code,
             "message": message,
             "details": details,
-            "request_id": request_id,
+            "correlation_id": correlation_id,
             "retry_after_seconds": retry_after_seconds,
         }
     }
@@ -103,7 +103,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         content=_build_envelope(
             code=exc.code,
             message=exc.message,
-            request_id=request_id,
+            correlation_id=request_id,
             details=exc.details,
             retry_after_seconds=exc.retry_after_seconds,
         ),
@@ -135,7 +135,7 @@ async def validation_error_handler(
         content=_build_envelope(
             code="VALIDATION_ERROR",
             message="Request validation failed.",
-            request_id=request_id,
+            correlation_id=request_id,
             details={"errors": safe_errors},
         ),
     )
@@ -167,7 +167,7 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
         content=_build_envelope(
             code="INTERNAL_ERROR",
             message="An unexpected error occurred.",
-            request_id=request_id,
+            correlation_id=request_id,
             details=details,
         ),
     )

@@ -301,6 +301,34 @@ class TestInMemoryTurnRepository:
         with pytest.raises(ValueError, match="turn not found"):
             await turn_repo.update_status(uuid4(), "failed")
 
+    async def test_fail_turn(self, turn_repo: InMemoryTurnRepository) -> None:
+        """FR-23.18: fail_turn sets status='failed'."""
+        sid = uuid4()
+        turn = await turn_repo.create_turn(sid, 1, "go north")
+        await turn_repo.fail_turn(turn["id"])
+        updated = await turn_repo.get_turn(turn["id"])
+        assert updated is not None
+        assert updated["status"] == "failed"
+        assert updated["narrative_output"] is None
+
+    async def test_fail_turn_preserves_partial_narrative(
+        self, turn_repo: InMemoryTurnRepository
+    ) -> None:
+        """FR-23.18: fail_turn preserves partial narrative output."""
+        sid = uuid4()
+        turn = await turn_repo.create_turn(sid, 1, "cast spell")
+        await turn_repo.fail_turn(turn["id"], narrative_output="You begin to cast...")
+        updated = await turn_repo.get_turn(turn["id"])
+        assert updated is not None
+        assert updated["status"] == "failed"
+        assert updated["narrative_output"] == "You begin to cast..."
+
+    async def test_fail_turn_not_found_raises(
+        self, turn_repo: InMemoryTurnRepository
+    ) -> None:
+        with pytest.raises(ValueError, match="turn not found"):
+            await turn_repo.fail_turn(uuid4())
+
     async def test_get_processing_turn(self, turn_repo: InMemoryTurnRepository) -> None:
         sid = uuid4()
         t1 = await turn_repo.create_turn(sid, 1, "first")
@@ -511,6 +539,7 @@ class TestProtocolCompliance:
         assert hasattr(repo, "update_status")
         assert hasattr(repo, "get_processing_turn")
         assert hasattr(repo, "get_turn_by_idempotency_key")
+        assert hasattr(repo, "fail_turn")
 
     def test_world_event_repo_satisfies_protocol(self) -> None:
         from tta.persistence.repositories import (

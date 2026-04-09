@@ -171,6 +171,19 @@ class InMemoryTurnRepository:
             raise ValueError(msg)
         turn["status"] = status
 
+    async def fail_turn(
+        self,
+        turn_id: UUID,
+        narrative_output: str | None = None,
+    ) -> None:
+        turn = self._turns.get(turn_id)
+        if turn is None:
+            msg = f"turn not found: {turn_id}"
+            raise ValueError(msg)
+        turn["status"] = "failed"
+        if narrative_output is not None:
+            turn["narrative_output"] = narrative_output
+
     async def get_processing_turn(self, session_id: UUID) -> dict | None:
         for turn in self._turns.values():
             if turn["session_id"] == session_id and turn["status"] == "processing":

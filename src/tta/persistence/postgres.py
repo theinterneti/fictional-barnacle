@@ -354,6 +354,28 @@ class PostgresTurnRepository:
             )
             await session.commit()
 
+    async def fail_turn(
+        self,
+        turn_id: UUID,
+        narrative_output: str | None = None,
+    ) -> None:
+        async with self._sf() as session:
+            if narrative_output is not None:
+                await session.execute(
+                    sa.text(
+                        "UPDATE turns SET status = 'failed', "
+                        "narrative_output = :narrative_output "
+                        "WHERE id = :id"
+                    ),
+                    {"id": turn_id, "narrative_output": narrative_output},
+                )
+            else:
+                await session.execute(
+                    sa.text("UPDATE turns SET status = 'failed' WHERE id = :id"),
+                    {"id": turn_id},
+                )
+            await session.commit()
+
     async def get_processing_turn(self, session_id: UUID) -> dict | None:
         async with self._sf() as session:
             result = await session.execute(
@@ -608,6 +630,14 @@ async def update_status(
     status: str,
 ) -> None:
     """Update a turn's status (processing/complete/failed)."""
+    raise NotImplementedError
+
+
+async def fail_turn(
+    turn_id: UUID,
+    narrative_output: str | None = None,
+) -> None:
+    """Mark a turn as failed, optionally preserving partial narrative."""
     raise NotImplementedError
 
 
