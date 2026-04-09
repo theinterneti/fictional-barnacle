@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import traceback
+
 import structlog
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
@@ -10,7 +12,28 @@ from fastapi.responses import JSONResponse
 from tta.config import Environment, get_settings
 from tta.errors import CATEGORY_STATUS, ErrorCategory
 
-logger = structlog.get_logger()
+
+def _request_context(request: Request) -> dict[str, str]:
+    """Extract structured log context from a request (FR-23.06).
+
+    Returns IDs only — never data values — to satisfy FR-23.08.
+    """
+    ctx: dict[str, str] = {
+        "request_method": request.method,
+        "request_path": request.url.path,
+    }
+    state = request.state
+    if rid := getattr(state, "request_id", None):
+        ctx["correlation_id"] = rid
+    if pid := getattr(state, "player_id", None):
+        ctx["player_id"] = str(pid)
+    else:
+        ctx["player_id"] = "anonymous"
+    if gid := getattr(state, "game_id", None):
+        ctx["game_id"] = str(gid)
+    if tid := getattr(state, "turn_id", None):
+        ctx["turn_id"] = str(tid)
+    return ctx
 
 
 class AppError(Exception):
@@ -61,6 +84,17 @@ def _build_envelope(
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handle known application errors with the S23 envelope."""
     request_id = getattr(request.state, "request_id", "unknown")
+    logger = structlog.get_logger()
+
+    # FR-23.06: structured error log
+    logger.warning(
+        "app_error",
+        error_code=exc.code,
+        error_category=exc.category.value,
+        status_code=exc.status_code,
+        **_request_context(request),
+    )
+
     headers: dict[str, str] = {}
     if exc.retry_after_seconds is not None:
         headers["Retry-After"] = str(exc.retry_after_seconds)
@@ -82,6 +116,17 @@ async def validation_error_handler(
 ) -> JSONResponse:
     """Handle Pydantic/FastAPI validation errors (stays 422)."""
     request_id = getattr(request.state, "request_id", "unknown")
+    logger = structlog.get_logger()
+
+    # FR-23.06: structured warning log
+    logger.warning(
+        "validation_error",
+        error_code="VALIDATION_ERROR",
+        error_category="input_invalid",
+        status_code=422,
+        **_request_context(request),
+    )
+
     # Pydantic V2 errors() can contain non-serializable ctx values
     # (e.g. ValueError objects). Strip ctx to guarantee safe JSON.
     safe_errors = [{k: v for k, v in e.items() if k != "ctx"} for e in exc.errors()]
@@ -99,7 +144,20 @@ async def validation_error_handler(
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected errors — log traceback, return safe response (FR-23.04)."""
     request_id = getattr(request.state, "request_id", "unknown")
-    logger.exception("unhandled_error", request_id=request_id)
+    logger = structlog.get_logger()
+
+    # FR-23.06 + FR-23.07: structured ERROR log with exception details
+    logger.error(
+        "unhandled_error",
+        error_code="INTERNAL_ERROR",
+        error_category="internal_error",
+        status_code=500,
+        exception_type=type(exc).__name__,
+        exception_message=str(exc),
+        stack_trace=traceback.format_exc(),
+        **_request_context(request),
+    )
+
     settings = get_settings()
     details: dict | None = None
     if settings.environment == Environment.DEVELOPMENT:
