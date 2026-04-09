@@ -74,6 +74,14 @@ class TurnRepository(Protocol):
 
     async def update_status(self, turn_id: UUID, status: str) -> None: ...
 
+    async def fail_turn(
+        self,
+        turn_id: UUID,
+        narrative_output: str | None = None,
+    ) -> None:
+        """Mark a turn as failed, optionally preserving partial narrative."""
+        ...
+
     async def get_processing_turn(self, session_id: UUID) -> dict | None: ...
 
     async def get_turn_by_idempotency_key(

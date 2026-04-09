@@ -88,11 +88,14 @@ class TurnCompleteEvent(SSEEvent):
 
 
 class ErrorEvent(SSEEvent):
-    """Reports an error to the client."""
+    """Reports an error to the client (FR-23.20, S23 §3.1 envelope)."""
 
     event_type: EventType = EventType.ERROR
     code: str
     message: str
+    correlation_id: str | None = None
+    retry_after_seconds: int | None = None
+    details: dict | None = None
 
 
 class KeepaliveEvent(SSEEvent):

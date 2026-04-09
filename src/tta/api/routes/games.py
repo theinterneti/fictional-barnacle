@@ -23,6 +23,7 @@ from tta.errors import ErrorCategory
 from tta.logging import bind_context
 from tta.models.events import (
     ErrorEvent,
+    KeepaliveEvent,
     NarrativeBlockEvent,
     TurnCompleteEvent,
     TurnStartEvent,
@@ -82,9 +83,20 @@ async def _dispatch_pipeline(
                 token_count=token_dict,
             )
         else:
-            await turn_repo.update_status(turn_id, "failed")
+            # FR-23.18: preserve partial narrative on failure
+            await turn_repo.fail_turn(turn_id, narrative_output=result.narrative_output)
     except Exception:
         log.error("turn_persist_failed", turn_id=str(turn_id), exc_info=True)
+        # Last-resort: ensure turn exits processing state to prevent
+        # permanent concurrent-turn lock (critique finding #5).
+        try:
+            await turn_repo.update_status(turn_id, "failed")
+        except Exception:
+            log.error(
+                "turn_failsafe_status_update_failed",
+                turn_id=str(turn_id),
+                exc_info=True,
+            )
 
     # Publish result for SSE endpoint
     try:
@@ -238,10 +250,15 @@ async def _get_turn_count(pg: AsyncSession, game_id: UUID) -> int:
 
 
 async def _get_max_turn_number(pg: AsyncSession, game_id: UUID) -> int:
-    """Get the highest turn number for a game (0 if none)."""
+    """Get the highest completed turn number for a game (0 if none).
+
+    FR-23.17: failed turns do NOT advance the turn counter,
+    so we only count turns that reached 'complete' status.
+    """
     result = await pg.execute(
         sa.text(
-            "SELECT coalesce(max(turn_number), 0) FROM turns WHERE session_id = :sid"
+            "SELECT coalesce(max(turn_number), 0) FROM turns "
+            "WHERE session_id = :sid AND status = 'complete'"
         ),
         {"sid": game_id},
     )
@@ -553,12 +570,14 @@ async def stream_turn(
     )
     proc_row = proc_result.one_or_none()
     counter = SSECounter()
+    correlation_id = getattr(request.state, "request_id", "unknown")
 
     async def event_stream():  # noqa: C901
         if proc_row is None:
             yield ErrorEvent(
                 code="NO_TURN_FOUND",
                 message="No turn found for this game.",
+                correlation_id=correlation_id,
             ).format_sse(counter.next_id())
             return
 
@@ -570,16 +589,28 @@ async def stream_turn(
             turn_number=current_turn_number,
         ).format_sse(counter.next_id())
 
-        # Wait for pipeline result via turn result store
+        # FR-23.22: keepalive loop while waiting for pipeline result
         store = request.app.state.turn_result_store
-        result: TurnState | None = await store.wait_for_result(
-            current_turn_id, timeout=120.0
-        )
+        keepalive_interval = 15.0
+        total_timeout = 120.0
+        elapsed = 0.0
+        result: TurnState | None = None
+
+        while elapsed < total_timeout:
+            remaining = min(keepalive_interval, total_timeout - elapsed)
+            result = await store.wait_for_result(current_turn_id, timeout=remaining)
+            if result is not None:
+                break
+            elapsed += remaining
+            if elapsed < total_timeout:
+                yield KeepaliveEvent().format_sse(counter.next_id())
 
         if result is None:
             yield ErrorEvent(
                 code="PIPELINE_TIMEOUT",
                 message="Turn processing timed out.",
+                correlation_id=correlation_id,
+                retry_after_seconds=5,
             ).format_sse(counter.next_id())
             return
 
@@ -587,6 +618,8 @@ async def stream_turn(
             yield ErrorEvent(
                 code="PIPELINE_FAILED",
                 message="Turn processing failed.",
+                correlation_id=correlation_id,
+                retry_after_seconds=2,
             ).format_sse(counter.next_id())
             return
 
