@@ -83,6 +83,18 @@ class Settings(BaseSettings):
     anti_abuse_enabled: bool = True
     anti_abuse_max_cooldown: int = 86400  # 24 hours cap (FR-25.11)
 
+    # Content moderation (S24)
+    moderation_enabled: bool = True
+    moderation_fail_mode: str = "open"  # "open" | "closed"
+
+    @field_validator("moderation_fail_mode")
+    @classmethod
+    def _validate_moderation_fail_mode(cls, v: str) -> str:
+        if v not in ("open", "closed"):
+            msg = "moderation_fail_mode must be 'open' or 'closed'"
+            raise ValueError(msg)
+        return v
+
     # Application
     session_token_ttl: int = 86400
     max_active_games: int = 5
