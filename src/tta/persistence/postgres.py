@@ -260,6 +260,33 @@ class PostgresGameRepository:
                 for r in rows
             ]
 
+    async def soft_delete(self, game_id: UUID) -> None:
+        async with self._sf() as session:
+            now = datetime.now(UTC)
+            await session.execute(
+                sa.text(
+                    "UPDATE game_sessions "
+                    "SET status = 'abandoned', "
+                    "deleted_at = :now, updated_at = :now "
+                    "WHERE id = :id"
+                ),
+                {"id": game_id, "now": now},
+            )
+            await session.commit()
+
+    async def count_active_games(self, player_id: UUID) -> int:
+        async with self._sf() as session:
+            result = await session.execute(
+                sa.text(
+                    "SELECT count(*) FROM game_sessions "
+                    "WHERE player_id = :pid "
+                    "AND status IN ('created', 'active', 'paused') "
+                    "AND deleted_at IS NULL"
+                ),
+                {"pid": player_id},
+            )
+            return result.scalar_one()
+
 
 class PostgresTurnRepository:
     """Async Postgres-backed turn repository."""

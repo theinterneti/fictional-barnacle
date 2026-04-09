@@ -120,9 +120,20 @@ async def _dispatch_pipeline(
 # Valid state transitions (plan §6.1, S27 FR-27.01)
 _VALID_TRANSITIONS: dict[str, set[str]] = {
     "created": {"active", "abandoned"},
-    "active": {"paused", "completed", "ended", "abandoned"},
-    "paused": {"active", "expired", "ended", "abandoned"},
-    "expired": {"active", "abandoned"},
+    "active": {"paused", "completed", "ended"},
+    "paused": {"active", "expired", "ended"},
+    "expired": {"active"},
+}
+
+# Map internal states to S27 public states (active | completed | abandoned)
+_PUBLIC_STATE_MAP: dict[str, str] = {
+    "created": "active",
+    "active": "active",
+    "paused": "active",
+    "completed": "completed",
+    "ended": "abandoned",
+    "expired": "abandoned",
+    "abandoned": "abandoned",
 }
 
 
@@ -215,7 +226,7 @@ class GameEndedData(BaseModel):
 class DeleteGameRequest(BaseModel):
     confirm: bool = Field(
         ...,
-        description="Must be true to confirm deletion (S27 FR-27.17).",
+        description="Must be true to confirm deletion (S27 FR-27.18).",
     )
 
 
@@ -315,7 +326,7 @@ async def create_game(
         {
             "id": game_id,
             "pid": player.id,
-            "status": GameStatus.created.value,
+            "status": GameStatus.active.value,
             "seed": json.dumps(world_seed),
             "now": now,
         },
@@ -326,7 +337,7 @@ async def create_game(
         "data": GameData(
             game_id=str(game_id),
             player_id=str(player.id),
-            status=GameStatus.created.value,
+            status=GameStatus.active.value,
             turn_count=0,
             created_at=now,
             updated_at=now,
@@ -341,11 +352,14 @@ async def list_games(
     pg: AsyncSession = Depends(get_pg),
     status: str | None = Query(None),
     cursor: datetime | None = Query(None),
-    limit: int = Query(20, ge=1, le=50),
+    limit: int | None = Query(None, ge=1, le=50),
 ) -> dict:
     """List the authenticated player's games (S27 FR-27.08–FR-27.11)."""
     settings: Settings = get_settings()
-    effective_limit = min(limit, settings.game_listing_max_size)
+    effective_limit = min(
+        limit or settings.game_listing_default_size,
+        settings.game_listing_max_size,
+    )
 
     params: dict = {"pid": player.id, "lim": effective_limit + 1}
     where_clauses = [
@@ -357,7 +371,7 @@ async def list_games(
         where_clauses.append("gs.status = :status")
         params["status"] = status
     else:
-        # Exclude abandoned games by default (S27 FR-27.09)
+        # Exclude abandoned games by default (S27 FR-27.10)
         where_clauses.append("gs.status != 'abandoned'")
 
     if cursor is not None:
@@ -368,9 +382,15 @@ async def list_games(
     result = await pg.execute(
         sa.text(
             f"SELECT gs.id, gs.player_id, gs.status, gs.world_seed, "  # noqa: S608
-            f"gs.title, gs.summary, gs.turn_count, "
+            f"gs.title, gs.summary, "
+            f"COALESCE(tc.cnt, 0) AS turn_count, "
             f"gs.created_at, gs.updated_at, gs.last_played_at "
             f"FROM game_sessions gs "
+            f"LEFT JOIN ("
+            f"  SELECT session_id, count(*) AS cnt "
+            f"  FROM turns WHERE status = 'complete' "
+            f"  GROUP BY session_id"
+            f") tc ON tc.session_id = gs.id "
             f"WHERE {where} "
             f"ORDER BY gs.last_played_at DESC NULLS LAST "
             f"LIMIT :lim"
@@ -384,8 +404,8 @@ async def list_games(
     games = [
         GameSummary(
             game_id=str(r.id),
-            status=r.status,
-            turn_count=r.turn_count,
+            status=_PUBLIC_STATE_MAP.get(r.status or "", r.status or ""),
+            turn_count=r.turn_count or 0,
             title=r.title,
             summary=r.summary,
             created_at=r.created_at,
@@ -836,12 +856,12 @@ async def update_game(
 @router.delete("/{game_id}")
 async def end_game(
     game_id: UUID,
-    body: DeleteGameRequest,
+    body: DeleteGameRequest | None = None,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
 ) -> dict:
     """Soft-delete a game (S27 FR-27.16–FR-27.19)."""
-    if not body.confirm:
+    if body is None or not body.confirm:
         raise AppError(
             ErrorCategory.INPUT_INVALID,
             "CONFIRM_REQUIRED",

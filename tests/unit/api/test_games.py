@@ -128,7 +128,7 @@ class TestCreateGame:
         assert resp.status_code == 201
         body = resp.json()["data"]
         assert body["player_id"] == str(_PLAYER_ID)
-        assert body["status"] == "created"
+        assert body["status"] == "active"
         assert body["turn_count"] == 0
 
     def test_rejects_when_max_games_reached(
