@@ -67,7 +67,7 @@ def _flag_result(
 def _mock_recorder() -> ModerationRecorder:
     """Build a ModerationRecorder with a mock session factory."""
     recorder = ModerationRecorder.__new__(ModerationRecorder)
-    recorder._session_factory = MagicMock()
+    recorder._sf = MagicMock()
     recorder.save = AsyncMock()  # type: ignore[method-assign]
     return recorder
 

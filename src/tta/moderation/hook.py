@@ -116,12 +116,22 @@ class ModerationHook:
         ctx: ModerationContext,
     ) -> None:
         """Persist record, emit structured log, track flagging."""
+        # FR-24.09/FR-24.12: ensure content_hash is always a valid
+        # SHA-256 of the moderated content, regardless of what the
+        # ModerationService implementation returned.
+        expected_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        content_hash = (
+            result.content_hash
+            if result.content_hash == expected_hash
+            else expected_hash
+        )
+
         record = ModerationRecord(
             turn_id=ctx.turn_id,
             game_id=ctx.game_id,
             player_id=ctx.player_id,
             stage=ctx.stage,
-            content_hash=result.content_hash,
+            content_hash=content_hash,
             content=content,
             verdict=result.verdict,
             category=result.category,
@@ -148,7 +158,22 @@ class ModerationHook:
 
         # FR-24.11: session auto-flagging on block
         if result.verdict == ModerationVerdict.BLOCK and self._flag_tracker is not None:
-            self._flag_tracker.record_block(ctx.game_id, ctx.player_id)
+            threshold_crossed = self._flag_tracker.record_block(
+                ctx.game_id, ctx.player_id
+            )
+            if threshold_crossed:
+                log.warning(
+                    "moderation_session_flagged_for_review",
+                    moderation_id=record.moderation_id,
+                    turn_id=ctx.turn_id,
+                    game_id=ctx.game_id,
+                    player_id=ctx.player_id,
+                    stage=ctx.stage,
+                    content_hash=record.content_hash,
+                    verdict=result.verdict.value,
+                    category=result.category.value,
+                    reason="block_threshold_exceeded",
+                )
 
     async def _checked_call(
         self,
@@ -195,10 +220,14 @@ class ModerationHook:
 
 
 def _build_context(state: TurnState, *, stage: str) -> ModerationContext:
+    # Prefer UUID turn_id when available; fall back to turn_number.
+    turn_id = (
+        str(state.turn_id) if state.turn_id is not None else str(state.turn_number)
+    )
     return ModerationContext(
         game_id=state.game_state.get("game_id", ""),
         player_id=state.game_state.get("player_id", ""),
-        turn_id=str(state.turn_number),
+        turn_id=turn_id,
         stage=stage,
     )
 
