@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -124,6 +125,8 @@ class TestRedisRateLimiter:
         pipe1 = MagicMock()
         pipe1.execute = AsyncMock(return_value=[0, 10])  # count = limit
         redis.pipeline.return_value = pipe1
+        # zrange returns the oldest member with its score (timestamp)
+        redis.zrange = AsyncMock(return_value=[(b"oldest", time.time() - 30)])
         limiter = RedisRateLimiter(redis)
 
         result = await limiter.check("test:key", limit=10, window_seconds=60)
@@ -266,7 +269,7 @@ class TestBuild429Response:
 
         envelope = json.loads(body)
         err = envelope["error"]
-        assert err["code"] == "RATE_LIMITED"
+        assert err["code"] == "rate_limited"
         assert err["correlation_id"] == "corr-123"
         assert err["retry_after_seconds"] == 42
 
@@ -337,7 +340,7 @@ class TestRateLimitMiddleware:
         resp = client.post("/api/v1/games/g1/turns", headers=headers)
         assert resp.status_code == 429
         body = resp.json()
-        assert body["error"]["code"] == "RATE_LIMITED"
+        assert body["error"]["code"] == "rate_limited"
         assert "retry_after_seconds" in body["error"]
         assert "retry-after" in resp.headers
 
@@ -346,6 +349,7 @@ class TestRateLimitMiddleware:
         for _ in range(20):
             resp = client.get("/api/v1/health")
             assert resp.status_code == 200
+            # Health is exempt from rate-limiting, so no X-RateLimit-* headers.
             assert "x-ratelimit-limit" not in resp.headers
 
     def test_per_ip_gets_double_limit(self, client: TestClient) -> None:
@@ -462,7 +466,7 @@ class TestRateLimiterFailOpen:
         return app
 
     def test_fail_open_on_limiter_error(self, app_broken_limiter: FastAPI) -> None:
-        """Requests should be allowed when the limiter backend fails."""
+        """Fail-open fallback: requests allowed when limiter fails."""
         client = TestClient(app_broken_limiter)
         resp = client.post("/api/v1/games/g1/turns")
         assert resp.status_code == 200

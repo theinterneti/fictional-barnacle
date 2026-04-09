@@ -127,6 +127,10 @@ class CircuitBreaker:
         exc_val: BaseException | None,
         exc_tb: Any,
     ) -> bool:
+        """Record call outcome and update state.
+
+        Returns False so exceptions propagate to the caller.
+        """
         async with self._lock:
             if self._state == CircuitState.HALF_OPEN:
                 self._probe_in_flight = False
@@ -180,8 +184,8 @@ class CircuitBreaker:
                 self._current_cooldown * 2,
                 self.config.max_cooldown_seconds,
             )
-        self._transition(CircuitState.OPEN)
         self._opened_at = time.monotonic()
+        self._transition(CircuitState.OPEN)
 
     def _transition(self, new_state: CircuitState) -> None:
         old = self._state
@@ -205,4 +209,5 @@ class CircuitBreaker:
                 f"{self.config.service_name} circuit breaker is open "
                 f"(cooldown {self._current_cooldown:.0f}s)"
             ),
+            retry_after_seconds=int(self._current_cooldown),
         )

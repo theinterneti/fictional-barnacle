@@ -60,9 +60,14 @@ class PatternConfig:
 
 # Thresholds from spec FR-25.10 / AC-25.8:
 #   rapid-fire:  >3 rate-limit hits in 10 min → 120 s cooldown (2× normal window)
+#                TODO: derive rapid-fire threshold from rate_limiter.max_requests
+#                rather than hard-coding 3 — couples less tightly to config.
 #   cred stuff:  >5 failed auth in 5 min → 900 s (15 min) block
 #   conn flood:  >3 violations in 10 min → 120 s (placeholder; real concurrent
 #                tracking requires SSE endpoint changes — see #67)
+#
+# TODO: escalation_window_seconds (separate from detection window) for
+# controlling how quickly the cooldown multiplier resets after good behavior.
 DEFAULT_PATTERN_CONFIGS: dict[AbusePattern, PatternConfig] = {
     AbusePattern.RAPID_FIRE: PatternConfig(
         threshold=3,
@@ -122,8 +127,11 @@ def _calculate_cooldown(
     AC-25.8: "cooldown period is doubled on each subsequent violation."
     FR-25.11: exponential up to configurable max (default 24 h).
     """
-    excess = violation_count - config.threshold
-    raw = config.base_cooldown_seconds * (2 ** max(0, excess))
+    # With `>` threshold semantics, the first trigger is at threshold + 1,
+    # so subtract an extra 1 so the first offense gets base cooldown (excess=0).
+    excess = max(0, violation_count - config.threshold - 1)
+    # Cap exponent to prevent DoS via unbounded integer growth (2^10 = 1024×)
+    raw = config.base_cooldown_seconds * (2 ** min(excess, 10))
     return min(int(raw), max_cooldown)
 
 
@@ -184,14 +192,14 @@ class InMemoryAbuseDetector:
         self._violations[vkey] = timestamps
 
         count = len(timestamps)
-        if count >= config.threshold:
+        if count > config.threshold:
             cooldown = _calculate_cooldown(count, config, self._max_cooldown)
             self._cooldowns[identity] = (now + cooldown, pattern, count)
             return ViolationResult(
                 cooldown_applied=True,
                 cooldown_seconds=cooldown,
                 violation_count=count,
-                escalated=count > config.threshold,
+                escalated=count > config.threshold + 1,
             )
 
         return ViolationResult(
@@ -263,7 +271,9 @@ class RedisAbuseDetector:
         vkey = f"abuse:v:{identity}:{pattern}"
         member = str(uuid.uuid4())
 
-        # Atomically prune + add + count
+        # NOTE: transaction=False means pipelined (not truly atomic).
+        # Acceptable for abuse detection where slight over/under-counting
+        # is tolerable; a Lua script would be needed for strict atomicity.
         pipe = self._redis.pipeline(transaction=False)  # type: ignore[union-attr]
         pipe.zremrangebyscore(vkey, 0, window_start)
         pipe.zadd(vkey, {member: now})
@@ -272,7 +282,7 @@ class RedisAbuseDetector:
         results = await pipe.execute()  # type: ignore[union-attr]
         count: int = results[2]
 
-        if count >= config.threshold:
+        if count > config.threshold:
             cooldown = _calculate_cooldown(count, config, self._max_cooldown)
             cd_key = f"abuse:cd:{identity}"
             await self._redis.setex(  # type: ignore[union-attr]
@@ -282,7 +292,7 @@ class RedisAbuseDetector:
                 cooldown_applied=True,
                 cooldown_seconds=cooldown,
                 violation_count=count,
-                escalated=count > config.threshold,
+                escalated=count > config.threshold + 1,
             )
 
         return ViolationResult(

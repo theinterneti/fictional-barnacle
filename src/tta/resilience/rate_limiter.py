@@ -100,7 +100,7 @@ class InMemoryRateLimiter:
             allowed=False,
             limit=limit,
             remaining=0,
-            reset_at=reset_at,
+            reset_at=earliest + window_seconds,
             retry_after=retry_after,
         )
 
@@ -128,6 +128,8 @@ class RedisRateLimiter:
         reset_at = now + window_seconds
         member = str(uuid.uuid4())
 
+        # NOTE: transaction=False means commands are pipelined but not atomic.
+        # A Lua script would be needed for true atomicity; acceptable for v1.
         pipe = self._redis.pipeline(transaction=False)  # type: ignore[union-attr]
         pipe.zremrangebyscore(key, 0, window_start)
         pipe.zcard(key)
@@ -149,12 +151,21 @@ class RedisRateLimiter:
                 retry_after=0,
             )
 
-        # Rejected — don't record (FR-25.09)
-        retry_after = max(1, math.ceil(window_seconds - (now - window_start)))
+        # Rejected — don't record (FR-25.09).
+        # Fetch the oldest member's timestamp to compute when the window
+        # will shrink below the limit (matches InMemory logic).
+        oldest_result = await self._redis.zrange(  # type: ignore[union-attr]
+            key, 0, 0, withscores=True
+        )
+        if oldest_result:
+            earliest = oldest_result[0][1]  # score = timestamp
+        else:
+            earliest = window_start
+        retry_after = max(1, math.ceil(earliest + window_seconds - now))
         return RateLimitResult(
             allowed=False,
             limit=limit,
             remaining=0,
-            reset_at=reset_at,
+            reset_at=earliest + window_seconds,
             retry_after=retry_after,
         )

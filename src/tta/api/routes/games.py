@@ -18,7 +18,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from tta.api.deps import get_current_player, get_pg
 from tta.api.errors import AppError
 from tta.api.sse import SSECounter
-from tta.config import get_settings
+from tta.config import Settings, get_settings
 from tta.errors import ErrorCategory
 from tta.logging import bind_context
 from tta.models.events import (
@@ -572,12 +572,17 @@ async def stream_turn(
     counter = SSECounter()
     correlation_id = getattr(request.state, "request_id", "unknown")
 
+    # NOTE: event_stream is a complex generator because SSE streaming
+    # requires a single async function yielding formatted events.
+    # TODO: decompose into _wait_for_result() and _emit_turn_events()
+    # helpers once the streaming contract stabilises.
     async def event_stream():  # noqa: C901
         if proc_row is None:
             yield ErrorEvent(
                 code="NO_TURN_FOUND",
                 message="No turn found for this game.",
                 correlation_id=correlation_id,
+                retry_after_seconds=2,
             ).format_sse(counter.next_id())
             return
 
@@ -586,23 +591,26 @@ async def stream_turn(
 
         # Send turn_start
         yield TurnStartEvent(
+            turn_id=current_turn_id,
             turn_number=current_turn_number,
         ).format_sse(counter.next_id())
 
         # FR-23.22: keepalive loop while waiting for pipeline result
         store = request.app.state.turn_result_store
         keepalive_interval = 15.0
-        total_timeout = 120.0
-        elapsed = 0.0
+        settings: Settings = request.app.state.settings
+        total_timeout = settings.pipeline_timeout_seconds
+        deadline = time.monotonic() + total_timeout
         result: TurnState | None = None
 
-        while elapsed < total_timeout:
-            remaining = min(keepalive_interval, total_timeout - elapsed)
+        while time.monotonic() < deadline:
+            remaining = min(keepalive_interval, deadline - time.monotonic())
+            if remaining <= 0:
+                break
             result = await store.wait_for_result(current_turn_id, timeout=remaining)
             if result is not None:
                 break
-            elapsed += remaining
-            if elapsed < total_timeout:
+            if time.monotonic() < deadline:
                 yield KeepaliveEvent().format_sse(counter.next_id())
 
         if result is None:

@@ -2,14 +2,16 @@
 
 Records HTTP request count, duration, and in-flight gauge.
 Labels are low-cardinality: method, route pattern (not raw path), status code.
+
+Uses pure ASGI middleware (not BaseHTTPMiddleware) to avoid event loop
+conflicts with asyncpg and to preserve SSE streaming fidelity.
 """
 
 import time
 
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
 from starlette.routing import Match
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from tta.observability.metrics import (
     HTTP_IN_FLIGHT,
@@ -31,25 +33,36 @@ def _get_route_pattern(request: Request) -> str:
     return "unmatched"
 
 
-class PrometheusMiddleware(BaseHTTPMiddleware):
-    """Record HTTP metrics for every request."""
+class PrometheusMiddleware:
+    """Record HTTP metrics for every request (pure ASGI)."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        if request.url.path == "/metrics":
-            return await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        if scope["path"] == "/metrics":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
         method = request.method
         route = _get_route_pattern(request)
         status_code = 500
 
+        async def send_wrapper(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+            await send(message)
+
         HTTP_IN_FLIGHT.inc()
         start = time.perf_counter()
         try:
-            response = await call_next(request)
-            status_code = response.status_code
-            return response
+            await self.app(scope, receive, send_wrapper)
         finally:
             duration = time.perf_counter() - start
             HTTP_IN_FLIGHT.dec()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -348,23 +347,13 @@ class TestSSEErrorEvents:
         self, client: TestClient, pg: AsyncMock
     ) -> None:
         """Failed turn result emits error event with retry_after_seconds."""
-        from tta.api.turn_results import InMemoryTurnResultStore
         from tta.models.turn import TurnState, TurnStatus
 
         turn_id = uuid4()
-        store = InMemoryTurnResultStore()
 
-        pg.execute = AsyncMock(
-            side_effect=[
-                _make_result([_game_row()]),  # _get_owned_game
-                _make_result([{"id": turn_id, "turn_number": 1}]),  # latest turn
-            ]
-        )
-
-        app = client.app
-        app.state.turn_result_store = store  # type: ignore[union-attr]
-
-        # Pre-publish a failed result so stream picks it up immediately
+        # Deterministic fake store that returns the failed state immediately,
+        # avoiding InMemoryTurnResultStore's asyncio.Event internals which
+        # interact poorly with TestClient's thread-based execution.
         failed_state = TurnState(
             session_id=_GAME_ID,
             turn_id=turn_id,
@@ -374,10 +363,24 @@ class TestSSEErrorEvents:
             status=TurnStatus.failed,
         )
 
-        async def setup_store():
-            await store.publish(str(turn_id), failed_state)
+        class _FakeStore:
+            async def wait_for_result(
+                self, turn_id: str, timeout: float = 30.0
+            ) -> TurnState:
+                return failed_state
 
-        asyncio.get_event_loop().run_until_complete(setup_store())
+            async def publish(self, turn_id: str, result: object) -> None:
+                pass
+
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row()]),  # _get_owned_game
+                _make_result([{"id": turn_id, "turn_number": 1}]),  # latest turn
+            ]
+        )
+
+        app = client.app
+        app.state.turn_result_store = _FakeStore()  # type: ignore[union-attr]
 
         resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
 

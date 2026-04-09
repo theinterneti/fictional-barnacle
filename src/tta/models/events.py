@@ -40,6 +40,7 @@ class TurnStartEvent(SSEEvent):
     """Signals the beginning of a new turn."""
 
     event_type: EventType = EventType.TURN_START
+    turn_id: str | None = None
     turn_number: int
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
