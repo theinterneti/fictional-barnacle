@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from tta.api.deps import get_current_player, get_pg
 from tta.api.errors import AppError
 from tta.config import get_settings
+from tta.errors import ErrorCategory
 from tta.models.player import Player
 
 router = APIRouter(prefix="/players", tags=["players"])
@@ -70,7 +71,11 @@ async def register_player(
         {"handle": body.handle},
     )
     if existing.one_or_none() is not None:
-        raise AppError(409, "HANDLE_ALREADY_TAKEN", "Handle is already taken.")
+        raise AppError(
+            ErrorCategory.CONFLICT,
+            "HANDLE_ALREADY_TAKEN",
+            "Handle is already taken.",
+        )
 
     # Create player
     player_id = uuid4()
@@ -163,7 +168,11 @@ async def update_profile(
             {"handle": body.handle},
         )
         if existing.one_or_none() is not None:
-            raise AppError(409, "HANDLE_ALREADY_TAKEN", "Handle is already taken.")
+            raise AppError(
+                ErrorCategory.CONFLICT,
+                "HANDLE_ALREADY_TAKEN",
+                "Handle is already taken.",
+            )
 
         await pg.execute(
             sa.text("UPDATE players SET handle = :handle WHERE id = :id"),

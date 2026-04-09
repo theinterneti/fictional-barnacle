@@ -253,7 +253,7 @@ class TestSubmitTurn:
             json={"input": "test"},
         )
 
-        assert resp.status_code == 422
+        assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
     def test_rejects_concurrent_turn(self, client: TestClient, pg: AsyncMock) -> None:
@@ -376,7 +376,7 @@ class TestResumeGame:
 
         resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
 
-        assert resp.status_code == 422
+        assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "GAME_NOT_RESUMABLE"
 
 
@@ -414,7 +414,7 @@ class TestUpdateGame:
             json={"status": "active"},
         )
 
-        assert resp.status_code == 422
+        assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
@@ -446,5 +446,5 @@ class TestEndGame:
 
         resp = client.delete(f"/api/v1/games/{_GAME_ID}")
 
-        assert resp.status_code == 422
+        assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"

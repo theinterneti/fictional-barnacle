@@ -19,6 +19,7 @@ from tta.api.deps import get_current_player, get_pg
 from tta.api.errors import AppError
 from tta.api.sse import SSECounter
 from tta.config import get_settings
+from tta.errors import ErrorCategory
 from tta.logging import bind_context
 from tta.models.events import (
     ErrorEvent,
@@ -208,7 +209,7 @@ async def _get_owned_game(pg: AsyncSession, game_id: UUID, player: Player) -> sa
     )
     row = result.one_or_none()
     if row is None or row.player_id != player.id:
-        raise AppError(404, "GAME_NOT_FOUND", "Game not found.")
+        raise AppError(ErrorCategory.NOT_FOUND, "GAME_NOT_FOUND", "Game not found.")
     return row
 
 
@@ -261,7 +262,7 @@ async def create_game(
     active_count = await _count_active_games(pg, player.id)
     if active_count >= settings.max_active_games:
         raise AppError(
-            409,
+            ErrorCategory.CONFLICT,
             "MAX_GAMES_REACHED",
             f"Maximum of {settings.max_active_games} active games reached.",
         )
@@ -431,7 +432,7 @@ async def submit_turn(
     # Must be active or created
     if row.status not in ("active", "created"):
         raise AppError(
-            422,
+            ErrorCategory.CONFLICT,
             "INVALID_STATE_TRANSITION",
             f"Cannot submit turns for a game in '{row.status}' status.",
         )
@@ -449,7 +450,7 @@ async def submit_turn(
     )
     if in_flight.one_or_none() is not None:
         raise AppError(
-            409,
+            ErrorCategory.CONFLICT,
             "TURN_IN_PROGRESS",
             "A turn is already being processed for this game.",
         )
@@ -665,7 +666,7 @@ async def resume_game(
 
     if row.status not in ("paused", "expired"):
         raise AppError(
-            422,
+            ErrorCategory.CONFLICT,
             "GAME_NOT_RESUMABLE",
             f"Cannot resume a game in '{row.status}' status.",
         )
@@ -707,7 +708,7 @@ async def update_game(
     allowed = _VALID_TRANSITIONS.get(row.status, set())
     if body.status not in allowed:
         raise AppError(
-            422,
+            ErrorCategory.CONFLICT,
             "INVALID_STATE_TRANSITION",
             f"Cannot transition from '{row.status}' to '{body.status}'.",
         )
@@ -747,7 +748,7 @@ async def end_game(
 
     if row.status in ("ended", "abandoned"):
         raise AppError(
-            422,
+            ErrorCategory.CONFLICT,
             "INVALID_STATE_TRANSITION",
             f"Game is already in '{row.status}' status.",
         )
