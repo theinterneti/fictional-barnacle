@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 4 — Operations
 > **Dependencies**: S08 (Turn Pipeline), S14 (Deployment)
-> **Last Updated**: 2026-04-07
+> **Last Updated**: 2026-04-09
 
 ## Overview
 
@@ -182,14 +182,14 @@ HTTP POST /api/turn
 ├── input_validation
 ├── session_load (Redis)
 ├── turn_pipeline
-│   ├── ipa_processing (Input Processing Agent)
+│   ├── input_understanding
 │   │   └── llm_call (model, tokens, duration)
-│   ├── wba_processing (World Building Agent)
+│   ├── context_assembly
 │   │   ├── neo4j_query (world state load)
 │   │   └── llm_call
-│   ├── nga_processing (Narrative Generation Agent)
+│   ├── generation (Narrative Generation)
 │   │   └── llm_call
-│   └── safety_check
+│   └── delivery
 ├── session_save (Redis)
 └── sse_stream_start
 ```
@@ -239,7 +239,7 @@ HTTP POST /api/turn
 **FR-15.18**: Langfuse traces SHALL be organized hierarchically:
 - **Session** = player game session
 - **Trace** = single turn
-- **Generation** = single LLM call within a turn (there may be multiple per turn — IPA, WBA, NGA)
+- **Generation** = single LLM call within a turn (there may be multiple per turn — in different pipeline stages: input understanding, context assembly, generation)
 
 **FR-15.19**: Langfuse SHALL be optional. If `TTA_OBS_LANGFUSE_PUBLIC_KEY` is not set, LLM calls proceed without Langfuse instrumentation and a warning is logged at startup.
 
@@ -473,9 +473,9 @@ Scenario: Langfuse unavailability does not break gameplay
 
 Scenario: Turn trace contains pipeline stage spans
   Given the application is running with tracing enabled
-  When a player turn is processed through IPA, WBA, and NGA
+  When a player turn is processed through all four pipeline stages
   Then a trace is created with a root HTTP span
-  And child spans exist for "ipa_processing", "wba_processing", and "nga_processing"
+  And child spans exist for "input_understanding", "context_assembly", "generation", and "delivery"
   And each LLM span includes "llm.model" and "llm.tokens.prompt" attributes
   And the HTTP response includes an "X-Trace-Id" header
 
@@ -518,3 +518,9 @@ processor = BatchSpanProcessor(OTLPSpanExporter(
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 ```
+
+## Changelog
+
+- 2026-04-09: Replaced deprecated IPA/WBA/NGA agent names with pipeline stage names
+  (input_understanding, context_assembly, generation, delivery) in trace span diagram,
+  FR-15.18 (Langfuse definition), and AC-15.01 acceptance criteria.

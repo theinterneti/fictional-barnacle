@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 1 — Core Game Experience
 > **Dependencies**: S00
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-09
 
 ---
 
@@ -97,8 +97,9 @@ Every response moves something forward — even silence.
 1. **Prompt**: The system displays a clear input indicator (the player knows it's
    their turn).
 2. **Input**: The player submits free-text input (no minimum length, maximum TBD).
-3. **Processing**: The system processes the input through the pipeline
-   (IPA → WBA → NGA — see S03).
+3. **Processing**: The system processes the input through a 4-stage pipeline
+   (see S08 — Turn Processing Pipeline): Input Understanding, Context
+   Assembly, Narrative Generation, and Delivery.
 4. **Streaming**: The narrative response streams to the player via SSE,
    token-by-token.
 5. **Completion**: The stream completes. The system updates world state (S04),
@@ -464,3 +465,9 @@ No "new game+" mechanics, no unlockable content based on previous completions.
 - Branching save points (fork a save to try different paths)
 - Voice input or voice narration
 - Timer-based mechanics or real-time elements
+
+## Changelog
+
+- 2026-04-09: Replaced deprecated IPA/WBA/NGA agent names with 4-stage pipeline names
+  (Input Understanding, Context Assembly, Narrative Generation, Delivery) in FR-1.1.
+  Corrected cross-reference from S03 to S08 (Turn Processing Pipeline).

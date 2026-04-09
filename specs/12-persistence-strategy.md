@@ -3,7 +3,7 @@
 > **Status**: 📝 Draft
 > **Level**: 3 — Platform
 > **Dependencies**: S04 (World Model), S13 (World Graph Schema)
-> **Last Updated**: 2026-04-07
+> **Last Updated**: 2026-04-09
 
 ---
 
@@ -303,7 +303,7 @@ but the architecture should not preclude it.
 
 ### 9.1 Decision Matrix
 
-| Requirement | Graph DB (Neo4j) | Relational DB (SQLite/PostgreSQL) | Cache (Redis) |
+| Requirement | Graph DB (Neo4j) | Relational DB (PostgreSQL) | Cache (Redis) |
 |------------|------------------|----------------------------------|---------------|
 | Graph traversal | ✅ Primary | ❌ Poor fit | ❌ Not applicable |
 | Relational queries | ❌ Awkward | ✅ Primary | ❌ Not applicable |
@@ -330,11 +330,12 @@ but the architecture should not preclude it.
 
 ### 9.3 SQL Engine Choice
 
-For v1, the SQL layer uses **SQLModel** (Pydantic + SQLAlchemy), which supports both
-SQLite (development/testing) and PostgreSQL (production).
+For v1, the SQL layer uses **SQLModel** (Pydantic + SQLAlchemy) with **PostgreSQL** in
+all environments (development, testing, and production). PostgreSQL runs locally via
+Docker Compose to ensure dev/prod parity.
 
-- FR-12.06: The application MUST be runnable with SQLite for local development and
-  testing.
+- FR-12.06: The application MUST use PostgreSQL for local development and testing via
+  Docker Compose.
 - FR-12.07: The production deployment MUST use PostgreSQL for durability and concurrent
   access guarantees.
 - FR-12.08: Application code MUST NOT use database-specific SQL syntax. All queries MUST
@@ -536,9 +537,14 @@ Player submits turn
   files loaded at startup? Database is more dynamic; files are simpler. Current lean:
   database with version history, seeded from files.
 
-- OQ-12.04: For SQLite in development — should we use a single file or in-memory? Single
-  file for persistence across restarts; in-memory for faster tests. Both should be
-  supported via configuration.
+- OQ-12.04: ~~For SQLite in development~~ — Resolved: PostgreSQL in all environments per
+  `plans/system.md`. Docker Compose provides the local PostgreSQL instance.
 
 - OQ-12.05: Should the game state JSON snapshot in SQL be compressed? At v1 scale, no.
   Monitor size and revisit.
+
+## Changelog
+
+- 2026-04-09: Removed SQLite references throughout. PostgreSQL is now specified for all
+  environments (dev, test, prod) per plans/system.md. Updated §9.3 (FR-12.06/12.07),
+  decision matrix header, and resolved OQ-12.04.

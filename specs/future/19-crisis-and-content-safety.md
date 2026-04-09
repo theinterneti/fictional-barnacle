@@ -3,7 +3,7 @@
 > **Status**: 📝 Stub (Future)
 > **Level**: 5 — Future Vision
 > **Dependencies**: S08, S10, S12
-> **Last Updated**: 2025-07-24
+> **Last Updated**: 2026-04-09
 
 ## 1. Vision
 
@@ -23,20 +23,26 @@ These architectural decisions in v1 **must** accommodate future safety systems:
 - **Pipeline hook points**: The turn processing pipeline (S08) must have clearly defined
   hook points where safety checks can be inserted — both pre-generation (input screening)
   and post-generation (output validation) — without restructuring the pipeline.
+  - ✅ *v1 status: Fulfilled. S24 content moderation uses pipeline hooks for pre/post checks.*
 - **Stream interruption**: The SSE streaming protocol (S10) must support mid-stream
   interruption. If a safety system flags generated content, the stream must be stoppable
   and replaceable with a safety response.
+  - ⚠️ *v1 status: Not yet implemented. No abort/cancel endpoint exists. Needed before this stub can be promoted.*
 - **Session flagging**: The session data model (S11, S12) must support flag/tag metadata
   on sessions and individual turns — safety systems need to mark sessions for review.
+  - ✅ *v1 status: Fulfilled. Player model has status + suspended_reason fields; turn model supports metadata.*
 - **Audit trail**: All pipeline processing (S08) must produce audit-friendly logs that
   could later support safety review. Not detailed safety logs — just enough structure
   that a future safety system can add its own.
+  - ✅ *v1 status: Fulfilled. structlog + OTel tracing covers all pipeline stages.*
 - **Content classification hooks**: The narrative engine (S03) must not assume all
   generated content is safe to deliver. A future content classifier needs a clean
   insertion point.
+  - ✅ *v1 status: Fulfilled. S24 moderation inserts post-generation classification.*
 - **Graceful degradation**: If a future safety check fails or times out, the system
   must have a defined fallback behavior (e.g., pause and ask for clarification rather
   than deliver potentially unsafe content).
+  - ✅ *v1 status: Partially fulfilled. S23 error handling provides fallback patterns; S24 moderation has configurable fail-open/fail-closed.*
 
 ## 3. Not in v1
 
@@ -64,3 +70,9 @@ These architectural decisions in v1 **must** accommodate future safety systems:
 | S11 (Identity & Sessions) | Must support session/turn flagging |
 | S12 (Persistence) | Must store auditable processing records |
 | S18 (Therapeutic) | Complementary — safety enables therapy |
+
+## Changelog
+
+- 2026-04-09: Added v1 progress status annotations to all 6 constraints in §2. S24
+  Content Moderation now fulfills 5/6 constraints. Stream interruption (constraint 2)
+  remains unimplemented.
