@@ -694,7 +694,7 @@ class TemplateItem(BaseModel):
     key: str                             # e.g., "item_old_map"
     location_key: str | None = None      # In a location (mutually exclusive with npc_key)
     npc_key: str | None = None           # Owned by an NPC
-    type: str                            # "key", "quest", "weapon", etc.
+    type: ItemType                        # Literal["weapon", "tool", "key", "consumable", "quest", "ambient"]
     archetype: str                       # "mysterious map", "rusty key"
     portable: bool = True
     hidden: bool = False
@@ -1497,3 +1497,11 @@ Both use Postgres and async Python. Low integration cost when features mature.
 
 **Action**: When NPC memory (S06) or narrative recall features move beyond v1 stubs,
 evaluate Hindsight before building a custom equivalent.
+
+---
+
+## Changelog
+
+| Date | Author | Description |
+|------|--------|-------------|
+| 2025-07-21 | Copilot audit | Corrected normative code examples to match actual implementation. Updated field names, types, enum members, file paths, and model definitions to reflect codebase as of commit 8045faa. |

@@ -1742,24 +1742,26 @@ Golden tests compare deterministic mock output against approved snapshots in `te
 
 Alembic manages Postgres schema versioning. It integrates naturally with SQLModel/SQLAlchemy.
 
-**Directory**: `src/tta/migrations/`
+**Directory**: `migrations/postgres/`
 
 ```
-src/tta/migrations/
-├── alembic.ini              # Alembic config (or section in pyproject.toml)
+migrations/postgres/
 ├── env.py                   # Migration environment (async engine setup)
 ├── script.py.mako           # Template for new migration files
 └── versions/
-    ├── 001_initial_schema.py # Core tables (players, sessions, turns, world_events)
-    └── ...
+    ├── 001_initial_schema.py
+    ├── 002_game_lifecycle.py
+    ├── 003_moderation_records.py
+    ├── 004_summary_generated_at.py
+    └── 005_admin_and_performance.py
 ```
 
-**Alembic configuration** (in `pyproject.toml` or standalone `alembic.ini`):
+**Alembic configuration** (standalone `alembic.ini` at repo root):
 
 ```ini
 [alembic]
-script_location = src/tta/migrations
-sqlalchemy.url = %(TTA_DB_POSTGRES_URL)s
+script_location = migrations/postgres
+sqlalchemy.url = %(TTA_DATABASE_URL)s
 
 [alembic:exclude]
 tables = alembic_version
@@ -1786,13 +1788,14 @@ Run `make db-migrate` or `uv run alembic upgrade head` to apply pending migratio
 
 Neo4j has no formal migration tool. Use idempotent Cypher scripts applied at startup.
 
-**Directory**: `src/tta/world/schema/`
+**Directory**: `migrations/neo4j/`
 
 ```
-src/tta/world/schema/
-├── 001_constraints.cypher
-├── 002_indexes.cypher
-└── apply.py                 # Script to run all .cypher files in order
+migrations/neo4j/
+├── 001_initial_schema.cypher
+├── 002_full_schema.cypher
+├── 002_relationship_types.cypher
+└── 003_npc_character_system.cypher
 ```
 
 **Example** (`001_constraints.cypher`):
@@ -1846,8 +1849,8 @@ async def apply_neo4j_schema(driver: AsyncDriver) -> None:
 
 | Database | Tool | Migration files | Idempotent | Version tracking |
 |---|---|---|---|---|
-| PostgreSQL | Alembic | `src/tta/migrations/versions/` | Yes (Alembic handles) | `alembic_version` table |
-| Neo4j | Custom Cypher scripts | `src/tta/world/schema/*.cypher` | Yes (`IF NOT EXISTS`) | `_SchemaVersion` node |
+| PostgreSQL | Alembic | `migrations/postgres/versions/` | Yes (Alembic handles) | `alembic_version` table |
+| Neo4j | Versioned Cypher scripts | `migrations/neo4j/*.cypher` | Yes (`IF NOT EXISTS`) | `_SchemaVersion` node |
 | Redis | N/A | N/A (schemaless, ephemeral) | N/A | N/A |
 
 ---
@@ -2080,8 +2083,8 @@ Files this plan introduces or modifies:
 | `src/tta/observability/tracing.py` | OpenTelemetry setup | New |
 | `src/tta/observability/langfuse.py` | Langfuse integration | New |
 | `src/tta/llm/testing.py` | MockLLMClient | New |
-| `src/tta/migrations/` | Alembic migration directory | New |
-| `src/tta/world/schema/` | Neo4j Cypher migration scripts | New |
+| `migrations/postgres/` | Alembic migration directory | New |
+| `migrations/neo4j/` | Neo4j Cypher migration scripts | New |
 | `tests/conftest.py` | Shared test fixtures | New |
 | `tests/integration/conftest.py` | Integration fixtures | New |
 | `tests/bdd/features/` | Gherkin feature files | New |
@@ -2737,3 +2740,11 @@ The benchmark script:
 | Wave 11 | Admin operations: game inspection, moderation queue, rate-limit mgmt | S26 §B.4-B.7 | 1 sprint |
 | Wave 12 | Performance: connection pools, LLM concurrency, Prometheus metrics | S28 §C.2-C.4 | 1 sprint |
 | Wave 13 | Performance: memory management, degradation, SSE lifetime, benchmarks | S28 §C.5-C.9 | 1 sprint |
+
+---
+
+## Changelog
+
+| Date | Author | Description |
+|------|--------|-------------|
+| 2025-07-21 | Copilot audit | Corrected normative code examples to match actual implementation. Updated field names, types, enum members, file paths, and model definitions to reflect codebase as of commit 8045faa. |

@@ -23,8 +23,8 @@
 | **Relational DB** | PostgreSQL | 16+ | Player data, sessions, transcripts. Use everywhere — including dev. No SQLite. |
 | **Session cache** | Redis | 7+ | Active session state, SSE pub/sub. Ephemeral only — never the source of truth. Use `redis.asyncio` (redis-py ≥ 5.0) — NOT standalone `aioredis`. |
 | **ORM / query** | SQLModel | ≥ 0.0.38 | Thin Pydantic+SQLAlchemy 2.0 layer. Raw asyncpg for hot paths if needed. |
-| **Neo4j driver** | neo4j (Python) | ≥ 6.0 | Official async driver (`AsyncGraphDatabase.driver()`). Install `neo4j` package (not deprecated `neo4j-driver`). Use `.execute_read()`/`.execute_write()` (v6 replaced `.read_transaction()`/`.write_transaction()`). |
-| **Resilience** | tenacity | ≥ 9.0 | Retry with backoff. Do NOT build custom retry/circuit-breaker logic. |
+| **Neo4j driver** | neo4j (Python) | ≥ 6.0 | Official async driver (`AsyncGraphDatabase.driver()`). Install `neo4j` package (not deprecated `neo4j-driver`). Use `session.run()` / `begin_transaction()` (v6 API — `read_transaction`/`write_transaction` removed in v6). |
+| **Resilience** | tenacity | ≥ 9.0 | Retry with backoff. Do NOT build custom retry logic. Circuit-breaker is permitted where spec-required (S23 FR-23.12). |
 | **SQL driver (app)** | asyncpg | latest | Async Postgres driver for FastAPI runtime |
 
 | **HTTP client** | httpx | ≥ 0.27 | Async HTTP for internal calls and testing |
@@ -452,17 +452,18 @@ class TurnState(BaseModel):
     """Immutable-ish state threaded through the pipeline."""
 
     # Set by API layer before pipeline starts
-    session_id: str
+    session_id: UUID
+    turn_id: UUID | None = None
     turn_number: int
     player_input: str
-    game_state: GameState
+    game_state: dict                       # Raw JSONB; structured in pipeline
 
     # Set by Stage 1: Input Understanding
     parsed_intent: ParsedIntent | None = None
 
     # Set by Stage 2: Context Assembly
-    world_context: WorldContext | None = None
-    narrative_history: list[str] = []
+    world_context: dict | None = None      # Assembled context dict
+    narrative_history: list[dict] | None = None
 
     # Set by Stage 3: Generation
     generation_prompt: str | None = None
@@ -472,10 +473,7 @@ class TurnState(BaseModel):
 
     # Set by Stage 4: Delivery
     delivered: bool = False
-    latency_ms: int | None = None
-
-    # Safety (pass-through in v1)
-    safety_flags: list[str] = []
+    latency_ms: float | None = None
 ```
 
 ### 4.4 — LLM Client Interface
@@ -740,37 +738,106 @@ All configuration via environment variables. Loaded by Pydantic Settings.
 
 ```python
 class Settings(BaseSettings):
-    # API
-    api_host: str = "0.0.0.0"
-    api_port: int = 8000
-    cors_origins: list[str] = ["http://localhost:3000"]
+    model_config = SettingsConfigDict(env_prefix="TTA_")
 
-    # Databases
-    postgres_url: str = "postgresql+asyncpg://tta:tta@localhost:5432/tta"
+    # PostgreSQL (required — validated to start with postgresql://)
+    database_url: str
 
-    neo4j_url: str = "bolt://localhost:7687"
+    # Redis
+    redis_url: str = "redis://localhost:6379"
+
+    # Neo4j
+    neo4j_uri: str = ""
     neo4j_user: str = "neo4j"
     neo4j_password: str  # No default — must be set
-    redis_url: str = "redis://localhost:6379/0"
 
-    # LLM
-    llm_primary_model: str = "claude-sonnet-4-20250514"
-    llm_fallback_model: str = "claude-haiku-4-20250514"
-    llm_classification_model: str = "claude-haiku-4-20250514"
-    llm_api_key: str  # No default — must be set
+    # LiteLLM
+    litellm_model: str = "openai/gpt-4o-mini"
+    litellm_fallback_model: str = "openai/gpt-4o-mini"
+    llm_mock: bool = False
 
-    # Observability
-    langfuse_public_key: str = ""
-    langfuse_secret_key: str = ""
-    langfuse_host: str = "http://localhost:3001"  # Self-hosted default; override for cloud
-    log_level: str = "INFO"
+    # Pipeline / cost
+    session_cost_cap_usd: float = 1.0
+    pipeline_timeout_seconds: float = 120.0
 
-    # Game
+    # Langfuse (optional)
+    langfuse_host: str | None = None
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+
+    # OpenTelemetry (optional)
+    otel_enabled: bool = False
+    otel_endpoint: str = "http://localhost:4317"
+
+    # CORS
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+
+    # Cost tracking (S15 §4 US-15.11)
+    daily_llm_cost_alert_usd: float = 50.0
+
+    # Rate limiting (S25 §3.2)
+    rate_limit_enabled: bool = True
+    rate_limit_turns_per_minute: int = 10
+    rate_limit_game_mgmt_per_minute: int = 30
+    rate_limit_auth_per_minute: int = 10
+    rate_limit_sse_per_minute: int = 5
+
+    # Anti-abuse (S25 §3.5)
+    anti_abuse_enabled: bool = True
+    anti_abuse_max_cooldown: int = 86400
+
+    # Content moderation (S24)
+    moderation_enabled: bool = True
+    moderation_fail_mode: str = "open"  # "open" | "closed"
+    moderation_category_overrides: str = "{}"
+    moderation_flag_threshold: int = 5
+    moderation_flag_window_minutes: int = 10
+
+    # S28 Performance — PostgreSQL pool (FR-28.07)
+    pg_pool_min: int = 5
+    pg_pool_max: int = 20
+    pg_pool_timeout: int = 5
+    pg_pool_idle_timeout: int = 300
+
+    # S28 Performance — Redis pool (FR-28.08)
+    redis_pool_max: int = 20
+    redis_timeout: int = 2
+    redis_retry_count: int = 3
+
+    # S28 Performance — Neo4j pool (FR-28.09)
+    neo4j_pool_max: int = 10
+    neo4j_timeout: int = 5
+
+    # S28 Performance — LLM concurrency (FR-28.11–FR-28.14)
+    llm_max_concurrent: int = 10
+    llm_queue_size: int = 50
+    llm_timeout: int = 30
+    llm_max_input_tokens: int = 4000
+    llm_max_output_tokens: int = 2000
+
+    # S28 Performance — Latency budget (S28 §3.3)
+    latency_budget_warn_ms: int = 5000
+    latency_budget_abort_ms: int = 30000
+
+    # S26 Admin
+    admin_api_key: str = ""
+
+    # S27 Save/Load (FR-27.05–FR-27.15)
+    resume_turn_count: int = 10
+    summary_interval: int = 5
+    summary_staleness_hours: int = 24
+    summary_model: str = ""
+
+    # Application
+    session_token_ttl: int = 86400
+    max_active_games: int = 5
+    game_listing_default_size: int = 10
+    game_listing_max_size: int = 50
     max_input_length: int = 2000
-    turn_rate_limit: int = 10  # per minute per session
-    session_ttl_seconds: int = 3600
-
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="TTA_")
+    log_level: LogLevel = LogLevel.INFO
+    log_format: str = "json"
+    log_sensitive: bool = False
+    environment: Environment = Environment.DEVELOPMENT
 ```
 
 ---
@@ -961,3 +1028,11 @@ The following details are NOT resolved here — they belong in component-level p
 | Genesis-lite prompt sequence | `plans/world-and-genesis.md` |
 | Supplementary SQLModel tables beyond core schema (§3.2 is normative) | `plans/api-and-sessions.md` |
 | S11 full auth (email/password, OAuth, refresh tokens) | Post-MVP. Seams exist in `players` + `player_sessions` tables. |
+
+---
+
+## Changelog
+
+| Date | Author | Description |
+|------|--------|-------------|
+| 2025-07-21 | Copilot audit | Corrected normative code examples to match actual implementation. Updated field names, types, enum members, file paths, and model definitions to reflect codebase as of commit 8045faa. |

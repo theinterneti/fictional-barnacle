@@ -105,22 +105,13 @@ parameters:
   temperature: 0.85
   max_tokens: 1024
   frequency_penalty: 0.3
-variables:
-  required:
-    - player_name
-    - location_description
-    - player_action
-    - genre_tone
-    - recent_events
-  optional:
-    - nearby_npcs
-    - nearby_objects
-    - inventory_summary
-    - active_quests
-    - world_time
-    - character_state
-    - emotional_tone
-    - conversation_history
+required_variables:
+  - player_input
+  - world_context
+optional_variables:
+  - character_context
+  - tone
+  - recent_events
 output_schema: null
 ---
 
@@ -1382,3 +1373,11 @@ all subsequent waves.
 | FR-09.51 | Output schema validation at registration | ❌ Deferred v2 | — |
 | FR-09.52 | Token-fit validation at registration | ❌ Deferred v2 | Model-dependent |
 | FR-09.53 | Updated/last-modified metadata | ❌ Deferred v2 | Git blame suffices |
+
+---
+
+## Changelog
+
+| Date | Author | Description |
+|------|--------|-------------|
+| 2025-07-21 | Copilot audit | Corrected normative code examples to match actual implementation. Updated field names, types, enum members, file paths, and model definitions to reflect codebase as of commit 8045faa. |

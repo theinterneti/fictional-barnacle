@@ -691,12 +691,14 @@ is illustrative. The actual implementation uses a connection-scoped counter obje
 
 | Event | Data shape | When emitted |
 |-------|-----------|--------------|
-| `connected` | `{game_id}` | On SSE connection established |
 | `turn_start` | `{turn_number, timestamp}` | Pipeline begins processing |
+| `thinking` | `{}` | Not currently emitted by `/stream`; reserved for future use |
+| `still_thinking` | `{}` | Not currently emitted by `/stream`; reserved for future use |
 | `narrative_token` | `{token}` | Each chunk of narrative text |
+| `narrative_block` | `{full_text}` | Full narrative after streaming completes |
 | `world_update` | `{changes: [...]}` | World state changed this turn |
 | `turn_complete` | `{turn_number, model_used, latency_ms}` | Turn finished |
-| `narrative_block` | `{turn_id, turn_number, narrative}` | Full narrative on reconnect |
+| `moderation` | `{reason}` | Content moderation notice — player-safe reason only (S24) |
 | `error` | `{code, message, turn_id?}` | Error during processing |
 | `keepalive` | `{timestamp}` | Keep-alive (every 15s) |
 
@@ -869,93 +871,99 @@ features without schema changes (the columns already exist or can be added as nu
 
 ## 5. Persistence Layer
 
-### 5.1 — SQLModel Table Definitions
+### 5.1 — Domain Model Definitions
 
-The core schema from system.md §3.2 is **normative**. These are the corresponding
-SQLModel classes:
+The core schema from system.md §3.2 is **normative**. Domain models use plain Pydantic
+`BaseModel` classes. Persistence is handled by the repository layer (§5.2) which
+converts between models and database rows.
 
 ```python
 # src/tta/models/player.py
 
-from sqlmodel import SQLModel, Field
+from pydantic import BaseModel
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
 
-class Player(SQLModel, table=True):
-    __tablename__ = "players"
+class Player(BaseModel):
+    id: UUID
+    handle: str
+    status: str = "active"                 # active, suspended
+    suspended_reason: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    handle: str = Field(unique=True, index=True, max_length=50)
-    created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
 
-
-class PlayerSession(SQLModel, table=True):
-    __tablename__ = "player_sessions"
-
-    token: str = Field(primary_key=True)            # 32-byte hex
-    player_id: UUID = Field(foreign_key="players.id", index=True)
+class PlayerSession(BaseModel):
+    id: UUID
+    player_id: UUID
+    token: str                             # 32-byte hex
     expires_at: datetime
-    created_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime | None = None
 ```
 
 ```python
 # src/tta/models/game.py
 
-class GameSession(SQLModel, table=True):
-    __tablename__ = "game_sessions"
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    player_id: UUID = Field(foreign_key="players.id", index=True)
-    status: str = Field(default="created")           # created, active, paused, ended, expired, abandoned
-    world_seed: dict = Field(sa_column=Column(JSONB, nullable=False))
-    created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
+class GameSession(BaseModel):
+    id: UUID
+    player_id: UUID
+    status: str = "created"                # created, active, paused, ended, expired, abandoned
+    world_seed: dict
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 ```
 
 ```python
-# src/tta/models/turn.py
+# src/tta/models/turn.py — actual domain types (no single "Turn" class)
 
-class Turn(SQLModel, table=True):
-    __tablename__ = "turns"
-    __table_args__ = (
-        UniqueConstraint("session_id", "turn_number", name="uq_turns_session_turn"),
-        UniqueConstraint("session_id", "idempotency_key", name="uq_turns_session_idempotency"),
-    )
+class TurnStatus(StrEnum):
+    processing = "processing"
+    complete = "complete"
+    failed = "failed"
+    moderated = "moderated"
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    session_id: UUID = Field(foreign_key="game_sessions.id", index=True)
-    turn_number: int
-    idempotency_key: UUID | None = None
-    status: str = Field(default="processing")       # processing, complete, failed
+class TurnRequest(BaseModel):
     player_input: str
-    parsed_intent: dict | None = Field(default=None, sa_column=Column(JSONB))
-    world_context: dict | None = Field(default=None, sa_column=Column(JSONB))
+    idempotency_key: UUID | None = None
+
+class TurnResult(BaseModel):
+    turn_id: UUID
+    turn_number: int
+    status: TurnStatus
+    narrative: str | None = None
+    model_used: str | None = None
+    latency_ms: float | None = None
+
+class TurnState(BaseModel):
+    """Pipeline-internal state bag (see system.md §4.3)."""
+    session_id: UUID
+    turn_id: UUID | None = None
+    turn_number: int
+    player_input: str
+    game_state: dict
+    parsed_intent: ParsedIntent | None = None
+    world_context: dict | None = None
+    narrative_history: list[dict] | None = None
+    generation_prompt: str | None = None
     narrative_output: str | None = None
     model_used: str | None = None
-    latency_ms: int | None = None
-    token_count: dict | None = Field(default=None, sa_column=Column(JSONB))
-    created_at: datetime = Field(default_factory=utcnow)
-    completed_at: datetime | None = None
+    token_count: TokenCount | None = None
+    delivered: bool = False
+    latency_ms: float | None = None
 ```
 
 ```python
-# src/tta/models/world_event.py
+# src/tta/models/world.py (actual — WorldEvent)
 
-class WorldEvent(SQLModel, table=True):
-    __tablename__ = "world_events"
-    __table_args__ = (
-        Index("ix_world_events_session_created", "session_id", "created_at", postgresql_using="btree"),
-    )
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    session_id: UUID = Field(foreign_key="game_sessions.id", index=True)
-    turn_id: UUID = Field(foreign_key="turns.id")
+class WorldEvent(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    session_id: UUID
+    turn_id: UUID | None = None            # optional — not all events originate from a turn
     event_type: str
     entity_id: str
-    payload: dict = Field(sa_column=Column(JSONB, nullable=False))
-    created_at: datetime = Field(default_factory=utcnow)
+    payload: dict = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 ```
 
 ### 5.2 — Repository Pattern: Async Functions
@@ -2331,3 +2339,11 @@ class TTASettings(BaseSettings):
 |------|-------|-------|----------|
 | Wave 9 | Game lifecycle: model, state machine, create, list, delete, purge | S27 §B.2-B.6, §B.8 | 1 sprint |
 | Wave 9 | Game resume: context loading, summary regen, recovery | S27 §B.7 | 1 sprint |
+
+---
+
+## Changelog
+
+| Date | Author | Description |
+|------|--------|-------------|
+| 2025-07-21 | Copilot audit | Corrected normative code examples to match actual implementation. Updated field names, types, enum members, file paths, and model definitions to reflect codebase as of commit 8045faa. |
