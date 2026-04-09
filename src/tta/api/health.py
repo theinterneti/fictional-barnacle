@@ -10,6 +10,7 @@ from typing import Any
 import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from tta import __version__
 
@@ -23,8 +24,6 @@ CRITICAL_SERVICES: frozenset[str] = frozenset({"postgres"})
 async def _check_postgres(request: Request) -> str:
     """Check PostgreSQL connectivity."""
     async with request.app.state.pg() as session:
-        from sqlalchemy import text
-
         await session.execute(text("SELECT 1"))
     return "ok"
 
@@ -61,7 +60,7 @@ async def _run_checks(
             checks[name] = await check_fn(request)
         except Exception:
             checks[name] = "unavailable"
-            log.warning("health_check_failed", service=name)
+            log.warning("health_check_failed", service=name, exc_info=True)
     return checks
 
 
@@ -71,6 +70,10 @@ def _derive_status(checks: dict[str, str]) -> str:
     - "unhealthy" if any critical service (Postgres) is unavailable
     - "degraded" if any non-critical service is unavailable
     - "healthy" otherwise
+
+    TODO: incorporate circuit-breaker states — a tripped LLM breaker
+    should surface as "degraded" even if the LLM health-check hasn't
+    failed yet.
     """
     for svc, status in checks.items():
         if status == "unavailable" and svc in CRITICAL_SERVICES:

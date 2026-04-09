@@ -159,8 +159,8 @@ def _build_429_response(result: RateLimitResult, correlation_id: str) -> JSONRes
         status_code=429,
         content={
             "error": {
-                "code": "RATE_LIMITED",
-                "message": "Too many requests. Please try again later.",
+                "code": "rate_limited",
+                "message": f"Too many requests. Retry after {result.retry_after}s.",
                 "details": None,
                 "correlation_id": correlation_id,
                 "retry_after_seconds": result.retry_after,
@@ -178,7 +178,7 @@ def _build_cooldown_response(
         status_code=429,
         content={
             "error": {
-                "code": "RATE_LIMITED",
+                "code": "rate_limited",
                 "message": (
                     "Too many requests. Temporarily blocked due to suspicious activity."
                 ),
@@ -187,6 +187,8 @@ def _build_cooldown_response(
                 "retry_after_seconds": remaining,
             }
         },
+        # X-RateLimit-* headers intentionally omitted for abuse cooldowns:
+        # rate-limit counters are per-endpoint but cooldowns are per-identity.
         headers={"Retry-After": str(remaining)},
     )
 
@@ -260,7 +262,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         try:
             result = await limiter.check(key, limit, 60)
         except Exception:
-            log.warning("rate_limiter_error", key=key, group=group)
+            # Fail open: if Redis is down, allow request rather than reject.
+            # An in-memory fallback would add complexity here and only protect
+            # a single worker — accept the brief gap and log for investigation.
+            log.warning("rate_limiter_error", key=key, group=group, exc_info=True)
             return await call_next(request)
 
         if not result.allowed:

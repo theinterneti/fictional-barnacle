@@ -128,8 +128,32 @@ async def validation_error_handler(
     )
 
     # Pydantic V2 errors() can contain non-serializable ctx values
-    # (e.g. ValueError objects). Strip ctx to guarantee safe JSON.
-    safe_errors = [{k: v for k, v in e.items() if k != "ctx"} for e in exc.errors()]
+    # (e.g. ValueError objects). Allowlist safe scalar ctx keys only.
+    _SAFE_CTX_KEYS = {
+        "limit_value",
+        "min_length",
+        "max_length",
+        "expected",
+        "ge",
+        "le",
+        "gt",
+        "lt",
+    }
+
+    def _clean_error(e: dict) -> dict:
+        out = {k: v for k, v in e.items() if k != "ctx"}
+        ctx = e.get("ctx")
+        if isinstance(ctx, dict):
+            safe = {
+                k: v
+                for k, v in ctx.items()
+                if k in _SAFE_CTX_KEYS and isinstance(v, (int, float, str, bool))
+            }
+            if safe:
+                out["ctx"] = safe
+        return out
+
+    safe_errors = [_clean_error(e) for e in exc.errors()]
     return JSONResponse(
         status_code=422,
         content=_build_envelope(
@@ -146,14 +170,14 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     request_id = getattr(request.state, "request_id", "unknown")
     logger = structlog.get_logger()
 
-    # FR-23.06 + FR-23.07: structured ERROR log with exception details
+    # FR-23.06 + FR-23.07: structured ERROR log with exception details.
+    # Log exception type only — str(exc) may contain PII (e.g. user input).
     logger.error(
         "unhandled_error",
         error_code="INTERNAL_ERROR",
         error_category="internal_error",
         status_code=500,
         exception_type=type(exc).__name__,
-        exception_message=str(exc),
         stack_trace=traceback.format_exc(),
         **_request_context(request),
     )
@@ -161,7 +185,8 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     settings = get_settings()
     details: dict | None = None
     if settings.environment == Environment.DEVELOPMENT:
-        details = {"exception": f"{type(exc).__name__}: {exc}"}
+        # Show type only — not str(exc) which may contain user input / PII
+        details = {"exception_type": type(exc).__name__}
     return JSONResponse(
         status_code=500,
         content=_build_envelope(

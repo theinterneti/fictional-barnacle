@@ -194,7 +194,7 @@ class TestUnhandledErrorHandler:
             resp = c.get("/unhandled")
         assert resp.status_code == 500
         body = resp.json()
-        assert body["error"]["details"] == {"exception": "RuntimeError: boom"}
+        assert body["error"]["details"] == {"exception_type": "RuntimeError"}
 
 
 class TestStructuredErrorLogging:
@@ -271,7 +271,6 @@ class TestStructuredErrorLogging:
         assert log["error_category"] == "internal_error"
         assert log["status_code"] == 500
         assert log["exception_type"] == "RuntimeError"
-        assert log["exception_message"] == "boom"
         assert "Traceback" in str(log["stack_trace"])
         assert log["request_method"] == "GET"
         assert log["request_path"] == "/unhandled"

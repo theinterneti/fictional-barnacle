@@ -243,7 +243,11 @@ async def app(integration_settings: Settings) -> AsyncIterator[Any]:
             await _r.flushdb()  # type: ignore[misc]
             await _r.aclose()
         except Exception:
-            pass  # Redis unavailable — tests will skip later
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Redis flushdb failed during test setup", exc_info=True
+            )
 
     application = create_app(integration_settings)
     async with application.router.lifespan_context(application):

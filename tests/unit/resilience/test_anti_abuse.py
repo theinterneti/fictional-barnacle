@@ -33,16 +33,16 @@ class TestCalculateCooldown:
         )
 
     def test_first_cooldown_is_base(self) -> None:
-        # count == threshold → excess = 0 → base × 2^0 = base
-        assert _calculate_cooldown(3, self.config, 86400) == 120
+        # count == threshold + 1 (first trigger) → excess = 0 → base × 2^0
+        assert _calculate_cooldown(4, self.config, 86400) == 120
 
     def test_second_cooldown_doubles(self) -> None:
-        # count == threshold + 1 → base × 2^1 = 240
-        assert _calculate_cooldown(4, self.config, 86400) == 240
+        # count == threshold + 2 → excess = 1 → base × 2^1 = 240
+        assert _calculate_cooldown(5, self.config, 86400) == 240
 
     def test_third_cooldown_quadruples(self) -> None:
-        # count == threshold + 2 → base × 2^2 = 480
-        assert _calculate_cooldown(5, self.config, 86400) == 480
+        # count == threshold + 3 → excess = 2 → base × 2^2 = 480
+        assert _calculate_cooldown(6, self.config, 86400) == 480
 
     def test_capped_at_max(self) -> None:
         # Very high violation count should not exceed max_cooldown
@@ -74,9 +74,10 @@ class TestInMemoryAbuseDetector:
     async def test_violation_below_threshold_no_cooldown(
         self, detector: InMemoryAbuseDetector
     ) -> None:
-        """AC-25.6: Violations below threshold don't trigger cooldown."""
-        # Rapid-fire threshold is 3; 2 violations should not trigger
-        for _ in range(2):
+        """AC-25.6: Violations at or below threshold don't trigger cooldown."""
+        # Rapid-fire threshold is 3; 3 violations (at threshold) should not trigger
+        # because the spec says ">threshold" (more than N), not ">=".
+        for _ in range(3):
             result = await detector.record_violation(
                 "ip:1.2.3.4", AbusePattern.RAPID_FIRE
             )
@@ -86,25 +87,25 @@ class TestInMemoryAbuseDetector:
         assert status.active is False
 
     @pytest.mark.asyncio
-    async def test_rapid_fire_triggers_at_threshold(
+    async def test_rapid_fire_triggers_above_threshold(
         self, detector: InMemoryAbuseDetector
     ) -> None:
-        """AC-25.8: 3 rate-limit violations in 10 min → cooldown."""
-        for _ in range(2):
+        """AC-25.8: >3 rate-limit violations in 10 min → cooldown."""
+        for _ in range(3):
             await detector.record_violation("ip:1.2.3.4", AbusePattern.RAPID_FIRE)
 
         result = await detector.record_violation("ip:1.2.3.4", AbusePattern.RAPID_FIRE)
         assert result.cooldown_applied is True
         assert result.cooldown_seconds == 120  # base cooldown
-        assert result.violation_count == 3
-        assert result.escalated is False  # count == threshold, not beyond
+        assert result.violation_count == 4
+        assert result.escalated is False  # count == threshold + 1, first trigger
 
     @pytest.mark.asyncio
     async def test_cooldown_blocks_identity(
         self, detector: InMemoryAbuseDetector
     ) -> None:
         """AC-25.6: Cooldown blocks the abusing identity."""
-        for _ in range(3):
+        for _ in range(4):
             await detector.record_violation("ip:1.2.3.4", AbusePattern.RAPID_FIRE)
 
         status = await detector.check_cooldown("ip:1.2.3.4")
@@ -117,8 +118,8 @@ class TestInMemoryAbuseDetector:
         self, detector: InMemoryAbuseDetector
     ) -> None:
         """AC-25.7: Repeated violations escalate cooldown duration."""
-        # 4th violation should get base × 2^1 = 240s
-        for _ in range(4):
+        # 5th violation → second trigger, excess=1, base × 2^1 = 240s
+        for _ in range(5):
             result = await detector.record_violation(
                 "ip:1.2.3.4", AbusePattern.RAPID_FIRE
             )
@@ -131,8 +132,8 @@ class TestInMemoryAbuseDetector:
     async def test_credential_stuffing_threshold(
         self, detector: InMemoryAbuseDetector
     ) -> None:
-        """AC-25.6: Credential stuffing detected at 5 failures."""
-        for _ in range(4):
+        """AC-25.6: Credential stuffing detected at >5 failures."""
+        for _ in range(5):
             result = await detector.record_violation(
                 "ip:10.0.0.1", AbusePattern.CREDENTIAL_STUFFING
             )
@@ -143,17 +144,17 @@ class TestInMemoryAbuseDetector:
         )
         assert result.cooldown_applied is True
         assert result.cooldown_seconds == 900  # 15 min base
-        assert result.violation_count == 5
+        assert result.violation_count == 6
 
     @pytest.mark.asyncio
     async def test_different_identities_independent(
         self, detector: InMemoryAbuseDetector
     ) -> None:
         """Different IPs tracked independently."""
-        for _ in range(3):
+        for _ in range(4):
             await detector.record_violation("ip:1.1.1.1", AbusePattern.RAPID_FIRE)
 
-        # 1.1.1.1 should be under cooldown
+        # 1.1.1.1 should be under cooldown (>3 violations)
         s1 = await detector.check_cooldown("ip:1.1.1.1")
         assert s1.active is True
 
@@ -196,6 +197,7 @@ class TestInMemoryAbuseDetector:
                 ),
             },
         )
+        await tiny.record_violation("ip:x", AbusePattern.RAPID_FIRE)
         await tiny.record_violation("ip:x", AbusePattern.RAPID_FIRE)
         status = await tiny.check_cooldown("ip:x")
         assert status.active is True
@@ -293,7 +295,7 @@ class TestAntiAbuseMiddleware:
         )
         assert resp.status_code == 429
         body = resp.json()
-        assert body["error"]["code"] == "RATE_LIMITED"
+        assert body["error"]["code"] == "rate_limited"
         assert "suspicious activity" in body["error"]["message"]
         assert body["error"]["details"]["reason"] == "rapid_fire"
         assert int(resp.headers["retry-after"]) > 0
@@ -322,10 +324,8 @@ class TestAntiAbuseMiddleware:
     def test_three_rate_limits_trigger_cooldown(
         self, app: FastAPI, client: TestClient
     ) -> None:
-        """AC-25.8: 3 rate-limit hits → cooldown applied."""
-        # We need 3 rate-limit 429s. Each token has 3/min limit for turns.
-        # Use 3 different tokens so each gets exactly 1 violation recorded.
-        # Actually, easier: use same token, exhaust, then keep hitting.
+        """AC-25.8: >3 rate-limit hits → cooldown applied."""
+        # We need >3 rate-limit 429s. Each token has 3/min limit for turns.
         headers = {"Authorization": "Bearer tok_cooldown_test"}
 
         # Exhaust: 3 allowed
@@ -333,8 +333,8 @@ class TestAntiAbuseMiddleware:
             resp = client.post("/api/v1/games/g1/turns", headers=headers)
             assert resp.status_code == 200
 
-        # 3 more rejections → 3 RAPID_FIRE violations → cooldown
-        for _ in range(3):
+        # 4 more rejections → 4 RAPID_FIRE violations (>3 threshold) → cooldown
+        for _ in range(4):
             resp = client.post("/api/v1/games/g1/turns", headers=headers)
             assert resp.status_code == 429
 
@@ -364,9 +364,9 @@ class TestAntiAbuseMiddleware:
     def test_five_auth_failures_trigger_cooldown(
         self, app: FastAPI, client: TestClient
     ) -> None:
-        """AC-25.6: 5 auth failures from IP → cooldown."""
-        # 5 × 401 should trigger credential stuffing cooldown
-        for _ in range(5):
+        """AC-25.6: >5 auth failures from IP → cooldown."""
+        # 6 × 401 should trigger credential stuffing cooldown (>5 threshold)
+        for _ in range(6):
             resp = client.get("/api/v1/protected")
             assert resp.status_code == 401
 
@@ -416,7 +416,7 @@ class TestAntiAbuseMiddleware:
 
         body = resp.json()
         err = body["error"]
-        assert err["code"] == "RATE_LIMITED"
+        assert err["code"] == "rate_limited"
         assert err["correlation_id"]  # not empty
         assert err["retry_after_seconds"] > 0
         assert err["details"]["reason"] == "credential_stuffing"

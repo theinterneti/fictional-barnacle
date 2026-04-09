@@ -111,6 +111,11 @@ def with_retry(config: RetryConfig) -> Callable:
                 max=config.max_backoff,
             ),
             retry=_make_retry_filter(config.retryable_exceptions),
+            # reraise=False is intentional: exhausted retries raise RetryError
+            # which the wrapper catches and converts to a structured AppError.
+            # Non-retryable exceptions still propagate directly (tenacity only
+            # wraps in RetryError when the retry predicate matched but attempts
+            # were exhausted).
             reraise=False,
         )
         retried_fn = tenacity_retry(fn)
@@ -130,7 +135,8 @@ def with_retry(config: RetryConfig) -> Callable:
                     if exc.last_attempt.exception()
                     else None,
                 )
-                # FR-23.11: raise AppError — import here to avoid circular dep
+                # FR-23.11: raise AppError — imported here (not top-level) to
+                # break circular dependency: retry → errors → (models) → retry.
                 from tta.api.errors import AppError
 
                 raise AppError(
