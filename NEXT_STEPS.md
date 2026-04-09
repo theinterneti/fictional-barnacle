@@ -873,18 +873,18 @@ Key deliverables:
 Key deliverables:
 - **S26 Admin API** — 16 endpoints at `/admin` prefix with token-based auth
   - Player management: list, search, get details, suspend, reinstate
-  - Moderation queue: list flagged content, review (approve/reject with notes)
+  - Moderation queue: list flagged content, review (dismiss/warn/suspend_player)
   - Rate limit/abuse: reset player rate limit, unblock IP
   - Audit log: append-only with composite cursor pagination + date-range filtering
   - System health & Prometheus metrics exposure
-  - Admin auth via `X-Admin-Token` with timing-safe comparison (`secrets.compare_digest`)
+  - Admin auth via `Authorization: Bearer <key>` matching `TTA_ADMIN_API_KEY` with timing-safe comparison (`secrets.compare_digest`)
 - **S28 Performance controls**
   - LLM semaphore: bounded queue + timeout, Prometheus gauges, asyncio.Lock for race safety
   - DB connection pool tuning: pool_size, max_overflow, timeout, recycle, pre_ping
   - Latency budget middleware: pure ASGI, `asyncio.timeout()` for real request abort
   - 7 new Prometheus gauges for pool + semaphore observability
 - **Migration 005**: player status/suspended_reason columns + audit_log table
-- **Player enforcement**: `require_active_player` on create_game, submit_turn, save_game, resume_game
+- **Player enforcement**: `require_active_player` on create_game and submit_turn
 - 20 new tests (12 admin, 5 semaphore, 3 latency middleware)
 - All 16 Copilot code review comments addressed and resolved
 
