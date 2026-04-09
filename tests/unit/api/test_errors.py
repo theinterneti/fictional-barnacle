@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from tta.api.errors import (
     AppError,
     _request_context,
+    _sanitize_traceback,
     app_error_handler,
     unhandled_error_handler,
     validation_error_handler,
@@ -70,6 +71,12 @@ def app() -> FastAPI:
         request.state.request_id = "test-req-id"
         msg = "boom"
         raise RuntimeError(msg)
+
+    @app.get("/unhandled-pii")
+    async def trigger_unhandled_pii(request: Request) -> None:
+        request.state.request_id = "test-req-id"
+        msg = "Failed to process user@secret.com with token abc123"
+        raise ValueError(msg)
 
     return app
 
@@ -167,6 +174,33 @@ class TestValidationErrorHandler:
         assert body["error"]["code"] == "VALIDATION_ERROR"
         assert "errors" in body["error"]["details"]
         assert body["error"]["retry_after_seconds"] is None
+
+    def test_strips_input_field_from_errors(self, client: TestClient) -> None:
+        """PR #76 review debt: validation errors must not leak user input."""
+        resp = client.post("/validation", json={"name": ""})
+        assert resp.status_code == 422
+        errors = resp.json()["error"]["details"]["errors"]
+        for err in errors:
+            assert "input" not in err, "Pydantic 'input' field leaked to client"
+
+    def test_strips_url_field_from_errors(self, client: TestClient) -> None:
+        """Pydantic V2 'url' field is not useful to clients and stripped."""
+        resp = client.post("/validation", json={"name": ""})
+        assert resp.status_code == 422
+        errors = resp.json()["error"]["details"]["errors"]
+        for err in errors:
+            assert "url" not in err
+
+    def test_preserves_type_loc_msg_fields(self, client: TestClient) -> None:
+        """Essential error fields (type, loc, msg) are preserved."""
+        resp = client.post("/validation", json={"name": ""})
+        assert resp.status_code == 422
+        errors = resp.json()["error"]["details"]["errors"]
+        assert len(errors) >= 1
+        err = errors[0]
+        assert "type" in err
+        assert "loc" in err
+        assert "msg" in err
 
 
 class TestUnhandledErrorHandler:
@@ -327,3 +361,103 @@ class TestRequestContext:
         ctx = _request_context(req)
         assert "game_id" not in ctx
         assert "turn_id" not in ctx
+
+
+class TestSanitizeTraceback:
+    """PR #76 review debt: stack traces must not leak user data."""
+
+    def test_redacts_exception_messages(self) -> None:
+        tb = (
+            "Traceback (most recent call last):\n"
+            '  File "app.py", line 42, in handle\n'
+            "    process(data)\n"
+            "ValueError: user@secret.com is invalid\n"
+        )
+        result = _sanitize_traceback(tb)
+        assert "user@secret.com" not in result
+        assert "ValueError: <redacted>" in result
+
+    def test_preserves_frame_info(self) -> None:
+        tb = (
+            "Traceback (most recent call last):\n"
+            '  File "app.py", line 42, in handle\n'
+            "    process(data)\n"
+            "RuntimeError: sensitive data here\n"
+        )
+        result = _sanitize_traceback(tb)
+        assert "Traceback (most recent call last):" in result
+        assert 'File "app.py", line 42' in result
+        assert "process(data)" in result
+
+    def test_handles_chained_exceptions(self) -> None:
+        tb = (
+            "Traceback (most recent call last):\n"
+            '  File "a.py", line 1, in f\n'
+            "    g()\n"
+            "KeyError: 'secret_key'\n"
+            "\nDuring handling of the above exception:\n\n"
+            "Traceback (most recent call last):\n"
+            '  File "b.py", line 2, in h\n'
+            "    raise RuntimeError(str(e))\n"
+            "RuntimeError: secret_key\n"
+        )
+        result = _sanitize_traceback(tb)
+        assert "KeyError: <redacted>" in result
+        assert "RuntimeError: <redacted>" in result
+        assert "secret_key" not in result
+
+    def test_preserves_bare_exception_type(self) -> None:
+        """Exception lines with no message stay intact."""
+        tb = (
+            "Traceback (most recent call last):\n"
+            '  File "x.py", line 1, in f\n'
+            "    raise StopIteration\n"
+            "StopIteration\n"
+        )
+        result = _sanitize_traceback(tb)
+        assert "StopIteration" in result
+
+    def test_empty_input(self) -> None:
+        assert _sanitize_traceback("") == ""
+        assert _sanitize_traceback("No traceback here") == "No traceback here"
+
+
+class TestStackTraceSanitizationInLogs:
+    """Integration: production logs have sanitized traces, dev preserves them."""
+
+    def test_production_logs_redact_exception_message(
+        self,
+        app: FastAPI,
+        capture_logs: list[dict[str, object]],
+    ) -> None:
+        """Production mode redacts exception messages from stack traces."""
+        mock_settings = type("S", (), {"environment": Environment.PRODUCTION})()
+        with (
+            patch("tta.api.errors.get_settings", return_value=mock_settings),
+            TestClient(app, raise_server_exceptions=False) as c,
+        ):
+            c.get("/unhandled-pii")
+        err_logs = [e for e in capture_logs if e.get("event") == "unhandled_error"]
+        assert len(err_logs) == 1
+        trace = str(err_logs[0]["stack_trace"])
+        assert "Traceback" in trace
+        assert "user@secret.com" not in trace
+        assert "ValueError: <redacted>" in trace
+
+    def test_development_logs_preserve_full_traceback(
+        self,
+        app: FastAPI,
+        capture_logs: list[dict[str, object]],
+    ) -> None:
+        """Development mode preserves full exception messages for debugging."""
+        mock_settings = type("S", (), {"environment": Environment.DEVELOPMENT})()
+        with (
+            patch("tta.api.errors.get_settings", return_value=mock_settings),
+            TestClient(app, raise_server_exceptions=False) as c,
+        ):
+            c.get("/unhandled-pii")
+        err_logs = [e for e in capture_logs if e.get("event") == "unhandled_error"]
+        assert len(err_logs) == 1
+        trace = str(err_logs[0]["stack_trace"])
+        # Dev mode shows full message
+        assert "user@secret.com" in trace

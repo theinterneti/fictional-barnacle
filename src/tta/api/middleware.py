@@ -187,7 +187,7 @@ def _build_429_response(result: RateLimitResult, correlation_id: str) -> JSONRes
 def _build_cooldown_response(
     remaining: int, pattern: str, correlation_id: str
 ) -> JSONResponse:
-    """Return a 429 for an active abuse-detection cooldown."""
+    """Return a 429 for an active abuse-detection cooldown (FR-25.08)."""
     return JSONResponse(
         status_code=429,
         content={
@@ -201,9 +201,12 @@ def _build_cooldown_response(
                 "retry_after_seconds": remaining,
             }
         },
-        # X-RateLimit-* headers intentionally omitted for abuse cooldowns:
-        # rate-limit counters are per-endpoint but cooldowns are per-identity.
-        headers={"Retry-After": str(remaining)},
+        headers={
+            "Retry-After": str(remaining),
+            "X-RateLimit-Limit": "0",
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": str(math.ceil(time.time() + remaining)),
+        },
     )
 
 

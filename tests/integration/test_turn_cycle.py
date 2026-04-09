@@ -16,9 +16,6 @@ import asyncpg
 import httpx
 import pytest
 
-pytestmark = pytest.mark.anyio
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -147,7 +144,7 @@ class TestGameCreation:
         self,
         auth_client: httpx.AsyncClient,
     ) -> None:
-        """POST /games returns 201 with game_id and status=created."""
+        """POST /games returns 201 with game_id and status=active (S27 public state)."""
         resp = await auth_client.post(
             "/api/v1/games",
             json={},
@@ -155,7 +152,7 @@ class TestGameCreation:
         assert resp.status_code == 201
         data = resp.json()["data"]
         assert "game_id" in data
-        assert data["status"] == "created"
+        assert data["status"] == "active"
         assert data["turn_count"] == 0
 
     async def test_unauthenticated_create_rejected(

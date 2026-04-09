@@ -420,3 +420,23 @@ class TestAntiAbuseMiddleware:
         assert err["correlation_id"]  # not empty
         assert err["retry_after_seconds"] > 0
         assert err["details"]["reason"] == "credential_stuffing"
+
+    def test_cooldown_response_includes_ratelimit_headers(
+        self, app: FastAPI, client: TestClient
+    ) -> None:
+        """FR-25.08: Cooldown 429 includes X-RateLimit-* headers."""
+        detector: InMemoryAbuseDetector = app.state.abuse_detector
+        detector._cooldowns["ip:testclient"] = (
+            time.time() + 300,
+            AbusePattern.RAPID_FIRE,
+            5,
+        )
+
+        resp = client.post("/api/v1/games/g1/turns")
+        assert resp.status_code == 429
+
+        assert resp.headers["X-RateLimit-Limit"] == "0"
+        assert resp.headers["X-RateLimit-Remaining"] == "0"
+        reset = int(resp.headers["X-RateLimit-Reset"])
+        now = time.time()
+        assert now < reset <= now + 301  # Unix timestamp within cooldown window
