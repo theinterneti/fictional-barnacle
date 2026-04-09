@@ -24,6 +24,7 @@ from tta.logging import bind_context
 from tta.models.events import (
     ErrorEvent,
     KeepaliveEvent,
+    ModerationEvent,
     NarrativeBlockEvent,
     TurnCompleteEvent,
     TurnStartEvent,
@@ -694,6 +695,21 @@ async def stream_turn(
                 retry_after_seconds=2,
             ).format_sse(counter.next_id())
             return
+
+        # FR-24.06/FR-24.08: emit moderation event before narrative
+        # when content was redirected by the moderation pipeline.
+        if result.status == TurnStatus.moderated:
+            log.info(
+                "sse_moderation_event",
+                turn_id=current_turn_id,
+                safety_flags=result.safety_flags,
+            )
+            yield ModerationEvent(
+                reason=(
+                    "The story has been gently redirected "
+                    "to maintain a supportive experience."
+                ),
+            ).format_sse(counter.next_id())
 
         # Stream the narrative as a complete block
         if result.narrative_output:

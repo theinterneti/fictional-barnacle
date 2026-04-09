@@ -127,6 +127,18 @@ async def run_pipeline(
                         TURN_TOTAL.labels(status="failure").inc()
                         return state
 
+                    # Early return for moderated turns — redirect narrative
+                    # is already set, skip remaining stages (FR-24.06).
+                    if state.status == TurnStatus.moderated:
+                        log.info(
+                            "pipeline_early_exit",
+                            stage=stage_name,
+                            status=state.status,
+                            safety_flags=state.safety_flags,
+                        )
+                        TURN_TOTAL.labels(status="moderated").inc()
+                        return state
+
         except TimeoutError:
             log.error(
                 "pipeline_overall_timeout",

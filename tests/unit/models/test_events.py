@@ -19,8 +19,8 @@ from tta.models.world import WorldChange, WorldChangeType
 class TestEventTypeEnum:
     """EventType enum coverage."""
 
-    def test_has_all_nine_values(self) -> None:
-        assert len(EventType) == 9
+    def test_has_all_ten_values(self) -> None:
+        assert len(EventType) == 10
 
     def test_values(self) -> None:
         expected = {
@@ -33,6 +33,7 @@ class TestEventTypeEnum:
             "keepalive",
             "thinking",
             "still_thinking",
+            "moderation",
         }
         assert {e.value for e in EventType} == expected
 

@@ -19,6 +19,7 @@ class EventType(StrEnum):
     NARRATIVE_BLOCK = "narrative_block"
     WORLD_UPDATE = "world_update"
     TURN_COMPLETE = "turn_complete"
+    MODERATION = "moderation"
     ERROR = "error"
     KEEPALIVE = "keepalive"
 
@@ -86,6 +87,17 @@ class TurnCompleteEvent(SSEEvent):
     model_used: str
     latency_ms: float
     suggested_actions: list[str] = Field(default_factory=list)
+
+
+class ModerationEvent(SSEEvent):
+    """Notifies the client that content was moderated (FR-24.08).
+
+    The ``reason`` field provides a generic, player-safe explanation.
+    Category details are never leaked to the client.
+    """
+
+    event_type: EventType = EventType.MODERATION
+    reason: str
 
 
 class ErrorEvent(SSEEvent):

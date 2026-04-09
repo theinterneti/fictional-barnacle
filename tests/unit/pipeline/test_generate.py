@@ -161,7 +161,7 @@ async def test_post_gen_safety_block_with_redirect() -> None:
     deps = _make_deps(safety_post_gen=post_gen)
     result = await generate_stage(state, deps)
 
-    assert result.status == TurnStatus.complete
+    assert result.status == TurnStatus.moderated
     assert result.narrative_output == "Redirect narrative."
     assert "moderation:graphic_violence" in result.safety_flags
 

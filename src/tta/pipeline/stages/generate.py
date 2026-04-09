@@ -87,10 +87,19 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         )
         # When a redirect narrative is available, deliver it to the
         # player instead of failing the turn outright (AC-24.2).
+        # Status is `moderated` so the SSE emits a ModerationEvent
+        # and the orchestrator early-exits (FR-24.06).
         if safety_post.modified_content:
+            # FR-24.06 item 4: log blocked content for operator review
+            log.warning(
+                "moderation_blocked_output",
+                session_id=str(state.session_id),
+                flags=safety_post.flags,
+                blocked_content_length=len(response.content),
+            )
             return state.model_copy(
                 update={
-                    "status": TurnStatus.complete,
+                    "status": TurnStatus.moderated,
                     "narrative_output": safety_post.modified_content,
                     "safety_flags": safety_post.flags,
                 }

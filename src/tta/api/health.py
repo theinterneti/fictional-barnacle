@@ -46,6 +46,26 @@ async def _check_redis(request: Request) -> str:
     return "ok"
 
 
+async def _check_moderation(request: Request) -> str:
+    """Check content moderation service status (FR-24.15).
+
+    Moderation is non-critical — unavailable → "degraded", not
+    "unhealthy".  When disabled via config, reports "disabled".
+    """
+    settings = request.app.state.settings
+    if not settings.moderation_enabled:
+        return "disabled"
+    hook = getattr(request.app.state, "moderation_hook", None)
+    if hook is None:
+        return "unavailable"
+    # PassthroughHook means moderation is effectively off.
+    from tta.moderation.hook import ModerationHook
+
+    if not isinstance(hook, ModerationHook):
+        return "disabled"
+    return "ok"
+
+
 async def _run_checks(
     request: Request,
 ) -> dict[str, str]:
@@ -55,6 +75,7 @@ async def _run_checks(
         ("postgres", _check_postgres),
         ("neo4j", _check_neo4j),
         ("redis", _check_redis),
+        ("moderation", _check_moderation),
     ]:
         try:
             checks[name] = await check_fn(request)
@@ -118,7 +139,7 @@ async def readiness(request: Request) -> JSONResponse:
     checks = await _run_checks(request)
 
     # "not_configured" is acceptable — service is opt-in.
-    all_ok = all(v in ("ok", "not_configured") for v in checks.values())
+    all_ok = all(v in ("ok", "not_configured", "disabled") for v in checks.values())
 
     status = "ready" if all_ok else "not_ready"
     return JSONResponse(
