@@ -813,25 +813,36 @@ deletion contradiction. **All gaps are now addressed:**
 
 ---
 
-## 12. Wave 9+ Recommendations
+## 12. Wave 9 — Resilience & Safety ✅
 
-With Wave 8 complete and specs S23-S28 written, the specification suite is comprehensive.
-The foundation: full vertical stack, 1021 tests, integration tests, two playtest clients.
+**Completed.** S23 (Error Handling & Resilience) + S25 (Rate Limiting & Anti-Abuse).
+1147 tests, 0 pyright errors. HEAD 5c97d00 on main.
 
-### Wave 9 — Error Handling & Content Safety
+Issues #60–#66 (all closed):
+- #60 Error taxonomy & envelope (S23)
+- #61 Structured error logging & correlation (S23)
+- #62 Retry utilities & circuit breaker (S23)
+- #63 Health endpoint enhancement (S23)
+- #64 Turn atomicity & SSE error events (S23)
+- #65 Rate limiting core — sliding window & middleware (S25)
+- #66 Anti-abuse detection with escalating cooldowns (S25)
 
-Implementation of the new safety-critical specs:
+Key deliverables:
+- 9-category error taxonomy with `correlation_id` envelope
+- Circuit breaker (closed/open/half-open) with per-service config
+- Health endpoint: healthy/degraded/unhealthy with subsystem checks
+- Turn atomicity with concurrent turn rejection (409)
+- SSE error events with standard envelope
+- Sliding window rate limiter (Redis + in-memory fallback)
+- Anti-abuse: rapid-fire + credential stuffing detection, escalating cooldowns
 
-1. **S23 Error Handling** — error taxonomy, circuit breakers, error envelope, turn atomicity
-2. **S24 Content Moderation v1** — input/output filtering, stream interruption, flagging
-3. **Real LLM provider testing** — run against OpenAI/Anthropic in staging
-4. Plan: `plans/resilience-and-safety.md` (S23 + S24 sections)
+## 13. Wave 10+ Recommendations
 
-### Wave 10 — Rate Limiting & Game Management
+### Wave 10 — Content Safety & Game Management
 
-1. **S25 Rate Limiting** — sliding window, per-player/IP limits, anti-abuse detection
+1. **S24 Content Moderation v1** — input/output filtering, stream interruption, flagging
 2. **S27 Save/Load** — game lifecycle, listing, resume, soft delete
-3. Plan: `plans/resilience-and-safety.md` (S25) + `plans/api-and-sessions.md` Part B (S27)
+3. Plan: `plans/resilience-and-safety.md` (S24) + `plans/api-and-sessions.md` Part B (S27)
 
 ### Wave 11 — Admin & Performance
 
