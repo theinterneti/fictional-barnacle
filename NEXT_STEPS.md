@@ -863,7 +863,7 @@ Key deliverables:
 - Auto-save hooks in turn pipeline (metadata in separate transaction)
 - Resume endpoint with context summary, staleness checks, moderated turn inclusion
 - Background title generation (genesis) and summary regeneration (every Nth turn)
-- 4 Alembic migrations: 002 (game lifecycle), 003 (moderation_records), 004 (summary_generated_at)
+- 3 Alembic migrations: 002 (game lifecycle), 003 (moderation_records), 004 (summary_generated_at)
 
 ## 14. Wave 11+ Recommendations
 
