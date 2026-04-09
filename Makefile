@@ -150,3 +150,12 @@ migrate-neo4j: ## Run Neo4j graph migrations
 clean: ## Remove caches and build artifacts
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml
+
+# ---------------------------------------------------------------------------
+# PR Workflow
+# ---------------------------------------------------------------------------
+review-check: ## Check if PR review comments are resolved (PR=<number>)
+	@./scripts/merge-guard.sh $(PR)
+
+merge: ## Merge PR after verifying review comments (PR=<number>)
+	@./scripts/merge-guard.sh --merge $(PR) -- --squash --delete-branch
