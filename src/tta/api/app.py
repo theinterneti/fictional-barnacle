@@ -20,7 +20,7 @@ from tta.api.errors import (
     validation_error_handler,
 )
 from tta.api.health import router as health_router
-from tta.api.middleware import RequestIDMiddleware
+from tta.api.middleware import RateLimitMiddleware, RequestIDMiddleware
 from tta.api.prometheus_middleware import PrometheusMiddleware
 from tta.api.routes.games import router as games_router
 from tta.api.routes.metrics import router as metrics_router
@@ -80,6 +80,20 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.turn_result_store = InMemoryTurnResultStore()
     else:
         app.state.turn_result_store = RedisTurnResultStore(app.state.redis)
+
+    # 2b. Rate limiter (Redis-backed, in-memory fallback — S25 §3)
+    from tta.resilience.rate_limiter import (
+        InMemoryRateLimiter,
+        RedisRateLimiter,
+    )
+
+    try:
+        await app.state.redis.ping()  # type: ignore[misc]
+        app.state.rate_limiter = RedisRateLimiter(app.state.redis)
+        log.info("rate_limiter_redis")
+    except Exception:
+        app.state.rate_limiter = InMemoryRateLimiter()
+        log.warning("rate_limiter_fallback_inmemory")
 
     # 3. Prompt registry
     from tta.prompts.loader import FilePromptRegistry
@@ -226,6 +240,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PrometheusMiddleware)
 
