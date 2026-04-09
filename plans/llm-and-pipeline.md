@@ -141,13 +141,11 @@ receives a complete response.
 ```python
 class LLMResponse(BaseModel):
     """Uniform response envelope (FR-07.02)."""
-    text: str
-    token_count: TokenCount
+    content: str                   # Generated text
     model_used: str                # Actual model that served the request
-    latency_ms: int
-    tier_used: Literal["primary", "fallback", "last_resort"]
-    trace_id: str                  # Langfuse generation ID
-    cost_usd: float                # Computed from tokens × pricing
+    token_count: TokenCount
+    latency_ms: float              # Pipeline-measured latency
+    tier_used: Literal["primary", "fallback"]
 
 class TokenCount(BaseModel):
     prompt: int
@@ -161,7 +159,6 @@ class ModelRoleConfig(BaseModel):
     """Per-role model configuration (FR-07.04)."""
     primary_model: str             # e.g. "anthropic/claude-sonnet-4-20250514"
     fallback_model: str | None     # e.g. "anthropic/claude-haiku-4-20250514"
-    last_resort_model: str | None  # e.g. None (use graceful failure)
 
     # Generation parameter defaults (FR-07.31)
     temperature: float = 0.8
@@ -1239,3 +1236,11 @@ All settings via environment variables (loaded by `Settings` in system.md §7.4)
 | `TTA_SSE_WORD_DELAY_MS` | `30` | Delay between SSE word tokens |
 | `TTA_CONTEXT_HISTORY_LIMIT` | `10` | Conversation exchanges to retrieve |
 | `TTA_CONTEXT_EVENTS_LIMIT` | `5` | Recent world events to retrieve |
+
+---
+
+## Changelog
+
+| Date | Author | Description |
+|------|--------|-------------|
+| 2025-07-21 | Copilot audit | Corrected normative code examples to match actual implementation. Updated field names, types, enum members, file paths, and model definitions to reflect codebase as of commit 8045faa. |

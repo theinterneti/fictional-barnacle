@@ -12,12 +12,12 @@ from typing import Any
 
 import yaml
 from jinja2 import (
-    Environment,
     FileSystemLoader,
     StrictUndefined,
     TemplateSyntaxError,
     UndefinedError,
 )
+from jinja2.sandbox import SandboxedEnvironment
 
 from tta.prompts.registry import PromptTemplate, RenderedPrompt
 
@@ -141,13 +141,13 @@ class FilePromptRegistry:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _create_jinja_env(self) -> Environment:
-        """Build a Jinja2 environment with fragment search path."""
+    def _create_jinja_env(self) -> SandboxedEnvironment:
+        """Build a sandboxed Jinja2 environment with fragment search path."""
         search_paths: list[str] = [str(self._templates_dir)]
         if self._fragments_dir and self._fragments_dir.is_dir():
             search_paths.append(str(self._fragments_dir))
 
-        return Environment(
+        return SandboxedEnvironment(
             loader=FileSystemLoader(search_paths),
             autoescape=False,
             undefined=StrictUndefined,

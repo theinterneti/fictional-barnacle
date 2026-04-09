@@ -36,28 +36,28 @@ from dataclasses import dataclass
 
 
 class ErrorCategory(StrEnum):
-    VALIDATION = "validation"
-    AUTHENTICATION = "authentication"
-    AUTHORIZATION = "authorization"
+    INPUT_INVALID = "input_invalid"
+    AUTH_REQUIRED = "auth_required"
+    FORBIDDEN = "forbidden"
     NOT_FOUND = "not_found"
     CONFLICT = "conflict"
     RATE_LIMITED = "rate_limited"
     LLM_FAILURE = "llm_failure"
     SERVICE_UNAVAILABLE = "service_unavailable"
-    INTERNAL = "internal"
+    INTERNAL_ERROR = "internal_error"
 
 
 # Category → HTTP status mapping
 CATEGORY_STATUS: dict[ErrorCategory, int] = {
-    ErrorCategory.VALIDATION: 422,
-    ErrorCategory.AUTHENTICATION: 401,
-    ErrorCategory.AUTHORIZATION: 403,
+    ErrorCategory.INPUT_INVALID: 400,
+    ErrorCategory.AUTH_REQUIRED: 401,
+    ErrorCategory.FORBIDDEN: 403,
     ErrorCategory.NOT_FOUND: 404,
     ErrorCategory.CONFLICT: 409,
     ErrorCategory.RATE_LIMITED: 429,
     ErrorCategory.LLM_FAILURE: 502,
     ErrorCategory.SERVICE_UNAVAILABLE: 503,
-    ErrorCategory.INTERNAL: 500,
+    ErrorCategory.INTERNAL_ERROR: 500,
 }
 
 
@@ -288,48 +288,48 @@ LLM Generate → Buffer → Moderate → Stream to Player
 ### 2.2 — Content Classifier
 
 ```python
-# src/tta/moderation/classifier.py
+# src/tta/moderation/models.py
 
 from enum import StrEnum
 
 
 class ContentCategory(StrEnum):
-    REAL_WORLD_VIOLENCE = "real_world_violence"
+    SAFE = "safe"
+    MILD_VIOLENCE = "mild_violence"
+    GRAPHIC_VIOLENCE = "graphic_violence"
+    SEXUAL_CONTENT = "sexual_content"
     SELF_HARM = "self_harm"
-    CSAM = "csam"
     HATE_SPEECH = "hate_speech"
-    REAL_PERSON_HARM = "real_person_harm"
-    ILLEGAL_INSTRUCTION = "illegal_instruction"
-    SEXUAL_EXPLICIT = "sexual_explicit"
-    SUBSTANCE_GLORIFICATION = "substance_glorification"
-    PERSONAL_DATA_LEAK = "personal_data_leak"
-    HALLUCINATED_REAL_ENTITY = "hallucinated_real_entity"
+    DANGEROUS_ACTIVITY = "dangerous_activity"
+    PERSONAL_INFO = "personal_info"
+    OFF_TOPIC = "off_topic"
+    PROMPT_INJECTION = "prompt_injection"
 
 
-class ModerationAction(StrEnum):
+class ModerationVerdict(StrEnum):
     PASS = "pass"
     FLAG = "flag"
     BLOCK = "block"
 
 
 # Non-overridable categories (always block)
-ALWAYS_BLOCK = frozenset({
-    ContentCategory.CSAM,
+ALWAYS_BLOCK: frozenset[ContentCategory] = frozenset({
+    ContentCategory.GRAPHIC_VIOLENCE,
+    ContentCategory.SEXUAL_CONTENT,
     ContentCategory.SELF_HARM,
-    ContentCategory.REAL_WORLD_VIOLENCE,
     ContentCategory.HATE_SPEECH,
-    ContentCategory.REAL_PERSON_HARM,
-    ContentCategory.ILLEGAL_INSTRUCTION,
+    ContentCategory.DANGEROUS_ACTIVITY,
+    ContentCategory.PROMPT_INJECTION,
 })
 
 
-@dataclass
-class ModerationResult:
-    action: ModerationAction
-    categories_detected: list[ContentCategory]
+class ModerationResult(BaseModel):
+    verdict: ModerationVerdict
+    category: ContentCategory
     confidence: float  # 0.0 - 1.0
-    content_hash: str  # SHA-256 of inspected content
-    replacement_text: str | None = None
+    reason: str
+    content_hash: str = ""
+    flags: list[str] = []
 ```
 
 ### 2.3 — Moderation Strategies
@@ -661,3 +661,11 @@ This plan spans multiple implementation waves:
 | Wave 11 | Rate limiting | S25 | Middleware, Redis counters, anti-abuse |
 
 Each wave produces a PR-ready increment that can be independently tested and deployed.
+
+---
+
+## Changelog
+
+| Date | Author | Description |
+|------|--------|-------------|
+| 2025-07-21 | Copilot audit | Corrected normative code examples to match actual implementation. Updated field names, types, enum members, file paths, and model definitions to reflect codebase as of commit 8045faa. |
