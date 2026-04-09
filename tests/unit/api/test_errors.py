@@ -1,8 +1,12 @@
 """Tests for tta.api.errors — error types and exception handlers."""
 
+from __future__ import annotations
+
+from collections.abc import Generator
 from unittest.mock import patch
 
 import pytest
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
@@ -10,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from tta.api.errors import (
     AppError,
+    _request_context,
     app_error_handler,
     unhandled_error_handler,
     validation_error_handler,
@@ -44,6 +49,17 @@ def app() -> FastAPI:
             {"handle": "Zara"},
         )
 
+    @app.get("/app-error-with-context")
+    async def trigger_app_error_with_ctx(request: Request) -> None:
+        request.state.request_id = "test-req-id"
+        request.state.player_id = "player-42"
+        request.state.game_id = "game-7"
+        raise AppError(
+            ErrorCategory.NOT_FOUND,
+            "GAME_NOT_FOUND",
+            "Game not found.",
+        )
+
     @app.post("/validation")
     async def trigger_validation(request: Request, item: Item) -> dict:
         request.state.request_id = "test-req-id"
@@ -56,6 +72,13 @@ def app() -> FastAPI:
         raise RuntimeError(msg)
 
     return app
+
+
+@pytest.fixture()
+def capture_logs() -> Generator[list[dict[str, object]], None, None]:
+    """Capture structlog output for assertion."""
+    with structlog.testing.capture_logs() as logs:
+        yield logs
 
 
 @pytest.fixture()
@@ -172,3 +195,136 @@ class TestUnhandledErrorHandler:
         assert resp.status_code == 500
         body = resp.json()
         assert body["error"]["details"] == {"exception": "RuntimeError: boom"}
+
+
+class TestStructuredErrorLogging:
+    """AC-23.2: Error handlers emit structured log events with FR-23.06 fields."""
+
+    def test_app_error_logs_structured_fields(
+        self,
+        app: FastAPI,
+        capture_logs: list[dict[str, object]],
+    ) -> None:
+        """FR-23.06: app errors log error_code, category, status, correlation_id."""
+        with TestClient(app) as c:
+            c.get("/app-error")
+        err_logs = [e for e in capture_logs if e.get("event") == "app_error"]
+        assert len(err_logs) == 1
+        log = err_logs[0]
+        assert log["error_code"] == "HANDLE_ALREADY_TAKEN"
+        assert log["error_category"] == "conflict"
+        assert log["status_code"] == 409
+        assert log["correlation_id"] == "test-req-id"
+        assert log["request_method"] == "GET"
+        assert log["request_path"] == "/app-error"
+        assert log["player_id"] == "anonymous"
+        assert log["log_level"] == "warning"
+
+    def test_app_error_logs_player_and_game_ids(
+        self,
+        app: FastAPI,
+        capture_logs: list[dict[str, object]],
+    ) -> None:
+        """FR-23.06: player_id and game_id logged when available."""
+        with TestClient(app) as c:
+            c.get("/app-error-with-context")
+        err_logs = [e for e in capture_logs if e.get("event") == "app_error"]
+        assert len(err_logs) == 1
+        log = err_logs[0]
+        assert log["player_id"] == "player-42"
+        assert log["game_id"] == "game-7"
+
+    def test_validation_error_logs_structured_fields(
+        self,
+        app: FastAPI,
+        capture_logs: list[dict[str, object]],
+    ) -> None:
+        """FR-23.06: validation errors logged as structured warnings."""
+        with TestClient(app) as c:
+            c.post("/validation", json={"name": ""})
+        err_logs = [e for e in capture_logs if e.get("event") == "validation_error"]
+        assert len(err_logs) == 1
+        log = err_logs[0]
+        assert log["error_code"] == "VALIDATION_ERROR"
+        assert log["error_category"] == "input_invalid"
+        assert log["status_code"] == 422
+        assert log["request_method"] == "POST"
+        assert log["request_path"] == "/validation"
+        assert log["log_level"] == "warning"
+
+    def test_unhandled_error_logs_exception_fields(
+        self,
+        app: FastAPI,
+        capture_logs: list[dict[str, object]],
+    ) -> None:
+        """FR-23.07: unhandled errors include exception_type, message, stack_trace."""
+        mock_settings = type("S", (), {"environment": Environment.PRODUCTION})()
+        with (
+            patch("tta.api.errors.get_settings", return_value=mock_settings),
+            TestClient(app, raise_server_exceptions=False) as c,
+        ):
+            c.get("/unhandled")
+        err_logs = [e for e in capture_logs if e.get("event") == "unhandled_error"]
+        assert len(err_logs) == 1
+        log = err_logs[0]
+        assert log["error_code"] == "INTERNAL_ERROR"
+        assert log["error_category"] == "internal_error"
+        assert log["status_code"] == 500
+        assert log["exception_type"] == "RuntimeError"
+        assert log["exception_message"] == "boom"
+        assert "Traceback" in str(log["stack_trace"])
+        assert log["request_method"] == "GET"
+        assert log["request_path"] == "/unhandled"
+        assert log["log_level"] == "error"
+
+    def test_error_logs_contain_no_pii(
+        self,
+        app: FastAPI,
+        capture_logs: list[dict[str, object]],
+    ) -> None:
+        """FR-23.08: error logs contain IDs only, never data values."""
+        with TestClient(app) as c:
+            c.get("/app-error")
+        err_logs = [e for e in capture_logs if e.get("event") == "app_error"]
+        log = err_logs[0]
+        # Error details (handle: Zara) must NOT leak into logs
+        pii_fields = {"player_input", "turn_content", "narrative_text", "email"}
+        assert not pii_fields.intersection(log.keys())
+
+
+class TestRequestContext:
+    """Unit tests for _request_context helper."""
+
+    def _make_request(self, **state_attrs: object) -> Request:
+        """Build a minimal ASGI request with state attributes."""
+        scope = {"type": "http", "method": "POST", "path": "/test", "headers": []}
+        req = Request(scope)
+        for k, v in state_attrs.items():
+            setattr(req.state, k, v)
+        return req
+
+    def test_extracts_all_ids(self) -> None:
+        req = self._make_request(
+            request_id="req-1",
+            player_id="player-2",
+            game_id="game-3",
+            turn_id="turn-4",
+        )
+        ctx = _request_context(req)
+        assert ctx["correlation_id"] == "req-1"
+        assert ctx["player_id"] == "player-2"
+        assert ctx["game_id"] == "game-3"
+        assert ctx["turn_id"] == "turn-4"
+        assert ctx["request_method"] == "POST"
+        assert ctx["request_path"] == "/test"
+
+    def test_anonymous_player_when_no_player_id(self) -> None:
+        req = self._make_request(request_id="req-1")
+        ctx = _request_context(req)
+        assert ctx["player_id"] == "anonymous"
+
+    def test_omits_missing_optional_ids(self) -> None:
+        req = self._make_request(request_id="req-1")
+        ctx = _request_context(req)
+        assert "game_id" not in ctx
+        assert "turn_id" not in ctx
