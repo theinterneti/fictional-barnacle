@@ -11,6 +11,7 @@ from fastapi import Depends, Request
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.errors import AppError
+from tta.errors import ErrorCategory
 from tta.models.player import Player
 
 if TYPE_CHECKING:
@@ -39,7 +40,11 @@ async def get_current_player(
     """
     token = _extract_token(request)
     if token is None:
-        raise AppError(401, "AUTH_TOKEN_MISSING", "No session token provided.")
+        raise AppError(
+            ErrorCategory.AUTH_REQUIRED,
+            "AUTH_TOKEN_MISSING",
+            "No session token provided.",
+        )
 
     result = await pg.execute(
         sa.text(
@@ -51,7 +56,9 @@ async def get_current_player(
     row = result.one_or_none()
     if row is None or row.expires_at < datetime.now(UTC):
         raise AppError(
-            401, "AUTH_TOKEN_INVALID", "Session token is invalid or expired."
+            ErrorCategory.AUTH_REQUIRED,
+            "AUTH_TOKEN_INVALID",
+            "Session token is invalid or expired.",
         )
 
     player_result = await pg.execute(
@@ -61,7 +68,9 @@ async def get_current_player(
     player_row = player_result.one_or_none()
     if player_row is None:
         raise AppError(
-            401, "AUTH_TOKEN_INVALID", "Session token is invalid or expired."
+            ErrorCategory.AUTH_REQUIRED,
+            "AUTH_TOKEN_INVALID",
+            "Session token is invalid or expired.",
         )
 
     return Player(
