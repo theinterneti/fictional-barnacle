@@ -865,14 +865,30 @@ Key deliverables:
 - Background title generation (genesis) and summary regeneration (every Nth turn)
 - 3 Alembic migrations: 002 (game lifecycle), 003 (moderation_records), 004 (summary_generated_at)
 
-## 14. Wave 11+ Recommendations
+## 14. Wave 11 — Admin & Performance ✅
 
-### Wave 11 — Admin & Performance
+**Completed.** S26 (Admin & Operator Tooling) + S28 (Performance & Scaling).
+1303 tests, 0 pyright errors. PR #91 squash-merged to main (d855324).
 
-1. **S26 Admin Tooling** — admin API, player management, moderation queue, audit log
-2. **S28 Performance** — latency budgets, connection pools, LLM semaphore, load testing
-3. **CI improvements** — integration tests in CI, container image finalization
-4. Plan: `plans/ops.md` Parts B + C
+Key deliverables:
+- **S26 Admin API** — 16 endpoints at `/admin` prefix with token-based auth
+  - Player management: list, search, get details, suspend, reinstate
+  - Moderation queue: list flagged content, review (dismiss/warn/suspend_player)
+  - Rate limit/abuse: reset player rate limit, unblock IP
+  - Audit log: append-only with composite cursor pagination + date-range filtering
+  - System health & Prometheus metrics exposure
+  - Admin auth via `Authorization: Bearer <key>` matching `TTA_ADMIN_API_KEY` with timing-safe comparison (`secrets.compare_digest`)
+- **S28 Performance controls**
+  - LLM semaphore: bounded queue + timeout, Prometheus gauges, asyncio.Lock for race safety
+  - DB connection pool tuning: pool_size, max_overflow, timeout, recycle, pre_ping
+  - Latency budget middleware: pure ASGI, `asyncio.timeout()` for real request abort
+  - 7 new Prometheus gauges for pool + semaphore observability
+- **Migration 005**: player status/suspended_reason columns + audit_log table
+- **Player enforcement**: `require_active_player` on create_game and submit_turn
+- 20 new tests (12 admin, 5 semaphore, 3 latency middleware)
+- All 16 Copilot code review comments addressed and resolved
+
+## 15. Wave 12+ Recommendations
 
 ### Wave 12 — Production Polish
 
