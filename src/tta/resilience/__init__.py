@@ -1,1 +1,1 @@
-"""Resilience utilities — retry, circuit breaking, rate limiting (S23/S25)."""
+"""Resilience utilities: retry, circuit breaking, rate limiting, anti-abuse."""

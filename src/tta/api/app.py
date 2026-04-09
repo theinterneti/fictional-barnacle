@@ -95,6 +95,29 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.rate_limiter = InMemoryRateLimiter()
         log.warning("rate_limiter_fallback_inmemory")
 
+    # 2c. Anti-abuse detector (Redis-backed, in-memory fallback — S25 §3.5)
+    from tta.resilience.anti_abuse import (
+        InMemoryAbuseDetector,
+        RedisAbuseDetector,
+    )
+
+    if settings.anti_abuse_enabled:
+        max_cd = settings.anti_abuse_max_cooldown
+        try:
+            await app.state.redis.ping()  # type: ignore[misc]
+            app.state.abuse_detector = RedisAbuseDetector(
+                app.state.redis,
+                max_cooldown=max_cd,
+            )
+            log.info("abuse_detector_redis")
+        except Exception:
+            app.state.abuse_detector = InMemoryAbuseDetector(
+                max_cooldown=max_cd,
+            )
+            log.warning("abuse_detector_fallback_inmemory")
+    else:
+        app.state.abuse_detector = None
+
     # 3. Prompt registry
     from tta.prompts.loader import FilePromptRegistry
 
