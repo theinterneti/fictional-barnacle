@@ -208,9 +208,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # 8. Pipeline deps
     from tta.choices.consequence_service import InMemoryConsequenceService
+    from tta.game.summary import ContextSummaryService
     from tta.pipeline.types import PipelineDeps
 
     consequence_svc = InMemoryConsequenceService()
+    app.state.summary_service = ContextSummaryService(model=settings.summary_model)
 
     app.state.pipeline_deps = PipelineDeps(
         llm=app.state.llm_client,

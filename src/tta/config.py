@@ -103,6 +103,12 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         return v
 
+    # Auto-save / resume (S27 FR-27.05–FR-27.15)
+    resume_turn_count: int = 10  # recent turns loaded on resume
+    summary_interval: int = 5  # regen summary every N turns
+    summary_staleness_hours: int = 24  # force regen if older
+    summary_model: str = ""  # lighter model for summaries; empty = use default
+
     # Application
     session_token_ttl: int = 86400
     max_active_games: int = 5

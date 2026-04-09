@@ -92,6 +92,11 @@ class TurnRepository(Protocol):
         self, session_id: UUID, key: UUID
     ) -> dict | None: ...
 
+    async def get_recent_turns(self, session_id: UUID, limit: int = 10) -> list[dict]:
+        """Return the *limit* most recent terminal turns (complete or moderated),
+        oldest-first."""
+        ...
+
 
 class WorldEventRepository(Protocol):
     """Contract for world-event persistence."""

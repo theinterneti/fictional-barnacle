@@ -59,6 +59,7 @@ def _game_row(
     player_id=None,
     status="active",
     world_seed=None,
+    needs_recovery=False,
 ) -> dict[str, Any]:
     return {
         "id": game_id or _GAME_ID,
@@ -68,6 +69,7 @@ def _game_row(
         "world_seed": world_seed or "{}",
         "created_at": _NOW,
         "updated_at": _NOW,
+        "needs_recovery": needs_recovery,
     }
 
 

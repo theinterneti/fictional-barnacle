@@ -30,6 +30,7 @@ class GameSession(BaseModel):
     summary: str | None = Field(default=None, max_length=200)
     turn_count: int = 0
     needs_recovery: bool = False
+    summary_generated_at: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_played_at: datetime | None = None
