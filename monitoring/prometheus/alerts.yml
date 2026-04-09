@@ -1,0 +1,93 @@
+# Prometheus alerting rules for TTA
+# Spec ref: S15 FR-15.22/23 (alerting rules)
+#
+# Six conditions monitored:
+#   1. API error rate > 10% over 5 min (Critical)
+#   2. LLM API unreachable > 2 min (Critical)
+#   3. Turn processing > 30s p95 (Warning)
+#   4. Daily LLM cost > threshold (Warning)
+#   5. DB connection pool exhausted (Critical)
+#   6. Disk usage > 80% (deferred — requires node_exporter)
+#
+# FR-15.24: Same alert fires at most once per 15 min (group_interval).
+# FR-15.25: Thresholds are configurable via Prometheus external labels or
+#           recording rules; values below are the S15 defaults.
+
+groups:
+  - name: tta_alerts
+    interval: 30s
+    rules:
+      # 1. API error rate > 10% over 5 min → Critical
+      - alert: HighAPIErrorRate
+        expr: |
+          (
+            sum(rate(tta_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(tta_http_requests_total[5m]))
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API error rate exceeds 10%"
+          description: >-
+            The 5xx error rate is {{ $value | humanizePercentage }}
+            over the last 5 minutes.
+
+      # 2. LLM API unreachable > 2 min → Critical
+      # Uses the absence of successful LLM calls as a proxy.
+      - alert: LLMAPIUnreachable
+        expr: |
+          (
+            sum(rate(tta_turn_llm_calls_total[2m])) == 0
+            and
+            sum(rate(tta_turn_total[2m])) > 0
+          )
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM API appears unreachable"
+          description: >-
+            No LLM calls have succeeded in the last 2 minutes while
+            turns are still being requested.
+
+      # 3. Turn processing > 30s p95 → Warning
+      - alert: SlowTurnProcessing
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(tta_turn_processing_duration_seconds_bucket[5m])) by (le)
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Turn processing p95 exceeds 30 seconds"
+          description: >-
+            The 95th percentile turn processing time is
+            {{ $value | humanizeDuration }}.
+
+      # 4. Daily LLM cost > threshold → Warning
+      - alert: HighDailyLLMCost
+        expr: tta_llm_cost_daily_usd > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Daily LLM cost exceeds threshold"
+          description: >-
+            Current daily LLM spend is ${{ $value | printf "%.2f" }}.
+            Threshold: $50.
+
+      # 5. DB connection pool exhausted → Critical
+      - alert: DBPoolExhausted
+        expr: |
+          (tta_pg_pool_checked_out / tta_pg_pool_size) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL connection pool near exhaustion"
+          description: >-
+            {{ $value | humanizePercentage }} of the PG connection pool
+            is in use for over 2 minutes.

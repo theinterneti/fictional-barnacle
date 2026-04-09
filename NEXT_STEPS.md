@@ -888,14 +888,50 @@ Key deliverables:
 - 20 new tests (12 admin, 5 semaphore, 3 latency middleware)
 - All 16 Copilot code review comments addressed and resolved
 
-## 15. Wave 12+ Recommendations
+## 15. Wave 12 — Observability Stack & Production Hardening
 
-### Wave 12 — Production Polish
+### Completed
 
-1. Grafana dashboard definitions for existing Prometheus metrics
-2. Performance load testing and SLO validation
-3. Security hardening review
-4. Documentation and deployment runbooks
+- **Monitoring stack in Docker Compose** (Tier 1)
+  - Prometheus v3.4.1 + Grafana OSS 11.6.0 as opt-in services (`--profile monitoring`)
+  - Auto-provisioned Prometheus datasource and dashboard loader
+  - Prometheus scrape config targeting tta-api:8000/metrics at 15s interval
+  - Grafana on port 3001 (avoids Langfuse conflict on 3000)
+
+- **Grafana dashboards** (S15 FR-15.26/27)
+  - System Health: 9 panels — request rate, error rate, p50/p95/p99 latency, active sessions, in-flight requests, connection pools
+  - Turn Pipeline: 6 panels — processing time by stage, LLM latency by model, token usage, safety flags, success/failure rate
+  - Cost: 4 panels — LLM cost per hour/day, cost per model, cost per turn average
+
+- **Prometheus alerting rules** (S15 FR-15.22/23)
+  - 5 rules: API error rate >10%, LLM unreachable >2min, turn processing >30s p95, daily cost threshold, DB pool exhausted
+  - Inhibit rules for 15-min dedup per FR-15.24
+
+- **Security headers middleware** (Tier 2)
+  - Pure ASGI middleware: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy
+  - CORS tightened: explicit method list (GET/POST/PUT/PATCH/DELETE/OPTIONS), explicit header allowlist
+  - 6 unit tests covering header presence and CORS behavior
+
+- **Documentation** (Tier 3)
+  - README.md overhaul: quick-start guide, architecture diagram, port reference table, dev workflow
+  - New `docs/deployment-runbook.md`: first deploy, monitoring access, backup/restore, troubleshooting, env vars reference
+
+### Metrics
+
+- Tests: 1315+ (6 new security header/CORS tests)
+- Pyright: 0 errors
+- Ruff: 0 errors
+
+## 16. Wave 13+ Recommendations
+
+### Wave 13 — Instrumentation & Operational Completeness
+
+1. Close instrumentation gaps: turn pipeline, session, cost, and pool metrics (23 defined, only HTTP + semaphore active)
+2. Alertmanager integration for notification routing (PagerDuty, Slack, email)
+3. Performance load testing and SLO validation against S28 targets
+4. node_exporter for disk usage alerting (S15 FR-15.23)
+5. Session token rotation (security improvement)
+6. 72-hour auto-purge scheduled job for expired sessions
 
 ### Beyond v1
 

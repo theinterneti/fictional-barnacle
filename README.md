@@ -1,50 +1,98 @@
 # Therapeutic Text Adventure (TTA)
 
-An AI-powered narrative game where players make meaningful choices in richly simulated worlds. Stories that are fun to play, compelling to read, and — eventually — worth sharing.
+An AI-powered narrative game where players make meaningful choices in richly
+simulated worlds. Stories that are fun to play, compelling to read, and —
+eventually — worth sharing.
 
-## What This Repo Is
+## Quick Start
 
-This is a **specification-first** repository. Before a single line of game code is written, every feature, boundary, and behavior is documented in a formal spec. Code will be generated from these specs, reviewed against them, and validated by them.
+```bash
+# 1. Clone and enter the repo
+git clone https://github.com/<org>/fictional-barnacle.git
+cd fictional-barnacle
 
-This is **not** the old TTA repo. It's a clean rebuild that questions every assumption from the original, keeps only what earned its place, and uses battle-tested open-source solutions instead of custom infrastructure.
+# 2. Copy the environment template and fill in secrets
+cp .env.example .env
+# Edit .env — at minimum set LITELLM_API_KEY
 
-## Spec-Driven Development (SDD)
+# 3. Start the core stack
+docker compose up -d
 
-We follow a four-phase workflow:
+# 4. (Optional) Start the monitoring stack
+docker compose --profile monitoring up -d
+```
 
-### Phase 1: Specify (What to build)
-Write functional specifications focused on **user journeys, behavior, and success criteria** — not implementation details. Each spec answers: *What does success look like from the player's perspective?*
+The API is ready when `http://localhost:8000/health` returns `{"status": "ok"}`.
 
-### Phase 2: Plan (How to build it)
-Define the technical direction: stack, architecture, constraints. The plan bridges "what" and "how" without bleeding into code. Architecture Decision Records (ADRs) capture *why* choices were made.
+## Architecture
 
-### Phase 3: Tasks (Decomposition)
-Break specs and plans into small, actionable, reviewable chunks. Each task can be implemented and tested in isolation.
+```
+┌──────────────┐      ┌─────────────┐
+│  Web Client  │─────▶│  FastAPI API │:8000
+│  (static/)   │      │  (tta-api)   │
+└──────────────┘      └──────┬───────┘
+                             │
+          ┌──────────────────┼──────────────────┐
+          ▼                  ▼                   ▼
+   ┌────────────┐    ┌────────────┐     ┌────────────┐
+   │ PostgreSQL │    │   Neo4j    │     │   Redis    │
+   │  :5433     │    │  :7474     │     │  :6379     │
+   └────────────┘    └────────────┘     └────────────┘
 
-### Phase 4: Implement & Validate
-Generate code task-by-task. Review incremental changes against the spec. If code deviates → fix the code. If the spec was incomplete → update the spec first, then fix the code.
+Optional services:
+  Langfuse  :3000     Jaeger  :16686
+  Prometheus :9090    Grafana :3001
+```
 
-## Design Principles
+## Service Ports
 
-1. **OSS-first** — Use existing frameworks (LangGraph, FastAPI, LiteLLM, etc.). Custom code is domain-specific only.
-2. **Game first** — This is a game, not a therapy app with a game skin. Fun stories, awesome simulations, satisfying progression.
-3. **Question every assumption** — If the old TTA did it, this repo asks *why* before inheriting it.
-4. **Sleek implementation** — Minimal custom surface area. If it exists in OSS, use it.
-5. **Shareable by design** — Stories worth reading. Architecture supports sharing from day one, even if the feature ships later.
+| Service      | Port  | Purpose                        |
+|-------------|-------|--------------------------------|
+| tta-api     | 8000  | Game API + /metrics endpoint   |
+| PostgreSQL  | 5433  | Player, session, game state    |
+| Neo4j       | 7474  | World graph (browser)          |
+| Neo4j Bolt  | 7687  | World graph (driver)           |
+| Redis       | 6379  | Rate limiting, caching         |
+| Langfuse    | 3000  | LLM observability              |
+| Jaeger      | 16686 | Distributed tracing UI         |
+| Prometheus  | 9090  | Metrics scraping (monitoring)  |
+| Grafana     | 3001  | Dashboards (monitoring)        |
 
-## Spec Index
+## Development
 
-See [`specs/README.md`](specs/README.md) for the complete spec index with status tracking.
+```bash
+# Install dependencies (uses uv, not pip)
+uv sync
 
-## Getting Started
+# Run the quality gate
+make quality          # ruff check + format + pyright
 
-This repo is currently in the **Specify** phase. To contribute:
+# Run tests
+make test             # pytest (1300+ tests)
 
-1. Read the [Project Charter](specs/00-project-charter.md) first
-2. Review the [Spec Template](specs/TEMPLATE.md) for format conventions
-3. Pick a spec, read it, and open issues for gaps or questions
-4. See the [spec index](specs/README.md) for current status
+# Run everything
+make validate-all     # quality + test + spec validators
+```
+
+## Tech Stack
+
+| Layer         | Technology                              |
+|--------------|------------------------------------------|
+| Language     | Python 3.12+, uv                         |
+| API          | FastAPI ≥ 0.135 (native SSE)             |
+| LLM          | LiteLLM ≥ 1.50 (library mode)            |
+| Databases    | PostgreSQL 16+, Neo4j CE 5.x, Redis 7+   |
+| ORM          | SQLModel ≥ 0.0.38                         |
+| Observability| Langfuse v4, structlog, OpenTelemetry     |
+| Quality      | Ruff (88-char), Pyright standard, pytest  |
+
+## Spec-Driven Development
+
+All code is written against formal specifications in `specs/`. See
+[specs/README.md](specs/README.md) for the full inventory of 29 specs across
+6 levels. Technical plans live in `plans/`.
 
 ## License
 
-TBD — to be decided during the Plan phase.
+TBD
+

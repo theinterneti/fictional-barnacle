@@ -1,0 +1,12 @@
+# Grafana datasource provisioning — auto-configures Prometheus
+# Spec ref: S15 FR-15.27 (auto-provisioned on Grafana start)
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://tta-prometheus:9090
+    isDefault: true
+    editable: false

@@ -1,0 +1,171 @@
+{
+  "uid": "tta-system-health",
+  "title": "TTA — System Health",
+  "tags": ["tta"],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_http_requests_total[5m]))",
+          "legendFormat": "total req/s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Error Rate (5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(tta_http_requests_total[5m]))",
+          "legendFormat": "5xx ratio"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.05 },
+              { "color": "red", "value": 0.10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Response Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(tta_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(tta_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(tta_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 4,
+      "title": "In-Flight Requests",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "tta_http_requests_in_flight",
+          "legendFormat": "in-flight"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Active Sessions",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+      "targets": [
+        {
+          "expr": "tta_sessions_active",
+          "legendFormat": "sessions"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "PG Pool Usage",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "tta_pg_pool_checked_out / tta_pg_pool_size",
+          "legendFormat": "utilization"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.7 },
+              { "color": "red", "value": 0.9 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "LLM Semaphore",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        {
+          "expr": "tta_llm_semaphore_active",
+          "legendFormat": "active"
+        },
+        {
+          "expr": "tta_llm_semaphore_waiting",
+          "legendFormat": "queued"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Request Rate by Route",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_http_requests_total[5m])) by (route)",
+          "legendFormat": "{{ route }}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Connection Pools",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        {
+          "expr": "tta_pg_pool_checked_out",
+          "legendFormat": "PG checked out"
+        },
+        {
+          "expr": "tta_pg_pool_overflow",
+          "legendFormat": "PG overflow"
+        },
+        {
+          "expr": "tta_redis_pool_active_connections",
+          "legendFormat": "Redis active"
+        },
+        {
+          "expr": "tta_neo4j_pool_active_connections",
+          "legendFormat": "Neo4j active"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

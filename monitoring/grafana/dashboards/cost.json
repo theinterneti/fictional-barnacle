@@ -1,0 +1,76 @@
+{
+  "uid": "tta-cost",
+  "title": "TTA — LLM Cost",
+  "tags": ["tta"],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Daily LLM Cost",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "tta_llm_cost_daily_usd",
+          "legendFormat": "daily total"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 25 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Cost per Hour",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_turn_llm_cost_usd_sum[1h])) * 3600",
+          "legendFormat": "$/hr"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } }
+    },
+    {
+      "id": 3,
+      "title": "Cost per Model",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_turn_llm_cost_usd_sum[5m])) by (model) * 3600",
+          "legendFormat": "{{ model }} $/hr"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } }
+    },
+    {
+      "id": 4,
+      "title": "Avg Cost per Turn",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_turn_llm_cost_usd_sum[5m])) / sum(rate(tta_turn_llm_cost_usd_count[5m]))",
+          "legendFormat": "avg $/turn"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}
