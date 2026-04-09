@@ -1,4 +1,8 @@
-"""Request-scoped middleware for TTA API."""
+"""Request-scoped middleware for TTA API.
+
+Uses pure ASGI middleware (not BaseHTTPMiddleware) to avoid event loop
+conflicts with asyncpg and to preserve SSE streaming fidelity.
+"""
 
 from __future__ import annotations
 
@@ -8,12 +12,10 @@ import time
 import uuid
 
 import structlog
-from starlette.middleware.base import (
-    BaseHTTPMiddleware,
-    RequestResponseEndpoint,
-)
+from starlette.datastructures import State
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from tta.logging import bind_context, bind_correlation_id, clear_contextvars
 from tta.observability.tracing import current_trace_id
@@ -28,8 +30,8 @@ from tta.resilience.rate_limiter import (
 log = structlog.get_logger()
 
 
-class RequestIDMiddleware(BaseHTTPMiddleware):
-    """Ensure every request/response carries correlation headers.
+class RequestIDMiddleware:
+    """Ensure every request/response carries correlation headers (pure ASGI).
 
     Propagated IDs:
     - X-Request-ID → correlation_id (generated if absent)
@@ -40,40 +42,52 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     completion (S15 §7).
     """
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        scope.setdefault("state", State())
+        request = Request(scope)
+
+        request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
         request.state.request_id = request_id
         bind_correlation_id(request_id)
 
-        # Bind trace_id early so the http_request log includes it.
         trace_id = current_trace_id() or request.headers.get("x-trace-id")
         if trace_id:
             bind_context(trace_id=trace_id)
 
         start = time.monotonic()
         status_code = 500
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+                # Inject correlation headers into the response
+                headers = list(message.get("headers", []))
+                headers.append((b"x-request-id", request_id.encode()))
+                if trace_id:
+                    headers.append((b"x-trace-id", trace_id.encode()))
+                message = {**message, "headers": headers}
+            await send(message)
+
         try:
-            response = await call_next(request)
-            status_code = response.status_code
+            await self.app(scope, receive, send_wrapper)
         finally:
             duration_ms = round((time.monotonic() - start) * 1000, 1)
             log.info(
                 "http_request",
                 method=request.method,
-                path=request.url.path,
+                path=str(request.url.path),
                 status_code=status_code,
                 duration_ms=duration_ms,
             )
             clear_contextvars()
-
-        response.headers["x-request-id"] = request_id
-        if trace_id:
-            response.headers["x-trace-id"] = trace_id
-
-        return response
 
 
 # ---------------------------------------------------------------------------
@@ -193,8 +207,20 @@ def _build_cooldown_response(
     )
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Sliding-window rate limiting with anti-abuse detection (S25 §3).
+def _group_limit(settings: object, group: EndpointGroup) -> int:
+    """Look up the per-minute limit for an endpoint group."""
+    mapping = {
+        EndpointGroup.TURNS: "rate_limit_turns_per_minute",
+        EndpointGroup.GAME_MGMT: "rate_limit_game_mgmt_per_minute",
+        EndpointGroup.AUTH: "rate_limit_auth_per_minute",
+        EndpointGroup.SSE: "rate_limit_sse_per_minute",
+    }
+    attr = mapping.get(group, "rate_limit_game_mgmt_per_minute")
+    return int(getattr(settings, attr, 30))
+
+
+class RateLimitMiddleware:
+    """Sliding-window rate limiting with anti-abuse detection (S25 §3, pure ASGI).
 
     Order of operations per request:
     1. Classify endpoint group (exempt → pass through)
@@ -206,18 +232,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     6. Add rate-limit headers to every response (FR-25.04)
     """
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
         settings = request.app.state.settings
 
         # Bypass when disabled
         if not settings.rate_limit_enabled:
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
         group = _classify_endpoint(request.url.path, request.method)
         if group is None:
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
         ip = request.client.host if request.client else "unknown"
         abuse_identity = f"ip:{ip}"
@@ -237,14 +271,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         pattern=cooldown.pattern,
                         remaining=cooldown.remaining_seconds,
                     )
-                    return _build_cooldown_response(
+                    resp = _build_cooldown_response(
                         cooldown.remaining_seconds,
                         cooldown.pattern or "unknown",
                         correlation_id,
                     )
+                    await resp(scope, receive, send)
+                    return
             except Exception:
                 log.warning("abuse_detector_error", exc_info=True)
-                # Fail open — proceed to rate limit check
 
         # --- Rate limit check ---
         limiter: RateLimiter | None = getattr(request.app.state, "rate_limiter", None)
@@ -255,18 +290,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         token = _extract_session_token(request)
         key, is_player = _rate_limit_key(token, request, group)
 
-        limit = self._group_limit(settings, group)
+        limit = _group_limit(settings, group)
         if not is_player:
             limit *= 2  # per-IP gets 2× headroom
 
         try:
             result = await limiter.check(key, limit, 60)
         except Exception:
-            # Fail open: if Redis is down, allow request rather than reject.
-            # An in-memory fallback would add complexity here and only protect
-            # a single worker — accept the brief gap and log for investigation.
             log.warning("rate_limiter_error", key=key, group=group, exc_info=True)
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
         if not result.allowed:
             log.warning(
@@ -276,7 +309,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=limit,
                 retry_after=result.retry_after,
             )
-            # Record RAPID_FIRE violation for anti-abuse escalation
             if detector is not None:
                 try:
                     vr = await detector.record_violation(
@@ -294,13 +326,28 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 except Exception:
                     log.warning("abuse_record_error", exc_info=True)
 
-            return _build_429_response(result, correlation_id)
+            resp = _build_429_response(result, correlation_id)
+            await resp(scope, receive, send)
+            return
 
-        # --- Forward request to app ---
-        response = await call_next(request)
+        # --- Forward request to app with header injection ---
+        response_status = 500
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal response_status
+            if message["type"] == "http.response.start":
+                response_status = message["status"]
+                # Inject rate-limit headers
+                headers = list(message.get("headers", []))
+                for name, value in _rate_limit_headers(result).items():
+                    headers.append((name.lower().encode(), value.encode()))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
         # Detect auth failures for credential-stuffing pattern (FR-25.10)
-        if response.status_code == 401 and detector is not None:
+        if response_status == 401 and detector is not None:
             try:
                 vr = await detector.record_violation(
                     abuse_identity, AbusePattern.CREDENTIAL_STUFFING
@@ -316,21 +363,3 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     )
             except Exception:
                 log.warning("abuse_record_error", exc_info=True)
-
-        # Add rate-limit headers to every successful response (FR-25.04)
-        for name, value in _rate_limit_headers(result).items():
-            response.headers[name] = value
-
-        return response
-
-    @staticmethod
-    def _group_limit(settings: object, group: EndpointGroup) -> int:
-        """Look up the per-minute limit for an endpoint group."""
-        mapping = {
-            EndpointGroup.TURNS: "rate_limit_turns_per_minute",
-            EndpointGroup.GAME_MGMT: "rate_limit_game_mgmt_per_minute",
-            EndpointGroup.AUTH: "rate_limit_auth_per_minute",
-            EndpointGroup.SSE: "rate_limit_sse_per_minute",
-        }
-        attr = mapping.get(group, "rate_limit_game_mgmt_per_minute")
-        return int(getattr(settings, attr, 30))

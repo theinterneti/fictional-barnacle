@@ -347,11 +347,30 @@ class TestSSEErrorEvents:
         self, client: TestClient, pg: AsyncMock
     ) -> None:
         """Failed turn result emits error event with retry_after_seconds."""
-        from tta.api.turn_results import InMemoryTurnResultStore
         from tta.models.turn import TurnState, TurnStatus
 
         turn_id = uuid4()
-        store = InMemoryTurnResultStore()
+
+        # Deterministic fake store that returns the failed state immediately,
+        # avoiding InMemoryTurnResultStore's asyncio.Event internals which
+        # interact poorly with TestClient's thread-based execution.
+        failed_state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="test",
+            game_state={},
+            status=TurnStatus.failed,
+        )
+
+        class _FakeStore:
+            async def wait_for_result(
+                self, turn_id: str, timeout: float = 30.0
+            ) -> TurnState:
+                return failed_state
+
+            async def publish(self, turn_id: str, result: object) -> None:
+                pass
 
         pg.execute = AsyncMock(
             side_effect=[
@@ -361,21 +380,7 @@ class TestSSEErrorEvents:
         )
 
         app = client.app
-        app.state.turn_result_store = store  # type: ignore[union-attr]
-
-        # Pre-publish a failed result so stream picks it up immediately.
-        # Inject directly into the store's internal dict to avoid
-        # asyncio.get_event_loop() deprecation and cross-loop issues
-        # that cause flaky failures in CI.
-        failed_state = TurnState(
-            session_id=_GAME_ID,
-            turn_id=turn_id,
-            turn_number=1,
-            player_input="test",
-            game_state={},
-            status=TurnStatus.failed,
-        )
-        store._results[str(turn_id)] = failed_state
+        app.state.turn_result_store = _FakeStore()  # type: ignore[union-attr]
 
         resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
 
