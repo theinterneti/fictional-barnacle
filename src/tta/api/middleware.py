@@ -17,6 +17,7 @@ from starlette.responses import JSONResponse, Response
 
 from tta.logging import bind_context, bind_correlation_id, clear_contextvars
 from tta.observability.tracing import current_trace_id
+from tta.resilience.anti_abuse import AbuseDetector, AbusePattern
 from tta.resilience.rate_limiter import (
     EndpointGroup,
     InMemoryRateLimiter,
@@ -169,13 +170,38 @@ def _build_429_response(result: RateLimitResult, correlation_id: str) -> JSONRes
     )
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Sliding-window rate limiting per S25 §3.
+def _build_cooldown_response(
+    remaining: int, pattern: str, correlation_id: str
+) -> JSONResponse:
+    """Return a 429 for an active abuse-detection cooldown."""
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": {
+                "code": "RATE_LIMITED",
+                "message": (
+                    "Too many requests. Temporarily blocked due to suspicious activity."
+                ),
+                "details": {"reason": pattern},
+                "correlation_id": correlation_id,
+                "retry_after_seconds": remaining,
+            }
+        },
+        headers={"Retry-After": str(remaining)},
+    )
 
-    Checks per-player (session token) or per-IP limits depending on
-    whether an authentication token is present.  Rate-limit response
-    headers are added to ALL responses (FR-25.04).  Rejected requests
-    are *not* counted against the window (FR-25.09).
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Sliding-window rate limiting with anti-abuse detection (S25 §3).
+
+    Order of operations per request:
+    1. Classify endpoint group (exempt → pass through)
+    2. Check abuse-detection cooldown by IP (blocked → 429 immediately)
+    3. Run sliding-window rate limit check
+    4. If rejected: record RAPID_FIRE violation, return 429
+    5. Forward to app, then inspect response status:
+       - 401 → record CREDENTIAL_STUFFING violation (any endpoint)
+    6. Add rate-limit headers to every response (FR-25.04)
     """
 
     async def dispatch(
@@ -191,14 +217,39 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if group is None:
             return await call_next(request)
 
-        # Resolve limiter — prefer configured, fallback to in-memory
+        ip = request.client.host if request.client else "unknown"
+        abuse_identity = f"ip:{ip}"
+        correlation_id = getattr(request.state, "request_id", "unknown")
+
+        # --- Anti-abuse cooldown check (S25 §3.5, FR-25.10) ---
+        detector: AbuseDetector | None = getattr(
+            request.app.state, "abuse_detector", None
+        )
+        if detector is not None:
+            try:
+                cooldown = await detector.check_cooldown(abuse_identity)
+                if cooldown.active:
+                    log.warning(
+                        "abuse_cooldown_blocked",
+                        ip_address=ip,
+                        pattern=cooldown.pattern,
+                        remaining=cooldown.remaining_seconds,
+                    )
+                    return _build_cooldown_response(
+                        cooldown.remaining_seconds,
+                        cooldown.pattern or "unknown",
+                        correlation_id,
+                    )
+            except Exception:
+                log.warning("abuse_detector_error", exc_info=True)
+                # Fail open — proceed to rate limit check
+
+        # --- Rate limit check ---
         limiter: RateLimiter | None = getattr(request.app.state, "rate_limiter", None)
         if limiter is None:
-            # Lazy-create a persistent fallback so limits actually accumulate
             limiter = InMemoryRateLimiter()
             request.app.state.rate_limiter = limiter
 
-        # Determine identity and per-group limit
         token = _extract_session_token(request)
         key, is_player = _rate_limit_key(token, request, group)
 
@@ -209,12 +260,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         try:
             result = await limiter.check(key, limit, 60)
         except Exception:
-            # Fail-open: allow the request if the limiter is broken
             log.warning("rate_limiter_error", key=key, group=group)
             return await call_next(request)
 
         if not result.allowed:
-            correlation_id = getattr(request.state, "request_id", "unknown")
             log.warning(
                 "rate_limited",
                 key=key,
@@ -222,9 +271,46 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=limit,
                 retry_after=result.retry_after,
             )
+            # Record RAPID_FIRE violation for anti-abuse escalation
+            if detector is not None:
+                try:
+                    vr = await detector.record_violation(
+                        abuse_identity, AbusePattern.RAPID_FIRE
+                    )
+                    if vr.cooldown_applied:
+                        log.warning(
+                            "abuse_pattern_detected",
+                            pattern=AbusePattern.RAPID_FIRE,
+                            ip_address=ip,
+                            violation_count=vr.violation_count,
+                            cooldown_seconds=vr.cooldown_seconds,
+                            escalated=vr.escalated,
+                        )
+                except Exception:
+                    log.warning("abuse_record_error", exc_info=True)
+
             return _build_429_response(result, correlation_id)
 
+        # --- Forward request to app ---
         response = await call_next(request)
+
+        # Detect auth failures for credential-stuffing pattern (FR-25.10)
+        if response.status_code == 401 and detector is not None:
+            try:
+                vr = await detector.record_violation(
+                    abuse_identity, AbusePattern.CREDENTIAL_STUFFING
+                )
+                if vr.cooldown_applied:
+                    log.warning(
+                        "abuse_pattern_detected",
+                        pattern=AbusePattern.CREDENTIAL_STUFFING,
+                        ip_address=ip,
+                        violation_count=vr.violation_count,
+                        cooldown_seconds=vr.cooldown_seconds,
+                        escalated=vr.escalated,
+                    )
+            except Exception:
+                log.warning("abuse_record_error", exc_info=True)
 
         # Add rate-limit headers to every successful response (FR-25.04)
         for name, value in _rate_limit_headers(result).items():

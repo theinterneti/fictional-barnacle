@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     rate_limit_auth_per_minute: int = 10
     rate_limit_sse_per_minute: int = 5
 
+    # Anti-abuse detection (S25 §3.5)
+    anti_abuse_enabled: bool = True
+    anti_abuse_max_cooldown: int = 86400  # 24 hours cap (FR-25.11)
+
     # Application
     session_token_ttl: int = 86400
     max_active_games: int = 5
