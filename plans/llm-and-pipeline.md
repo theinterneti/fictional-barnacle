@@ -145,7 +145,9 @@ class LLMResponse(BaseModel):
     model_used: str                # Actual model that served the request
     token_count: TokenCount
     latency_ms: float              # Pipeline-measured latency
-    tier_used: Literal["primary", "fallback"]
+    tier_used: Literal["primary", "fallback"] = "primary"
+    trace_id: str = ""             # Langfuse trace ID (empty if tracing disabled)
+    cost_usd: float = 0.0         # Estimated cost from LiteLLM
 
 class TokenCount(BaseModel):
     prompt: int

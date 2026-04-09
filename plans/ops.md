@@ -1761,7 +1761,7 @@ migrations/postgres/
 ```ini
 [alembic]
 script_location = migrations/postgres
-sqlalchemy.url = %(TTA_DB_POSTGRES_URL)s
+sqlalchemy.url = %(TTA_DATABASE_URL)s
 
 [alembic:exclude]
 tables = alembic_version

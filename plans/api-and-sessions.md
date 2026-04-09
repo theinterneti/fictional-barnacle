@@ -692,13 +692,13 @@ is illustrative. The actual implementation uses a connection-scoped counter obje
 | Event | Data shape | When emitted |
 |-------|-----------|--------------|
 | `turn_start` | `{turn_number, timestamp}` | Pipeline begins processing |
-| `thinking` | `{stage}` | Pipeline enters a stage |
-| `still_thinking` | `{stage, elapsed_ms}` | Long-running stage progress |
+| `thinking` | `{}` | Not currently emitted by `/stream`; reserved for future use |
+| `still_thinking` | `{}` | Not currently emitted by `/stream`; reserved for future use |
 | `narrative_token` | `{token}` | Each chunk of narrative text |
-| `narrative_block` | `{turn_id, turn_number, narrative}` | Full narrative (reconnect / non-streaming) |
+| `narrative_block` | `{full_text}` | Full narrative after streaming completes |
 | `world_update` | `{changes: [...]}` | World state changed this turn |
 | `turn_complete` | `{turn_number, model_used, latency_ms}` | Turn finished |
-| `moderation` | `{verdict, categories}` | Content moderation result (S24) |
+| `moderation` | `{reason}` | Content moderation notice — player-safe reason only (S24) |
 | `error` | `{code, message, turn_id?}` | Error during processing |
 | `keepalive` | `{timestamp}` | Keep-alive (every 15s) |
 
@@ -915,36 +915,55 @@ class GameSession(BaseModel):
 ```
 
 ```python
-# src/tta/models/turn.py
+# src/tta/models/turn.py — actual domain types (no single "Turn" class)
 
-class Turn(BaseModel):
-    id: UUID
-    session_id: UUID
-    turn_number: int
-    idempotency_key: UUID | None = None
-    status: str = "processing"             # processing, complete, failed
+class TurnStatus(StrEnum):
+    processing = "processing"
+    complete = "complete"
+    failed = "failed"
+    moderated = "moderated"
+
+class TurnRequest(BaseModel):
     player_input: str
-    parsed_intent: dict | None = None
+    idempotency_key: UUID | None = None
+
+class TurnResult(BaseModel):
+    turn_id: UUID
+    turn_number: int
+    status: TurnStatus
+    narrative: str | None = None
+    model_used: str | None = None
+    latency_ms: float | None = None
+
+class TurnState(BaseModel):
+    """Pipeline-internal state bag (see system.md §4.3)."""
+    session_id: UUID
+    turn_id: UUID | None = None
+    turn_number: int
+    player_input: str
+    game_state: dict
+    parsed_intent: ParsedIntent | None = None
     world_context: dict | None = None
+    narrative_history: list[dict] | None = None
+    generation_prompt: str | None = None
     narrative_output: str | None = None
     model_used: str | None = None
-    latency_ms: int | None = None
-    token_count: dict | None = None
-    created_at: datetime | None = None
-    completed_at: datetime | None = None
+    token_count: TokenCount | None = None
+    delivered: bool = False
+    latency_ms: float | None = None
 ```
 
 ```python
-# src/tta/models/world_event.py
+# src/tta/models/world.py (actual — WorldEvent)
 
 class WorldEvent(BaseModel):
-    id: UUID
+    id: UUID = Field(default_factory=uuid4)
     session_id: UUID
-    turn_id: UUID
+    turn_id: UUID | None = None            # optional — not all events originate from a turn
     event_type: str
     entity_id: str
-    payload: dict
-    created_at: datetime | None = None
+    payload: dict = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 ```
 
 ### 5.2 — Repository Pattern: Async Functions

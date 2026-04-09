@@ -105,14 +105,13 @@ parameters:
   temperature: 0.85
   max_tokens: 1024
   frequency_penalty: 0.3
-variables:
-  required:
-    - player_input
-    - world_context
-  optional:
-    - character_context
-    - tone
-    - recent_events
+required_variables:
+  - player_input
+  - world_context
+optional_variables:
+  - character_context
+  - tone
+  - recent_events
 output_schema: null
 ---
 

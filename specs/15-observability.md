@@ -475,7 +475,7 @@ Scenario: Turn trace contains pipeline stage spans
   Given the application is running with tracing enabled
   When a player turn is processed through all four pipeline stages
   Then a trace is created with a root HTTP span
-  And child spans exist for "input_understanding", "context_assembly", "generation", and "delivery"
+  And child spans exist for "stage_understand", "stage_context", "stage_generate", and "stage_deliver"
   And each LLM span includes "llm.model" and "llm.tokens.prompt" attributes
   And the HTTP response includes an "X-Trace-Id" header
 

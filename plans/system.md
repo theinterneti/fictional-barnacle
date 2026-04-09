@@ -23,7 +23,7 @@
 | **Relational DB** | PostgreSQL | 16+ | Player data, sessions, transcripts. Use everywhere — including dev. No SQLite. |
 | **Session cache** | Redis | 7+ | Active session state, SSE pub/sub. Ephemeral only — never the source of truth. Use `redis.asyncio` (redis-py ≥ 5.0) — NOT standalone `aioredis`. |
 | **ORM / query** | SQLModel | ≥ 0.0.38 | Thin Pydantic+SQLAlchemy 2.0 layer. Raw asyncpg for hot paths if needed. |
-| **Neo4j driver** | neo4j (Python) | ≥ 5.0 | Official async driver (`AsyncGraphDatabase.driver()`). Install `neo4j` package (not deprecated `neo4j-driver`). Use `.read_transaction()`/`.write_transaction()` (v5 API). |
+| **Neo4j driver** | neo4j (Python) | ≥ 6.0 | Official async driver (`AsyncGraphDatabase.driver()`). Install `neo4j` package (not deprecated `neo4j-driver`). Use `session.run()` / `begin_transaction()` (v6 API — `read_transaction`/`write_transaction` removed in v6). |
 | **Resilience** | tenacity | ≥ 9.0 | Retry with backoff. Do NOT build custom retry logic. Circuit-breaker is permitted where spec-required (S23 FR-23.12). |
 | **SQL driver (app)** | asyncpg | latest | Async Postgres driver for FastAPI runtime |
 
@@ -474,11 +474,6 @@ class TurnState(BaseModel):
     # Set by Stage 4: Delivery
     delivered: bool = False
     latency_ms: float | None = None
-
-    # Safety & status
-    safety_flags: list[str] = []
-    status: str = "processing"             # processing, complete, failed
-    created_at: datetime | None = None
 ```
 
 ### 4.4 — LLM Client Interface
