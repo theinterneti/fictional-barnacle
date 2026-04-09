@@ -117,12 +117,23 @@ async def _dispatch_pipeline(
     )
 
 
-# Valid state transitions (plan §6.1)
+# Valid state transitions (plan §6.1, S27 FR-27.01)
 _VALID_TRANSITIONS: dict[str, set[str]] = {
     "created": {"active", "abandoned"},
-    "active": {"paused", "ended"},
+    "active": {"paused", "completed", "ended"},
     "paused": {"active", "expired", "ended"},
     "expired": {"active"},
+}
+
+# Map internal states to S27 public states (active | completed | abandoned)
+_PUBLIC_STATE_MAP: dict[str, str] = {
+    "created": "active",
+    "active": "active",
+    "paused": "active",
+    "completed": "completed",
+    "ended": "abandoned",
+    "expired": "abandoned",
+    "abandoned": "abandoned",
 }
 
 
@@ -139,16 +150,22 @@ class GameData(BaseModel):
     player_id: str
     status: str
     turn_count: int
+    title: str | None = None
+    summary: str | None = None
     created_at: datetime
     updated_at: datetime
+    last_played_at: datetime | None = None
 
 
 class GameSummary(BaseModel):
     game_id: str
     status: str
     turn_count: int
+    title: str | None = None
+    summary: str | None = None
     created_at: datetime
     updated_at: datetime
+    last_played_at: datetime | None = None
 
 
 class PaginationMeta(BaseModel):
@@ -206,6 +223,13 @@ class GameEndedData(BaseModel):
     ended_at: datetime
 
 
+class DeleteGameRequest(BaseModel):
+    confirm: bool = Field(
+        ...,
+        description="Must be true to confirm deletion (S27 FR-27.18).",
+    )
+
+
 # --- Helper functions ---
 
 
@@ -214,6 +238,8 @@ async def _get_owned_game(pg: AsyncSession, game_id: UUID, player: Player) -> sa
     result = await pg.execute(
         sa.text(
             "SELECT id, player_id, status, world_seed, "
+            "title, summary, turn_count, last_played_at, "
+            "deleted_at, needs_recovery, "
             "created_at, updated_at "
             "FROM game_sessions WHERE id = :id"
         ),
@@ -231,7 +257,8 @@ async def _count_active_games(pg: AsyncSession, player_id: UUID) -> int:
         sa.text(
             "SELECT count(*) FROM game_sessions "
             "WHERE player_id = :pid "
-            "AND status IN ('created', 'active', 'paused')"
+            "AND status IN ('created', 'active', 'paused') "
+            "AND deleted_at IS NULL"
         ),
         {"pid": player_id},
     )
@@ -291,14 +318,15 @@ async def create_game(
     await pg.execute(
         sa.text(
             "INSERT INTO game_sessions "
-            "(id, player_id, status, world_seed, created_at, updated_at) "
+            "(id, player_id, status, world_seed, "
+            "created_at, updated_at, last_played_at) "
             "VALUES (:id, :pid, :status, "
-            "cast(:seed AS jsonb), :now, :now)"
+            "cast(:seed AS jsonb), :now, :now, :now)"
         ),
         {
             "id": game_id,
             "pid": player.id,
-            "status": GameStatus.created.value,
+            "status": GameStatus.active.value,
             "seed": json.dumps(world_seed),
             "now": now,
         },
@@ -309,10 +337,11 @@ async def create_game(
         "data": GameData(
             game_id=str(game_id),
             player_id=str(player.id),
-            status=GameStatus.created.value,
+            status=GameStatus.active.value,
             turn_count=0,
             created_at=now,
             updated_at=now,
+            last_played_at=now,
         ).model_dump(mode="json")
     }
 
@@ -323,25 +352,39 @@ async def list_games(
     pg: AsyncSession = Depends(get_pg),
     status: str | None = Query(None),
     cursor: datetime | None = Query(None),
-    limit: int = Query(20, ge=1, le=50),
+    limit: int | None = Query(None, ge=1, le=50),
 ) -> dict:
-    """List the authenticated player's games."""
-    params: dict = {"pid": player.id, "lim": limit + 1}
-    where_clauses = ["gs.player_id = :pid"]
+    """List the authenticated player's games (S27 FR-27.08–FR-27.11)."""
+    settings: Settings = get_settings()
+    effective_limit = min(
+        limit or settings.game_listing_default_size,
+        settings.game_listing_max_size,
+    )
+
+    params: dict = {"pid": player.id, "lim": effective_limit + 1}
+    where_clauses = [
+        "gs.player_id = :pid",
+        "gs.deleted_at IS NULL",
+    ]
 
     if status is not None:
         where_clauses.append("gs.status = :status")
         params["status"] = status
+    else:
+        # Exclude abandoned games by default (S27 FR-27.10)
+        where_clauses.append("gs.status != 'abandoned'")
+
     if cursor is not None:
-        where_clauses.append("gs.updated_at < :cursor")
+        where_clauses.append("gs.last_played_at < :cursor")
         params["cursor"] = cursor
 
     where = " AND ".join(where_clauses)
     result = await pg.execute(
         sa.text(
             f"SELECT gs.id, gs.player_id, gs.status, gs.world_seed, "  # noqa: S608
-            f"gs.created_at, gs.updated_at, "
-            f"coalesce(tc.cnt, 0) AS turn_count "
+            f"gs.title, gs.summary, "
+            f"COALESCE(tc.cnt, 0) AS turn_count, "
+            f"gs.created_at, gs.updated_at, gs.last_played_at "
             f"FROM game_sessions gs "
             f"LEFT JOIN ("
             f"  SELECT session_id, count(*) AS cnt "
@@ -349,26 +392,34 @@ async def list_games(
             f"  GROUP BY session_id"
             f") tc ON tc.session_id = gs.id "
             f"WHERE {where} "
-            f"ORDER BY gs.updated_at DESC LIMIT :lim"
+            f"ORDER BY gs.last_played_at DESC NULLS LAST "
+            f"LIMIT :lim"
         ),
         params,
     )
     rows = result.all()
-    has_more = len(rows) > limit
-    items = rows[:limit]
+    has_more = len(rows) > effective_limit
+    items = rows[:effective_limit]
 
     games = [
         GameSummary(
             game_id=str(r.id),
-            status=r.status,
-            turn_count=r.turn_count,
+            status=_PUBLIC_STATE_MAP.get(r.status or "", r.status or ""),
+            turn_count=r.turn_count or 0,
+            title=r.title,
+            summary=r.summary,
             created_at=r.created_at,
             updated_at=r.updated_at,
+            last_played_at=r.last_played_at,
         ).model_dump(mode="json")
         for r in items
     ]
 
-    next_cursor = items[-1].updated_at.isoformat() if has_more and items else None
+    next_cursor = (
+        items[-1].last_played_at.isoformat()
+        if has_more and items and items[-1].last_played_at
+        else None
+    )
 
     return {
         "data": games,
@@ -427,8 +478,13 @@ async def get_game_state(
             "player_id": str(row.player_id),
             "status": row.status,
             "turn_count": turn_count,
+            "title": row.title,
+            "summary": row.summary,
             "created_at": row.created_at.isoformat(),
             "updated_at": row.updated_at.isoformat(),
+            "last_played_at": (
+                row.last_played_at.isoformat() if row.last_played_at else None
+            ),
             "recent_turns": recent,
             "processing_turn": (str(processing_row.id) if processing_row else None),
         }
@@ -513,11 +569,19 @@ async def submit_turn(
         },
     )
 
-    # Transition created → active on first turn
+    # Transition created → active on first turn; always update last_played_at
     if row.status == "created":
         await pg.execute(
             sa.text(
                 "UPDATE game_sessions SET status = 'active', "
+                "last_played_at = :now, updated_at = :now WHERE id = :id"
+            ),
+            {"id": game_id, "now": now},
+        )
+    else:
+        await pg.execute(
+            sa.text(
+                "UPDATE game_sessions SET last_played_at = :now, "
                 "updated_at = :now WHERE id = :id"
             ),
             {"id": game_id, "now": now},
@@ -700,8 +764,13 @@ async def resume_game(
                 "player_id": str(row.player_id),
                 "status": row.status,
                 "turn_count": turn_count,
+                "title": row.title,
+                "summary": row.summary,
                 "created_at": row.created_at.isoformat(),
                 "updated_at": row.updated_at.isoformat(),
+                "last_played_at": (
+                    row.last_played_at.isoformat() if row.last_played_at else None
+                ),
             }
         }
 
@@ -716,7 +785,7 @@ async def resume_game(
     await pg.execute(
         sa.text(
             "UPDATE game_sessions SET status = 'active', "
-            "updated_at = :now WHERE id = :id"
+            "last_played_at = :now, updated_at = :now WHERE id = :id"
         ),
         {"id": game_id, "now": now},
     )
@@ -730,8 +799,11 @@ async def resume_game(
             "player_id": str(row.player_id),
             "status": "active",
             "turn_count": turn_count,
+            "title": row.title,
+            "summary": row.summary,
             "created_at": row.created_at.isoformat(),
             "updated_at": now.isoformat(),
+            "last_played_at": now.isoformat(),
         }
     }
 
@@ -772,8 +844,11 @@ async def update_game(
             player_id=str(row.player_id),
             status=body.status,
             turn_count=turn_count,
+            title=row.title,
+            summary=row.summary,
             created_at=row.created_at,
             updated_at=now,
+            last_played_at=row.last_played_at,
         ).model_dump(mode="json")
     }
 
@@ -781,10 +856,18 @@ async def update_game(
 @router.delete("/{game_id}")
 async def end_game(
     game_id: UUID,
+    body: DeleteGameRequest | None = None,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
 ) -> dict:
-    """End a game (soft delete)."""
+    """Soft-delete a game (S27 FR-27.16–FR-27.19)."""
+    if body is None or not body.confirm:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "CONFIRM_REQUIRED",
+            "Set confirm: true to delete this game.",
+        )
+
     row = await _get_owned_game(pg, game_id, player)
 
     if row.status in ("ended", "abandoned"):
@@ -797,8 +880,8 @@ async def end_game(
     now = datetime.now(UTC)
     await pg.execute(
         sa.text(
-            "UPDATE game_sessions SET status = 'ended', "
-            "updated_at = :now WHERE id = :id"
+            "UPDATE game_sessions SET status = 'abandoned', "
+            "deleted_at = :now, updated_at = :now WHERE id = :id"
         ),
         {"id": game_id, "now": now},
     )
@@ -809,7 +892,7 @@ async def end_game(
     return {
         "data": GameEndedData(
             game_id=str(row.id),
-            status="ended",
+            status="abandoned",
             turn_count=turn_count,
             ended_at=now,
         ).model_dump(mode="json")

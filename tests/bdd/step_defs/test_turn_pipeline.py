@@ -47,6 +47,7 @@ def _setup_turn_pg(pg: AsyncMock) -> None:
             _make_result(),  # in-flight check (none)
             _make_result(scalar=0),  # _get_max_turn_number
             _make_result(),  # INSERT turn
+            _make_result(),  # UPDATE last_played_at
         ]
     )
     pg.commit = AsyncMock()

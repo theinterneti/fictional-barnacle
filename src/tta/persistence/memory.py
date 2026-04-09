@@ -88,7 +88,29 @@ class InMemoryGameRepository:
         game.updated_at = datetime.now(UTC)
 
     async def list_player_games(self, player_id: UUID) -> list[GameSession]:
-        return [g for g in self._games.values() if g.player_id == player_id]
+        return [
+            g
+            for g in self._games.values()
+            if g.player_id == player_id and g.deleted_at is None
+        ]
+
+    async def soft_delete(self, game_id: UUID) -> None:
+        game = self._games.get(game_id)
+        if game is None:
+            msg = f"game not found: {game_id}"
+            raise ValueError(msg)
+        game.status = GameStatus.abandoned
+        game.deleted_at = datetime.now(UTC)
+        game.updated_at = datetime.now(UTC)
+
+    async def count_active_games(self, player_id: UUID) -> int:
+        return sum(
+            1
+            for g in self._games.values()
+            if g.player_id == player_id
+            and g.status in (GameStatus.created, GameStatus.active, GameStatus.paused)
+            and g.deleted_at is None
+        )
 
 
 class InMemoryTurnRepository:

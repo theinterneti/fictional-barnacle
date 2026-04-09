@@ -9,7 +9,7 @@ Feature: Game Session Management
     When the player creates a new game
     Then the response status is 201
     And the response contains a game ID
-    And the game status is "created"
+    And the game status is "active"
 
   Scenario: List games returns the player's sessions
     Given the player has an active game
@@ -27,7 +27,7 @@ Feature: Game Session Management
     Given the player has an active game
     When the player ends that game
     Then the response status is 200
-    And the game status is "ended"
+    And the game status is "abandoned"
 
   Scenario: Cannot create game without authentication
     Given no authentication is provided

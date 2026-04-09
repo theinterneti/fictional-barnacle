@@ -183,8 +183,10 @@ class PostgresGameRepository:
         async with self._sf() as session:
             result = await session.execute(
                 sa.text(
-                    "SELECT id, player_id, world_seed, "
-                    "status, created_at, updated_at "
+                    "SELECT id, player_id, world_seed, status, "
+                    "title, summary, turn_count, needs_recovery, "
+                    "last_played_at, deleted_at, "
+                    "created_at, updated_at "
                     "FROM game_sessions WHERE id = :id"
                 ),
                 {"id": game_id},
@@ -197,6 +199,12 @@ class PostgresGameRepository:
                 player_id=row.player_id,
                 world_seed=row.world_seed,
                 status=GameStatus(row.status),
+                title=row.title,
+                summary=row.summary,
+                turn_count=row.turn_count,
+                needs_recovery=row.needs_recovery,
+                last_played_at=row.last_played_at,
+                deleted_at=row.deleted_at,
                 created_at=row.created_at,
                 updated_at=row.updated_at,
             )
@@ -222,11 +230,14 @@ class PostgresGameRepository:
         async with self._sf() as session:
             result = await session.execute(
                 sa.text(
-                    "SELECT id, player_id, world_seed, "
-                    "status, created_at, updated_at "
+                    "SELECT id, player_id, world_seed, status, "
+                    "title, summary, turn_count, needs_recovery, "
+                    "last_played_at, deleted_at, "
+                    "created_at, updated_at "
                     "FROM game_sessions "
                     "WHERE player_id = :player_id "
-                    "ORDER BY created_at DESC"
+                    "AND deleted_at IS NULL "
+                    "ORDER BY last_played_at DESC NULLS LAST"
                 ),
                 {"player_id": player_id},
             )
@@ -237,11 +248,44 @@ class PostgresGameRepository:
                     player_id=r.player_id,
                     world_seed=r.world_seed,
                     status=GameStatus(r.status),
+                    title=r.title,
+                    summary=r.summary,
+                    turn_count=r.turn_count,
+                    needs_recovery=r.needs_recovery,
+                    last_played_at=r.last_played_at,
+                    deleted_at=r.deleted_at,
                     created_at=r.created_at,
                     updated_at=r.updated_at,
                 )
                 for r in rows
             ]
+
+    async def soft_delete(self, game_id: UUID) -> None:
+        async with self._sf() as session:
+            now = datetime.now(UTC)
+            await session.execute(
+                sa.text(
+                    "UPDATE game_sessions "
+                    "SET status = 'abandoned', "
+                    "deleted_at = :now, updated_at = :now "
+                    "WHERE id = :id"
+                ),
+                {"id": game_id, "now": now},
+            )
+            await session.commit()
+
+    async def count_active_games(self, player_id: UUID) -> int:
+        async with self._sf() as session:
+            result = await session.execute(
+                sa.text(
+                    "SELECT count(*) FROM game_sessions "
+                    "WHERE player_id = :pid "
+                    "AND status IN ('created', 'active', 'paused') "
+                    "AND deleted_at IS NULL"
+                ),
+                {"pid": player_id},
+            )
+            return result.scalar_one()
 
 
 class PostgresTurnRepository:

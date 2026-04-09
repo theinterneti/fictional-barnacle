@@ -49,6 +49,10 @@ class GameRepository(Protocol):
 
     async def list_player_games(self, player_id: UUID) -> list[GameSession]: ...
 
+    async def soft_delete(self, game_id: UUID) -> None: ...
+
+    async def count_active_games(self, player_id: UUID) -> int: ...
+
 
 class TurnRepository(Protocol):
     """Contract for turn persistence."""

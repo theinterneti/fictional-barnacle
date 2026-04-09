@@ -70,6 +70,11 @@ def _game_row(
         "status": status,
         "world_seed": "{}",
         "turn_count": turn_count,
+        "title": None,
+        "summary": None,
+        "needs_recovery": False,
+        "last_played_at": _NOW,
+        "deleted_at": None,
         "created_at": _NOW,
         "updated_at": _NOW,
     }
