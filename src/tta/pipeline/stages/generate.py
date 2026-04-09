@@ -85,16 +85,22 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             session_id=str(state.session_id),
             flags=safety_post.flags,
         )
-        # When a redirect narrative is available, deliver it to the
-        # player instead of failing the turn outright (AC-24.2).
-        # Status is `moderated` so the SSE emits a ModerationEvent
-        # and the orchestrator early-exits (FR-24.06).
+        # Buffer-then-stream moderation: the full LLM output is
+        # moderated before any SSE events are sent to the client.
+        # On block the redirect narrative replaces the original
+        # content (AC-24.2) and the SSE layer emits a ModerationEvent.
         if safety_post.modified_content:
-            # FR-24.06 item 4: log blocked content for operator review
+            import hashlib
+
+            content_hash = hashlib.sha256(response.content.encode()).hexdigest()
+            # Log content_hash for audit correlation (FR-24.14).
+            # Raw content is stored only in moderation_records DB
+            # via ModerationRecorder, not in general logs.
             log.warning(
                 "moderation_blocked_output",
                 session_id=str(state.session_id),
                 flags=safety_post.flags,
+                content_hash=content_hash,
                 blocked_content_length=len(response.content),
             )
             return state.model_copy(

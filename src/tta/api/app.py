@@ -190,6 +190,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         safety_hook = PassthroughHook()  # type: ignore[assignment]
 
+    # Expose the hook on app.state so /health can check moderation status.
+    app.state.moderation_hook = safety_hook
+
     # 8. Pipeline deps
     from tta.choices.consequence_service import InMemoryConsequenceService
     from tta.pipeline.types import PipelineDeps

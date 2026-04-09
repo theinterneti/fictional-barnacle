@@ -74,7 +74,14 @@ async def _dispatch_pipeline(
 
     # Persist turn result via repository
     try:
-        if result.status == TurnStatus.complete and result.narrative_output:
+        if (
+            result.status
+            in (
+                TurnStatus.complete,
+                TurnStatus.moderated,
+            )
+            and result.narrative_output
+        ):
             token_dict = result.token_count.model_dump() if result.token_count else {}
             await turn_repo.complete_turn(
                 turn_id=turn_id,
@@ -83,6 +90,9 @@ async def _dispatch_pipeline(
                 latency_ms=elapsed_ms,
                 token_count=token_dict,
             )
+            # FR-24.06 item 5: mark moderated turns distinctly
+            if result.status == TurnStatus.moderated:
+                await turn_repo.update_status(turn_id, "moderated")
         else:
             # FR-23.18: preserve partial narrative on failure
             await turn_repo.fail_turn(turn_id, narrative_output=result.narrative_output)
