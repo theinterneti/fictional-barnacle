@@ -1,6 +1,8 @@
-"""Content moderation domain models (S24 FR-24.02–FR-24.05)."""
+"""Content moderation domain models (S24 FR-24.02–FR-24.05, FR-24.09)."""
 
+from datetime import UTC, datetime
 from enum import StrEnum
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -69,3 +71,25 @@ class ModerationContext(BaseModel):
     player_id: str = ""
     turn_id: str = ""
     stage: str = ""  # "input" | "output"
+
+
+class ModerationRecord(BaseModel):
+    """Persistent record of a moderation action (FR-24.09).
+
+    Stored in the ``moderation_records`` Postgres table. General
+    logs reference ``moderation_id`` and ``content_hash`` only —
+    the raw content lives exclusively in this table (FR-24.14).
+    """
+
+    moderation_id: str = Field(default_factory=lambda: str(uuid4()))
+    turn_id: str
+    game_id: str
+    player_id: str
+    stage: str  # "input" | "output"
+    content_hash: str
+    content: str  # raw text, access-controlled (FR-24.14)
+    verdict: ModerationVerdict
+    category: ContentCategory
+    confidence: float = Field(ge=0.0, le=1.0)
+    reason: str = ""
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))

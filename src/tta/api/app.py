@@ -181,12 +181,25 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from tta.safety.hooks import PassthroughHook
 
     if settings.moderation_enabled:
+        from tta.moderation.flagging import SessionFlagTracker
         from tta.moderation.hook import ModerationHook
         from tta.moderation.keyword_moderator import KeywordModerator
+        from tta.moderation.recorder import ModerationRecorder
 
         moderator = KeywordModerator()
         fail_open = settings.moderation_fail_mode == "open"
-        safety_hook = ModerationHook(moderator, enabled=True, fail_open=fail_open)
+        recorder = ModerationRecorder(session_factory)
+        flag_tracker = SessionFlagTracker(
+            threshold=settings.moderation_flag_threshold,
+            window_minutes=settings.moderation_flag_window_minutes,
+        )
+        safety_hook = ModerationHook(
+            moderator,
+            enabled=True,
+            fail_open=fail_open,
+            recorder=recorder,
+            flag_tracker=flag_tracker,
+        )
     else:
         safety_hook = PassthroughHook()  # type: ignore[assignment]
 
