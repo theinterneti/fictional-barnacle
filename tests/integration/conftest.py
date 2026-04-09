@@ -227,8 +227,23 @@ async def redis_client(
 # ---------------------------------------------------------------------------
 @pytest.fixture()
 async def app(integration_settings: Settings) -> AsyncIterator[Any]:
-    """Create a fresh FastAPI app with the integration settings."""
+    """Create a fresh FastAPI app with the integration settings.
+
+    Flushes the Redis test DB first so rate-limit / anti-abuse
+    state from prior runs doesn't bleed across tests.
+    """
     from tta.api.app import create_app
+
+    # Flush Redis test DB to avoid stale cooldown/rate-limit data
+    if integration_settings.redis_url:
+        try:
+            from redis.asyncio import from_url
+
+            _r = from_url(integration_settings.redis_url)
+            await _r.flushdb()  # type: ignore[misc]
+            await _r.aclose()
+        except Exception:
+            pass  # Redis unavailable — tests will skip later
 
     application = create_app(integration_settings)
     async with application.router.lifespan_context(application):
