@@ -103,6 +103,37 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         return v
 
+    # --- S28 Performance & Scaling ---
+
+    # PostgreSQL pool (FR-28.07)
+    pg_pool_min: int = 5
+    pg_pool_max: int = 20
+    pg_pool_timeout: int = 5  # seconds
+    pg_pool_idle_timeout: int = 300  # seconds
+
+    # Redis pool (FR-28.08)
+    redis_pool_max: int = 20
+    redis_timeout: int = 2  # seconds
+    redis_retry_count: int = 3
+
+    # Neo4j pool (FR-28.09)
+    neo4j_pool_max: int = 10
+    neo4j_timeout: int = 5  # seconds
+
+    # LLM concurrency (FR-28.11–FR-28.14)
+    llm_max_concurrent: int = 10
+    llm_queue_size: int = 50
+    llm_timeout: int = 30  # seconds
+    llm_max_input_tokens: int = 4000
+    llm_max_output_tokens: int = 2000
+
+    # Latency budget (S28 §3.3 guidance)
+    latency_budget_warn_ms: int = 5000
+    latency_budget_abort_ms: int = 30000
+
+    # --- S26 Admin ---
+    admin_api_key: str = ""
+
     # Auto-save / resume (S27 FR-27.05–FR-27.15)
     resume_turn_count: int = 10  # recent turns loaded on resume
     summary_interval: int = 5  # regen summary every N turns

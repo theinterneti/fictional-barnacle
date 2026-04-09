@@ -366,3 +366,100 @@ class RateLimitMiddleware:
                     )
             except Exception:
                 log.warning("abuse_record_error", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Latency budget middleware (S28 FR-28.18/19)
+# ---------------------------------------------------------------------------
+
+_EXEMPT_PREFIXES = ("/metrics", "/api/v1/health", "/admin/health")
+
+
+class LatencyBudgetMiddleware:
+    """Track request latency and warn/abort when budget is exceeded.
+
+    Pure ASGI middleware — follows the same pattern as
+    RequestIDMiddleware.
+
+    - Adds ``X-Latency-Budget-Remaining-Ms`` header to every response.
+    - Logs a warning when ``latency_budget_warn_ms`` is exceeded.
+    - Returns 503 when ``latency_budget_abort_ms`` is exceeded (only
+      before response headers have been sent).
+
+    Settings are read from ``scope["app"].state.settings``.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
+        path = request.url.path
+
+        # Exempt health / metrics endpoints from budget enforcement.
+        for prefix in _EXEMPT_PREFIXES:
+            if path.startswith(prefix):
+                await self.app(scope, receive, send)
+                return
+
+        settings = request.app.state.settings
+        warn_ms: float = settings.latency_budget_warn_ms
+        abort_ms: float = settings.latency_budget_abort_ms
+
+        start = time.monotonic()
+        headers_sent = False
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal headers_sent
+            elapsed_ms = (time.monotonic() - start) * 1000
+
+            if message["type"] == "http.response.start":
+                headers_sent = True
+                remaining = max(0, abort_ms - elapsed_ms)
+                headers = list(message.get("headers", []))
+                headers.append(
+                    (
+                        b"x-latency-budget-remaining-ms",
+                        str(int(remaining)).encode(),
+                    )
+                )
+                message = {**message, "headers": headers}
+
+                if elapsed_ms >= warn_ms:
+                    log.warning(
+                        "latency_budget_warn",
+                        path=path,
+                        elapsed_ms=round(elapsed_ms, 1),
+                        warn_ms=warn_ms,
+                    )
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            elapsed_ms = (time.monotonic() - start) * 1000
+            if elapsed_ms >= abort_ms and not headers_sent:
+                log.error(
+                    "latency_budget_abort",
+                    path=path,
+                    elapsed_ms=round(elapsed_ms, 1),
+                    abort_ms=abort_ms,
+                )
+                resp = JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": {
+                            "code": "latency_budget_exceeded",
+                            "message": "Request exceeded latency budget.",
+                            "details": {
+                                "elapsed_ms": round(elapsed_ms, 1),
+                                "budget_ms": abort_ms,
+                            },
+                        }
+                    },
+                )
+                await resp(scope, receive, send)

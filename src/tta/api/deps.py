@@ -62,7 +62,10 @@ async def get_current_player(
         )
 
     player_result = await pg.execute(
-        sa.text("SELECT id, handle, created_at FROM players WHERE id = :id"),
+        sa.text(
+            "SELECT id, handle, status, suspended_reason, "
+            "created_at FROM players WHERE id = :id"
+        ),
         {"id": row.player_id},
     )
     player_row = player_result.one_or_none()
@@ -76,8 +79,27 @@ async def get_current_player(
     return Player(
         id=player_row.id,
         handle=player_row.handle,
+        status=player_row.status,
+        suspended_reason=player_row.suspended_reason,
         created_at=player_row.created_at,
     )
+
+
+async def require_active_player(
+    player: Player = Depends(get_current_player),
+) -> Player:
+    """Ensure the authenticated player has ``active`` status.
+
+    Raises 403 if the player is suspended (FR-26.07).
+    """
+    if player.status != "active":
+        raise AppError(
+            ErrorCategory.FORBIDDEN,
+            "PLAYER_SUSPENDED",
+            "Your account is suspended.",
+            details={"reason": player.suspended_reason},
+        )
+    return player
 
 
 def _extract_token(request: Request) -> str | None:

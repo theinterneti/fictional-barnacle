@@ -60,6 +60,10 @@ class RateLimiter(Protocol):
         self, key: str, limit: int, window_seconds: int
     ) -> RateLimitResult: ...
 
+    async def clear_key(self, key: str) -> None:
+        """Remove all rate-limit state for *key* (admin reset)."""
+        ...
+
 
 # ---------------------------------------------------------------------------
 # In-memory backend (fallback)
@@ -103,6 +107,10 @@ class InMemoryRateLimiter:
             reset_at=earliest + window_seconds,
             retry_after=retry_after,
         )
+
+    async def clear_key(self, key: str) -> None:
+        """Remove rate-limit window for *key*."""
+        self._windows.pop(key, None)
 
 
 # ---------------------------------------------------------------------------
@@ -169,3 +177,7 @@ class RedisRateLimiter:
             reset_at=earliest + window_seconds,
             retry_after=retry_after,
         )
+
+    async def clear_key(self, key: str) -> None:
+        """Delete the sorted set for *key* in Redis."""
+        await self._redis.delete(key)  # type: ignore[union-attr]

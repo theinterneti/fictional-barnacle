@@ -116,6 +116,10 @@ class AbuseDetector(Protocol):
         self, identity: str, pattern: AbusePattern
     ) -> ViolationResult: ...
 
+    async def clear_cooldown(self, identity: str) -> None:
+        """Remove cooldown for *identity* (admin unblock)."""
+        ...
+
 
 def _calculate_cooldown(
     violation_count: int,
@@ -209,6 +213,13 @@ class InMemoryAbuseDetector:
             escalated=False,
         )
 
+    async def clear_cooldown(self, identity: str) -> None:
+        """Remove cooldown and violation history for *identity*."""
+        self._cooldowns.pop(identity, None)
+        to_remove = [k for k in self._violations if k.startswith(f"{identity}:")]
+        for k in to_remove:
+            del self._violations[k]
+
 
 # ---------------------------------------------------------------------------
 # Redis backend (production)
@@ -301,3 +312,18 @@ class RedisAbuseDetector:
             violation_count=count,
             escalated=False,
         )
+
+    async def clear_cooldown(self, identity: str) -> None:
+        """Remove cooldown key and violation sorted sets in Redis."""
+        cd_key = f"abuse:cd:{identity}"
+        await self._redis.delete(cd_key)  # type: ignore[union-attr]
+        pattern = f"abuse:v:{identity}:*"
+        cursor: int | bytes = 0
+        while True:
+            cursor, keys = await self._redis.scan(  # type: ignore[union-attr]
+                cursor=cursor, match=pattern, count=100
+            )
+            if keys:
+                await self._redis.delete(*keys)  # type: ignore[union-attr]
+            if not cursor:
+                break

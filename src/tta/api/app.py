@@ -20,8 +20,13 @@ from tta.api.errors import (
     validation_error_handler,
 )
 from tta.api.health import router as health_router
-from tta.api.middleware import RateLimitMiddleware, RequestIDMiddleware
+from tta.api.middleware import (
+    LatencyBudgetMiddleware,
+    RateLimitMiddleware,
+    RequestIDMiddleware,
+)
 from tta.api.prometheus_middleware import PrometheusMiddleware
+from tta.api.routes.admin import router as admin_router
 from tta.api.routes.games import router as games_router
 from tta.api.routes.metrics import router as metrics_router
 from tta.api.routes.players import router as players_router
@@ -29,6 +34,7 @@ from tta.logging import configure_logging
 
 if TYPE_CHECKING:
     from tta.config import Settings
+    from tta.moderation.recorder import ModerationRecorder
 
 log = structlog.get_logger()
 
@@ -57,6 +63,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = build_engine(
         settings.database_url,
         echo=(settings.environment == "development"),
+        pool_timeout=settings.pg_pool_timeout,
+        pool_recycle=settings.pg_pool_idle_timeout,
+        pool_pre_ping=True,
     )
     session_factory = build_session_factory(engine)
     app.state.pg = session_factory
@@ -180,6 +189,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # 7. Safety / moderation hooks
     from tta.safety.hooks import PassthroughHook
 
+    recorder: ModerationRecorder | None = None
     if settings.moderation_enabled:
         from tta.moderation.flagging import SessionFlagTracker
         from tta.moderation.hook import ModerationHook
@@ -205,6 +215,23 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Expose the hook on app.state so /health can check moderation status.
     app.state.moderation_hook = safety_hook
+
+    # 7a. Moderation recorder on app.state for admin endpoints (S26 §3.5)
+    app.state.moderation_recorder = recorder
+
+    # 7b. Audit-log repository (S26 §3.7 — append-only)
+    from tta.persistence.audit_repo import AuditLogRepository
+
+    app.state.audit_repo = AuditLogRepository(session_factory)
+
+    # 7c. LLM concurrency semaphore (S28 FR-28.11–13)
+    from tta.llm.semaphore import LLMSemaphore
+
+    app.state.llm_semaphore = LLMSemaphore(
+        max_concurrent=settings.llm_max_concurrent,
+        queue_size=settings.llm_queue_size,
+        timeout=settings.llm_timeout,
+    )
 
     # 8. Pipeline deps
     from tta.choices.consequence_service import InMemoryConsequenceService
@@ -290,6 +317,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(LatencyBudgetMiddleware)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PrometheusMiddleware)
 
@@ -299,5 +327,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(players_router, prefix="/api/v1")
     app.include_router(games_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/admin")
 
     return app

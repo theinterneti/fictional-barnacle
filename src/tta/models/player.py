@@ -11,6 +11,8 @@ class Player(BaseModel):
 
     id: UUID = Field(default_factory=uuid4)
     handle: str
+    status: str = "active"
+    suspended_reason: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

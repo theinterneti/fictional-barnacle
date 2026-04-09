@@ -30,14 +30,30 @@ def build_engine(
     echo: bool = False,
     pool_size: int = 5,
     max_overflow: int = 10,
+    pool_timeout: int = 5,
+    pool_recycle: int = 300,
+    pool_pre_ping: bool = True,
 ) -> AsyncEngine:
-    """Create an async SQLAlchemy engine for PostgreSQL."""
+    """Create an async SQLAlchemy engine for PostgreSQL.
+
+    Parameters
+    ----------
+    pool_timeout:
+        Seconds to wait for a connection from the pool (FR-28.07).
+    pool_recycle:
+        Seconds before idle connections are recycled (FR-28.07).
+    pool_pre_ping:
+        Issue a lightweight SELECT 1 before handing out a connection.
+    """
     url = _ensure_async_url(database_url)
     return create_async_engine(
         url,
         echo=echo,
         pool_size=pool_size,
         max_overflow=max_overflow,
+        pool_timeout=pool_timeout,
+        pool_recycle=pool_recycle,
+        pool_pre_ping=pool_pre_ping,
     )
 
 
