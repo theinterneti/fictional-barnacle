@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     # Only applies to overridable categories; ALWAYS_BLOCK cannot
     # be relaxed.
     moderation_category_overrides: str = "{}"
+    # Session auto-flagging thresholds (FR-24.11)
+    moderation_flag_threshold: int = 5  # N blocked actions
+    moderation_flag_window_minutes: int = 10  # within M minutes
 
     @field_validator("moderation_fail_mode")
     @classmethod

@@ -1,9 +1,12 @@
 """Tests for ModerationHook — SafetyHook adapter (S24 FR-24.01)."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
+
 from tta.models.turn import TurnState
+from tta.moderation.flagging import SessionFlagTracker
 from tta.moderation.hook import (
     BLOCK_REDIRECT_INPUT,
     BLOCK_REDIRECT_OUTPUT,
@@ -15,6 +18,7 @@ from tta.moderation.models import (
     ModerationResult,
     ModerationVerdict,
 )
+from tta.moderation.recorder import ModerationRecorder
 
 
 def _make_state(player_input: str = "hello") -> TurnState:
@@ -58,6 +62,20 @@ def _flag_result(
         reason=category.value,
         content_hash="abc",
     )
+
+
+def _mock_recorder() -> ModerationRecorder:
+    """Build a ModerationRecorder with a mock session factory."""
+    recorder = ModerationRecorder.__new__(ModerationRecorder)
+    recorder._session_factory = MagicMock()
+    recorder.save = AsyncMock()  # type: ignore[method-assign]
+    return recorder
+
+
+def _mock_flag_tracker(
+    threshold: int = 5,
+) -> SessionFlagTracker:
+    return SessionFlagTracker(threshold=threshold, window_minutes=10)
 
 
 # ── Enabled / Disabled ─────────────────────────────────────────
@@ -208,3 +226,149 @@ class TestProtocolCompliance:
         svc = AsyncMock()
         hook = ModerationHook(svc)
         assert isinstance(hook, SafetyHook)
+
+
+# ── Recording integration (FR-24.09) ───────────────────────────
+
+
+class TestRecordingIntegration:
+    async def test_pass_saves_record(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _pass_result()
+        recorder = _mock_recorder()
+        hook = ModerationHook(svc, recorder=recorder)
+
+        await hook.pre_generation_check(_make_state())
+
+        recorder.save.assert_awaited_once()
+        record = recorder.save.call_args[0][0]
+        assert record.verdict == ModerationVerdict.PASS
+        assert record.game_id == "g1"
+        assert record.stage == "input"
+
+    async def test_block_saves_record(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _block_result()
+        recorder = _mock_recorder()
+        hook = ModerationHook(svc, recorder=recorder)
+
+        await hook.pre_generation_check(_make_state("bad stuff"))
+
+        recorder.save.assert_awaited_once()
+        record = recorder.save.call_args[0][0]
+        assert record.verdict == ModerationVerdict.BLOCK
+        assert record.content == "bad stuff"
+
+    async def test_output_moderation_saves_record(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_output.return_value = _block_result()
+        recorder = _mock_recorder()
+        hook = ModerationHook(svc, recorder=recorder)
+
+        await hook.post_generation_check("violent text", _make_state())
+
+        recorder.save.assert_awaited_once()
+        record = recorder.save.call_args[0][0]
+        assert record.stage == "output"
+        assert record.content == "violent text"
+
+    async def test_no_recorder_skips_persistence(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _pass_result()
+        hook = ModerationHook(svc, recorder=None)
+        # Should not raise
+        await hook.pre_generation_check(_make_state())
+
+
+# ── Structured logging (FR-24.12) ──────────────────────────────
+
+
+class TestStructuredLogging:
+    async def test_log_emitted_on_pass(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _pass_result()
+        hook = ModerationHook(svc)
+
+        with patch("tta.moderation.hook.log") as mock_log:
+            await hook.pre_generation_check(_make_state())
+            mock_log.info.assert_called_once()
+            kw = mock_log.info.call_args[1]
+            assert kw["verdict"] == "pass"
+            assert kw["stage"] == "input"
+
+    async def test_log_contains_hash_not_content(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _block_result()
+        hook = ModerationHook(svc)
+
+        with patch("tta.moderation.hook.log") as mock_log:
+            await hook.pre_generation_check(_make_state("secret content"))
+            kw = mock_log.info.call_args[1]
+            assert "content_hash" in kw
+            # Raw content must NEVER appear in log kwargs
+            for v in kw.values():
+                assert v != "secret content"
+
+    async def test_log_event_name(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _pass_result()
+        hook = ModerationHook(svc)
+
+        with patch("tta.moderation.hook.log") as mock_log:
+            await hook.pre_generation_check(_make_state())
+            assert mock_log.info.call_args[0][0] == "moderation_action"
+
+
+# ── Flagging integration (FR-24.11) ────────────────────────────
+
+
+class TestFlaggingIntegration:
+    async def test_block_records_in_flag_tracker(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _block_result()
+        tracker = _mock_flag_tracker(threshold=5)
+        hook = ModerationHook(svc, flag_tracker=tracker)
+
+        await hook.pre_generation_check(_make_state("bad"))
+
+        assert len(tracker._blocks["g1"]) == 1
+
+    async def test_pass_does_not_record_in_tracker(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _pass_result()
+        tracker = _mock_flag_tracker()
+        hook = ModerationHook(svc, flag_tracker=tracker)
+
+        await hook.pre_generation_check(_make_state())
+
+        assert len(tracker._blocks) == 0
+
+    async def test_flag_verdict_does_not_record(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _flag_result()
+        tracker = _mock_flag_tracker()
+        hook = ModerationHook(svc, flag_tracker=tracker)
+
+        await hook.pre_generation_check(_make_state())
+
+        assert len(tracker._blocks) == 0
+
+    async def test_no_tracker_skips_flagging(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _block_result()
+        hook = ModerationHook(svc, flag_tracker=None)
+        # Should not raise
+        await hook.pre_generation_check(_make_state())
+
+    @pytest.mark.asyncio
+    async def test_threshold_triggers_on_rapid_blocks(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _block_result()
+        tracker = _mock_flag_tracker(threshold=2)
+        hook = ModerationHook(svc, flag_tracker=tracker)
+
+        await hook.pre_generation_check(_make_state("bad1"))
+        assert len(tracker._blocks["g1"]) == 1
+        await hook.pre_generation_check(_make_state("bad2"))
+        # Threshold=2 reached — record_block returned True internally
+        assert len(tracker._blocks["g1"]) == 2

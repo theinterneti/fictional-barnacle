@@ -3,19 +3,29 @@
 Bridges ``ModerationService`` into the pipeline's ``SafetyHook``
 protocol so existing stage code (understand, generate) calls
 moderation transparently.
+
+After each moderation check, a ``ModerationRecord`` is persisted
+(FR-24.09) and a structured ``moderation_action`` log is emitted
+(FR-24.12).  The ``SessionFlagTracker`` watches for rapid-fire
+blocks and flags sessions that exceed the threshold (FR-24.11).
 """
+
+from __future__ import annotations
 
 import hashlib
 
 import structlog
 
 from tta.models.turn import TurnState
+from tta.moderation.flagging import SessionFlagTracker
 from tta.moderation.models import (
     ContentCategory,
     ModerationContext,
+    ModerationRecord,
     ModerationResult,
     ModerationVerdict,
 )
+from tta.moderation.recorder import ModerationRecorder
 from tta.moderation.service import ModerationService
 from tta.safety.hooks import SafetyResult
 
@@ -45,6 +55,12 @@ class ModerationHook:
         When ``True`` (default), moderation errors are logged at WARN
         and the content is allowed through.  When ``False``, errors
         cause a block verdict.
+    recorder:
+        Optional persistence layer for moderation records. ``None``
+        disables persistence (unit-test friendly).
+    flag_tracker:
+        Optional session-level auto-flagging tracker. ``None``
+        disables session flagging.
     """
 
     def __init__(
@@ -53,10 +69,14 @@ class ModerationHook:
         *,
         enabled: bool = True,
         fail_open: bool = True,
+        recorder: ModerationRecorder | None = None,
+        flag_tracker: SessionFlagTracker | None = None,
     ) -> None:
         self._service = service
         self._enabled = enabled
         self._fail_open = fail_open
+        self._recorder = recorder
+        self._flag_tracker = flag_tracker
 
     # ── SafetyHook protocol ─────────────────────────────────────
 
@@ -69,6 +89,7 @@ class ModerationHook:
         content = turn_state.player_input
 
         result = await self._checked_call(self._service.moderate_input, content, ctx)
+        await self._post_check(result, content, ctx)
         return _to_safety_result(result, redirect=BLOCK_REDIRECT_INPUT)
 
     async def post_generation_check(
@@ -83,9 +104,51 @@ class ModerationHook:
         result = await self._checked_call(
             self._service.moderate_output, narrative_output, ctx
         )
+        await self._post_check(result, narrative_output, ctx)
         return _to_safety_result(result, redirect=BLOCK_REDIRECT_OUTPUT)
 
     # ── internals ───────────────────────────────────────────────
+
+    async def _post_check(
+        self,
+        result: ModerationResult,
+        content: str,
+        ctx: ModerationContext,
+    ) -> None:
+        """Persist record, emit structured log, track flagging."""
+        record = ModerationRecord(
+            turn_id=ctx.turn_id,
+            game_id=ctx.game_id,
+            player_id=ctx.player_id,
+            stage=ctx.stage,
+            content_hash=result.content_hash,
+            content=content,
+            verdict=result.verdict,
+            category=result.category,
+            confidence=result.confidence,
+            reason=result.reason,
+        )
+
+        # FR-24.12: structured log — never log raw content
+        log.info(
+            "moderation_action",
+            moderation_id=record.moderation_id,
+            content_hash=record.content_hash,
+            verdict=result.verdict.value,
+            category=result.category.value,
+            confidence=result.confidence,
+            stage=ctx.stage,
+            game_id=ctx.game_id,
+            player_id=ctx.player_id,
+        )
+
+        # FR-24.09: persist full record
+        if self._recorder is not None:
+            await self._recorder.save(record)
+
+        # FR-24.11: session auto-flagging on block
+        if result.verdict == ModerationVerdict.BLOCK and self._flag_tracker is not None:
+            self._flag_tracker.record_block(ctx.game_id, ctx.player_id)
 
     async def _checked_call(
         self,
