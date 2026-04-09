@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     # Cost tracking (S15 §4 US-15.11)
     daily_llm_cost_alert_usd: float = 50.0
 
+    # Rate limiting (S25 §3.2)
+    rate_limit_enabled: bool = True
+    rate_limit_turns_per_minute: int = 10
+    rate_limit_game_mgmt_per_minute: int = 30
+    rate_limit_auth_per_minute: int = 10
+    rate_limit_sse_per_minute: int = 5
+
     # Application
     session_token_ttl: int = 86400
     max_active_games: int = 5
