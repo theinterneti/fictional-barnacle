@@ -148,6 +148,24 @@ async def test_post_gen_safety_blocks() -> None:
     assert result.narrative_output is None
 
 
+async def test_post_gen_safety_block_with_redirect() -> None:
+    """Blocked output with modified_content → complete with redirect."""
+    redirect = SafetyResult(
+        safe=False,
+        flags=["moderation:graphic_violence"],
+        modified_content="Redirect narrative.",
+    )
+    post_gen = AsyncMock()
+    post_gen.post_generation_check = AsyncMock(return_value=redirect)
+    state = _make_state()
+    deps = _make_deps(safety_post_gen=post_gen)
+    result = await generate_stage(state, deps)
+
+    assert result.status == TurnStatus.complete
+    assert result.narrative_output == "Redirect narrative."
+    assert "moderation:graphic_violence" in result.safety_flags
+
+
 async def test_post_gen_safety_modifies_content() -> None:
     """Safety hook can replace content via modified_content."""
     modified = SafetyResult(safe=True, modified_content="Sanitized narrative.")
