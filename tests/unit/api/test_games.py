@@ -504,6 +504,7 @@ class TestResumeGame:
     def test_resume_includes_title_and_summary(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
+        recent = datetime.now(UTC)
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result(
@@ -512,7 +513,8 @@ class TestResumeGame:
                             status="active",
                             title="Dark Forest",
                             summary="Lost in the woods",
-                            summary_generated_at=datetime.now(UTC),
+                            last_played_at=recent,
+                            summary_generated_at=recent,
                         )
                     ]
                 ),
@@ -594,6 +596,7 @@ class TestResumeGame:
                         _game_row(
                             status="active",
                             summary="Old summary",
+                            last_played_at=old_time,
                             summary_generated_at=old_time,
                         )
                     ]
@@ -616,6 +619,7 @@ class TestResumeGame:
         self, client: TestClient, pg: AsyncMock
     ) -> None:
         """Summary generated recently is not flagged stale."""
+        recent = datetime.now(UTC)
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result(
@@ -623,7 +627,8 @@ class TestResumeGame:
                         _game_row(
                             status="active",
                             summary="Fresh summary",
-                            summary_generated_at=datetime.now(UTC),
+                            last_played_at=recent,
+                            summary_generated_at=recent,
                         )
                     ]
                 ),

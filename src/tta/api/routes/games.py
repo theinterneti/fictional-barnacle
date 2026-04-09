@@ -73,6 +73,7 @@ async def _dispatch_pipeline(
     result = result.model_copy(update={"latency_ms": elapsed_ms})
 
     # Persist turn result via repository
+    turn_persisted = False
     try:
         if (
             result.status
@@ -93,6 +94,7 @@ async def _dispatch_pipeline(
             # FR-24.06 item 5: mark moderated turns distinctly
             if result.status == TurnStatus.moderated:
                 await turn_repo.update_status(turn_id, "moderated")
+            turn_persisted = True
         else:
             # FR-23.18: preserve partial narrative on failure
             await turn_repo.fail_turn(turn_id, narrative_output=result.narrative_output)
@@ -110,7 +112,10 @@ async def _dispatch_pipeline(
             )
 
     # --- FR-27.05/06: Post-turn auto-save (metadata) ---
-    if result.status in (TurnStatus.complete, TurnStatus.moderated):
+    # Gate on turn_persisted to avoid incrementing counters for failed saves.
+    if turn_persisted:
+        # TODO: inject session factory via PipelineDeps instead of
+        # reaching into repo internals (_sf).
         sf = app_state.pipeline_deps.turn_repo._sf  # type: ignore[attr-defined]
         try:
             async with sf() as meta_sess:
@@ -150,7 +155,7 @@ async def _dispatch_pipeline(
                     exc_info=True,
                 )
 
-        # FR-27.22: fire-and-forget title on first completed turn
+        # FR-27.22: title from opening narrative (turn 1 IS genesis)
         if turn_number == 1 and result.narrative_output:
             asyncio.create_task(
                 _generate_title_bg(app_state, game_id, result.narrative_output)
@@ -393,10 +398,11 @@ async def _count_active_games(pg: AsyncSession, player_id: UUID) -> int:
 
 
 async def _get_turn_count(pg: AsyncSession, game_id: UUID) -> int:
-    """Get the number of completed turns for a game."""
+    """Get the number of terminal turns (complete or moderated) for a game."""
     result = await pg.execute(
         sa.text(
-            "SELECT count(*) FROM turns WHERE session_id = :sid AND status = 'complete'"
+            "SELECT count(*) FROM turns "
+            "WHERE session_id = :sid AND status IN ('complete', 'moderated')"
         ),
         {"sid": game_id},
     )
@@ -959,6 +965,7 @@ async def resume_game(
 
     # Transition to active if paused/expired
     now = datetime.now(UTC)
+    status_updated = False
     if row.status != "active":
         await pg.execute(
             sa.text(
@@ -968,6 +975,7 @@ async def resume_game(
             {"id": game_id, "now": now},
         )
         await pg.commit()
+        status_updated = True
 
     # Load recent turns (FR-27.12)
     limit = settings.resume_turn_count
@@ -975,7 +983,7 @@ async def resume_game(
         sa.text(
             "SELECT id, turn_number, player_input, narrative_output, "
             "created_at FROM turns "
-            "WHERE session_id = :sid AND status = 'complete' "
+            "WHERE session_id = :sid AND status IN ('complete', 'moderated') "
             "ORDER BY turn_number DESC LIMIT :lim"
         ),
         {"sid": game_id, "lim": limit},
@@ -993,20 +1001,28 @@ async def resume_game(
 
     turn_count = await _get_turn_count(pg, game_id)
 
-    # FR-27.21: check context_summary staleness
+    # FR-27.21: check context_summary staleness (>24h since last turn)
     context_summary = row.summary
     summary_stale = False
-    if row.summary_generated_at is not None:
-        age_hours = (now - row.summary_generated_at).total_seconds() / 3600
+    if row.last_played_at is not None and row.summary is not None:
+        age_hours = (now - row.last_played_at).total_seconds() / 3600
         if age_hours > settings.summary_staleness_hours:
             summary_stale = True
-    elif recent_turns:
+    elif recent_turns and row.summary is None:
         # Never generated — stale by definition
         summary_stale = True
 
     # Fire-and-forget summary regen if stale (FR-27.21)
     if summary_stale and recent_turns:
         asyncio.create_task(_regen_summary_bg(request.app.state, game_id))
+
+    # Use actual timestamps — only reflect `now` when we updated.
+    resp_updated = now.isoformat() if status_updated else row.updated_at.isoformat()
+    resp_last_played = (
+        now.isoformat()
+        if status_updated
+        else (row.last_played_at.isoformat() if row.last_played_at else None)
+    )
 
     return {
         "data": {
@@ -1018,8 +1034,8 @@ async def resume_game(
             "context_summary": context_summary,
             "recent_turns": recent_turns,
             "created_at": row.created_at.isoformat(),
-            "updated_at": now.isoformat(),
-            "last_played_at": now.isoformat(),
+            "updated_at": resp_updated,
+            "last_played_at": resp_last_played,
             "summary_stale": summary_stale,
             "recovery_warning": recovery_warning,
         }

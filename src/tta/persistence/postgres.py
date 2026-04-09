@@ -475,7 +475,7 @@ class PostgresTurnRepository:
                     "created_at, completed_at "
                     "FROM turns "
                     "WHERE session_id = :session_id "
-                    "AND status = 'complete' "
+                    "AND status IN ('complete', 'moderated') "
                     "ORDER BY turn_number DESC "
                     "LIMIT :lim"
                 ),
