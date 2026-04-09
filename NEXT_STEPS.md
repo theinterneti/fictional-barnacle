@@ -838,13 +838,34 @@ Key deliverables:
 - Anti-abuse: rapid-fire + credential stuffing detection, escalating cooldowns
 - All middleware converted from BaseHTTPMiddleware to pure ASGI (fixes SSE + asyncpg)
 
-## 13. Wave 10+ Recommendations
+## 13. Wave 10 — Content Safety & Game Management ✅
 
-### Wave 10 — Content Safety & Game Management
+**Completed.** S24 (Content Moderation v1) + S27 (Save/Load & Game Management) + PR #76 review debt.
+1284 tests, 0 pyright errors. HEAD 376e371 on main.
 
-1. **S24 Content Moderation v1** — input/output filtering, stream interruption, flagging
-2. **S27 Save/Load** — game lifecycle, listing, resume, soft delete
-3. Plan: `plans/resilience-and-safety.md` (S24) + `plans/api-and-sessions.md` Part B (S27)
+Issues #78–#83 (all closed):
+- #78 PR #76 review debt — X-RateLimit headers, PII stripping, stack trace sanitization (PR #84)
+- #79 S24 content moderation core — models, keyword moderator, pipeline hooks (PR #85)
+- #80 S24 stream interruption — moderation events, graceful degradation, health check (PR #87)
+- #81 S24 flagging & audit trail — moderation_records table, auto-flag, structured logging (PR #88)
+- #82 S27 game lifecycle — enhanced model, CRUD, cursor pagination, soft-delete (PR #86)
+- #83 S27 auto-save & resume — auto-save hooks, context summary, title generation (PR #89)
+
+Key deliverables:
+- Content moderation module (`src/tta/moderation/`) with keyword-based v1 classifier
+- ModerationVerdict (pass/flag/block) with 10 content categories
+- Pipeline integration via SafetyHook protocol (understand + generate stages)
+- SSE moderation events with stream interruption for blocked content
+- Moderation records table with content hashes (no raw content in logs)
+- Auto-flagging system: configurable threshold triggers session-level flags
+- Game lifecycle state machine: ACTIVE → COMPLETED | ABANDONED
+- Cursor-based game pagination, soft-delete with confirmation
+- Auto-save hooks in turn pipeline (metadata in separate transaction)
+- Resume endpoint with context summary, staleness checks, moderated turn inclusion
+- Background title generation (genesis) and summary regeneration (every Nth turn)
+- 3 Alembic migrations: 002 (game lifecycle), 003 (moderation_records), 004 (summary_generated_at)
+
+## 14. Wave 11+ Recommendations
 
 ### Wave 11 — Admin & Performance
 
