@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import traceback
 
 import structlog
@@ -140,8 +141,11 @@ async def validation_error_handler(
         "lt",
     }
 
+    # Keys that may contain user-submitted values (PII risk).
+    _STRIP_KEYS = {"input", "url"}
+
     def _clean_error(e: dict) -> dict:
-        out = {k: v for k, v in e.items() if k != "ctx"}
+        out = {k: v for k, v in e.items() if k not in ("ctx", *_STRIP_KEYS)}
         ctx = e.get("ctx")
         if isinstance(ctx, dict):
             safe = {
@@ -165,24 +169,48 @@ async def validation_error_handler(
     )
 
 
+# Matches the final exception line(s) in a Python traceback, e.g.
+#   "ValueError: some user data here"
+# Keeps the exception type, replaces the message with "<redacted>".
+_EXC_LINE_RE = re.compile(
+    r"^(\w[\w.]*(?:Error|Exception|Warning|Exit)\b):[ \t].*$",
+    re.MULTILINE,
+)
+
+
+def _sanitize_traceback(tb: str) -> str:
+    """Strip exception messages from a traceback string.
+
+    Keeps frame locations (file/line/function) intact for debugging
+    but replaces exception messages that may contain user data.
+    """
+    return _EXC_LINE_RE.sub(r"\1: <redacted>", tb)
+
+
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected errors — log traceback, return safe response (FR-23.04)."""
     request_id = getattr(request.state, "request_id", "unknown")
     logger = structlog.get_logger()
 
+    settings = get_settings()
+
     # FR-23.06 + FR-23.07: structured ERROR log with exception details.
-    # Log exception type only — str(exc) may contain PII (e.g. user input).
+    # In production, strip exception *messages* from the traceback to
+    # prevent PII that propagated into the error from reaching logs.
+    raw_tb = traceback.format_exc()
+    if settings.environment != Environment.DEVELOPMENT:
+        raw_tb = _sanitize_traceback(raw_tb)
+
     logger.error(
         "unhandled_error",
         error_code="INTERNAL_ERROR",
         error_category="internal_error",
         status_code=500,
         exception_type=type(exc).__name__,
-        stack_trace=traceback.format_exc(),
+        stack_trace=raw_tb,
         **_request_context(request),
     )
 
-    settings = get_settings()
     details: dict | None = None
     if settings.environment == Environment.DEVELOPMENT:
         # Show type only — not str(exc) which may contain user input / PII
