@@ -85,6 +85,16 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             session_id=str(state.session_id),
             flags=safety_post.flags,
         )
+        # When a redirect narrative is available, deliver it to the
+        # player instead of failing the turn outright (AC-24.2).
+        if safety_post.modified_content:
+            return state.model_copy(
+                update={
+                    "status": TurnStatus.complete,
+                    "narrative_output": safety_post.modified_content,
+                    "safety_flags": safety_post.flags,
+                }
+            )
         return state.model_copy(
             update={
                 "status": TurnStatus.failed,

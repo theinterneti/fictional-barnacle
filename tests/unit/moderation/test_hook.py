@@ -151,6 +151,8 @@ class TestFailModes:
         hook = ModerationHook(svc, fail_open=False)
         result = await hook.pre_generation_check(_make_state())
         assert result.safe is False  # fail-closed: block
+        assert "moderation:unavailable" in result.flags
+        assert result.modified_content is not None  # redirect narrative
 
     async def test_fail_open_output(self) -> None:
         svc = AsyncMock()
@@ -165,6 +167,7 @@ class TestFailModes:
         hook = ModerationHook(svc, fail_open=False)
         result = await hook.post_generation_check("narrative", _make_state())
         assert result.safe is False
+        assert "moderation:unavailable" in result.flags
 
 
 # ── Context building ────────────────────────────────────────────

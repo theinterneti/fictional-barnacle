@@ -201,8 +201,8 @@ class TestOutputModeration:
 
 
 class TestCategoryOverrides:
-    async def test_mild_violence_override_to_flag(self) -> None:
-        """Overridable category can be changed to flag."""
+    async def test_off_topic_override_to_block(self) -> None:
+        """Overridable category can be changed to block."""
         mod = KeywordModerator(
             category_overrides={ContentCategory.OFF_TOPIC: ModerationVerdict.BLOCK}
         )

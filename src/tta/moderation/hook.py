@@ -5,6 +5,8 @@ protocol so existing stage code (understand, generate) calls
 moderation transparently.
 """
 
+import hashlib
+
 import structlog
 
 from tta.models.turn import TurnState
@@ -92,6 +94,7 @@ class ModerationHook:
         ctx: ModerationContext,
     ) -> ModerationResult:
         """Call the moderation service with fail-open/closed semantics."""
+        content_hash = hashlib.sha256(content.encode()).hexdigest()
         try:
             return await fn(content, ctx)
         except Exception:
@@ -107,6 +110,7 @@ class ModerationHook:
                     category=ContentCategory.SAFE,
                     confidence=0.0,
                     reason="moderation_unavailable",
+                    content_hash=content_hash,
                 )
             log.error(
                 "moderation_service_error",
@@ -119,6 +123,8 @@ class ModerationHook:
                 category=ContentCategory.SAFE,
                 confidence=0.0,
                 reason="moderation_unavailable",
+                content_hash=content_hash,
+                flags=["moderation:unavailable"],
             )
 
 
@@ -136,9 +142,10 @@ def _build_context(state: TurnState, *, stage: str) -> ModerationContext:
 
 def _to_safety_result(result: ModerationResult, *, redirect: str) -> SafetyResult:
     if result.verdict == ModerationVerdict.BLOCK:
+        flags = result.flags or [f"moderation:{result.category.value}"]
         return SafetyResult(
             safe=False,
-            flags=[f"moderation:{result.category.value}"],
+            flags=flags,
             modified_content=redirect,
         )
     if result.verdict == ModerationVerdict.FLAG:

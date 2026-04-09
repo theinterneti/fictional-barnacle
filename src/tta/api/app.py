@@ -177,10 +177,18 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.session_repo = PostgresSessionRepository(session_factory)
     app.state.turn_repo = PostgresTurnRepository(session_factory)
 
-    # 7. Safety hooks (v1: passthrough)
+    # 7. Safety / moderation hooks
     from tta.safety.hooks import PassthroughHook
 
-    passthrough = PassthroughHook()
+    if settings.moderation_enabled:
+        from tta.moderation.hook import ModerationHook
+        from tta.moderation.keyword_moderator import KeywordModerator
+
+        moderator = KeywordModerator()
+        fail_open = settings.moderation_fail_mode == "open"
+        safety_hook = ModerationHook(moderator, enabled=True, fail_open=fail_open)
+    else:
+        safety_hook = PassthroughHook()  # type: ignore[assignment]
 
     # 8. Pipeline deps
     from tta.choices.consequence_service import InMemoryConsequenceService
@@ -193,9 +201,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         world=app.state.world_service,
         session_repo=app.state.session_repo,
         turn_repo=app.state.turn_repo,
-        safety_pre_input=passthrough,
-        safety_pre_gen=passthrough,
-        safety_post_gen=passthrough,
+        safety_pre_input=safety_hook,
+        safety_pre_gen=safety_hook,
+        safety_post_gen=safety_hook,
         settings=settings,
         consequence_service=consequence_svc,
     )

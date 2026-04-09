@@ -164,6 +164,22 @@ async def test_safety_blocks_input() -> None:
     assert result.parsed_intent is None
 
 
+async def test_safety_block_with_redirect() -> None:
+    """Blocked input with modified_content → complete with redirect."""
+    redirect = SafetyResult(
+        safe=False, flags=["moderation:hate_speech"], modified_content="Redirect."
+    )
+    safety = AsyncMock()
+    safety.pre_generation_check = AsyncMock(return_value=redirect)
+    state = _make_state(player_input="bad input")
+    deps = _make_deps(safety_pre_input=safety)
+    result = await understand_stage(state, deps)
+
+    assert result.status == TurnStatus.complete
+    assert result.narrative_output == "Redirect."
+    assert "moderation:hate_speech" in result.safety_flags
+
+
 async def test_safety_pass_continues_classification() -> None:
     """Safety passes → classification runs normally."""
     state = _make_state(player_input="look around")

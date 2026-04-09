@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     # Content moderation (S24)
     moderation_enabled: bool = True
     moderation_fail_mode: str = "open"  # "open" | "closed"
+    # Per-category verdict overrides (FR-24.05). JSON dict mapping
+    # category name → verdict name, e.g. '{"off_topic": "block"}'.
+    # Only applies to overridable categories; ALWAYS_BLOCK cannot
+    # be relaxed.
+    moderation_category_overrides: str = "{}"
 
     @field_validator("moderation_fail_mode")
     @classmethod

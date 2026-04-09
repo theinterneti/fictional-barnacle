@@ -40,7 +40,9 @@ ALWAYS_BLOCK: frozenset[ContentCategory] = frozenset(
     }
 )
 
-# Default verdicts for overridable categories.
+# Default verdicts for overridable categories.  Operators can override
+# these at runtime via ``TTA_MODERATION_CATEGORY_OVERRIDES`` (JSON dict,
+# see config.py).  ALWAYS_BLOCK categories cannot be relaxed.
 DEFAULT_CATEGORY_ACTIONS: dict[ContentCategory, ModerationVerdict] = {
     ContentCategory.SAFE: ModerationVerdict.PASS,
     ContentCategory.MILD_VIOLENCE: ModerationVerdict.PASS,
@@ -57,6 +59,7 @@ class ModerationResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     reason: str
     content_hash: str = ""
+    flags: list[str] = Field(default_factory=list)
 
 
 class ModerationContext(BaseModel):
