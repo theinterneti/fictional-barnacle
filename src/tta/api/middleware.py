@@ -205,7 +205,7 @@ def _build_cooldown_response(
             "Retry-After": str(remaining),
             "X-RateLimit-Limit": "0",
             "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": str(remaining),
+            "X-RateLimit-Reset": str(math.ceil(time.time() + remaining)),
         },
     )
 

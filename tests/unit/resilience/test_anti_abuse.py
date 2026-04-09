@@ -438,4 +438,5 @@ class TestAntiAbuseMiddleware:
         assert resp.headers["X-RateLimit-Limit"] == "0"
         assert resp.headers["X-RateLimit-Remaining"] == "0"
         reset = int(resp.headers["X-RateLimit-Reset"])
-        assert 0 < reset <= 300
+        now = time.time()
+        assert now < reset <= now + 301  # Unix timestamp within cooldown window

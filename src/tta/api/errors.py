@@ -169,11 +169,15 @@ async def validation_error_handler(
     )
 
 
-# Matches the final exception line(s) in a Python traceback, e.g.
+# Matches exception lines in a Python traceback, e.g.
 #   "ValueError: some user data here"
+#   "anyio.EndOfStream: ..."
+#   "StopIteration: ..."
 # Keeps the exception type, replaces the message with "<redacted>".
+# Matches any "TypeName: message" line that is NOT a standard boilerplate
+# prefix (Traceback, File, During handling, The above exception, etc.).
 _EXC_LINE_RE = re.compile(
-    r"^(\w[\w.]*(?:Error|Exception|Warning|Exit)\b):[ \t].*$",
+    r"^(?!Traceback |File |During handling|The above exception)(\w[\w.]*):[ \t].+$",
     re.MULTILINE,
 )
 
