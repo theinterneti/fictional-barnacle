@@ -105,18 +105,18 @@ class Settings(BaseSettings):
 
     # --- S28 Performance & Scaling ---
 
-    # PostgreSQL pool (FR-28.07)
+    # PostgreSQL pool (FR-28.07) — wired into build_engine() via app.py
     pg_pool_min: int = 5
     pg_pool_max: int = 20
     pg_pool_timeout: int = 5  # seconds
     pg_pool_idle_timeout: int = 300  # seconds
 
-    # Redis pool (FR-28.08)
+    # Redis pool (FR-28.08) — ready for wiring when Redis adapter lands
     redis_pool_max: int = 20
     redis_timeout: int = 2  # seconds
     redis_retry_count: int = 3
 
-    # Neo4j pool (FR-28.09)
+    # Neo4j pool (FR-28.09) — ready for wiring when Neo4j adapter lands
     neo4j_pool_max: int = 10
     neo4j_timeout: int = 5  # seconds
 
@@ -124,6 +124,7 @@ class Settings(BaseSettings):
     llm_max_concurrent: int = 10
     llm_queue_size: int = 50
     llm_timeout: int = 30  # seconds
+    # Token limits — ready for wiring in prompt builder / turn pipeline
     llm_max_input_tokens: int = 4000
     llm_max_output_tokens: int = 2000
 

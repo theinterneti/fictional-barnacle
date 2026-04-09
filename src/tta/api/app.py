@@ -63,6 +63,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = build_engine(
         settings.database_url,
         echo=(settings.environment == "development"),
+        pool_size=settings.pg_pool_min,
+        max_overflow=settings.pg_pool_max - settings.pg_pool_min,
         pool_timeout=settings.pg_pool_timeout,
         pool_recycle=settings.pg_pool_idle_timeout,
         pool_pre_ping=True,

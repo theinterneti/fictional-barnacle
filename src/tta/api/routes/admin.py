@@ -28,7 +28,7 @@ from tta.api.errors import AppError
 from tta.errors import ErrorCategory
 from tta.observability.metrics import REGISTRY, generate_latest
 
-router = APIRouter(tags=["admin"], dependencies=[Depends(require_admin)])
+router = APIRouter(tags=["admin"])
 log = structlog.get_logger()
 
 
@@ -47,7 +47,11 @@ class TerminateRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     action: str = Field(..., pattern=r"^(dismiss|warn|suspend_player)$")
-    reason: str = Field("", min_length=0)
+    notes: str = Field(..., min_length=10)
+
+
+class ReasonRequest(BaseModel):
+    reason: str = Field(..., min_length=1)
 
 
 # ------------------------------------------------------------------
@@ -97,7 +101,7 @@ async def get_player(
     async with request.app.state.pg() as session:
         row = await session.execute(
             sa.text(
-                "SELECT id, handle, display_name, status, "
+                "SELECT id, handle, status, "
                 "suspended_reason, created_at "
                 "FROM players WHERE id = :pid"
             ),
@@ -142,7 +146,6 @@ async def get_player(
         content={
             "player_id": str(player.id),
             "handle": player.handle,
-            "display_name": player.display_name,
             "status": player.status,
             "suspended_reason": player.suspended_reason,
             "created_at": player.created_at.isoformat(),
@@ -163,15 +166,21 @@ async def search_players(
     limit: int = Query(20, ge=1, le=100),
     _admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
-    """Search players by handle prefix (FR-26.06)."""
+    """Search by handle prefix or exact player_id (FR-26.06)."""
     import sqlalchemy as sa
 
     clauses = ["1=1"]
     params: dict[str, object] = {"lim": limit}
 
     if search:
-        clauses.append("handle ILIKE :prefix")
-        params["prefix"] = f"{search}%"
+        # Try exact UUID match first, fall back to handle prefix
+        try:
+            exact_id = UUID(search)
+            clauses.append("id = :exact_id")
+            params["exact_id"] = exact_id
+        except ValueError:
+            clauses.append("handle ILIKE :prefix")
+            params["prefix"] = f"{search}%"
     if cursor:
         clauses.append("id < :cursor")
         params["cursor"] = cursor
@@ -180,7 +189,7 @@ async def search_players(
     async with request.app.state.pg() as session:
         result = await session.execute(
             sa.text(
-                f"SELECT id, handle, display_name, status, created_at "
+                f"SELECT id, handle, status, created_at "
                 f"FROM players WHERE {where} "
                 f"ORDER BY id DESC LIMIT :lim"
             ),
@@ -192,7 +201,6 @@ async def search_players(
         {
             "player_id": str(r.id),
             "handle": r.handle,
-            "display_name": r.display_name,
             "status": r.status,
             "created_at": r.created_at.isoformat(),
         }
@@ -567,13 +575,44 @@ async def review_moderation_flag(
             f"Moderation flag {flag_id} not found.",
         )
 
+    # FR-26.19: suspend_player action must actually suspend the player
+    if body.action == "suspend_player":
+        import sqlalchemy as sa
+
+        # Look up the player_id from the moderation record
+        flags = await recorder.query(limit=1)
+        flag_record = next(
+            (f for f in flags if str(f.get("moderation_id")) == flag_id), None
+        )
+        if flag_record and flag_record.get("player_id"):
+            pid = flag_record["player_id"]
+            async with request.app.state.pg() as session:
+                await session.execute(
+                    sa.text(
+                        "UPDATE players SET status = 'suspended', "
+                        "suspended_reason = :reason "
+                        "WHERE id = :pid AND status != 'suspended'"
+                    ),
+                    {"pid": pid, "reason": body.notes},
+                )
+                await session.commit()
+            # Audit entry for the player suspension
+            await _audit(
+                request,
+                admin,
+                action="suspend_player",
+                target_type="player",
+                target_id=str(pid),
+                reason=body.notes,
+            )
+
     await _audit(
         request,
         admin,
         action=f"moderation_review_{body.action}",
         target_type="moderation_flag",
         target_id=flag_id,
-        reason=body.reason,
+        reason=body.notes,
     )
 
     return JSONResponse(
@@ -617,6 +656,7 @@ async def get_player_rate_limits(
 @router.post("/rate-limits/player/{player_id}/reset")
 async def reset_player_rate_limits(
     player_id: UUID,
+    body: ReasonRequest,
     request: Request,
     admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
@@ -631,6 +671,7 @@ async def reset_player_rate_limits(
         action="reset_player_rate_limits",
         target_type="player",
         target_id=str(player_id),
+        reason=body.reason,
     )
 
     return JSONResponse(
@@ -668,6 +709,7 @@ async def get_ip_rate_limits(
 @router.post("/rate-limits/ip/{ip_address}/unblock")
 async def unblock_ip(
     ip_address: str,
+    body: ReasonRequest,
     request: Request,
     admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
@@ -677,8 +719,8 @@ async def unblock_ip(
         await detector.clear_cooldown(ip_address)
 
     rl = request.app.state.rate_limiter
-    # Clear known IP rate-limit groups
-    for group in ("default", "burst", "turn"):
+    # Clear all IP rate-limit groups (must match EndpointGroup values)
+    for group in ("turns", "game_mgmt", "auth", "sse", "health"):
         await rl.clear_key(f"rl:ip:{ip_address}:{group}")
 
     await _audit(
@@ -687,6 +729,7 @@ async def unblock_ip(
         action="unblock_ip",
         target_type="ip",
         target_id=ip_address,
+        reason=body.reason,
     )
 
     return JSONResponse(content={"ip": ip_address, "status": "unblocked"})
@@ -704,17 +747,27 @@ async def query_audit_log(
     action: str | None = Query(None),
     target_type: str | None = Query(None),
     target_id: str | None = Query(None),
-    cursor: UUID | None = Query(None),
+    since: str | None = Query(None, description="ISO 8601 start timestamp"),
+    until: str | None = Query(None, description="ISO 8601 end timestamp"),
+    cursor: str | None = Query(None),
     limit: int = Query(50, ge=1, le=1000),
     _admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
     """Paginated, filterable audit log (FR-26.25)."""
+    from datetime import datetime
+
     repo = request.app.state.audit_repo
+
+    from_ts = datetime.fromisoformat(since) if since else None
+    to_ts = datetime.fromisoformat(until) if until else None
+
     entries = await repo.query(
         admin_id=admin_id,
         action=action,
         target_type=target_type,
         target_id=target_id,
+        from_ts=from_ts,
+        to_ts=to_ts,
         cursor=cursor,
         limit=limit,
     )
@@ -732,5 +785,7 @@ async def query_audit_log(
         }
         for e in entries
     ]
-    next_cursor = str(entries[-1].id) if entries else None
+    next_cursor = (
+        repo.encode_cursor(entries[-1].timestamp, entries[-1].id) if entries else None
+    )
     return JSONResponse(content={"entries": items, "next_cursor": next_cursor})

@@ -6,6 +6,7 @@ conflicts with asyncpg and to preserve SSE streaming fidelity.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import time
@@ -439,10 +440,11 @@ class LatencyBudgetMiddleware:
             await send(message)
 
         try:
-            await self.app(scope, receive, send_wrapper)
-        finally:
+            async with asyncio.timeout(abort_ms / 1000):
+                await self.app(scope, receive, send_wrapper)
+        except TimeoutError:
             elapsed_ms = (time.monotonic() - start) * 1000
-            if elapsed_ms >= abort_ms and not headers_sent:
+            if not headers_sent:
                 log.error(
                     "latency_budget_abort",
                     path=path,
@@ -463,3 +465,10 @@ class LatencyBudgetMiddleware:
                     },
                 )
                 await resp(scope, receive, send)
+            else:
+                log.warning(
+                    "latency_budget_exceeded_headers_sent",
+                    path=path,
+                    elapsed_ms=round(elapsed_ms, 1),
+                    abort_ms=abort_ms,
+                )

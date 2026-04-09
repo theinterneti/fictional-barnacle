@@ -2,9 +2,15 @@
 
 v1 uses a shared admin API key. Every admin request must include
 ``Authorization: Bearer <key>`` matching ``TTA_ADMIN_API_KEY``.
+
+.. note:: Spec FR-26.02 targets JWT with an ``admin`` role claim.
+   The current shared-key scheme is a v1 stepping-stone; swap to
+   JWT when an identity provider is integrated.
 """
 
 from __future__ import annotations
+
+import secrets
 
 import structlog
 from fastapi import Request
@@ -43,6 +49,8 @@ async def require_admin(request: Request) -> AdminIdentity:
             "admin_auth_failed",
             reason="missing_token",
             ip=request.client.host if request.client else "unknown",
+            path=request.url.path,
+            method=request.method,
         )
         raise AppError(
             ErrorCategory.AUTH_REQUIRED,
@@ -51,11 +59,13 @@ async def require_admin(request: Request) -> AdminIdentity:
         )
 
     token = auth[7:]
-    if token != expected_key:
+    if not secrets.compare_digest(token, expected_key):
         log.warning(
             "admin_auth_failed",
             reason="invalid_token",
             ip=request.client.host if request.client else "unknown",
+            path=request.url.path,
+            method=request.method,
         )
         raise AppError(
             ErrorCategory.FORBIDDEN,

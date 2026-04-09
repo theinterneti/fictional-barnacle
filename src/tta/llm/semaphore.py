@@ -14,6 +14,7 @@ import structlog
 
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
+from tta.observability.metrics import LLM_SEMAPHORE_ACTIVE, LLM_SEMAPHORE_WAITING
 
 log = structlog.get_logger()
 
@@ -46,6 +47,7 @@ class LLMSemaphore:
         self._timeout = timeout
         self._waiting = 0
         self._active = 0
+        self._lock = asyncio.Lock()
 
     @property
     def active(self) -> int:
@@ -75,19 +77,21 @@ class LLMSemaphore:
 
         Raises 503 if queue is full, cancels on timeout.
         """
-        if self._waiting >= self._queue_size:
-            log.warning(
-                "llm_queue_full",
-                waiting=self._waiting,
-                limit=self._queue_size,
-            )
-            raise AppError(
-                ErrorCategory.SERVICE_UNAVAILABLE,
-                "LLM_QUEUE_FULL",
-                "LLM request queue is full. Try again later.",
-            )
+        async with self._lock:
+            if self._waiting >= self._queue_size:
+                log.warning(
+                    "llm_queue_full",
+                    waiting=self._waiting,
+                    limit=self._queue_size,
+                )
+                raise AppError(
+                    ErrorCategory.SERVICE_UNAVAILABLE,
+                    "LLM_QUEUE_FULL",
+                    "LLM request queue is full. Try again later.",
+                )
+            self._waiting += 1
+            LLM_SEMAPHORE_WAITING.set(self._waiting)
 
-        self._waiting += 1
         try:
             async with asyncio.timeout(self._timeout):
                 await self._semaphore.acquire()
@@ -100,8 +104,10 @@ class LLMSemaphore:
             ) from None
         finally:
             self._waiting -= 1
+            LLM_SEMAPHORE_WAITING.set(self._waiting)
 
         self._active += 1
+        LLM_SEMAPHORE_ACTIVE.set(self._active)
         try:
             async with asyncio.timeout(self._timeout):
                 return await fn(*args, **kwargs)  # type: ignore[return-value]
@@ -114,4 +120,5 @@ class LLMSemaphore:
             ) from None
         finally:
             self._active -= 1
+            LLM_SEMAPHORE_ACTIVE.set(self._active)
             self._semaphore.release()

@@ -32,7 +32,7 @@ def upgrade() -> None:
     # S26 FR-26.24/FR-26.25: append-only audit log
     op.create_table(
         "audit_log",
-        sa.Column("id", sa.Text(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("admin_id", sa.Text(), nullable=False),
         sa.Column("action", sa.Text(), nullable=False),
         sa.Column("target_type", sa.Text(), nullable=True),

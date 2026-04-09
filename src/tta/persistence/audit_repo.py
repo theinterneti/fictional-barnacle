@@ -5,6 +5,7 @@ Only INSERT and SELECT operations are exposed — no UPDATE or DELETE.
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -46,6 +47,19 @@ class AuditLogRepository:
             await session.commit()
             return entry
 
+    @staticmethod
+    def encode_cursor(ts: datetime, entry_id: UUID) -> str:
+        """Encode a ``(timestamp, id)`` pair into an opaque cursor."""
+        raw = f"{ts.isoformat()}|{entry_id}"
+        return base64.urlsafe_b64encode(raw.encode()).decode()
+
+    @staticmethod
+    def decode_cursor(cursor: str) -> tuple[datetime, UUID]:
+        """Decode an opaque cursor into ``(timestamp, id)``."""
+        raw = base64.urlsafe_b64decode(cursor.encode()).decode()
+        ts_str, id_str = raw.split("|", 1)
+        return datetime.fromisoformat(ts_str), UUID(id_str)
+
     async def query(
         self,
         *,
@@ -55,13 +69,15 @@ class AuditLogRepository:
         target_id: str | None = None,
         from_ts: datetime | None = None,
         to_ts: datetime | None = None,
-        cursor: UUID | None = None,
+        cursor: str | None = None,
         limit: int = 50,
     ) -> list[AuditLogEntry]:
         """Query audit log with optional filters (FR-26.25).
 
         Returns at most *limit* entries (max 1000) ordered by
-        timestamp descending. Cursor-based pagination via entry ID.
+        timestamp descending.  Cursor-based pagination uses a
+        composite ``(timestamp, id)`` token encoded as a base64
+        string, so ordering is deterministic.
         """
         limit = min(limit, 1000)
         clauses: list[str] = []
@@ -86,8 +102,10 @@ class AuditLogRepository:
             clauses.append("timestamp <= :to_ts")
             params["to_ts"] = to_ts
         if cursor:
-            clauses.append("id < :cursor")
-            params["cursor"] = cursor
+            cur_ts, cur_id = self.decode_cursor(cursor)
+            clauses.append("(timestamp, id) < (:cur_ts, :cur_id)")
+            params["cur_ts"] = cur_ts
+            params["cur_id"] = cur_id
 
         where = "WHERE " + " AND ".join(clauses) if clauses else ""
         sql = (
