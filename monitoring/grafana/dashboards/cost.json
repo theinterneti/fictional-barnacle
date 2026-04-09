@@ -9,13 +9,13 @@
   "panels": [
     {
       "id": 1,
-      "title": "Daily LLM Cost",
+      "title": "Daily LLM Cost (24h)",
       "type": "stat",
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "tta_llm_cost_daily_usd",
-          "legendFormat": "daily total"
+          "expr": "increase(tta_turn_llm_cost_usd_sum[24h])",
+          "legendFormat": "24h total"
         }
       ],
       "fieldConfig": {

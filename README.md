@@ -13,7 +13,12 @@ cd fictional-barnacle
 
 # 2. Copy the environment template and fill in secrets
 cp .env.example .env
-# Edit .env — at minimum set LITELLM_API_KEY
+# Edit .env — set your LLM provider key (e.g. OPENAI_API_KEY)
+# and any passwords you want to change.
+#
+# NOTE: .env.example uses localhost URLs for local development.
+# For Docker, the compose services override connection URLs
+# automatically via service DNS names (tta-postgres, tta-redis, etc.).
 
 # 3. Start the core stack
 docker compose up -d
@@ -22,7 +27,9 @@ docker compose up -d
 docker compose --profile monitoring up -d
 ```
 
-The API is ready when `http://localhost:8000/health` returns `{"status": "ok"}`.
+The API is ready when `curl http://localhost:8000/api/v1/health` returns
+a JSON response with `"status": "healthy"` (or `"degraded"` if optional
+services like Neo4j or Redis are still starting).
 
 ## Architecture
 

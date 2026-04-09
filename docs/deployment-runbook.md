@@ -6,7 +6,8 @@ Operational guide for the Therapeutic Text Adventure (TTA) stack.
 
 - Docker Engine 24+ and Docker Compose v2
 - A `.env` file based on `.env.example` with all required secrets filled in
-- At minimum: `LITELLM_API_KEY` for LLM access
+- At minimum: your LLM provider API key (e.g. `OPENAI_API_KEY` env var)
+- All TTA-specific settings use the `TTA_` prefix (see Environment Variables below)
 
 ## First Deploy
 
@@ -19,8 +20,8 @@ cp .env.example .env
 docker compose up -d
 
 # 3. Verify health
-curl -s http://localhost:8000/health
-# Expected: {"status":"ok"}
+curl -s http://localhost:8000/api/v1/health | python -m json.tool
+# Expected: {"status":"healthy","checks":{...},"version":"..."}
 
 # 4. Run database migrations
 docker compose exec tta-api uv run alembic upgrade head
@@ -33,7 +34,7 @@ docker compose --profile monitoring up -d
 
 | Service     | Check                                          |
 |------------|------------------------------------------------|
-| tta-api    | `curl http://localhost:8000/health`             |
+| tta-api    | `curl http://localhost:8000/api/v1/health`     |
 | PostgreSQL | `docker compose exec tta-postgres pg_isready`   |
 | Neo4j      | `curl http://localhost:7474`                    |
 | Redis      | `docker compose exec tta-redis redis-cli ping`  |
@@ -53,7 +54,10 @@ docker compose --profile monitoring stop
 ```
 
 - **Prometheus**: http://localhost:9090 — metrics scraping and alerting rules
-- **Grafana**: http://localhost:3001 — dashboards (default login: admin/admin)
+- **Grafana**: http://localhost:3001 — dashboards
+  - **Change the default credentials** on first login. The admin username and
+    password are set via `GF_SECURITY_ADMIN_USER` and `GF_SECURITY_ADMIN_PASSWORD`
+    environment variables in `docker-compose.yml` — override them in your `.env`.
   - System Health dashboard: request rates, latency, error rates, pool status
   - Turn Pipeline dashboard: processing times, LLM usage, safety flags
   - Cost dashboard: LLM spending by model and over time
@@ -72,16 +76,17 @@ and restart Grafana.
 
 Prometheus evaluates alerting rules from `monitoring/prometheus/alerts.yml`:
 
-| Alert                 | Condition                          | Severity |
-|-----------------------|------------------------------------|----------|
-| HighAPIErrorRate      | >10% 5xx responses over 5 min     | critical |
-| LLMAPIUnreachable     | LLM errors >50% over 2 min        | critical |
-| SlowTurnProcessing    | p95 turn latency >30s over 5 min  | warning  |
-| HighDailyLLMCost      | Daily LLM cost >$50               | warning  |
-| DBPoolExhausted       | PG pool >90% utilized over 2 min  | critical |
+| Alert                 | Condition                                        | Severity | Status   |
+|-----------------------|--------------------------------------------------|----------|----------|
+| HighAPIErrorRate      | >10% 5xx responses over 5 min                   | critical | active   |
+| SlowTurnProcessing    | p95 turn latency >30s over 5 min                | warning  | active   |
+| HighDailyLLMCost      | 24h LLM cost >$50 (from cost histogram)         | warning  | active   |
+| LLMAPIUnreachable     | Zero LLM calls while turns active for 2 min     | critical | disabled |
+| DBPoolExhausted       | PG pool >95% utilized over 2 min                | critical | disabled |
 
-> **Note**: This wave ships rule evaluation only. Alertmanager for
-> notification routing/deduplication is planned for a future wave.
+> **Note**: Disabled alerts depend on metrics that are not yet instrumented
+> (planned for Wave 13). Prometheus evaluates rules only — Alertmanager
+> for notification routing is planned for a future wave.
 
 ## Common Operations
 
@@ -154,13 +159,20 @@ curl -s http://localhost:8000/metrics | grep tta_http_requests_total
 
 ## Environment Variables
 
+All TTA application settings use the `TTA_` prefix (set in `.env` or
+exported in the shell). Your LLM provider key is **not** prefixed — it
+follows the provider's convention (e.g. `OPENAI_API_KEY`).
+
 See `.env.example` for the complete list. Key variables:
 
-| Variable            | Required | Description                       |
-|--------------------|----------|-----------------------------------|
-| `LITELLM_API_KEY`  | Yes      | API key for LLM provider          |
-| `DATABASE_URL`     | Yes      | PostgreSQL connection string       |
-| `NEO4J_PASSWORD`   | Yes      | Neo4j database password            |
-| `REDIS_URL`        | No       | Redis connection (default: local)  |
-| `CORS_ORIGINS`     | No       | Comma-separated allowed origins    |
-| `ADMIN_TOKEN`      | No       | Admin API authentication token     |
+| Variable                | Required | Description                            |
+|------------------------|----------|----------------------------------------|
+| `OPENAI_API_KEY`       | Yes*     | API key for your LLM provider          |
+| `TTA_DATABASE_URL`     | Yes      | PostgreSQL connection string            |
+| `TTA_NEO4J_PASSWORD`   | Yes      | Neo4j database password                 |
+| `TTA_REDIS_URL`        | No       | Redis connection (default: localhost)   |
+| `TTA_CORS_ORIGINS`     | No       | JSON list of allowed origins            |
+| `TTA_ADMIN_TOKEN`      | No       | Admin API authentication token          |
+| `TTA_LITELLM_MODEL`    | No       | Primary LLM model (default: openai/gpt-4o-mini) |
+
+*Or whichever env var your LLM provider requires (e.g. `ANTHROPIC_API_KEY`).

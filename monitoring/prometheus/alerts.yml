@@ -2,14 +2,15 @@
 # Spec ref: S15 FR-15.22/23 (alerting rules)
 #
 # Six conditions monitored:
-#   1. API error rate > 10% over 5 min (Critical)
-#   2. LLM API unreachable > 2 min (Critical)
-#   3. Turn processing > 30s p95 (Warning)
-#   4. Daily LLM cost > threshold (Warning)
-#   5. DB connection pool exhausted (Critical)
+#   1. API error rate > 10% over 5 min (Critical) — ACTIVE
+#   2. LLM API unreachable > 2 min (Critical) — DISABLED (metric not yet instrumented)
+#   3. Turn processing > 30s p95 (Warning) — ACTIVE
+#   4. Daily LLM cost > threshold (Warning) — ACTIVE (uses cost histogram)
+#   5. DB connection pool exhausted (Critical) — DISABLED (metric not yet instrumented)
 #   6. Disk usage > 80% (deferred — requires node_exporter)
 #
-# FR-15.24: Same alert fires at most once per 15 min (group_interval).
+# FR-15.24: Dedup is handled at the Alertmanager level (not yet deployed).
+#           Currently, Prometheus evaluates rules only.
 # FR-15.25: Thresholds are configurable via Prometheus external labels or
 #           recording rules; values below are the S15 defaults.
 
@@ -35,22 +36,23 @@ groups:
             over the last 5 minutes.
 
       # 2. LLM API unreachable > 2 min → Critical
-      # Uses the absence of successful LLM calls as a proxy.
-      - alert: LLMAPIUnreachable
-        expr: |
-          (
-            sum(rate(tta_turn_llm_calls_total[2m])) == 0
-            and
-            sum(rate(tta_turn_total[2m])) > 0
-          )
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "LLM API appears unreachable"
-          description: >-
-            No LLM calls have succeeded in the last 2 minutes while
-            turns are still being requested.
+      # DISABLED: tta_turn_llm_calls_total is not yet instrumented.
+      # TODO: Re-enable after Wave 13 metrics instrumentation.
+      # - alert: LLMAPIUnreachable
+      #   expr: |
+      #     (
+      #       sum(rate(tta_turn_llm_calls_total[2m])) == 0
+      #       and
+      #       sum(rate(tta_turn_total[2m])) > 0
+      #     )
+      #   for: 2m
+      #   labels:
+      #     severity: critical
+      #   annotations:
+      #     summary: "LLM API appears unreachable"
+      #     description: >-
+      #       No LLM calls have succeeded in the last 2 minutes while
+      #       turns are still being requested.
 
       # 3. Turn processing > 30s p95 → Warning
       - alert: SlowTurnProcessing
@@ -68,26 +70,29 @@ groups:
             {{ $value | humanizeDuration }}.
 
       # 4. Daily LLM cost > threshold → Warning
+      # Uses increase() over the cost histogram sum to derive 24h spend.
       - alert: HighDailyLLMCost
-        expr: tta_llm_cost_daily_usd > 50
+        expr: increase(tta_turn_llm_cost_usd_sum[24h]) > 50
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: "Daily LLM cost exceeds threshold"
           description: >-
-            Current daily LLM spend is ${{ $value | printf "%.2f" }}.
+            LLM spend in the last 24 hours is ${{ $value | printf "%.2f" }}.
             Threshold: $50.
 
       # 5. DB connection pool exhausted → Critical
-      - alert: DBPoolExhausted
-        expr: |
-          (tta_pg_pool_checked_out / tta_pg_pool_size) > 0.95
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "PostgreSQL connection pool near exhaustion"
-          description: >-
-            {{ $value | humanizePercentage }} of the PG connection pool
-            is in use for over 2 minutes.
+      # DISABLED: tta_pg_pool_* gauges are not yet instrumented.
+      # TODO: Re-enable after Wave 13 metrics instrumentation.
+      # - alert: DBPoolExhausted
+      #   expr: |
+      #     (tta_pg_pool_checked_out / tta_pg_pool_size) > 0.95
+      #   for: 2m
+      #   labels:
+      #     severity: critical
+      #   annotations:
+      #     summary: "PostgreSQL connection pool near exhaustion"
+      #     description: >-
+      #       {{ $value | humanizePercentage }} of the PG connection pool
+      #       is in use for over 2 minutes.

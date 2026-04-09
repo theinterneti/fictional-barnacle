@@ -905,7 +905,8 @@ Key deliverables:
 
 - **Prometheus alerting rules** (S15 FR-15.22/23)
   - 5 rules: API error rate >10%, LLM unreachable >2min, turn processing >30s p95, daily cost threshold, DB pool exhausted
-  - Inhibit rules for 15-min dedup per FR-15.24
+  - LLMAPIUnreachable and DBPoolExhausted disabled until metrics are instrumented (Wave 13)
+  - Prometheus rule evaluation only — Alertmanager for notification routing planned for future wave
 
 - **Security headers middleware** (Tier 2)
   - Pure ASGI middleware: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy
