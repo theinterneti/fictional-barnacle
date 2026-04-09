@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -364,7 +363,10 @@ class TestSSEErrorEvents:
         app = client.app
         app.state.turn_result_store = store  # type: ignore[union-attr]
 
-        # Pre-publish a failed result so stream picks it up immediately
+        # Pre-publish a failed result so stream picks it up immediately.
+        # Inject directly into the store's internal dict to avoid
+        # asyncio.get_event_loop() deprecation and cross-loop issues
+        # that cause flaky failures in CI.
         failed_state = TurnState(
             session_id=_GAME_ID,
             turn_id=turn_id,
@@ -373,11 +375,7 @@ class TestSSEErrorEvents:
             game_state={},
             status=TurnStatus.failed,
         )
-
-        async def setup_store():
-            await store.publish(str(turn_id), failed_state)
-
-        asyncio.get_event_loop().run_until_complete(setup_store())
+        store._results[str(turn_id)] = failed_state
 
         resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
 
