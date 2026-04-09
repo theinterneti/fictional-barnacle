@@ -18,7 +18,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from tta.api.deps import get_current_player, get_pg
 from tta.api.errors import AppError
 from tta.api.sse import SSECounter
-from tta.config import get_settings
+from tta.config import Settings, get_settings
 from tta.errors import ErrorCategory
 from tta.logging import bind_context
 from tta.models.events import (
@@ -598,7 +598,8 @@ async def stream_turn(
         # FR-23.22: keepalive loop while waiting for pipeline result
         store = request.app.state.turn_result_store
         keepalive_interval = 15.0
-        total_timeout = get_settings().pipeline_timeout_seconds
+        settings: Settings = request.app.state.settings
+        total_timeout = settings.pipeline_timeout_seconds
         deadline = time.monotonic() + total_timeout
         result: TurnState | None = None
 
