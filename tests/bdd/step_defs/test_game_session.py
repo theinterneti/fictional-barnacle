@@ -87,12 +87,16 @@ def end_game(ctx: dict, client: TestClient, pg: AsyncMock) -> dict:
     pg.execute = AsyncMock(
         side_effect=[
             _make_result(rows=[_game_row()]),  # _get_owned_game
-            _make_result(),  # UPDATE status
+            _make_result(),  # UPDATE status → abandoned, deleted_at
             _make_result(scalar=5),  # _get_turn_count
         ]
     )
     pg.commit = AsyncMock()
-    ctx["response"] = client.delete(f"/api/v1/games/{_GAME_ID}")
+    ctx["response"] = client.request(
+        "DELETE",
+        f"/api/v1/games/{_GAME_ID}",
+        json={"confirm": True},
+    )
     return ctx
 
 

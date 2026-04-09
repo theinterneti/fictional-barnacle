@@ -8,11 +8,12 @@ from pydantic import BaseModel, Field
 
 
 class GameStatus(StrEnum):
-    """Lifecycle status of a game session (plan §6.1)."""
+    """Lifecycle status of a game session (plan §6.1, S27 FR-27.01)."""
 
     created = "created"
     active = "active"
     paused = "paused"
+    completed = "completed"
     ended = "ended"
     expired = "expired"
     abandoned = "abandoned"
@@ -25,8 +26,14 @@ class GameSession(BaseModel):
     player_id: UUID
     status: GameStatus = GameStatus.created
     world_seed: dict = Field(default_factory=dict)
+    title: str | None = Field(default=None, max_length=80)
+    summary: str | None = Field(default=None, max_length=200)
+    turn_count: int = 0
+    needs_recovery: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_played_at: datetime | None = None
+    deleted_at: datetime | None = None
 
 
 class GameState(BaseModel):

@@ -58,6 +58,12 @@ def _game_row(
     game_id=None,
     player_id=None,
     status: str = "active",
+    title: str | None = None,
+    summary: str | None = None,
+    last_played_at: datetime | None = _NOW,
+    deleted_at: datetime | None = None,
+    turn_count: int = 0,
+    needs_recovery: bool = False,
 ) -> dict[str, Any]:
     """A typical game_sessions row."""
     return {
@@ -65,8 +71,14 @@ def _game_row(
         "player_id": player_id or _PLAYER_ID,
         "status": status,
         "world_seed": "{}",
+        "title": title,
+        "summary": summary,
+        "turn_count": turn_count,
+        "needs_recovery": needs_recovery,
         "created_at": _NOW,
         "updated_at": _NOW,
+        "last_played_at": last_played_at,
+        "deleted_at": deleted_at,
     }
 
 
@@ -139,8 +151,7 @@ class TestCreateGame:
 
 class TestListGames:
     def test_returns_games_list(self, client: TestClient, pg: AsyncMock) -> None:
-        row = _game_row()
-        row["turn_count"] = 3
+        row = _game_row(turn_count=3)
         pg.execute = AsyncMock(
             return_value=_make_result([row]),
         )
@@ -151,6 +162,7 @@ class TestListGames:
         data = resp.json()
         assert len(data["data"]) == 1
         assert data["data"][0]["status"] == "active"
+        assert data["data"][0]["turn_count"] == 3
         assert data["meta"]["has_more"] is False
 
     def test_empty_list(self, client: TestClient, pg: AsyncMock) -> None:
@@ -160,6 +172,38 @@ class TestListGames:
 
         assert resp.status_code == 200
         assert resp.json()["data"] == []
+
+    def test_excludes_abandoned_by_default(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """Abandoned games excluded unless status=abandoned is explicit."""
+        pg.execute = AsyncMock(return_value=_make_result([]))
+
+        resp = client.get("/api/v1/games")
+
+        assert resp.status_code == 200
+        # Verify the SQL was called (no abandoned in result)
+        call_args = pg.execute.call_args
+        sql_text = str(call_args[0][0].text)
+        assert "abandoned" in sql_text
+
+    def test_includes_title_summary_last_played(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        row = _game_row(
+            turn_count=2,
+            title="Dark Forest",
+            summary="A tale of survival",
+        )
+        pg.execute = AsyncMock(return_value=_make_result([row]))
+
+        resp = client.get("/api/v1/games")
+
+        assert resp.status_code == 200
+        game = resp.json()["data"][0]
+        assert game["title"] == "Dark Forest"
+        assert game["summary"] == "A tale of survival"
+        assert game["last_played_at"] is not None
 
 
 # ------------------------------------------------------------------
@@ -171,7 +215,7 @@ class TestGetGameState:
     def test_returns_game_state(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(
             side_effect=[
-                _make_result([_game_row()]),  # _get_owned_game
+                _make_result([_game_row(title="Quest")]),  # _get_owned_game
                 _make_result(scalar=5),  # turn count
                 _make_result([]),  # recent turns
                 _make_result(),  # processing turn check
@@ -184,6 +228,7 @@ class TestGetGameState:
         body = resp.json()["data"]
         assert body["game_id"] == str(_GAME_ID)
         assert body["turn_count"] == 5
+        assert body["title"] == "Quest"
         assert body["processing_turn"] is None
 
     def test_returns_404_for_missing_game(
@@ -227,7 +272,7 @@ class TestSubmitTurn:
                 _make_result(),  # in-flight check (none)
                 _make_result(scalar=0),  # max turn number
                 _make_result(),  # INSERT turn
-                _make_result(),  # UPDATE status created→active
+                _make_result(),  # UPDATE last_played_at
             ]
         )
         pg.commit = AsyncMock()
@@ -345,7 +390,7 @@ class TestResumeGame:
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row(status="paused")]),
-                _make_result(),  # UPDATE
+                _make_result(),  # UPDATE status + last_played_at
                 _make_result(scalar=3),  # turn count
             ]
         )
@@ -354,7 +399,9 @@ class TestResumeGame:
         resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
 
         assert resp.status_code == 200
-        assert resp.json()["data"]["status"] == "active"
+        body = resp.json()["data"]
+        assert body["status"] == "active"
+        assert body["turn_count"] == 3
 
     def test_noop_for_already_active_game(
         self, client: TestClient, pg: AsyncMock
@@ -371,8 +418,47 @@ class TestResumeGame:
         assert resp.status_code == 200
         assert resp.json()["data"]["status"] == "active"
 
+    def test_resumes_expired_game(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="expired")]),
+                _make_result(),  # UPDATE
+                _make_result(scalar=1),  # turn count
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        assert resp.json()["data"]["status"] == "active"
+
     def test_rejects_ended_game_resume(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(return_value=_make_result([_game_row(status="ended")]))
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "GAME_NOT_RESUMABLE"
+
+    def test_rejects_completed_game_resume(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        pg.execute = AsyncMock(
+            return_value=_make_result([_game_row(status="completed")])
+        )
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "GAME_NOT_RESUMABLE"
+
+    def test_rejects_abandoned_game_resume(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        pg.execute = AsyncMock(
+            return_value=_make_result([_game_row(status="abandoned")])
+        )
 
         resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
 
@@ -424,7 +510,7 @@ class TestUpdateGame:
 
 
 class TestEndGame:
-    def test_ends_active_game(self, client: TestClient, pg: AsyncMock) -> None:
+    def test_soft_deletes_with_confirm(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row(status="active")]),
@@ -434,17 +520,87 @@ class TestEndGame:
         )
         pg.commit = AsyncMock()
 
-        resp = client.delete(f"/api/v1/games/{_GAME_ID}")
+        resp = client.request(
+            "DELETE",
+            f"/api/v1/games/{_GAME_ID}",
+            json={"confirm": True},
+        )
 
         assert resp.status_code == 200
         body = resp.json()["data"]
-        assert body["status"] == "ended"
+        assert body["status"] == "abandoned"
         assert body["turn_count"] == 7
+
+    def test_rejects_without_confirm(self, client: TestClient, pg: AsyncMock) -> None:
+        resp = client.request(
+            "DELETE",
+            f"/api/v1/games/{_GAME_ID}",
+            json={"confirm": False},
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["error"]["code"] == "CONFIRM_REQUIRED"
 
     def test_rejects_already_ended(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(return_value=_make_result([_game_row(status="ended")]))
 
-        resp = client.delete(f"/api/v1/games/{_GAME_ID}")
+        resp = client.request(
+            "DELETE",
+            f"/api/v1/games/{_GAME_ID}",
+            json={"confirm": True},
+        )
+
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+    def test_rejects_already_abandoned(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute = AsyncMock(
+            return_value=_make_result([_game_row(status="abandoned")])
+        )
+
+        resp = client.request(
+            "DELETE",
+            f"/api/v1/games/{_GAME_ID}",
+            json={"confirm": True},
+        )
+
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+# ------------------------------------------------------------------
+# State transitions — completed status
+# ------------------------------------------------------------------
+
+
+class TestCompletedTransitions:
+    def test_active_to_completed(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="active")]),
+                _make_result(),  # UPDATE
+                _make_result(scalar=10),  # turn count
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.patch(
+            f"/api/v1/games/{_GAME_ID}",
+            json={"status": "completed"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["data"]["status"] == "completed"
+
+    def test_completed_is_terminal(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute = AsyncMock(
+            return_value=_make_result([_game_row(status="completed")])
+        )
+
+        resp = client.patch(
+            f"/api/v1/games/{_GAME_ID}",
+            json={"status": "active"},
+        )
 
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
