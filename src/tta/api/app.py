@@ -30,6 +30,7 @@ from tta.api.routes.admin import router as admin_router
 from tta.api.routes.games import router as games_router
 from tta.api.routes.metrics import router as metrics_router
 from tta.api.routes.players import router as players_router
+from tta.api.security_headers import SecurityHeadersMiddleware
 from tta.logging import configure_logging
 
 if TYPE_CHECKING:
@@ -315,12 +316,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=allow_credentials,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-ID",
+            "X-Admin-Token",
+        ],
     )
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(LatencyBudgetMiddleware)
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(PrometheusMiddleware)
 
     # --- Routers ---

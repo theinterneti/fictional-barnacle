@@ -1,0 +1,95 @@
+{
+  "uid": "tta-turn-pipeline",
+  "title": "TTA — Turn Pipeline",
+  "tags": ["tta"],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Turn Processing Time by Stage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(tta_turn_processing_duration_seconds_bucket[5m])) by (le, stage))",
+          "legendFormat": "{{ stage }} p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 2,
+      "title": "Turn Success / Failure Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_turn_total{status=\"success\"}[5m]))",
+          "legendFormat": "success/s"
+        },
+        {
+          "expr": "sum(rate(tta_turn_total{status=\"error\"}[5m]))",
+          "legendFormat": "error/s"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "LLM Latency by Model",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(tta_turn_llm_duration_seconds_bucket[5m])) by (le, model))",
+          "legendFormat": "{{ model }} p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 4,
+      "title": "LLM Calls Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_turn_llm_calls_total[5m])) by (model)",
+          "legendFormat": "{{ model }}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Token Usage (input / output)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_turn_llm_tokens_total{direction=\"input\"}[5m]))",
+          "legendFormat": "input tokens/s"
+        },
+        {
+          "expr": "sum(rate(tta_turn_llm_tokens_total{direction=\"output\"}[5m]))",
+          "legendFormat": "output tokens/s"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Safety Flags",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(tta_turn_safety_flags_total[5m])) by (level)",
+          "legendFormat": "{{ level }}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

@@ -95,6 +95,11 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
+    environment:
+      # Override localhost URLs from .env with Docker service DNS names
+      TTA_DATABASE_URL: postgresql+asyncpg://tta:tta@tta-postgres:5432/tta
+      TTA_NEO4J_URI: bolt://tta-neo4j:7687
+      TTA_REDIS_URL: redis://tta-redis:6379
     depends_on:
       tta-postgres:
         condition: service_healthy
@@ -104,8 +109,44 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  tta-prometheus:
+    image: docker.io/prom/prometheus:v3.4.1
+    profiles: [monitoring]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - tta-prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    depends_on:
+      tta-api:
+        condition: service_started
+    restart: unless-stopped
+
+  tta-grafana:
+    image: docker.io/grafana/grafana-oss:11.6.0
+    profiles: [monitoring]
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-changeme}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - tta-grafana-data:/var/lib/grafana
+    depends_on:
+      tta-prometheus:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   tta-postgres-data:
   tta-neo4j-data:
   tta-redis-data:
   tta-langfuse-db-data:
+  tta-prometheus-data:
+  tta-grafana-data:
