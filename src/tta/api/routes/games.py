@@ -15,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from tta.api.deps import get_current_player, get_pg
+from tta.api.deps import get_current_player, get_pg, require_active_player
 from tta.api.errors import AppError
 from tta.api.sse import SSECounter
 from tta.config import Settings, get_settings
@@ -428,7 +428,7 @@ async def _get_max_turn_number(pg: AsyncSession, game_id: UUID) -> int:
 # --- Routes ---
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(require_active_player)])
 async def create_game(
     body: CreateGameRequest,
     player: Player = Depends(get_current_player),
@@ -624,7 +624,9 @@ async def get_game_state(
     }
 
 
-@router.post("/{game_id}/turns", status_code=202)
+@router.post(
+    "/{game_id}/turns", status_code=202, dependencies=[Depends(require_active_player)]
+)
 async def submit_turn(
     game_id: UUID,
     body: SubmitTurnRequest,

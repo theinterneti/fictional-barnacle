@@ -125,6 +125,53 @@ LLM_COST_DAILY_USD = Gauge(
 )
 
 
+# -- Connection pool metrics (S28 FR-28.10) --------------------------------
+
+PG_POOL_SIZE = Gauge(
+    "tta_pg_pool_size",
+    "PostgreSQL connection pool size",
+    registry=REGISTRY,
+)
+
+PG_POOL_CHECKED_OUT = Gauge(
+    "tta_pg_pool_checked_out",
+    "PostgreSQL connections currently checked out",
+    registry=REGISTRY,
+)
+
+PG_POOL_OVERFLOW = Gauge(
+    "tta_pg_pool_overflow",
+    "PostgreSQL pool overflow connections",
+    registry=REGISTRY,
+)
+
+REDIS_POOL_ACTIVE = Gauge(
+    "tta_redis_pool_active_connections",
+    "Redis active connections",
+    registry=REGISTRY,
+)
+
+NEO4J_POOL_ACTIVE = Gauge(
+    "tta_neo4j_pool_active_connections",
+    "Neo4j active connections",
+    registry=REGISTRY,
+)
+
+# -- LLM semaphore metrics (S28 FR-28.11) ---------------------------------
+
+LLM_SEMAPHORE_ACTIVE = Gauge(
+    "tta_llm_semaphore_active",
+    "LLM requests currently executing",
+    registry=REGISTRY,
+)
+
+LLM_SEMAPHORE_WAITING = Gauge(
+    "tta_llm_semaphore_waiting",
+    "LLM requests waiting in queue",
+    registry=REGISTRY,
+)
+
+
 def metrics_output() -> bytes:
     """Generate Prometheus metrics output from the registry."""
     return generate_latest(REGISTRY)
