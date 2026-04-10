@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -16,7 +18,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.api.errors import AppError
-from tta.config import get_settings
+from tta.config import (
+    CURRENT_CONSENT_VERSION,
+    REQUIRED_CONSENT_CATEGORIES,
+    get_settings,
+)
 from tta.errors import ErrorCategory
 from tta.models.player import Player
 from tta.persistence.redis_session import delete_active_session
@@ -37,6 +43,18 @@ class CreatePlayerRequest(BaseModel):
         pattern=r"^[a-zA-Z0-9 _\-\.]+$",
         description="Unique player handle.",
     )
+    age_13_plus_confirmed: bool = Field(
+        ...,
+        description="Player confirms they are 13 years or older.",
+    )
+    consent_version: str = Field(
+        ...,
+        description="Version of the consent agreement being accepted.",
+    )
+    consent_categories: dict[str, bool] = Field(
+        ...,
+        description="Consent categories and acceptance status.",
+    )
 
 
 class PlayerData(BaseModel):
@@ -50,6 +68,15 @@ class PlayerProfile(BaseModel):
     player_id: str
     handle: str
     created_at: datetime
+
+
+class UpdateConsentRequest(BaseModel):
+    consent_version: str = Field(
+        ..., description="Must match the current consent version."
+    )
+    consent_categories: dict[str, bool] = Field(
+        ..., description="Categories to update (merged with existing)."
+    )
 
 
 class UpdatePlayerRequest(BaseModel):
@@ -67,9 +94,35 @@ class UpdatePlayerRequest(BaseModel):
 @router.post("", status_code=201)
 async def register_player(
     body: CreatePlayerRequest,
+    request: Request,
     pg: AsyncSession = Depends(get_pg),
 ) -> JSONResponse:
     """Register a new anonymous player with a unique handle."""
+    # Age gate (S17 FR-17.36)
+    if not body.age_13_plus_confirmed:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "AGE_CONFIRMATION_REQUIRED",
+            "You must confirm you are 13 years or older.",
+        )
+
+    # Consent version match (S17 FR-17.22)
+    if body.consent_version != CURRENT_CONSENT_VERSION:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "CONSENT_VERSION_MISMATCH",
+            f"Expected consent version {CURRENT_CONSENT_VERSION}.",
+        )
+
+    # Required categories must be accepted (S17 FR-17.24)
+    for cat in REQUIRED_CONSENT_CATEGORIES:
+        if not body.consent_categories.get(cat):
+            raise AppError(
+                ErrorCategory.INPUT_INVALID,
+                "REQUIRED_CONSENT_MISSING",
+                f"Required consent category '{cat}' must be accepted.",
+            )
+
     # Check handle uniqueness
     existing = await pg.execute(
         sa.text("SELECT id FROM players WHERE handle = :handle"),
@@ -82,15 +135,32 @@ async def register_player(
             "Handle is already taken.",
         )
 
-    # Create player
+    # Create player with consent data
     player_id = uuid4()
     now = datetime.now(UTC)
+    client_ip = request.client.host if request.client else "unknown"
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
+
     await pg.execute(
         sa.text(
-            "INSERT INTO players (id, handle, created_at) "
-            "VALUES (:id, :handle, :created_at)"
+            "INSERT INTO players "
+            "(id, handle, created_at, consent_version, "
+            "consent_accepted_at, consent_categories, "
+            "age_confirmed_at, consent_ip_hash) "
+            "VALUES (:id, :handle, :created_at, :consent_version, "
+            ":consent_accepted_at, :consent_categories::jsonb, "
+            ":age_confirmed_at, :consent_ip_hash)"
         ),
-        {"id": player_id, "handle": body.handle, "created_at": now},
+        {
+            "id": player_id,
+            "handle": body.handle,
+            "created_at": now,
+            "consent_version": body.consent_version,
+            "consent_accepted_at": now,
+            "consent_categories": json.dumps(body.consent_categories),
+            "age_confirmed_at": now,
+            "consent_ip_hash": ip_hash,
+        },
     )
 
     # Create session token
@@ -190,6 +260,126 @@ async def update_profile(
             player_id=str(player.id),
             handle=body.handle,
             created_at=player.created_at,
+        ).model_dump(mode="json")
+    }
+
+
+# --- Consent management (S17 FR-17.22–17.26) ---
+
+
+class ConsentState(BaseModel):
+    consent_version: str | None
+    consent_accepted_at: datetime | None
+    consent_categories: dict[str, bool] | None
+    age_confirmed_at: datetime | None
+
+
+@router.get("/me/consent")
+async def get_consent(
+    player: Player = Depends(get_current_player),
+) -> dict:
+    """Return the authenticated player's current consent state."""
+    cats = None
+    if player.consent_categories is not None:
+        cats = (
+            json.loads(player.consent_categories)
+            if isinstance(player.consent_categories, str)
+            else player.consent_categories
+        )
+    return {
+        "data": ConsentState(
+            consent_version=player.consent_version,
+            consent_accepted_at=player.consent_accepted_at,
+            consent_categories=cats,
+            age_confirmed_at=player.age_confirmed_at,
+        ).model_dump(mode="json")
+    }
+
+
+@router.patch("/me/consent")
+async def update_consent(
+    body: UpdateConsentRequest,
+    request: Request,
+    player: Player = Depends(get_current_player),
+    pg: AsyncSession = Depends(get_pg),
+) -> dict:
+    """Update consent categories (atomic JSONB merge).
+
+    Required categories cannot be withdrawn (returns 422).
+    """
+    if body.consent_version != CURRENT_CONSENT_VERSION:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "CONSENT_VERSION_MISMATCH",
+            f"Expected consent version {CURRENT_CONSENT_VERSION}.",
+        )
+
+    # Reject withdrawal of required categories (S17 FR-17.24)
+    for cat in REQUIRED_CONSENT_CATEGORIES:
+        if cat in body.consent_categories and not body.consent_categories[cat]:
+            raise AppError(
+                ErrorCategory.INPUT_INVALID,
+                "REQUIRED_CONSENT_WITHDRAWAL",
+                f"Cannot withdraw required consent category: {cat}",
+            )
+
+    now = datetime.now(UTC)
+    ip_hash = hashlib.sha256(
+        (request.client.host if request.client else "unknown").encode()
+    ).hexdigest()
+
+    patch_json = json.dumps(body.consent_categories)
+
+    await pg.execute(
+        sa.text(
+            "UPDATE players SET "
+            "consent_version = :version, "
+            "consent_categories = "
+            "COALESCE(consent_categories, '{}'::jsonb) || :patch::jsonb, "
+            "consent_accepted_at = :now, "
+            "consent_ip_hash = :ip_hash, "
+            "updated_at = :now "
+            "WHERE id = :id"
+        ),
+        {
+            "version": body.consent_version,
+            "patch": patch_json,
+            "now": now,
+            "ip_hash": ip_hash,
+            "id": player.id,
+        },
+    )
+    await pg.commit()
+
+    # Audit log
+    log.info(
+        "consent_updated",
+        player_id=str(player.id),
+        consent_version=body.consent_version,
+        categories_updated=list(body.consent_categories.keys()),
+    )
+
+    # Fetch merged state to return
+    result = await pg.execute(
+        sa.text(
+            "SELECT consent_version, consent_accepted_at, "
+            "consent_categories, age_confirmed_at "
+            "FROM players WHERE id = :id"
+        ),
+        {"id": player.id},
+    )
+    row = result.one()
+
+    cats = row.consent_categories
+    if isinstance(cats, str):
+        cats = json.loads(cats)
+
+    return {
+        "data": ConsentState(
+            consent_version=row.consent_version,
+            consent_accepted_at=row.consent_accepted_at,
+            consent_categories=cats,
+            age_confirmed_at=row.age_confirmed_at,
         ).model_dump(mode="json")
     }
 

@@ -10,6 +10,12 @@ from typing import Any
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 
+# S17 FR-17.22 — consent version & required categories
+CURRENT_CONSENT_VERSION = "1.0"
+REQUIRED_CONSENT_CATEGORIES: frozenset[str] = frozenset(
+    {"core_gameplay", "llm_processing"}
+)
+
 
 class Environment(StrEnum):
     """Deployment environment."""

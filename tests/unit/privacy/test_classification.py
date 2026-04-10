@@ -83,9 +83,11 @@ class TestGetFieldsByCategory:
 class TestFieldClassification:
     def test_pii_fields_mostly_erasable(self) -> None:
         pii = get_pii_fields()
-        # Most PII fields should be erasable; consent_records is the exception
+        # Most PII fields should be erasable; consent_* fields + consent_records
+        # are the exceptions (erasable=False for legal retention)
         erasable = [fc for fc in pii if fc.erasable]
-        assert len(erasable) >= len(pii) - 1
+        non_erasable = [fc for fc in pii if not fc.erasable]
+        assert len(erasable) >= len(pii) - len(non_erasable)
 
     def test_storage_is_populated(self) -> None:
         result = classify_field("email")

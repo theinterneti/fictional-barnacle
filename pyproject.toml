@@ -94,8 +94,16 @@ markers = [
 # ---------------------------------------------------------------------------
 [tool.coverage.run]
 source = ["tta"]
+branch = true
 omit = ["tests/*"]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 0
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@overload",
+    "raise NotImplementedError",
+]

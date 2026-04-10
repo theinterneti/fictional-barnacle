@@ -384,6 +384,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(games_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/admin")
 
+    from tta.api.routes.disclaimer import router as disclaimer_router
+
+    app.include_router(disclaimer_router, prefix="/api/v1")
+
     # --- Privacy policy (S17 FR-17.51) ---
     # Load once at startup to avoid blocking the event loop on every request.
 
