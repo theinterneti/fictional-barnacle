@@ -220,9 +220,9 @@ class TestSubmitTurnRequest:
         assert req.input == text
 
     @given(text=st.just(""))
-    def test_empty_input_rejected(self, text: str) -> None:
-        with pytest.raises(ValidationError):
-            SubmitTurnRequest(input=text)
+    def test_empty_input_accepted(self, text: str) -> None:
+        req = SubmitTurnRequest(input=text)
+        assert req.input == text
 
     @given(text=st.text(min_size=2001, max_size=2100))
     @settings(max_examples=10)
@@ -232,9 +232,9 @@ class TestSubmitTurnRequest:
 
     @given(text=st.from_regex(r"^\s+$", fullmatch=True))
     @settings(max_examples=20)
-    def test_whitespace_only_rejected(self, text: str) -> None:
-        with pytest.raises(ValidationError):
-            SubmitTurnRequest(input=text)
+    def test_whitespace_only_accepted(self, text: str) -> None:
+        req = SubmitTurnRequest(input=text)
+        assert req.input == text
 
 
 # ---------------------------------------------------------------------------

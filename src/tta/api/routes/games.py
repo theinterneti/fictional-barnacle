@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import time
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -11,8 +12,8 @@ from uuid import UUID, uuid4
 import sqlalchemy as sa
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field, field_validator
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, Field
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg, require_active_player
@@ -424,22 +425,13 @@ class PaginationMeta(BaseModel):
 class SubmitTurnRequest(BaseModel):
     input: str = Field(
         ...,
-        min_length=1,
         max_length=2000,
-        description="Player's natural-language input.",
+        description="Player's natural-language input. Empty string triggers a nudge.",
     )
     idempotency_key: UUID | None = Field(
         None,
         description="Client-generated UUID for deduplication.",
     )
-
-    @field_validator("input")
-    @classmethod
-    def not_blank(cls, v: str) -> str:
-        if not v.strip():
-            msg = "Input must not be blank"
-            raise ValueError(msg)
-        return v
 
 
 class TurnAccepted(BaseModel):
@@ -476,6 +468,87 @@ class DeleteGameRequest(BaseModel):
         ...,
         description="Must be true to confirm deletion (S27 FR-27.18).",
     )
+
+
+# --- Command router & nudge phrases (S01 AC-1.2, AC-1.10) ---
+
+_NUDGE_PHRASES = (
+    "The world waits for your next move\u2026",
+    "A gentle breeze stirs. What do you do?",
+    "Silence stretches around you, full of possibility.",
+    "The moment hangs, expectant. What catches your attention?",
+    "You pause, taking in your surroundings. What draws you forward?",
+    "Time seems to slow. The world is yours to explore.",
+    "Something shifts in the air. Where do you turn your attention?",
+    "The path ahead is yours to choose. What will it be?",
+    "A quiet opening appears before you. How do you step into it?",
+    "The scene invites a choice. What feels right to do next?",
+)
+
+_KNOWN_COMMANDS = frozenset({"help", "save", "status"})
+
+_HELP_TEXT = (
+    "Available commands:\n"
+    "  /help   \u2014 Show this list of commands\n"
+    "  /save   \u2014 Save your current progress\n"
+    "  /status \u2014 View your game session info\n"
+    "\nOr simply type what you'd like to do in the world."
+)
+
+
+def _parse_slash_command(normalized: str) -> str | None:
+    """Return the command name if input is a known slash command, else None."""
+    if not normalized.startswith("/"):
+        return None
+    parts = normalized[1:].split(None, 1)
+    if not parts:
+        return None
+    cmd = parts[0].lower()
+    return cmd if cmd in _KNOWN_COMMANDS else None
+
+
+async def _execute_command(
+    cmd: str,
+    game_id: UUID,
+    row: object,
+    pg: AsyncSession,
+) -> dict:
+    """Execute a known slash command and return response payload."""
+    if cmd == "help":
+        return {"type": "command", "command": "help", "message": _HELP_TEXT}
+
+    if cmd == "save":
+        now = datetime.now(UTC)
+        await pg.execute(
+            sa.text("UPDATE game_sessions SET updated_at = :now WHERE id = :id"),
+            {"id": game_id, "now": now},
+        )
+        await pg.commit()
+        return {
+            "type": "command",
+            "command": "save",
+            "message": "Your progress has been saved.",
+        }
+
+    if cmd == "status":
+        turn_count = await _get_turn_count(pg, game_id)
+        last_played = (
+            row.last_played_at.strftime("%Y-%m-%d %H:%M UTC")  # type: ignore[union-attr]
+            if getattr(row, "last_played_at", None)
+            else "Never"
+        )
+        template = getattr(row, "template_id", None) or "custom"
+        msg = (
+            f"Game Status\n"
+            f"  Session: {game_id}\n"
+            f"  Status: {row.status}\n"  # type: ignore[union-attr]
+            f"  World: {template}\n"
+            f"  Turns played: {turn_count}\n"
+            f"  Last played: {last_played}"
+        )
+        return {"type": "command", "command": "status", "message": msg}
+
+    return {"type": "command", "command": "help", "message": _HELP_TEXT}
 
 
 # --- Helper functions ---
@@ -816,7 +889,10 @@ async def get_game_state(
 
 
 @router.post(
-    "/{game_id}/turns", status_code=202, dependencies=[Depends(require_active_player)]
+    "/{game_id}/turns",
+    status_code=202,
+    response_model=None,
+    dependencies=[Depends(require_active_player)],
 )
 async def submit_turn(
     game_id: UUID,
@@ -824,7 +900,7 @@ async def submit_turn(
     request: Request,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
-) -> dict:
+) -> dict | JSONResponse:
     """Submit a player turn for processing."""
     row = await _get_owned_game(pg, game_id, player)
 
@@ -858,6 +934,34 @@ async def submit_turn(
             "INVALID_STATE_TRANSITION",
             f"Cannot submit turns for a game in '{row.status}' status.",
         )
+
+    # --- Pre-pipeline routing: commands and nudges (S01 AC-1.2, AC-1.10) ---
+    normalized = body.input.strip()
+
+    # Empty input → atmospheric nudge (no DB row, no turn_count change)
+    if not normalized:
+        return JSONResponse(
+            content={
+                "data": {
+                    "type": "nudge",
+                    "message": random.choice(_NUDGE_PHRASES),
+                }
+            },
+            status_code=200,
+        )
+
+    # Slash commands → instant response (no DB row, no pipeline)
+    if normalized.startswith("/") and len(normalized) > 1:
+        known_cmd = _parse_slash_command(normalized)
+        if known_cmd:
+            payload = await _execute_command(known_cmd, game_id, row, pg)
+        else:
+            payload = {
+                "type": "command",
+                "command": "unknown",
+                "message": (f"Unknown command. {_HELP_TEXT}"),
+            }
+        return JSONResponse(content={"data": payload}, status_code=200)
 
     # Concurrent turn check — advisory lock serialises per-game
     await pg.execute(

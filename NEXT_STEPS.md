@@ -1005,16 +1005,57 @@ world state updates after turns.
 - Pyright: 0 errors
 - Ruff: 0 errors
 
-## 18. Wave 15+ Recommendations
+## 18. Wave 15 — Gameplay Loop Basics (PR #TBD)
 
-### Wave 15 — Operational Completeness
+> Branch: `wave-15/gameplay-loop-basics` from main at `a3564c9`
 
-1. Pool metrics via periodic sampling (PG_POOL_SIZE, REDIS_POOL_ACTIVE, NEO4J_POOL_ACTIVE)
-2. Alertmanager integration for notification routing (PagerDuty, Slack, email)
-3. Performance load testing and SLO validation against S28 targets
-4. node_exporter for disk usage alerting (S15 FR-15.23)
-5. Session token rotation (security improvement)
-6. Privacy policy page at /privacy (S17 FR-17.51–53)
+**Goal**: Make S01 Gameplay Loop actually playable — command system, empty-input
+nudges, E2E smoke test, privacy policy, and pool metrics instrumentation.
+
+### Key Changes
+
+- **Command router** (S01 AC-1.10, AC-1.3) — `/help`, `/save`, `/status` return
+  inline 200 JSON responses without creating DB turns or SSE streams. Unknown
+  commands return help text. Commands bypass advisory lock and pipeline entirely.
+
+- **Empty-input nudge** (S01 AC-1.2) — Blank/whitespace input returns a random
+  in-world nudge phrase (10 phrases) instead of a 422 validation error. Relaxed
+  `SubmitTurnRequest` to allow empty strings.
+
+- **E2E gameplay smoke test** — 9 tests validating the full flow: create game →
+  narrative turn → empty nudge → commands → turn history. Uses ASGI transport
+  with mocked LLM/WorldService.
+
+- **Privacy policy** (S17 FR-17.51-54) — `docs/privacy-policy.md` covering all
+  10 required items in plain language. Served at `/privacy` as HTML. Version-
+  controlled alongside code.
+
+- **Pool metrics sampler** (S28) — Periodic sampler (30s) reads PG/Redis/Neo4j
+  connection pool stats and sets Prometheus gauges. Wired into app lifespan.
+  Graceful no-op when pools aren't initialized.
+
+### Design Decision: Inline 200 for Commands/Nudges
+
+Commands and nudges return HTTP 200 with inline JSON — no DB row, no SSE stream,
+no turn_count pollution. Client distinguishes by status code: 202 = go to SSE,
+200 = response inline. Validated by four independent rubber-duck critiques.
+
+### Metrics
+
+- Tests: 1378 (30 new: 12 command + 9 E2E + 4 privacy + 5 pool metrics)
+- Pyright: 0 errors
+- Ruff: 0 errors
+
+## 19. Wave 16+ Recommendations
+
+### Wave 16 — Gameplay Polish
+
+1. Alertmanager integration for notification routing (PagerDuty, Slack, email)
+2. Performance load testing and SLO validation against S28 targets
+3. node_exporter for disk usage alerting (S15 FR-15.23)
+4. Session token rotation (security improvement)
+5. Turn history pagination (S12 FR-12.03)
+6. Game resume flow validation (S01 AC-1.7)
 
 ### Beyond v1
 

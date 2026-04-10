@@ -30,8 +30,8 @@ def test_narrative_generated():
     pass
 
 
-@scenario(FEATURE, "Empty input is rejected by validation")
-def test_empty_input_rejected():
+@scenario(FEATURE, "Empty input returns a nudge response")
+def test_empty_input_returns_nudge():
     pass
 
 
@@ -68,6 +68,11 @@ def submit_turn(ctx: dict, client: TestClient, pg: AsyncMock, text: str) -> dict
 
 @when("the player submits empty turn text", target_fixture="ctx")
 def submit_empty_turn(ctx: dict, client: TestClient, pg: AsyncMock) -> dict:
+    pg.execute = AsyncMock(
+        side_effect=[
+            _make_result(rows=[_game_row()]),  # _get_owned_game
+        ]
+    )
     ctx["response"] = client.post(
         f"/api/v1/games/{_GAME_ID}/turns",
         json={"input": ""},
@@ -88,3 +93,11 @@ def response_has_stream_url(ctx: dict) -> None:
     body = ctx["response"].json()
     assert "data" in body, f"Expected 'data' key in response: {body}"
     assert "stream_url" in body["data"], f"Expected 'stream_url' in data: {body}"
+
+
+@then("the response is a nudge")
+def response_is_nudge(ctx: dict) -> None:
+    body = ctx["response"].json()
+    assert "data" in body, f"Expected 'data' key in response: {body}"
+    assert body["data"]["type"] == "nudge"
+    assert len(body["data"]["message"]) > 0

@@ -320,12 +320,20 @@ class TestSubmitTurn:
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "TURN_IN_PROGRESS"
 
-    def test_rejects_blank_input(self, client: TestClient) -> None:
+    def test_blank_input_returns_nudge(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row()]),  # _get_owned_game
+            ]
+        )
         resp = client.post(
             f"/api/v1/games/{_GAME_ID}/turns",
             json={"input": "   "},
         )
-        assert resp.status_code == 422
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["type"] == "nudge"
+        assert len(data["message"]) > 0
 
     def test_idempotency_returns_existing_turn(
         self, client: TestClient, pg: AsyncMock
