@@ -79,9 +79,12 @@ class TestRequestIDMiddleware:
         )
         assert resp.headers["x-trace-id"] == "abc-trace-123"
 
-    def test_no_x_trace_id_when_absent(self, client: TestClient) -> None:
+    def test_x_trace_id_falls_back_to_request_id(self, client: TestClient) -> None:
+        """When no X-Trace-Id is sent, the response still has one (from request_id)."""
         resp = client.get("/api/v1/health")
-        assert "x-trace-id" not in resp.headers
+        assert "x-trace-id" in resp.headers
+        assert "x-request-id" in resp.headers
+        assert resp.headers["x-trace-id"] == resp.headers["x-request-id"]
 
 
 # ------------------------------------------------------------------

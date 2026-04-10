@@ -32,6 +32,11 @@ from tta.models.events import (
 from tta.models.game import GameStatus
 from tta.models.player import Player
 from tta.models.turn import TurnState, TurnStatus
+from tta.observability.metrics import (
+    SESSION_DURATION,
+    SESSION_TURNS,
+    SESSIONS_ACTIVE,
+)
 from tta.pipeline.orchestrator import run_pipeline
 
 log = structlog.get_logger()
@@ -465,6 +470,7 @@ async def create_game(
         },
     )
     await pg.commit()
+    SESSIONS_ACTIVE.inc()
 
     return {
         "data": GameData(
@@ -1124,6 +1130,12 @@ async def end_game(
     await pg.commit()
 
     turn_count = await _get_turn_count(pg, game_id)
+
+    # Session lifecycle metrics (S15 FR-15.8)
+    SESSIONS_ACTIVE.dec()
+    SESSION_TURNS.observe(turn_count)
+    duration_s = (now - row.created_at).total_seconds()
+    SESSION_DURATION.observe(duration_s)
 
     return {
         "data": GameEndedData(

@@ -58,9 +58,8 @@ class RequestIDMiddleware:
         request.state.request_id = request_id
         bind_correlation_id(request_id)
 
-        trace_id = current_trace_id() or request.headers.get("x-trace-id")
-        if trace_id:
-            bind_context(trace_id=trace_id)
+        trace_id = current_trace_id() or request.headers.get("x-trace-id") or request_id
+        bind_context(trace_id=trace_id)
 
         start = time.monotonic()
         status_code = 500
@@ -72,8 +71,7 @@ class RequestIDMiddleware:
                 # Inject correlation headers into the response
                 headers = list(message.get("headers", []))
                 headers.append((b"x-request-id", request_id.encode()))
-                if trace_id:
-                    headers.append((b"x-trace-id", trace_id.encode()))
+                headers.append((b"x-trace-id", trace_id.encode()))
                 message = {**message, "headers": headers}
             await send(message)
 

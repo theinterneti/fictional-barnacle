@@ -923,16 +923,57 @@ Key deliverables:
 - Pyright: 0 errors
 - Ruff: 0 errors
 
-## 16. Wave 13+ Recommendations
+## 16. Wave 13 — Metrics Instrumentation & Compliance ✅
 
-### Wave 13 — Instrumentation & Operational Completeness
+### Completed
 
-1. Close instrumentation gaps: turn pipeline, session, cost, and pool metrics (23 defined, only HTTP + semaphore active)
+- **Prometheus metrics instrumentation** (S15 FR-15.6/7/8/9, S28 FR-28.10/11)
+  - LLM call metrics: TURN_LLM_CALLS, TURN_LLM_DURATION, TURN_LLM_TOKENS in litellm_client.py
+  - Safety metrics: TURN_SAFETY_FLAGS in moderation hook.py
+  - Session lifecycle: SESSIONS_ACTIVE, SESSION_TURNS, SESSION_DURATION in games.py
+  - Re-enabled LLMAPIUnreachable alert (was disabled pending instrumentation)
+  - Pool metrics (PG_POOL_SIZE, REDIS_POOL_ACTIVE, NEO4J_POOL_ACTIVE) deferred — need periodic sampling
+
+- **Admin auth test coverage** (quality gap)
+  - 7 test cases in tests/unit/admin/test_auth.py
+  - Covers: no key configured, missing header, invalid token, valid token, timing-safe comparison, bearer prefix
+
+- **Automated data purge job** (S17 FR-17.15)
+  - New src/tta/privacy/purge.py: run_purge() (single pass, dry_run) + purge_loop() (24h background)
+  - Deletes terminal sessions + associated turns older than retention policy (default 90 days)
+  - Integrated into FastAPI lifespan (create_task on startup, cancel on shutdown)
+  - Admin endpoint POST /admin/purge for manual trigger
+
+- **SECURITY.md** (S17 FR-17.46–17.50)
+  - Vulnerability reporting process with 48h acknowledgment SLA
+  - Breach response plan with 72h notification timeline
+  - Data categories and severity classification
+
+- **Runtime log level endpoint** (S15 FR-15.4)
+  - POST /admin/log-level with Pydantic validation
+  - Changes structlog/stdlib root logger level at runtime
+  - Audit-logged, returns previous and new level
+
+- **X-Trace-Id response header** (S15 FR-15.16)
+  - Always emits X-Trace-Id in responses (falls back to request_id when no trace ID provided)
+  - Updated test to verify fallback behavior
+
+### Metrics
+
+- Tests: 1305 (7 new admin auth + 1 updated middleware test)
+- Pyright: 0 errors
+- Ruff: 0 errors
+
+## 17. Wave 14+ Recommendations
+
+### Wave 14 — Operational Completeness
+
+1. Pool metrics via periodic sampling (PG_POOL_SIZE, REDIS_POOL_ACTIVE, NEO4J_POOL_ACTIVE)
 2. Alertmanager integration for notification routing (PagerDuty, Slack, email)
 3. Performance load testing and SLO validation against S28 targets
 4. node_exporter for disk usage alerting (S15 FR-15.23)
 5. Session token rotation (security improvement)
-6. 72-hour auto-purge scheduled job for expired sessions
+6. Privacy policy page at /privacy (S17 FR-17.51–53)
 
 ### Beyond v1
 

@@ -8,6 +8,8 @@ Endpoint inventory (Appendix A):
   §3.2  Player management  — GET/POST /admin/players/…
   §3.3  Game inspection     — GET/POST /admin/games/…
   §3.4  System health       — GET /admin/health, /admin/metrics
+  §3.4b Log level           — POST /admin/log-level
+  §3.4c Data purge          — POST /admin/purge
   §3.5  Moderation queue    — GET/POST /admin/moderation/…
   §3.6  Rate-limit mgmt     — GET/POST /admin/rate-limits/…
   §3.7  Audit log           — GET /admin/audit-log
@@ -15,6 +17,7 @@ Endpoint inventory (Appendix A):
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -26,7 +29,7 @@ from pydantic import BaseModel, Field
 from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
-from tta.observability.metrics import REGISTRY, generate_latest
+from tta.observability.metrics import REGISTRY, SESSIONS_ACTIVE, generate_latest
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger()
@@ -432,6 +435,8 @@ async def terminate_game(
             f"Game {game_id} not found or not in active/paused state.",
         )
 
+    SESSIONS_ACTIVE.dec()
+
     await _audit(
         request,
         admin,
@@ -490,6 +495,74 @@ async def admin_metrics(
         content=generate_latest(REGISTRY),
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
+
+
+# §3.4b Log level management
+
+
+class _LogLevelBody(BaseModel):
+    level: str = Field(
+        ...,
+        pattern="^(DEBUG|INFO|WARNING|ERROR)$",
+        description="Target log level.",
+    )
+
+
+@router.post("/log-level")
+async def set_log_level(
+    body: _LogLevelBody,
+    request: Request,
+    _admin: AdminIdentity = Depends(require_admin),
+) -> dict[str, Any]:
+    """Change runtime log level (S15 FR-15.4)."""
+    root = logging.getLogger()
+    previous = logging.getLevelName(root.level)
+    root.setLevel(body.level)
+    log.info(
+        "log_level_changed",
+        previous=previous,
+        new=body.level,
+    )
+    await _audit(
+        request,
+        _admin,
+        action="log_level_changed",
+        target_type="system",
+        target_id="root_logger",
+        reason=f"{previous} → {body.level}",
+    )
+    return {"data": {"previous": previous, "current": body.level}}
+
+
+# §3.4c Data purge
+
+
+@router.post("/purge")
+async def trigger_purge(
+    request: Request,
+    _admin: AdminIdentity = Depends(require_admin),
+    dry_run: bool = Query(False, description="Preview without deleting"),
+) -> dict[str, Any]:
+    """Manual data purge trigger (S17 FR-17.15)."""
+    from tta.privacy.purge import run_purge
+
+    result = await run_purge(
+        request.app.state.pg,
+        dry_run=dry_run,
+    )
+    await _audit(
+        request,
+        _admin,
+        action="purge_triggered",
+        target_type="system",
+        target_id="data_purge",
+        reason=(
+            f"dry_run={dry_run} "
+            f"sessions_purged={result.get('sessions_purged', 0)} "
+            f"turns_purged={result.get('turns_purged', 0)}"
+        ),
+    )
+    return {"data": result}
 
 
 # ==================================================================

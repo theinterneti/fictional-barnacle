@@ -3,7 +3,7 @@
 #
 # Six conditions monitored:
 #   1. API error rate > 10% over 5 min (Critical) — ACTIVE
-#   2. LLM API unreachable > 2 min (Critical) — DISABLED (metric not yet instrumented)
+#   2. LLM API unreachable > 2 min (Critical) — ACTIVE
 #   3. Turn processing > 30s p95 (Warning) — ACTIVE
 #   4. Daily LLM cost > threshold (Warning) — ACTIVE (uses cost histogram)
 #   5. DB connection pool exhausted (Critical) — DISABLED (metric not yet instrumented)
@@ -36,23 +36,22 @@ groups:
             over the last 5 minutes.
 
       # 2. LLM API unreachable > 2 min → Critical
-      # DISABLED: tta_turn_llm_calls_total is not yet instrumented.
-      # TODO: Re-enable after Wave 13 metrics instrumentation.
-      # - alert: LLMAPIUnreachable
-      #   expr: |
-      #     (
-      #       sum(rate(tta_turn_llm_calls_total[2m])) == 0
-      #       and
-      #       sum(rate(tta_turn_total[2m])) > 0
-      #     )
-      #   for: 2m
-      #   labels:
-      #     severity: critical
-      #   annotations:
-      #     summary: "LLM API appears unreachable"
-      #     description: >-
-      #       No LLM calls have succeeded in the last 2 minutes while
-      #       turns are still being requested.
+      # Re-enabled: tta_turn_llm_calls_total is now instrumented (Wave 13).
+      - alert: LLMAPIUnreachable
+        expr: |
+          (
+            sum(rate(tta_turn_llm_calls_total[2m])) == 0
+            and
+            sum(rate(tta_turn_total[2m])) > 0
+          )
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM API appears unreachable"
+          description: >-
+            No LLM calls have succeeded in the last 2 minutes while
+            turns are still being requested.
 
       # 3. Turn processing > 30s p95 → Warning
       - alert: SlowTurnProcessing
