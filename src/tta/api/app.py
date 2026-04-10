@@ -11,6 +11,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from tta import __version__
 from tta.api.errors import (
@@ -284,9 +285,19 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     purge_task = asyncio.create_task(purge_loop(session_factory, interval_hours=24))
 
+    # Start pool metrics sampler (S28 FR-28.10)
+    from tta.observability.pool_metrics import start_pool_metrics_sampler
+
+    metrics_task = start_pool_metrics_sampler(app)
+
     yield
 
     # --- Shutdown ---
+    metrics_task.cancel()
+    try:
+        await metrics_task
+    except asyncio.CancelledError:
+        pass
     purge_task.cancel()
     try:
         await purge_task
@@ -359,5 +370,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(players_router, prefix="/api/v1")
     app.include_router(games_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/admin")
+
+    # --- Privacy policy (S17 FR-17.51) ---
+
+    _privacy_md = Path(__file__).resolve().parents[3] / "docs" / "privacy-policy.md"
+
+    @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+    async def privacy_policy() -> HTMLResponse:
+        """Serve the privacy policy as a simple HTML page."""
+        try:
+            text = _privacy_md.read_text()
+        except FileNotFoundError:
+            text = "Privacy policy not found."
+        safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        html = (
+            "<!DOCTYPE html><html><head>"
+            "<meta charset='utf-8'>"
+            "<title>TTA Privacy Policy</title>"
+            "<style>body{font-family:sans-serif;max-width:800px;"
+            "margin:2em auto;padding:0 1em;line-height:1.6}"
+            "pre{white-space:pre-wrap}</style>"
+            "</head><body><pre>" + safe + "</pre></body></html>"
+        )
+        return HTMLResponse(content=html)
 
     return app
