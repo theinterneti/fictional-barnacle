@@ -41,10 +41,13 @@ and credentials are stored in a shared "TTA" vault.
 # macOS
 brew install 1password-cli
 
-# Linux (Debian/Ubuntu)
-curl -sS https://downloads.1password.com/linux/install.sh | bash
+# Linux (Debian/Ubuntu) — download and review before running
+curl -fsSLO https://downloads.1password.com/linux/install.sh
+less install.sh
+bash install.sh
 
 # Arch/Manjaro/CachyOS
+# Review the PKGBUILD before installing from AUR
 paru -S 1password-cli
 ```
 

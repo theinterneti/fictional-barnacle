@@ -286,7 +286,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     purge_task = asyncio.create_task(purge_loop(session_factory, interval_seconds=3600))
     lifecycle_task = asyncio.create_task(
-        lifecycle_loop(session_factory, interval_seconds=900)
+        lifecycle_loop(
+            session_factory,
+            interval_seconds=900,
+            idle_timeout_minutes=settings.idle_timeout_minutes,
+        )
     )
 
     # Start pool metrics sampler (S28 FR-28.10)

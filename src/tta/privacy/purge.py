@@ -55,11 +55,13 @@ async def _collect_session_ids(
     )
     ids_soft = [row[0] for row in r1.fetchall()]
 
-    # Path 2: Completed/expired sessions (natural lifecycle)
+    # Path 2: Completed/expired/abandoned sessions (natural lifecycle)
+    # Note: 'abandoned' sessions (created/active + 0 turns + 24h) are included
+    # here so they are eventually purged under the completed-session policy.
     r2 = await pg.execute(
         sa.text(
             "SELECT id FROM game_sessions "
-            "WHERE status IN ('ended', 'completed', 'expired') "
+            "WHERE status IN ('ended', 'completed', 'expired', 'abandoned') "
             "AND deleted_at IS NULL "
             "AND updated_at < :cutoff"
         ),

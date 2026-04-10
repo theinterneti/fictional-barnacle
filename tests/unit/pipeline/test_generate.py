@@ -360,7 +360,7 @@ async def test_extraction_list_format_gives_no_suggestions() -> None:
 
 
 async def test_extraction_filters_invalid_suggestions() -> None:
-    """Non-string and empty suggestions are filtered out."""
+    """Non-string, empty, and duplicate suggestions are filtered; <3 distinct → None."""
     call_count = 0
     payload = json.dumps(
         {
@@ -396,7 +396,58 @@ async def test_extraction_filters_invalid_suggestions() -> None:
     deps = _make_deps(llm=llm)
     result = await generate_stage(state, deps)
 
-    assert result.suggested_actions == ["valid", "also valid"]
+    # Only 2 valid suggestions — below the minimum of 3, so discarded
+    assert result.suggested_actions is None
+
+
+async def test_extraction_deduplicates_suggestions() -> None:
+    """Duplicate suggestions (case-insensitive) are removed."""
+    call_count = 0
+    payload = json.dumps(
+        {
+            "world_changes": [],
+            "suggested_actions": [
+                "Open the door",
+                "open the door",
+                "Talk to NPC",
+                "Search the room",
+            ],
+        }
+    )
+
+    async def _generate(role, messages, params=None):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return LLMResponse(
+                content="Narrative.",
+                model_used="mock",
+                token_count=TokenCount(
+                    prompt_tokens=5, completion_tokens=3, total_tokens=8
+                ),
+                latency_ms=0.0,
+            )
+        return LLMResponse(
+            content=payload,
+            model_used="mock",
+            token_count=TokenCount(
+                prompt_tokens=5, completion_tokens=3, total_tokens=8
+            ),
+            latency_ms=0.0,
+        )
+
+    llm = AsyncMock()
+    llm.generate = _generate
+    state = _make_state()
+    deps = _make_deps(llm=llm)
+    result = await generate_stage(state, deps)
+
+    # 4 items but "Open the door" and "open the door" are dupes → 3 distinct
+    assert result.suggested_actions == [
+        "Open the door",
+        "Talk to NPC",
+        "Search the room",
+    ]
 
 
 # --- immutability ---

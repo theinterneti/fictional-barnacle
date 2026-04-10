@@ -82,8 +82,8 @@
 # Run with secret injection:
 #   op run --env-file=.env -- YOUR_COMMAND
 #
-# Test env file loads:
-#   op run --env-file=.env -- printenv | grep KEY_NAME
+# Test env file loads without printing secret values:
+#   op run --env-file=.env -- sh -c '[ -n "${KEY_NAME:-}" ] && echo "KEY_NAME is set" || echo "KEY_NAME is missing"'
 #
 # =============================================================================
 # CREATED: April 2026

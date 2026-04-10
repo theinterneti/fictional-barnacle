@@ -107,12 +107,20 @@ async def lifecycle_loop(
     session_factory: Any,
     *,
     interval_seconds: int = 900,
+    idle_timeout_minutes: int = IDLE_TIMEOUT_MINUTES,
 ) -> None:
     """Run lifecycle passes on a timer until cancelled."""
-    log.info("lifecycle_loop_started", interval_seconds=interval_seconds)
+    log.info(
+        "lifecycle_loop_started",
+        interval_seconds=interval_seconds,
+        idle_timeout_minutes=idle_timeout_minutes,
+    )
     while True:
         try:
-            await run_lifecycle_pass(session_factory)
+            await run_lifecycle_pass(
+                session_factory,
+                idle_timeout_minutes=idle_timeout_minutes,
+            )
         except asyncio.CancelledError:
             raise
         except Exception:

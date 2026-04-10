@@ -1122,8 +1122,9 @@ no turn_count pollution. Client distinguishes by status code: 202 = go to SSE,
 
 4. **Suggested actions** (AC-5.2): Extended LLM extraction prompt to request `suggested_actions`
    alongside `world_changes`. `_extract_world_changes()` now returns a tuple. Backwards
-   compatible with plain list format from older LLM responses. Invalid suggestions (too
-   long, too short) are filtered.
+   compatible with plain list format from older LLM responses. Non-string and
+   empty/whitespace-only suggestions are filtered; duplicates are deduplicated
+   (case-insensitive) and fewer than 3 distinct suggestions discards the set.
 
 5. **NEXT_STEPS.md update**: This section.
 

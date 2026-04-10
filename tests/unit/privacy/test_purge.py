@@ -78,7 +78,7 @@ class TestCollectSessionIds:
         await _collect_session_ids(pg, now, now)
 
         sql = str(pg.execute.call_args_list[1].args[0].text)
-        assert "IN ('ended', 'completed', 'expired')" in sql
+        assert "IN ('ended', 'completed', 'expired', 'abandoned')" in sql
         assert "deleted_at IS NULL" in sql
         assert "updated_at < :cutoff" in sql
 

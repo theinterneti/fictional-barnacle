@@ -179,12 +179,27 @@ async def _extract_world_changes(
             else:
                 log.debug("extraction_skipped_element", element=item)
 
-        # Validate suggested actions (must be strings)
-        suggestions: list[str] = [
-            s
-            for s in (raw_suggestions if isinstance(raw_suggestions, list) else [])
-            if isinstance(s, str) and s.strip()
-        ]
+        # Validate suggested actions: non-empty, distinct, at least 3
+        suggestions: list[str] = []
+        seen: set[str] = set()
+        for item in raw_suggestions if isinstance(raw_suggestions, list) else []:
+            if not isinstance(item, str):
+                continue
+            stripped = item.strip()
+            if not stripped:
+                continue
+            normalised = stripped.casefold()
+            if normalised in seen:
+                continue
+            seen.add(normalised)
+            suggestions.append(stripped)
+
+        if len(suggestions) < 3:
+            log.debug(
+                "extraction_insufficient_suggestions",
+                count=len(suggestions),
+            )
+            return validated, []
 
         return validated, suggestions
     except (json.JSONDecodeError, Exception):
