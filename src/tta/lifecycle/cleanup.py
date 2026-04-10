@@ -1,7 +1,7 @@
 """Automated game-session lifecycle transitions (S11 FR-11.41–45).
 
 Transitions enforced:
-  - ``active``  + 0 turns + age > 24 h  →  ``abandoned``
+  - ``created``/``active``  + 0 turns + age > 24 h  →  ``abandoned``
   - ``paused``  + last_played > 30 days  →  ``expired``
 
 Usage:
@@ -40,12 +40,12 @@ async def run_lifecycle_pass(
     expire_cutoff = now - timedelta(days=expire_days)
 
     async with session_factory() as pg:
-        # Rule 1: active + 0 turns + older than 24 h → abandoned
+        # Rule 1: created/active + 0 turns + older than 24 h → abandoned
         abandon_result = await pg.execute(
             sa.text(
                 "UPDATE game_sessions "
                 "SET status = 'abandoned', updated_at = :now "
-                "WHERE status = 'active' "
+                "WHERE status IN ('created', 'active') "
                 "AND turn_count = 0 "
                 "AND created_at < :cutoff "
                 "AND deleted_at IS NULL"

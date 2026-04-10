@@ -98,7 +98,7 @@ class TestAccountDeletionEndpoint:
         authed_client: TestClient,
         pg_mock: AsyncMock,
     ) -> None:
-        """All active/paused game sessions ended."""
+        """All created/active/paused game sessions ended."""
         authed_client.delete("/api/v1/players/me")
 
         second_call = pg_mock.execute.call_args_list[1]
@@ -107,7 +107,7 @@ class TestAccountDeletionEndpoint:
 
         assert "game_sessions" in sql_text
         assert "status = 'ended'" in sql_text
-        assert "('active', 'paused')" in sql_text
+        assert "('created', 'active', 'paused')" in sql_text
         assert params["pid"] == _PLAYER_ID
 
     def test_scrubs_turn_pii(
@@ -115,13 +115,13 @@ class TestAccountDeletionEndpoint:
         authed_client: TestClient,
         pg_mock: AsyncMock,
     ) -> None:
-        """Turn player_input and narrative_output NULLed."""
+        """Turn player_input tombstoned, narrative_output NULLed."""
         authed_client.delete("/api/v1/players/me")
 
         third_call = pg_mock.execute.call_args_list[2]
         sql_text = str(third_call.args[0].text)
 
-        assert "player_input = NULL" in sql_text
+        assert "player_input = '[redacted]'" in sql_text
         assert "narrative_output = NULL" in sql_text
         assert "turns" in sql_text
 
@@ -130,13 +130,13 @@ class TestAccountDeletionEndpoint:
         authed_client: TestClient,
         pg_mock: AsyncMock,
     ) -> None:
-        """Game session world_seed and summary NULLed."""
+        """Game session world_seed tombstoned (NOT NULL col), summary NULLed."""
         authed_client.delete("/api/v1/players/me")
 
         fourth_call = pg_mock.execute.call_args_list[3]
         sql_text = str(fourth_call.args[0].text)
 
-        assert "world_seed = NULL" in sql_text
+        assert "world_seed = '{}'::jsonb" in sql_text
         assert "summary = NULL" in sql_text
 
     def test_deletes_session_tokens(
@@ -160,5 +160,5 @@ class TestAccountDeletionEndpoint:
         """All operations committed in a single transaction."""
         authed_client.delete("/api/v1/players/me")
 
-        pg_mock.commit.assert_called_once()
+        pg_mock.commit.assert_awaited_once()
         assert pg_mock.execute.call_count == 5

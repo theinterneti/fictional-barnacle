@@ -199,7 +199,7 @@ class DataExportResponse(BaseModel):
 
 class AccountDeletionResponse(BaseModel):
     status: str = "accepted"
-    message: str = "Account deleted. All personal data has been erased."
+    message: str = "Account deletion accepted. Personal data has been erased."
 
 
 @router.get("/me/data-export", status_code=202)
@@ -248,7 +248,8 @@ async def request_account_deletion(
     await pg.execute(
         sa.text(
             "UPDATE game_sessions SET status = 'ended', updated_at = :now "
-            "WHERE player_id = :pid AND status IN ('active', 'paused')"
+            "WHERE player_id = :pid "
+            "AND status IN ('created', 'active', 'paused')"
         ),
         {"pid": pid, "now": now},
     )
@@ -256,7 +257,8 @@ async def request_account_deletion(
     # 3. Scrub PII from turns (player_input, narrative_output)
     await pg.execute(
         sa.text(
-            "UPDATE turns SET player_input = NULL, narrative_output = NULL "
+            "UPDATE turns "
+            "SET player_input = '[redacted]', narrative_output = NULL "
             "WHERE session_id IN "
             "(SELECT id FROM game_sessions WHERE player_id = :pid)"
         ),
@@ -267,7 +269,7 @@ async def request_account_deletion(
     await pg.execute(
         sa.text(
             "UPDATE game_sessions "
-            "SET world_seed = NULL, summary = NULL "
+            "SET world_seed = '{}'::jsonb, summary = NULL "
             "WHERE player_id = :pid"
         ),
         {"pid": pid},

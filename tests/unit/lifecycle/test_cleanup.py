@@ -34,7 +34,7 @@ def _make_factory(pg: AsyncMock):  # noqa: ANN201
 
 
 class TestAbandonRule:
-    """active + 0 turns + >24h → abandoned."""
+    """created/active + 0 turns + >24h → abandoned."""
 
     @pytest.mark.anyio
     async def test_abandons_stale_active_games(self) -> None:
@@ -46,7 +46,7 @@ class TestAbandonRule:
         assert result["abandoned"] == 3
         abandon_call = pg.execute.call_args_list[0]
         sql_text = str(abandon_call.args[0].text)
-        assert "status = 'active'" in sql_text
+        assert "IN ('created', 'active')" in sql_text
         assert "turn_count = 0" in sql_text
         assert "deleted_at IS NULL" in sql_text
         pg.commit.assert_awaited_once()
