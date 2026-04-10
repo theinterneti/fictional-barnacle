@@ -91,6 +91,15 @@ See `.github/instructions/` for detailed usage guides. Key MCP tools:
 - **Hindsight** — Persistent memory across sessions (recall before work, retain after)
 - **Context7** — Live library documentation lookup
 
+## LLM Integration
+
+TTA uses **LiteLLM** (library mode, not proxy) for all LLM calls. The client lives
+at `src/tta/llm/litellm_client.py` and is wired in `app.py` lifespan as
+`app.state.pipeline_deps.llm`.
+
+Pipeline stages map to LLM calls via the turn pipeline orchestrator — see
+`specs/07-llm-integration.md` and `plans/llm-and-pipeline.md` for details.
+
 ## Agent Roster
 
 | Agent | Config |

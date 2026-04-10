@@ -88,6 +88,18 @@ See `.github/instructions/` for detailed usage guides:
 - **Hindsight** — Persistent memory across sessions
 - **Context7** — Live external documentation
 
+## External Dependencies
+
+External packages and services used by TTA:
+
+| Dependency | Purpose | Integration |
+|---|---|---|
+| **LiteLLM** | LLM client for provider abstraction | Direct import from `tta.llm` |
+
+LLM integration uses LiteLLM in library mode (not proxy). The client is at
+`src/tta/llm/litellm_client.py`. See `specs/07-llm-integration.md` and
+`plans/llm-and-pipeline.md` for architecture details.
+
 ## Agent Roster
 
 | Agent | Role | Config |

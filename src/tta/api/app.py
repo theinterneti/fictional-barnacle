@@ -180,6 +180,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.world_service = InMemoryWorldService()
         log.info("world_service_in_memory")
 
+    # 5b. Template registry — loads world templates for genesis
+    from tta.world.template_registry import TemplateRegistry
+
+    templates_dir = Path(__file__).resolve().parent.parent / "world" / "templates"
+    app.state.template_registry = TemplateRegistry(templates_dir)
+    log.info(
+        "template_registry_loaded",
+        count=len(app.state.template_registry.list_all()),
+    )
+
     # 6. Repository instances
     from tta.persistence.postgres import (
         PostgresSessionRepository,
