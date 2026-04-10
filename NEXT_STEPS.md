@@ -1046,9 +1046,64 @@ no turn_count pollution. Client distinguishes by status code: 202 = go to SSE,
 - Pyright: 0 errors
 - Ruff: 0 errors
 
-## 19. Wave 16+ Recommendations
+## 19. Wave 16 — Character Commands & Session Lifecycle
 
-### Wave 16 — Gameplay Polish
+**Branch**: `wave-16/character-commands-lifecycle`
+**Specs**: S01, S06, S11, S12
+**Tests**: 1404 passing (+26 over Wave 15 baseline of 1378)
+
+### What shipped
+
+1. **`/character` command** (S06-AC-6.1) — Displays player character name, concept,
+   and tone from `world_seed` JSON. Graceful fallback for pre-genesis games.
+
+2. **`/relationships` command** (S06-AC-6.3) — Shows template NPCs with roles and
+   dispositions, loaded from `WorldTemplate.npcs` via `template_registry`.
+
+3. **`/end` command** (S01-AC-1.6) — Transitions game from `active` → `ended`,
+   returns epilogue-style message with prompt to start a new game.
+
+4. **Lifecycle background job** (S11-AC-11.05-08) — New `src/tta/lifecycle/` module:
+   - Rule 1: `active` + 0 turns + age > 24h → `abandoned`
+   - Rule 2: `paused` + last_played > 30 days → `expired`
+   - Runs every 1h alongside existing `purge_loop`
+
+5. **GDPR account deletion** (S12-AC-12.03) — Replaced stub with real implementation:
+   - Tombstones player: `status='pending_deletion'`, `handle='deleted-{id}'`
+   - Ends all active/paused game sessions
+   - NULLs PII: `turns.player_input`, `turns.narrative_output`,
+     `game_sessions.world_seed`, `game_sessions.summary`
+   - Deletes all `player_sessions` (session tokens)
+   - Single transaction, immediate erasure (v1 simplicity)
+   - Migration 006: adds `deletion_requested_at` to `players`
+
+### Files added
+- `src/tta/lifecycle/__init__.py`, `src/tta/lifecycle/cleanup.py`
+- `tests/unit/lifecycle/__init__.py`, `tests/unit/lifecycle/test_cleanup.py`
+- `migrations/postgres/versions/006_gdpr_deletion.py`
+
+### Files modified
+- `src/tta/api/routes/games.py` — 3 new commands + `deleted_at IS NULL` filter
+- `src/tta/api/routes/players.py` — real GDPR deletion endpoint
+- `src/tta/api/app.py` — lifecycle_loop wired into lifespan
+- `src/tta/models/player.py` — `deletion_requested_at` field
+- `tests/unit/api/test_commands.py` — 24 command tests (rewritten)
+- `tests/unit/privacy/test_gdpr_endpoints.py` — 10 deletion tests (rewritten)
+
+### Known v1 limitations
+- `/character` shows static genesis data, not evolving traits (no live character state system)
+- `/relationships` shows template NPCs, not live relationship state
+- `/end` unreachable from paused games (submit_turn rejects non-active); use PATCH endpoint
+- S11-AC-11.09/11.10 deferred (require email/password auth, not anonymous handles)
+
+### AC coverage impact
+- S06-AC-6.1 ✓, S06-AC-6.3 ✓, S01-AC-1.6 ✓
+- S11-AC-11.06 ✓, S11-AC-11.08 ✓, S12-AC-12.03 ✓
+- Estimated: ~35% → ~45% overall AC coverage
+
+## 20. Wave 17+ Recommendations
+
+### Wave 17 — Gameplay Polish & Observability
 
 1. Alertmanager integration for notification routing (PagerDuty, Slack, email)
 2. Performance load testing and SLO validation against S28 targets
@@ -1056,6 +1111,8 @@ no turn_count pollution. Client distinguishes by status code: 202 = go to SSE,
 4. Session token rotation (security improvement)
 5. Turn history pagination (S12 FR-12.03)
 6. Game resume flow validation (S01 AC-1.7)
+7. Live character state system (evolving traits beyond genesis)
+8. Neo4j world data cleanup on game/account deletion (S17 multi-store erasure)
 
 ### Beyond v1
 
