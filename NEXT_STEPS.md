@@ -964,9 +964,50 @@ Key deliverables:
 - Pyright: 0 errors
 - Ruff: 0 errors
 
-## 17. Wave 14+ Recommendations
+## 17. Wave 14 — Core Gameplay Integration (PR #TBD)
 
-### Wave 14 — Operational Completeness
+**Goal**: Make the game actually playable by wiring existing genesis and
+world-change infrastructure into the game lifecycle.
+
+### Critical Discovery
+
+`run_genesis_lite()` (410 lines) and `apply_changes()` (173 lines) were **fully
+implemented and tested but never called** from any game flow. `create_game()`
+stored a flat JSON seed and returned — no world graph, no intro narrative, no
+world state updates after turns.
+
+### What Changed
+
+- **TemplateRegistry initialization** — instantiated during app lifespan, stored
+  on `app.state.template_registry`. New `select_by_preferences()` method scores
+  templates without requiring a `WorldSeed` (resolved circular dependency).
+
+- **Genesis wired into `create_game()`** — template selection (by `world_id` or
+  preferences), `WorldSeed` construction, `run_genesis_lite()` call. Genesis
+  result (world graph, intro narrative) stored in `world_seed` JSONB column.
+  `narrative_intro` returned in `GameData` response.
+
+- **World changes applied after turns** — `_dispatch_pipeline()` now translates
+  LLM `world_state_updates` (list[dict]) to `WorldChange` models via
+  `_translate_world_updates()` and calls `apply_changes()`.
+
+- **Graceful degradation** — all genesis/world-change calls wrapped in try/except.
+  If Neo4j is down or LLM fails, game creation and turns proceed without world
+  enrichment. Log warnings, don't block gameplay.
+
+- **`_ATTRIBUTE_TYPE_MAP`** — keyword-to-WorldChangeType mapping (15 keywords →
+  9 change types). Sorted by descending key length to resolve substring conflicts
+  (e.g., `"disposition"` before `"position"`, `"quest_status"` before `"status"`).
+
+### Metrics
+
+- Tests: 1342 (26 new genesis integration tests)
+- Pyright: 0 errors
+- Ruff: 0 errors
+
+## 18. Wave 15+ Recommendations
+
+### Wave 15 — Operational Completeness
 
 1. Pool metrics via periodic sampling (PG_POOL_SIZE, REDIS_POOL_ACTIVE, NEO4J_POOL_ACTIVE)
 2. Alertmanager integration for notification routing (PagerDuty, Slack, email)

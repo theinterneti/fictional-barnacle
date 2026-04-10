@@ -56,6 +56,36 @@ class TemplateRegistry:
         )
         return chosen
 
+    def select_by_preferences(
+        self,
+        preferences: dict[str, str],
+    ) -> WorldTemplate:
+        """Score templates by preference overlap without a WorldSeed.
+
+        Breaks the circular dependency where WorldSeed requires a
+        template, but template selection needs seed preferences.
+        """
+        if not self._templates:
+            msg = "No templates loaded"
+            raise ValueError(msg)
+
+        scored: list[tuple[int, WorldTemplate]] = []
+        for tmpl in self._templates.values():
+            score = self._score_preferences(tmpl, preferences)
+            scored.append((score, tmpl))
+
+        max_score = max(s for s, _ in scored)
+        best = [t for s, t in scored if s == max_score]
+
+        chosen = random.choice(best)  # noqa: S311
+        logger.info(
+            "template_selected_by_preferences",
+            template_key=chosen.metadata.template_key,
+            score=max_score,
+            candidates=len(best),
+        )
+        return chosen
+
     def get(self, template_key: str) -> WorldTemplate:
         """Direct lookup by template_key."""
         try:
@@ -137,6 +167,33 @@ class TemplateRegistry:
         if seed.magic_presence and seed.magic_presence in meta.compatible_magic:
             score += 1
         if seed.world_scale and seed.world_scale in meta.compatible_scales:
+            score += 1
+
+        return score
+
+    @staticmethod
+    def _score_preferences(
+        template: WorldTemplate,
+        preferences: dict[str, str],
+    ) -> int:
+        """Score a template against a flat preferences dict.
+
+        Same logic as ``_score`` but without requiring a WorldSeed.
+        """
+        meta = template.metadata
+        score = 0
+
+        tone = preferences.get("tone")
+        if tone and tone in meta.compatible_tones:
+            score += 1
+        tech = preferences.get("tech_level")
+        if tech and tech in meta.compatible_tech_levels:
+            score += 1
+        magic = preferences.get("magic_presence")
+        if magic and magic in meta.compatible_magic:
+            score += 1
+        scale = preferences.get("world_scale")
+        if scale and scale in meta.compatible_scales:
             score += 1
 
         return score

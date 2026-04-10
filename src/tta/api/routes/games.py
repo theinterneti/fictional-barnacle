@@ -32,6 +32,7 @@ from tta.models.events import (
 from tta.models.game import GameStatus
 from tta.models.player import Player
 from tta.models.turn import TurnState, TurnStatus
+from tta.models.world import WorldChange, WorldChangeType, WorldSeed
 from tta.observability.metrics import (
     SESSION_DURATION,
     SESSION_TURNS,
@@ -42,6 +43,59 @@ from tta.pipeline.orchestrator import run_pipeline
 log = structlog.get_logger()
 
 router = APIRouter(prefix="/games", tags=["games"])
+
+# Mapping from LLM-extracted attribute keywords to WorldChangeType
+_ATTRIBUTE_TYPE_MAP: dict[str, WorldChangeType] = {
+    "location": WorldChangeType.PLAYER_MOVED,
+    "position": WorldChangeType.PLAYER_MOVED,
+    "moved": WorldChangeType.PLAYER_MOVED,
+    "disposition": WorldChangeType.NPC_DISPOSITION_CHANGED,
+    "mood": WorldChangeType.NPC_DISPOSITION_CHANGED,
+    "attitude": WorldChangeType.NPC_DISPOSITION_CHANGED,
+    "state": WorldChangeType.LOCATION_STATE_CHANGED,
+    "status": WorldChangeType.LOCATION_STATE_CHANGED,
+    "locked": WorldChangeType.CONNECTION_LOCKED,
+    "unlocked": WorldChangeType.CONNECTION_UNLOCKED,
+    "taken": WorldChangeType.ITEM_TAKEN,
+    "picked": WorldChangeType.ITEM_TAKEN,
+    "dropped": WorldChangeType.ITEM_DROPPED,
+    "quest_status": WorldChangeType.QUEST_STATUS_CHANGED,
+    "quest": WorldChangeType.QUEST_STATUS_CHANGED,
+    "visibility": WorldChangeType.ITEM_VISIBILITY_CHANGED,
+    "relationship": WorldChangeType.RELATIONSHIP_CHANGED,
+}
+
+
+def _translate_world_updates(raw: list[dict]) -> list[WorldChange]:
+    """Convert LLM-extracted dicts to WorldChange objects (best-effort)."""
+    changes: list[WorldChange] = []
+    for item in raw:
+        entity = item.get("entity", "")
+        attribute = item.get("attribute", "")
+        if not entity:
+            continue
+        # Infer change type from attribute keywords
+        change_type = WorldChangeType.LOCATION_STATE_CHANGED
+        attr_lower = attribute.lower()
+        for keyword, ct in sorted(
+            _ATTRIBUTE_TYPE_MAP.items(), key=lambda x: -len(x[0])
+        ):
+            if keyword in attr_lower:
+                change_type = ct
+                break
+        changes.append(
+            WorldChange(
+                type=change_type,
+                entity_id=str(entity),
+                payload={
+                    "attribute": attribute,
+                    "old_value": item.get("old_value"),
+                    "new_value": item.get("new_value"),
+                    "reason": item.get("reason", ""),
+                },
+            )
+        )
+    return changes
 
 
 async def _dispatch_pipeline(
@@ -174,6 +228,27 @@ async def _dispatch_pipeline(
         ):
             asyncio.create_task(_regen_summary_bg(app_state, game_id))
 
+    # --- Apply world state changes (best-effort) ---
+    if turn_persisted and result.world_state_updates:
+        try:
+            from tta.world.changes import apply_changes
+
+            world_svc = deps.world
+            changes = _translate_world_updates(result.world_state_updates)
+            if changes:
+                await apply_changes(changes, world_svc, game_id)
+                log.info(
+                    "world_changes_applied",
+                    game_id=str(game_id),
+                    count=len(changes),
+                )
+        except Exception:
+            log.warning(
+                "world_changes_failed_graceful_degradation",
+                game_id=str(game_id),
+                exc_info=True,
+            )
+
     # Publish result for SSE endpoint
     try:
         store = app_state.turn_result_store  # type: ignore[attr-defined]
@@ -289,6 +364,7 @@ class GameData(BaseModel):
     turn_count: int
     title: str | None = None
     summary: str | None = None
+    narrative_intro: str | None = None
     created_at: datetime
     updated_at: datetime
     last_played_at: datetime | None = None
@@ -436,11 +512,12 @@ async def _get_max_turn_number(pg: AsyncSession, game_id: UUID) -> int:
 @router.post("", status_code=201, dependencies=[Depends(require_active_player)])
 async def create_game(
     body: CreateGameRequest,
+    request: Request,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
 ) -> dict:
-    """Create a new game session."""
-    settings = get_settings()
+    """Create a new game session, optionally running world genesis."""
+    settings: Settings = request.app.state.settings
     active_count = await _count_active_games(pg, player.id)
     if active_count >= settings.max_active_games:
         raise AppError(
@@ -451,8 +528,12 @@ async def create_game(
 
     game_id = uuid4()
     now = datetime.now(UTC)
-    world_seed = {"world_id": body.world_id, "preferences": body.preferences}
+    world_seed_json = {
+        "world_id": body.world_id,
+        "preferences": body.preferences,
+    }
 
+    # Persist game row first — game exists even if genesis fails (S01)
     await pg.execute(
         sa.text(
             "INSERT INTO game_sessions "
@@ -465,12 +546,78 @@ async def create_game(
             "id": game_id,
             "pid": player.id,
             "status": GameStatus.active.value,
-            "seed": json.dumps(world_seed),
+            "seed": json.dumps(world_seed_json),
             "now": now,
         },
     )
     await pg.commit()
     SESSIONS_ACTIVE.inc()
+
+    # --- Genesis (best-effort) ---
+    narrative_intro: str | None = None
+    try:
+        registry = request.app.state.template_registry
+
+        # Select template: explicit key or best-match by preferences
+        if body.world_id:
+            template = registry.get(body.world_id)
+        else:
+            template = registry.select_by_preferences(body.preferences)
+
+        # Build WorldSeed with selected template + preferences
+        pref = body.preferences
+        seed = WorldSeed(
+            template=template,
+            tone=pref.get("tone"),
+            tech_level=pref.get("tech_level"),
+            magic_presence=pref.get("magic_presence"),
+            world_scale=pref.get("world_scale"),
+            player_position=pref.get("player_position"),
+            power_source=pref.get("power_source"),
+            defining_detail=pref.get("defining_detail"),
+            character_name=pref.get("character_name"),
+            character_concept=pref.get("character_concept"),
+        )
+
+        from tta.genesis.genesis_lite import run_genesis_lite
+
+        result = await run_genesis_lite(
+            session_id=game_id,
+            player_id=player.id,
+            world_seed=seed,
+            llm=request.app.state.llm_client,
+            world_service=request.app.state.world_service,
+        )
+        narrative_intro = result.narrative_intro
+
+        # Persist genesis result alongside original seed
+        world_seed_json["genesis"] = {
+            "world_id": result.world_id,
+            "player_location_id": result.player_location_id,
+            "template_key": result.template_key,
+            "narrative_intro": result.narrative_intro,
+        }
+        await pg.execute(
+            sa.text(
+                "UPDATE game_sessions "
+                "SET world_seed = cast(:seed AS jsonb), "
+                "updated_at = :now "
+                "WHERE id = :gid"
+            ),
+            {
+                "seed": json.dumps(world_seed_json),
+                "now": datetime.now(UTC),
+                "gid": game_id,
+            },
+        )
+        await pg.commit()
+        log.info("genesis_complete", game_id=str(game_id))
+    except Exception:
+        log.warning(
+            "genesis_failed_graceful_degradation",
+            game_id=str(game_id),
+            exc_info=True,
+        )
 
     return {
         "data": GameData(
@@ -478,6 +625,7 @@ async def create_game(
             player_id=str(player.id),
             status=GameStatus.active.value,
             turn_count=0,
+            narrative_intro=narrative_intro,
             created_at=now,
             updated_at=now,
             last_played_at=now,
