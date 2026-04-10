@@ -1041,3 +1041,144 @@ class TestRegenSummaryBg:
 
         # Should NOT raise
         await _regen_summary_bg(app_state, _GAME_ID)
+
+
+# ------------------------------------------------------------------
+# GET /api/v1/games/{game_id}/turns — Turn history pagination
+# ------------------------------------------------------------------
+
+
+def _turn_row(
+    *,
+    turn_number: int = 1,
+    player_input: str = "go north",
+    narrative_output: str = "You head north.",
+) -> dict[str, Any]:
+    """A typical turns table row."""
+    return {
+        "id": uuid4(),
+        "turn_number": turn_number,
+        "player_input": player_input,
+        "narrative_output": narrative_output,
+        "created_at": _NOW,
+    }
+
+
+class TestListTurns:
+    """Route-level tests for GET /games/{game_id}/turns."""
+
+    def _url(self, game_id=None) -> str:
+        return f"/api/v1/games/{game_id or _GAME_ID}/turns"
+
+    def test_returns_turns_with_meta(self, client: TestClient, pg: AsyncMock) -> None:
+        """Basic paginated response with data + meta."""
+        game = _game_row()
+        turns = [_turn_row(turn_number=i) for i in range(3, 0, -1)]
+
+        call_count = 0
+
+        async def _exec(stmt, params=None, **kw):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return _make_result([game])
+            return _make_result(turns)
+
+        pg.execute = AsyncMock(side_effect=_exec)
+
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "data" in body
+        assert "meta" in body
+        assert len(body["data"]) == 3
+        assert body["meta"]["has_more"] is False
+        assert body["meta"]["next_cursor"] is None
+
+    def test_has_more_with_cursor(self, client: TestClient, pg: AsyncMock) -> None:
+        """When more rows exist than limit, has_more=True and next_cursor set."""
+        import base64
+
+        game = _game_row()
+        # Return limit+1 rows (limit defaults to 20, use limit=2 for test)
+        turns = [_turn_row(turn_number=i) for i in range(3, 0, -1)]
+
+        call_count = 0
+
+        async def _exec(stmt, params=None, **kw):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return _make_result([game])
+            return _make_result(turns)
+
+        pg.execute = AsyncMock(side_effect=_exec)
+
+        resp = client.get(self._url(), params={"limit": 2})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["meta"]["has_more"] is True
+        assert body["meta"]["next_cursor"] is not None
+        decoded = base64.urlsafe_b64decode(body["meta"]["next_cursor"]).decode()
+        assert decoded.isdigit()
+
+    def test_invalid_cursor_returns_400(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """Malformed cursor returns 400 INPUT_INVALID."""
+        game = _game_row()
+        pg.execute = AsyncMock(return_value=_make_result([game]))
+
+        resp = client.get(self._url(), params={"cursor": "not-valid!!!"})
+        assert resp.status_code == 400
+        assert resp.json()["error"]["code"] == "INVALID_CURSOR"
+
+    def test_status_filter_applied(self, client: TestClient, pg: AsyncMock) -> None:
+        """Query only fetches status='complete' turns (verified via SQL)."""
+        game = _game_row()
+        call_count = 0
+        captured_stmt = None
+
+        async def _exec(stmt, params=None, **kw):
+            nonlocal call_count, captured_stmt
+            call_count += 1
+            if call_count == 1:
+                return _make_result([game])
+            captured_stmt = str(stmt.text) if hasattr(stmt, "text") else str(stmt)
+            return _make_result([])
+
+        pg.execute = AsyncMock(side_effect=_exec)
+
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert captured_stmt is not None
+        assert "status = 'complete'" in captured_stmt
+
+    def test_game_not_found_returns_404(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """Non-existent game returns 404."""
+        pg.execute = AsyncMock(return_value=_make_result([]))
+
+        resp = client.get(self._url(game_id=uuid4()))
+        assert resp.status_code == 404
+
+    def test_empty_turns(self, client: TestClient, pg: AsyncMock) -> None:
+        """Game with no turns returns empty data array."""
+        game = _game_row()
+        call_count = 0
+
+        async def _exec(stmt, params=None, **kw):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return _make_result([game])
+            return _make_result([])
+
+        pg.execute = AsyncMock(side_effect=_exec)
+
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"] == []
+        assert body["meta"]["has_more"] is False

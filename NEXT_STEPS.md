@@ -1193,17 +1193,60 @@ Estimated AC coverage: ~45% → ~52%
   strips invisible chars rather than returning 422, matching existing UX pattern
   where `input.strip()` normalizes whitespace.
 
-## 22. Wave 19+ Recommendations
+## 22. Wave 19 — API Completeness & Observability Wiring
 
-### Wave 19 — Production Polish & Observability
+### Context
+
+Gap analysis across S10, S12, S15 identified five concrete spec shortfalls:
+turn history not paginated, CORS hardcoded, persistence metrics unwired,
+SSE heartbeat not configurable, and env-based CORS parsing.
+
+### Changes
+
+1. **Turn history pagination** (`GET /{game_id}/turns`): New endpoint with
+   cursor-based (base64-encoded turn_number) keyset pagination, N+1 fetch
+   pattern, reuses existing `PaginationMeta` model. (S10 FR-10.13)
+2. **CORS environment config**: Custom `_TtaEnvSource(EnvSettingsSource)` that
+   overrides `decode_complex_value` to handle both JSON arrays and
+   comma-separated strings for `TTA_CORS_ORIGINS`. (S10 FR-10.67)
+3. **DB auto-instrumentation**: SQLAlchemy `before_cursor_execute` /
+   `after_cursor_execute` event listeners on `engine.sync_engine` — automatically
+   instruments all 74+ SQL call sites with zero per-site changes. Observes
+   `DB_QUERY_DURATION` histogram with `database`/`operation` labels.
+4. **Redis instrumentation**: All 3 Redis call sites (get, set, delete) in
+   `redis_session.py` wrapped with `count_redis_op()`.
+5. **SSE heartbeat configurability**: New `sse_heartbeat_interval` setting
+   (default 15.0s) with range validator, wired into SSE stream generator.
+
+### Stats
+
+- 39 new unit tests (1480 total)
+- 0 pyright errors, 0 ruff errors
+- Files modified: `config.py`, `engine.py`, `redis_session.py`, `games.py`
+- Files created: `tests/unit/test_wave19.py`
+
+### Decisions
+
+- **Engine-level instrumentation over per-site wrapping**: With 74 SQL call sites,
+  SQLAlchemy event listeners provide universal coverage with no per-site changes
+  and zero risk of missing sites.
+- **Custom EnvSettingsSource for CORS**: pydantic-settings v2 calls
+  `decode_complex_value()` → `json.loads()` for `list[str]` fields BEFORE field
+  validators run. A custom source class is the only reliable way to support both
+  JSON arrays and comma-separated strings.
+- **Base64-encoded cursors**: Opaque to clients, allows changing internal
+  representation (e.g., from turn_number to composite key) without breaking API.
+
+## 23. Wave 20+ Recommendations
+
+### Wave 20 — Production Polish & Hardening
 
 1. Alertmanager integration for notification routing (PagerDuty, Slack, email)
 2. Performance load testing and SLO validation against S28 targets
 3. node_exporter for disk usage alerting (S15 FR-15.23)
 4. Session token rotation (security improvement)
-5. Turn history pagination (S12 FR-12.03)
-6. Live character state system (evolving traits beyond genesis)
-7. Instrument persistence call sites with `observe_db_query()` / `count_redis_op()`
+5. Live character state system (evolving traits beyond genesis)
+6. Grafana dashboard JSON models for import
 
 ### Beyond v1
 

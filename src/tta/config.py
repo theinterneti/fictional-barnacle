@@ -1,10 +1,14 @@
 """Centralized application configuration from environment variables."""
 
+from __future__ import annotations
+
+import json
 from enum import StrEnum
 from functools import lru_cache
+from typing import Any
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 
 
 class Environment(StrEnum):
@@ -24,10 +28,43 @@ class LogLevel(StrEnum):
     ERROR = "ERROR"
 
 
+class _TtaEnvSource(EnvSettingsSource):
+    """Custom env source that accepts CSV for ``cors_origins``."""
+
+    def decode_complex_value(
+        self,
+        field_name: str,
+        field: Any,
+        value: Any,
+    ) -> Any:
+        if field_name == "cors_origins" and isinstance(value, str):
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, ValueError):
+                return [s.strip() for s in value.split(",") if s.strip()]
+        return super().decode_complex_value(field_name, field, value)
+
+
 class Settings(BaseSettings):
     """TTA application configuration from environment variables."""
 
     model_config = SettingsConfigDict(env_prefix="TTA_")
+
+    @classmethod
+    def settings_customise_sources(  # type: ignore[override]
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: Any,
+        env_settings: Any,
+        dotenv_settings: Any,
+        file_secret_settings: Any,
+    ) -> tuple[Any, ...]:
+        return (
+            init_settings,
+            _TtaEnvSource(settings_cls),
+            dotenv_settings,
+            file_secret_settings,
+        )
 
     # PostgreSQL (required)
     database_url: str
@@ -140,6 +177,20 @@ class Settings(BaseSettings):
     summary_interval: int = 5  # regen summary every N turns
     summary_staleness_hours: int = 24  # force regen if older
     summary_model: str = ""  # lighter model for summaries; empty = use default
+
+    # SSE heartbeat (FR-10.39)
+    sse_heartbeat_interval: float = 15.0
+
+    @field_validator("sse_heartbeat_interval")
+    @classmethod
+    def _validate_heartbeat(cls, v: float) -> float:
+        if v <= 0:
+            msg = "sse_heartbeat_interval must be positive"
+            raise ValueError(msg)
+        if v > 15.0:
+            msg = "sse_heartbeat_interval must be <= 15s (FR-10.38)"
+            raise ValueError(msg)
+        return v
 
     # Application
     session_token_ttl: int = 86400

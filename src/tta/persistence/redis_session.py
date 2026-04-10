@@ -11,6 +11,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from tta.models.game import GameState
+from tta.observability.db_metrics import count_redis_op
 
 _KEY_PREFIX = "tta:session:"
 
@@ -24,7 +25,8 @@ async def get_active_session(
     session_id: UUID,
 ) -> GameState | None:
     """Retrieve cached game state for an active session."""
-    raw = await redis.get(_key(session_id))
+    with count_redis_op("get"):
+        raw = await redis.get(_key(session_id))
     if raw is None:
         return None
     return GameState.model_validate_json(raw)
@@ -37,11 +39,12 @@ async def set_active_session(
     ttl: int = 3600,
 ) -> None:
     """Cache game state with a TTL (seconds)."""
-    await redis.set(
-        _key(session_id),
-        state.model_dump_json(),
-        ex=ttl,
-    )
+    with count_redis_op("set"):
+        await redis.set(
+            _key(session_id),
+            state.model_dump_json(),
+            ex=ttl,
+        )
 
 
 async def delete_active_session(
@@ -49,4 +52,5 @@ async def delete_active_session(
     session_id: UUID,
 ) -> None:
     """Evict cached game state for a session."""
-    await redis.delete(_key(session_id))
+    with count_redis_op("delete"):
+        await redis.delete(_key(session_id))
