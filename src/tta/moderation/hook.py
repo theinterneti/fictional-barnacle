@@ -27,6 +27,7 @@ from tta.moderation.models import (
 )
 from tta.moderation.recorder import ModerationRecorder
 from tta.moderation.service import ModerationService
+from tta.observability.metrics import TURN_SAFETY_FLAGS
 from tta.safety.hooks import SafetyResult
 
 log = structlog.get_logger()
@@ -151,6 +152,9 @@ class ModerationHook:
             game_id=ctx.game_id,
             player_id=ctx.player_id,
         )
+
+        # Prometheus: safety flag counter (S15 FR-15.9)
+        TURN_SAFETY_FLAGS.labels(level=result.verdict.value).inc()
 
         # FR-24.09: persist full record
         if self._recorder is not None:

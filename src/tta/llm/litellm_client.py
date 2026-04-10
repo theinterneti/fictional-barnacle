@@ -35,6 +35,11 @@ from tta.llm.roles import (
     ModelRoleConfig,
 )
 from tta.models.turn import TokenCount
+from tta.observability.metrics import (
+    TURN_LLM_CALLS,
+    TURN_LLM_DURATION,
+    TURN_LLM_TOKENS,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -227,6 +232,13 @@ class LiteLLMClient:
             completion_tokens=token_count.completion_tokens,
             cost_usd=cost_usd,
         )
+
+        # Prometheus instrumentation (S15 FR-15.6/7/8)
+        provider = model.split("/", 1)[0] if "/" in model else "unknown"
+        TURN_LLM_CALLS.labels(model=model, provider=provider).inc()
+        TURN_LLM_DURATION.labels(model=model).observe(elapsed_ms / 1000)
+        TURN_LLM_TOKENS.labels(model=model, direction="prompt").inc(prompt_tok)
+        TURN_LLM_TOKENS.labels(model=model, direction="completion").inc(completion_tok)
 
         return LLMResponse(
             content=content,

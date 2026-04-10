@@ -267,9 +267,21 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         redis=settings.redis_url,
     )
 
+    # Start background purge loop (S17 FR-17.15)
+    import asyncio
+
+    from tta.privacy.purge import purge_loop
+
+    purge_task = asyncio.create_task(purge_loop(session_factory, interval_hours=24))
+
     yield
 
     # --- Shutdown ---
+    purge_task.cancel()
+    try:
+        await purge_task
+    except asyncio.CancelledError:
+        pass
     shutdown_langfuse()
     shutdown_tracing()
     if app.state.neo4j_driver is not None:
