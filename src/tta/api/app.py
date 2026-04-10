@@ -372,26 +372,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_router, prefix="/admin")
 
     # --- Privacy policy (S17 FR-17.51) ---
+    # Load once at startup to avoid blocking the event loop on every request.
 
     _privacy_md = Path(__file__).resolve().parents[3] / "docs" / "privacy-policy.md"
+    try:
+        _privacy_text = _privacy_md.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        _privacy_text = "Privacy policy not found."
+    _safe = (
+        _privacy_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    )
+    _privacy_html = (
+        "<!DOCTYPE html><html><head>"
+        "<meta charset='utf-8'>"
+        "<title>TTA Privacy Policy</title>"
+        "<style>body{font-family:sans-serif;max-width:800px;"
+        "margin:2em auto;padding:0 1em;line-height:1.6}"
+        "pre{white-space:pre-wrap}</style>"
+        "</head><body><pre>" + _safe + "</pre></body></html>"
+    )
 
     @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
     async def privacy_policy() -> HTMLResponse:
         """Serve the privacy policy as a simple HTML page."""
-        try:
-            text = _privacy_md.read_text()
-        except FileNotFoundError:
-            text = "Privacy policy not found."
-        safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        html = (
-            "<!DOCTYPE html><html><head>"
-            "<meta charset='utf-8'>"
-            "<title>TTA Privacy Policy</title>"
-            "<style>body{font-family:sans-serif;max-width:800px;"
-            "margin:2em auto;padding:0 1em;line-height:1.6}"
-            "pre{white-space:pre-wrap}</style>"
-            "</head><body><pre>" + safe + "</pre></body></html>"
-        )
-        return HTMLResponse(content=html)
+        return HTMLResponse(content=_privacy_html)
 
     return app

@@ -32,7 +32,7 @@ def _settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
         neo4j_password="test",
-        neo4j_uri="bolt://localhost:7687",
+        neo4j_uri="",
     )
 
 

@@ -13,7 +13,7 @@ from tta.config import Settings
 def _app():
     settings = Settings(
         database_url="postgresql+asyncpg://x:x@localhost:5432/x",
-        neo4j_uri="bolt://localhost:7687",
+        neo4j_uri="",
         neo4j_password="test",
     )
     return create_app(settings)

@@ -481,6 +481,8 @@ _NUDGE_PHRASES = (
     "Time seems to slow. The world is yours to explore.",
     "Something shifts in the air. Where do you turn your attention?",
     "The path ahead is yours to choose. What will it be?",
+    "A quiet opening appears before you. How do you step into it?",
+    "The scene invites a choice. What feels right to do next?",
 )
 
 _KNOWN_COMMANDS = frozenset({"help", "save", "status"})
