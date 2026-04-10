@@ -23,7 +23,29 @@ from tta.observability.metrics import (
     DB_QUERY_DURATION,
     RATE_LIMIT_ENFORCED,
     REDIS_OPERATIONS,
+    REGISTRY,
 )
+
+
+def _sample_value(
+    sample_name: str,
+    labels: dict[str, str],
+) -> float:
+    """Read a specific sample value from the custom REGISTRY by name + labels.
+
+    Iterates all collected metrics and selects by exact sample name
+    (e.g. ``tta_rate_limit_enforced_total``) rather than relying on
+    sample ordering, which is not guaranteed across prometheus_client
+    versions.
+    """
+    for metric in REGISTRY.collect():
+        for sample in metric.samples:
+            if sample.name == sample_name and all(
+                sample.labels.get(k) == v for k, v in labels.items()
+            ):
+                return sample.value
+    return 0.0
+
 
 # ---------------------------------------------------------------------------
 # Task 1: Rate limit & abuse metric counters
@@ -37,9 +59,10 @@ class TestRateLimitEnforcedCounter:
         assert RATE_LIMIT_ENFORCED._labelnames == ("route",)
 
     def test_counter_increments(self) -> None:
-        before = RATE_LIMIT_ENFORCED.labels(route="/test").collect()[0].samples[0].value
+        labels = {"route": "/test"}
+        before = _sample_value("tta_rate_limit_enforced_total", labels)
         RATE_LIMIT_ENFORCED.labels(route="/test").inc()
-        after = RATE_LIMIT_ENFORCED.labels(route="/test").collect()[0].samples[0].value
+        after = _sample_value("tta_rate_limit_enforced_total", labels)
         assert after == before + 1
 
 
@@ -50,13 +73,10 @@ class TestAbuseDetectedCounter:
         assert ABUSE_DETECTED._labelnames == ("pattern",)
 
     def test_counter_increments_for_rapid_fire(self) -> None:
-        before = (
-            ABUSE_DETECTED.labels(pattern="rapid_fire").collect()[0].samples[0].value
-        )
+        labels = {"pattern": "rapid_fire"}
+        before = _sample_value("tta_abuse_detected_total", labels)
         ABUSE_DETECTED.labels(pattern="rapid_fire").inc()
-        after = (
-            ABUSE_DETECTED.labels(pattern="rapid_fire").collect()[0].samples[0].value
-        )
+        after = _sample_value("tta_abuse_detected_total", labels)
         assert after == before + 1
 
 
@@ -70,17 +90,14 @@ class TestAbuseDetectorEmitsMetric:
         detector = InMemoryAbuseDetector(max_cooldown=86400)
         key = f"ip:{uuid4()}"
 
-        before = (
-            ABUSE_DETECTED.labels(pattern="rapid_fire").collect()[0].samples[0].value
-        )
+        labels = {"pattern": "rapid_fire"}
+        before = _sample_value("tta_abuse_detected_total", labels)
 
         # Push past threshold (3)
         for _ in range(4):
             await detector.record_violation(key, AbusePattern.RAPID_FIRE)
 
-        after = (
-            ABUSE_DETECTED.labels(pattern="rapid_fire").collect()[0].samples[0].value
-        )
+        after = _sample_value("tta_abuse_detected_total", labels)
         assert after > before
 
 
@@ -96,33 +113,27 @@ class TestObserveDbQuery:
     async def test_records_duration(self) -> None:
         from tta.observability.db_metrics import observe_db_query
 
-        before = DB_QUERY_DURATION.labels(
-            database="postgresql", operation="test_op"
-        )._sum.get()
+        labels = {"database": "postgresql", "operation": "test_op"}
+        before = _sample_value("tta_db_query_duration_seconds_sum", labels)
 
         async with observe_db_query("postgresql", "test_op"):
             await asyncio.sleep(0.01)
 
-        after = DB_QUERY_DURATION.labels(
-            database="postgresql", operation="test_op"
-        )._sum.get()
+        after = _sample_value("tta_db_query_duration_seconds_sum", labels)
         assert after > before
 
     @pytest.mark.asyncio
     async def test_records_on_exception(self) -> None:
         from tta.observability.db_metrics import observe_db_query
 
-        before = DB_QUERY_DURATION.labels(
-            database="postgresql", operation="err_op"
-        )._sum.get()
+        labels = {"database": "postgresql", "operation": "err_op"}
+        before = _sample_value("tta_db_query_duration_seconds_sum", labels)
 
         with pytest.raises(ValueError, match="boom"):
             async with observe_db_query("postgresql", "err_op"):
                 raise ValueError("boom")
 
-        after = DB_QUERY_DURATION.labels(
-            database="postgresql", operation="err_op"
-        )._sum.get()
+        after = _sample_value("tta_db_query_duration_seconds_sum", labels)
         assert after > before
 
 
@@ -132,12 +143,13 @@ class TestCountRedisOp:
     def test_increments_counter(self) -> None:
         from tta.observability.db_metrics import count_redis_op
 
-        before = REDIS_OPERATIONS.labels(operation="get").collect()[0].samples[0].value
+        labels = {"operation": "get"}
+        before = _sample_value("tta_redis_operations_total", labels)
 
         with count_redis_op("get"):
             pass
 
-        after = REDIS_OPERATIONS.labels(operation="get").collect()[0].samples[0].value
+        after = _sample_value("tta_redis_operations_total", labels)
         assert after == before + 1
 
 
