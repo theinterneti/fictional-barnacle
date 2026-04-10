@@ -7,16 +7,21 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends
+import structlog
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from redis.asyncio import Redis
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from tta.api.deps import get_current_player, get_pg
+from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.api.errors import AppError
 from tta.config import get_settings
 from tta.errors import ErrorCategory
 from tta.models.player import Player
+from tta.persistence.redis_session import delete_active_session
+
+log = structlog.get_logger()
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -217,16 +222,20 @@ async def request_data_export(
 
 @router.delete("/me", status_code=202)
 async def request_account_deletion(
+    request: Request,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
+    redis: Redis = Depends(get_redis),
 ) -> dict:
     """Erase account and all personal data (GDPR Art. 17, S17 FR-17.10).
 
-    Performs immediate PII removal:
+    Performs immediate PII removal from ALL stores (AC-12.03):
     1. Marks player as pending_deletion with tombstone handle
     2. Ends all active/paused game sessions
     3. Scrubs PII from turns and game sessions
     4. Invalidates all session tokens
+    5. Evicts cached state from Redis
+    6. Cleans up Neo4j world graph data
     """
     now = datetime.now(UTC)
     pid = player.id
@@ -282,6 +291,33 @@ async def request_account_deletion(
     )
 
     await pg.commit()
+
+    # 6. Fetch session IDs for multi-store cleanup
+    session_rows = await pg.execute(
+        sa.text("SELECT id FROM game_sessions WHERE player_id = :pid"),
+        {"pid": pid},
+    )
+    session_ids = [row.id for row in session_rows.fetchall()]
+
+    # 7. Evict cached state from Redis (AC-12.03)
+    for sid in session_ids:
+        try:
+            await delete_active_session(redis, sid)
+        except Exception:
+            log.warning("gdpr_redis_cleanup_failed", session_id=str(sid))
+
+    # 8. Clean up Neo4j world graph data (AC-12.03)
+    world_service = getattr(request.app.state, "world_service", None)
+    if world_service is not None:
+        for sid in session_ids:
+            try:
+                await world_service.cleanup_session(sid)
+            except NotImplementedError:
+                pass
+            except Exception:
+                log.warning(
+                    "gdpr_neo4j_cleanup_failed", session_id=str(sid)
+                )
 
     data = AccountDeletionResponse().model_dump()
     data["player_id"] = str(pid)

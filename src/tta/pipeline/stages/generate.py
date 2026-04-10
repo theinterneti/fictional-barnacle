@@ -26,12 +26,16 @@ _GENERATION_SYSTEM_PROMPT = (
 )
 
 _EXTRACTION_SYSTEM_PROMPT = (
-    "Extract world state changes from the narrative as a JSON array. "
-    "Each element should be an object with keys: "
-    "'entity' (what changed), 'attribute' (which property), "
-    "'old_value' (previous value or null), 'new_value' (new value), "
-    "and 'reason' (brief explanation). "
-    "If no changes occurred, return an empty array: []"
+    "Extract world state changes and suggested actions from the narrative. "
+    "Return a JSON object with two keys:\n"
+    '  "world_changes": an array of objects with keys '
+    "'entity', 'attribute', 'old_value', 'new_value', 'reason'. "
+    "Use an empty array if nothing changed.\n"
+    '  "suggested_actions": an array of exactly 3 short strings — '
+    "distinct actions the player could take next.\n"
+    "Example: "
+    '{"world_changes": [], "suggested_actions": ["Look around", '
+    '"Talk to the stranger", "Open the chest"]}'
 )
 
 
@@ -119,8 +123,10 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     narrative = safety_post.modified_content or response.content
 
-    # 5. Extract world changes via LLM
-    world_updates = await _extract_world_changes(narrative, state.player_input, deps)
+    # 5. Extract world changes + suggested actions via LLM
+    world_updates, suggestions = await _extract_world_changes(
+        narrative, state.player_input, deps
+    )
 
     return state.model_copy(
         update={
@@ -128,6 +134,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             "model_used": response.model_used,
             "token_count": response.token_count,
             "world_state_updates": world_updates,
+            "suggested_actions": suggestions or None,
         }
     )
 
@@ -136,10 +143,11 @@ async def _extract_world_changes(
     narrative: str,
     player_input: str,
     deps: PipelineDeps,
-) -> list[dict]:
-    """Extract world state changes from narrative via LLM.
+) -> tuple[list[dict], list[str]]:
+    """Extract world state changes and suggested actions from narrative.
 
-    Returns an empty list on any failure — extraction is best-effort.
+    Returns ``(world_changes, suggested_actions)`` — both default to
+    empty lists on any failure (extraction is best-effort).
     """
     messages = [
         Message(role=MessageRole.SYSTEM, content=_EXTRACTION_SYSTEM_PROMPT),
@@ -151,16 +159,33 @@ async def _extract_world_changes(
     try:
         response = await deps.llm.generate(role=ModelRole.EXTRACTION, messages=messages)
         parsed = json.loads(response.content)
-        if not isinstance(parsed, list):
-            return []
-        # Validate each element is a dict with expected keys
+
+        # New format: {"world_changes": [...], "suggested_actions": [...]}
+        if isinstance(parsed, dict):
+            raw_changes = parsed.get("world_changes", [])
+            raw_suggestions = parsed.get("suggested_actions", [])
+        elif isinstance(parsed, list):
+            # Backwards-compatible: old format was a plain array
+            raw_changes = parsed
+            raw_suggestions = []
+        else:
+            return [], []
+
+        # Validate world changes
         validated: list[dict] = []
-        for item in parsed:
+        for item in raw_changes if isinstance(raw_changes, list) else []:
             if isinstance(item, dict) and "entity" in item:
                 validated.append(item)
             else:
                 log.debug("extraction_skipped_element", element=item)
-        return validated
+
+        # Validate suggested actions (must be strings)
+        suggestions: list[str] = [
+            s for s in (raw_suggestions if isinstance(raw_suggestions, list) else [])
+            if isinstance(s, str) and s.strip()
+        ]
+
+        return validated, suggestions
     except (json.JSONDecodeError, Exception):
         log.debug("extraction_parse_failed", exc_info=True)
-        return []
+        return [], []

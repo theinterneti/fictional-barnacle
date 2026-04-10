@@ -1,8 +1,9 @@
-"""Automated game-session lifecycle transitions (S11 FR-11.41–45).
+"""Automated game-session lifecycle transitions (S11 FR-11.41–45, AC-1.7).
 
 Transitions enforced:
   - ``created``/``active``  + 0 turns + age > 24 h  →  ``abandoned``
   - ``paused``  + last_played > 30 days  →  ``expired``
+  - ``active``  + turn_count > 0 + idle > 30 min  →  ``paused``  (AC-1.7)
 
 Usage:
   - Background: started automatically by the FastAPI lifespan.
@@ -20,9 +21,10 @@ import structlog
 
 log = structlog.get_logger()
 
-# Thresholds (match spec S11 FR-11.41–45)
+# Thresholds (match spec S11 FR-11.41–45 + AC-1.7)
 ABANDON_HOURS = 24
 EXPIRE_DAYS = 30
+IDLE_TIMEOUT_MINUTES = 30
 
 
 async def run_lifecycle_pass(
@@ -30,6 +32,7 @@ async def run_lifecycle_pass(
     *,
     abandon_hours: int = ABANDON_HOURS,
     expire_days: int = EXPIRE_DAYS,
+    idle_timeout_minutes: int = IDLE_TIMEOUT_MINUTES,
 ) -> dict[str, int]:
     """Execute a single lifecycle-transition pass.
 
@@ -38,6 +41,7 @@ async def run_lifecycle_pass(
     now = datetime.now(UTC)
     abandon_cutoff = now - timedelta(hours=abandon_hours)
     expire_cutoff = now - timedelta(days=expire_days)
+    idle_cutoff = now - timedelta(minutes=idle_timeout_minutes)
 
     async with session_factory() as pg:
         # Rule 1: created/active + 0 turns + older than 24 h → abandoned
@@ -67,24 +71,45 @@ async def run_lifecycle_pass(
         )
         expired = expire_result.rowcount or 0
 
-        if abandoned or expired:
+        # Rule 3 (AC-1.7): active + turn_count > 0 + idle > 30 min → paused
+        # Guard: turn_count > 0 prevents newly-created games from being
+        # paused before the player takes their first action.
+        idle_result = await pg.execute(
+            sa.text(
+                "UPDATE game_sessions "
+                "SET status = 'paused', updated_at = :now "
+                "WHERE status = 'active' "
+                "AND turn_count > 0 "
+                "AND updated_at < :cutoff "
+                "AND deleted_at IS NULL"
+            ),
+            {"now": now, "cutoff": idle_cutoff},
+        )
+        idle_paused = idle_result.rowcount or 0
+
+        if abandoned or expired or idle_paused:
             await pg.commit()
 
         log.info(
             "lifecycle_pass",
             abandoned=abandoned,
             expired=expired,
+            idle_paused=idle_paused,
         )
-        return {"abandoned": abandoned, "expired": expired}
+        return {
+            "abandoned": abandoned,
+            "expired": expired,
+            "idle_paused": idle_paused,
+        }
 
 
 async def lifecycle_loop(
     session_factory: Any,
     *,
-    interval_hours: int = 1,
+    interval_seconds: int = 900,
 ) -> None:
     """Run lifecycle passes on a timer until cancelled."""
-    log.info("lifecycle_loop_started", interval_hours=interval_hours)
+    log.info("lifecycle_loop_started", interval_seconds=interval_seconds)
     while True:
         try:
             await run_lifecycle_pass(session_factory)
@@ -92,4 +117,4 @@ async def lifecycle_loop(
             raise
         except Exception:
             log.exception("lifecycle_pass_failed")
-        await asyncio.sleep(interval_hours * 3600)
+        await asyncio.sleep(interval_seconds)

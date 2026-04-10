@@ -95,6 +95,20 @@ External packages and services used by TTA:
 | Dependency | Purpose | Integration |
 |---|---|---|
 | **LiteLLM** | LLM client for provider abstraction | Direct import from `tta.llm` |
+| **1Password** | Secret management | Use `op run --env-file=.env` for secret injection |
+
+## Running with 1Password
+
+```bash
+# First time: copy template and add your keys
+cp .env.template .env
+
+# Run with secret injection:
+op run --env-file=.env -- python -m tta
+```
+
+The `.env.template` file uses 1Password URIs (e.g., `op://TTA/Groq/credential`)
+that get resolved at runtime — no actual keys committed to version control.
 
 LLM integration uses LiteLLM in library mode (not proxy). The client is at
 `src/tta/llm/litellm_client.py`. See `specs/07-llm-integration.md` and
