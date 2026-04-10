@@ -53,6 +53,11 @@ _POLICIES: list[RetentionPolicy] = [
         7,
         "Short-term debugging",
     ),
+    RetentionPolicy(
+        "soft_deleted_game_postgresql",
+        3,
+        "FR-27.17: soft-deleted data purged after 72 hours",
+    ),
 ]
 
 

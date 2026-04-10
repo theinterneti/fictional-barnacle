@@ -1,14 +1,15 @@
 """Tests for GDPR endpoints (S17 §3 FR-17.6, FR-17.9, FR-17.10)."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 from starlette.testclient import TestClient
 
 from tta.api.app import create_app
-from tta.api.deps import get_current_player, get_pg
+from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.config import Settings
 from tta.models.player import Player
 
@@ -26,14 +27,36 @@ def _settings() -> Settings:
 
 @pytest.fixture()
 def pg_mock() -> AsyncMock:
+    mock = AsyncMock()
+    # SQLAlchemy Result.fetchall() is synchronous even in async mode.
+    # Default return gives empty rows so the 6th execute (session ID fetch) works.
+    result = MagicMock()
+    result.fetchall.return_value = []
+    mock.execute.return_value = result
+    return mock
+
+
+@pytest.fixture()
+def redis_mock() -> AsyncMock:
     return AsyncMock()
 
 
 @pytest.fixture()
-def authed_client(pg_mock: AsyncMock) -> TestClient:
+def world_service_mock() -> AsyncMock:
+    return AsyncMock()
+
+
+@pytest.fixture()
+def authed_client(
+    pg_mock: AsyncMock,
+    redis_mock: AsyncMock,
+    world_service_mock: AsyncMock,
+) -> TestClient:
     app = create_app(_settings())
     app.dependency_overrides[get_pg] = lambda: pg_mock
     app.dependency_overrides[get_current_player] = lambda: _PLAYER
+    app.dependency_overrides[get_redis] = lambda: redis_mock
+    app.state.world_service = world_service_mock
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -41,6 +64,7 @@ def authed_client(pg_mock: AsyncMock) -> TestClient:
 def anon_client() -> TestClient:
     app = create_app(_settings())
     app.dependency_overrides[get_pg] = lambda: AsyncMock()
+    app.dependency_overrides[get_redis] = lambda: AsyncMock()
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -161,4 +185,96 @@ class TestAccountDeletionEndpoint:
         authed_client.delete("/api/v1/players/me")
 
         pg_mock.commit.assert_awaited_once()
-        assert pg_mock.execute.call_count == 5
+        assert pg_mock.execute.call_count == 6
+
+
+class TestMultiStoreCleanup:
+    """GDPR erasure cleans Redis + Neo4j (AC-12.03)."""
+
+    @staticmethod
+    def _configure_session_ids(
+        pg_mock: AsyncMock,
+        session_ids: list[str],
+    ) -> None:
+        """Make the 6th pg.execute return rows with .id attributes."""
+        rows = [SimpleNamespace(id=sid) for sid in session_ids]
+        fetch_result = MagicMock()
+        fetch_result.fetchall.return_value = rows
+        # Calls 1-5 return default AsyncMock; 6th returns our rows
+        pg_mock.execute = AsyncMock(
+            side_effect=[
+                AsyncMock(),  # 1: tombstone player
+                AsyncMock(),  # 2: end sessions
+                AsyncMock(),  # 3: scrub turns
+                AsyncMock(),  # 4: scrub game data
+                AsyncMock(),  # 5: delete tokens
+                fetch_result,  # 6: fetch session IDs
+            ]
+        )
+        pg_mock.commit = AsyncMock()
+
+    def test_redis_sessions_evicted(
+        self,
+        authed_client: TestClient,
+        pg_mock: AsyncMock,
+        redis_mock: AsyncMock,
+    ) -> None:
+        sid1, sid2 = str(uuid4()), str(uuid4())
+        self._configure_session_ids(pg_mock, [sid1, sid2])
+
+        authed_client.delete("/api/v1/players/me")
+
+        assert redis_mock.delete.await_count >= 2 or redis_mock.method_calls
+
+    def test_neo4j_worlds_cleaned(
+        self,
+        authed_client: TestClient,
+        pg_mock: AsyncMock,
+        world_service_mock: AsyncMock,
+    ) -> None:
+        sid1, sid2 = str(uuid4()), str(uuid4())
+        self._configure_session_ids(pg_mock, [sid1, sid2])
+
+        authed_client.delete("/api/v1/players/me")
+
+        assert world_service_mock.cleanup_session.await_count == 2
+
+    def test_redis_failure_does_not_block_neo4j(
+        self,
+        authed_client: TestClient,
+        pg_mock: AsyncMock,
+        redis_mock: AsyncMock,
+        world_service_mock: AsyncMock,
+    ) -> None:
+        sid1 = str(uuid4())
+        self._configure_session_ids(pg_mock, [sid1])
+
+        # Make the redis call fail — import needed for side effect
+
+        import tta.api.routes.players as players_mod
+
+        original = players_mod.delete_active_session
+
+        async def _failing_redis(*args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("Redis down")
+
+        players_mod.delete_active_session = _failing_redis  # type: ignore[assignment]
+        try:
+            authed_client.delete("/api/v1/players/me")
+            # Neo4j cleanup should still have been attempted
+            assert world_service_mock.cleanup_session.await_count == 1
+        finally:
+            players_mod.delete_active_session = original  # type: ignore[assignment]
+
+    def test_no_sessions_skips_cleanup(
+        self,
+        authed_client: TestClient,
+        pg_mock: AsyncMock,
+        redis_mock: AsyncMock,
+        world_service_mock: AsyncMock,
+    ) -> None:
+        self._configure_session_ids(pg_mock, [])
+
+        authed_client.delete("/api/v1/players/me")
+
+        world_service_mock.cleanup_session.assert_not_awaited()

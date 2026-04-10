@@ -1312,6 +1312,7 @@ async def stream_turn(
             turn_number=result.turn_number,
             model_used=result.model_used or "unknown",
             latency_ms=result.latency_ms or 0.0,
+            suggested_actions=result.suggested_actions or [],
         ).format_sse(counter.next_id())
 
     return StreamingResponse(

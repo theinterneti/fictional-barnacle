@@ -150,6 +150,7 @@ class Settings(BaseSettings):
     log_level: LogLevel = LogLevel.INFO
     log_format: str = "json"
     log_sensitive: bool = False
+    idle_timeout_minutes: int = 30
     environment: Environment = Environment.DEVELOPMENT
 
 

@@ -13,12 +13,18 @@ import pytest
 from tta.lifecycle.cleanup import run_lifecycle_pass
 
 
-def _make_pg(*, abandon_rowcount: int = 0, expire_rowcount: int = 0) -> AsyncMock:
+def _make_pg(
+    *,
+    abandon_rowcount: int = 0,
+    expire_rowcount: int = 0,
+    idle_rowcount: int = 0,
+) -> AsyncMock:
     """Build a mock PG session that returns the given rowcounts."""
     pg = AsyncMock()
     abandon_result = SimpleNamespace(rowcount=abandon_rowcount)
     expire_result = SimpleNamespace(rowcount=expire_rowcount)
-    pg.execute = AsyncMock(side_effect=[abandon_result, expire_result])
+    idle_result = SimpleNamespace(rowcount=idle_rowcount)
+    pg.execute = AsyncMock(side_effect=[abandon_result, expire_result, idle_result])
     pg.commit = AsyncMock()
     return pg
 
@@ -60,6 +66,7 @@ class TestAbandonRule:
 
         assert result["abandoned"] == 0
         assert result["expired"] == 0
+        assert result["idle_paused"] == 0
         pg.commit.assert_not_awaited()
 
     @pytest.mark.anyio
@@ -156,3 +163,46 @@ class TestErrorHandling:
 
         with pytest.raises(RuntimeError, match="connection lost"):
             await run_lifecycle_pass(factory)
+
+
+class TestIdleTimeoutRule:
+    """active + turn_count > 0 + idle > 30 min → paused (AC-1.7)."""
+
+    @pytest.mark.anyio
+    async def test_pauses_idle_active_games(self) -> None:
+        pg = _make_pg(idle_rowcount=4)
+        factory = _make_factory(pg)
+
+        result = await run_lifecycle_pass(factory)
+
+        assert result["idle_paused"] == 4
+        idle_call = pg.execute.call_args_list[2]
+        sql_text = str(idle_call.args[0].text)
+        assert "status = 'active'" in sql_text
+        assert "turn_count > 0" in sql_text
+        assert "deleted_at IS NULL" in sql_text
+        pg.commit.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_idle_cutoff_is_configurable(self) -> None:
+        pg = _make_pg(idle_rowcount=1)
+        factory = _make_factory(pg)
+
+        await run_lifecycle_pass(factory, idle_timeout_minutes=45)
+
+        params = pg.execute.call_args_list[2].args[1]
+        cutoff = params["cutoff"]
+        expected = datetime.now(UTC) - timedelta(minutes=45)
+        assert abs((cutoff - expected).total_seconds()) < 5
+
+    @pytest.mark.anyio
+    async def test_zero_turn_games_excluded_from_idle(self) -> None:
+        """Games with turn_count=0 must NOT be paused (stay eligible for abandon)."""
+        pg = _make_pg(idle_rowcount=0)
+        factory = _make_factory(pg)
+
+        await run_lifecycle_pass(factory)
+
+        idle_call = pg.execute.call_args_list[2]
+        sql_text = str(idle_call.args[0].text)
+        assert "turn_count > 0" in sql_text
