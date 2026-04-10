@@ -65,9 +65,16 @@ async def run_purge(
             }
 
         if dry_run:
-            # Count turns without deleting
+            # Count dependent rows without deleting
+            we_result = await pg.execute(
+                sa.text(
+                    "SELECT count(*) FROM world_events WHERE session_id = ANY(:ids)"
+                ),
+                {"ids": session_ids},
+            )
+            world_events_count = we_result.scalar() or 0
             turn_result = await pg.execute(
-                sa.text("SELECT count(*) FROM turns WHERE game_session_id = ANY(:ids)"),
+                sa.text("SELECT count(*) FROM turns WHERE session_id = ANY(:ids)"),
                 {"ids": session_ids},
             )
             turn_count = turn_result.scalar() or 0
@@ -76,22 +83,31 @@ async def run_purge(
                 action="dry_run",
                 sessions=len(session_ids),
                 turns=turn_count,
+                world_events=world_events_count,
             )
             return {
                 "sessions_purged": len(session_ids),
                 "turns_purged": turn_count,
+                "world_events_purged": world_events_count,
                 "dry_run": True,
                 "cutoff": cutoff.isoformat(),
             }
 
-        # Delete turns first (FK constraint)
+        # Delete in FK-safe order: world_events → turns → sessions.
+        # world_events.turn_id → turns.id has no ON DELETE CASCADE,
+        # so we must delete world_events before turns.
+        we_result = await pg.execute(
+            sa.text("DELETE FROM world_events WHERE session_id = ANY(:ids)"),
+            {"ids": session_ids},
+        )
+        world_events_deleted = we_result.rowcount or 0
+
         turn_result = await pg.execute(
-            sa.text("DELETE FROM turns WHERE game_session_id = ANY(:ids)"),
+            sa.text("DELETE FROM turns WHERE session_id = ANY(:ids)"),
             {"ids": session_ids},
         )
         turns_deleted = turn_result.rowcount or 0
 
-        # Delete game sessions
         session_result = await pg.execute(
             sa.text("DELETE FROM game_sessions WHERE id = ANY(:ids)"),
             {"ids": session_ids},
@@ -105,11 +121,13 @@ async def run_purge(
             action="executed",
             sessions=sessions_deleted,
             turns=turns_deleted,
+            world_events=world_events_deleted,
             cutoff=cutoff.isoformat(),
         )
         return {
             "sessions_purged": sessions_deleted,
             "turns_purged": turns_deleted,
+            "world_events_purged": world_events_deleted,
             "dry_run": False,
             "cutoff": cutoff.isoformat(),
         }

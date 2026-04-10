@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
-from tta.observability.metrics import REGISTRY, generate_latest
+from tta.observability.metrics import REGISTRY, SESSIONS_ACTIVE, generate_latest
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger()
@@ -435,6 +435,8 @@ async def terminate_game(
             f"Game {game_id} not found or not in active/paused state.",
         )
 
+    SESSIONS_ACTIVE.dec()
+
     await _audit(
         request,
         admin,
@@ -554,7 +556,11 @@ async def trigger_purge(
         action="purge_triggered",
         target_type="system",
         target_id="data_purge",
-        reason=f"dry_run={dry_run} deleted={result.get('sessions_deleted', 0)}",
+        reason=(
+            f"dry_run={dry_run} "
+            f"sessions_purged={result.get('sessions_purged', 0)} "
+            f"turns_purged={result.get('turns_purged', 0)}"
+        ),
     )
     return {"data": result}
 
