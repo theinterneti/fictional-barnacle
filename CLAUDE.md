@@ -93,30 +93,12 @@ See `.github/instructions/` for detailed usage guides. Key MCP tools:
 
 ## LLM Integration
 
-For LLM calls, use the smart router from `~/Repos/openrouter-smart-router/`:
+TTA uses **LiteLLM** (library mode, not proxy) for all LLM calls. The client lives
+at `src/tta/llm/litellm_client.py` and is wired in `app.py` lifespan as
+`app.state.pipeline_deps.llm`.
 
-```typescript
-import { createSmartRouter, TaskType } from 'openrouter-smart-router';
-
-const router = createSmartRouter({
-  openRouterApiKey: process.env.OPENROUTER_API_KEY!,
-  byokProviders: ['google', 'xai', 'openai', 'anthropic'],
-  fallbackToFree: true,
-});
-
-// Map pipeline stages to task types
-await router.chat('Player input', TaskType.REASONING);    // understand stage
-await router.chat('Generate narrative', TaskType.GENERATION); // generate stage
-await router.chat('Classify choice', TaskType.CLASSIFICATION); // choice classifier
-await router.chat('Extract entities', TaskType.EXTRACTION); // context enrichment
-await router.chat('Summarize state', TaskType.SUMMARIZATION); // world memory
-```
-
-**Benefits:**
-- Auto-selects best model per task (free → BYOK → paid)
-- Uses your provider keys (Google, xAI, OpenAI, Anthropic) with 5% fee (waived for 1M+/month)
-- Falls back to free models automatically
-- Validates model availability at runtime
+Pipeline stages map to LLM calls via the turn pipeline orchestrator — see
+`specs/07-llm-integration.md` and `plans/llm-and-pipeline.md` for details.
 
 ## Agent Roster
 

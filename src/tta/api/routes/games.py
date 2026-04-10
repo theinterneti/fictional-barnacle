@@ -66,12 +66,52 @@ _ATTRIBUTE_TYPE_MAP: dict[str, WorldChangeType] = {
 }
 
 
+def _build_typed_payload(
+    change_type: WorldChangeType, item: dict
+) -> dict:
+    """Build a payload dict with the keys required by validate_change()."""
+    base: dict = {
+        "attribute": str(item.get("attribute") or ""),
+        "old_value": item.get("old_value"),
+        "new_value": item.get("new_value"),
+        "reason": item.get("reason", ""),
+    }
+    # Merge any extra keys the LLM may have provided (e.g. from_id, to_id)
+    for k, v in item.items():
+        if k not in ("entity", "attribute", "old_value", "new_value", "reason"):
+            base[k] = v
+
+    nv = item.get("new_value")
+    ct = change_type
+    if ct == WorldChangeType.PLAYER_MOVED:
+        base.setdefault("from_id", item.get("old_value", ""))
+        base.setdefault("to_id", item.get("new_value", ""))
+    elif ct == WorldChangeType.NPC_DISPOSITION_CHANGED:
+        base.setdefault("disposition", nv if nv is not None else "")
+    elif ct == WorldChangeType.NPC_STATE_CHANGED:
+        base.setdefault("state", nv if nv is not None else "")
+    elif ct == WorldChangeType.NPC_MOVED:
+        base.setdefault("to_location_id", nv if nv is not None else "")
+    elif ct == WorldChangeType.CONNECTION_LOCKED:
+        base.setdefault("from_id", item.get("old_value", ""))
+        base.setdefault("to_id", str(item.get("entity", "")))
+    elif ct == WorldChangeType.CONNECTION_UNLOCKED:
+        base.setdefault("from_id", item.get("old_value", ""))
+        base.setdefault("to_id", str(item.get("entity", "")))
+    elif ct == WorldChangeType.QUEST_STATUS_CHANGED:
+        base.setdefault("new_status", nv if nv is not None else "")
+    elif ct == WorldChangeType.ITEM_VISIBILITY_CHANGED:
+        hidden = nv if isinstance(nv, bool) else str(nv).lower() == "true"
+        base.setdefault("hidden", hidden)
+    return base
+
+
 def _translate_world_updates(raw: list[dict]) -> list[WorldChange]:
     """Convert LLM-extracted dicts to WorldChange objects (best-effort)."""
     changes: list[WorldChange] = []
     for item in raw:
         entity = item.get("entity", "")
-        attribute = item.get("attribute", "")
+        attribute = str(item.get("attribute") or "")
         if not entity:
             continue
         # Infer change type from attribute keywords
@@ -87,12 +127,7 @@ def _translate_world_updates(raw: list[dict]) -> list[WorldChange]:
             WorldChange(
                 type=change_type,
                 entity_id=str(entity),
-                payload={
-                    "attribute": attribute,
-                    "old_value": item.get("old_value"),
-                    "new_value": item.get("new_value"),
-                    "reason": item.get("reason", ""),
-                },
+                payload=_build_typed_payload(change_type, item),
             )
         )
     return changes
@@ -242,6 +277,8 @@ async def _dispatch_pipeline(
                     game_id=str(game_id),
                     count=len(changes),
                 )
+        except asyncio.CancelledError:
+            raise
         except Exception:
             log.warning(
                 "world_changes_failed_graceful_degradation",
@@ -612,6 +649,8 @@ async def create_game(
         )
         await pg.commit()
         log.info("genesis_complete", game_id=str(game_id))
+    except asyncio.CancelledError:
+        raise
     except Exception:
         log.warning(
             "genesis_failed_graceful_degradation",

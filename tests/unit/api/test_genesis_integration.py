@@ -134,6 +134,73 @@ class TestTranslateWorldUpdates:
         assert payload["new_value"] is None
         assert payload["reason"] == ""
 
+    def test_none_attribute_handled_gracefully(self) -> None:
+        """Attribute key with None value should not raise."""
+        raw = [{"entity": "e1", "attribute": None, "new_value": "x"}]
+        changes = _translate_world_updates(raw)
+        assert len(changes) == 1
+        assert changes[0].payload["attribute"] == ""
+
+    def test_player_moved_payload_has_from_to(self) -> None:
+        raw = [
+            {
+                "entity": "player",
+                "attribute": "location",
+                "old_value": "town",
+                "new_value": "cave",
+            }
+        ]
+        changes = _translate_world_updates(raw)
+        p = changes[0].payload
+        assert p["from_id"] == "town"
+        assert p["to_id"] == "cave"
+
+    def test_npc_disposition_payload_has_disposition(self) -> None:
+        raw = [
+            {"entity": "guard", "attribute": "mood", "new_value": "hostile"}
+        ]
+        changes = _translate_world_updates(raw)
+        assert changes[0].payload["disposition"] == "hostile"
+
+    def test_quest_status_payload_has_new_status(self) -> None:
+        raw = [
+            {
+                "entity": "q1",
+                "attribute": "quest_status",
+                "new_value": "complete",
+            }
+        ]
+        changes = _translate_world_updates(raw)
+        assert changes[0].payload["new_status"] == "complete"
+
+    def test_item_visibility_payload_has_hidden_bool(self) -> None:
+        raw = [
+            {
+                "entity": "door",
+                "attribute": "visibility",
+                "new_value": "true",
+            }
+        ]
+        changes = _translate_world_updates(raw)
+        assert changes[0].payload["hidden"] is True
+
+    def test_extra_keys_passed_through(self) -> None:
+        """LLM may provide extra keys like from_id directly."""
+        raw = [
+            {
+                "entity": "player",
+                "attribute": "location",
+                "old_value": "a",
+                "new_value": "b",
+                "from_id": "loc_a",
+                "to_id": "loc_b",
+            }
+        ]
+        changes = _translate_world_updates(raw)
+        p = changes[0].payload
+        assert p["from_id"] == "loc_a"
+        assert p["to_id"] == "loc_b"
+
 
 # ------------------------------------------------------------------
 # TemplateRegistry.select_by_preferences tests
