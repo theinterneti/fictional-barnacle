@@ -1150,17 +1150,60 @@ Estimated AC coverage: ~45% → ~52%
 - `src/tta/api/app.py` — call signature fixes
 - `src/tta/api/routes/games.py` — suggested_actions SSE wiring
 
-## 21. Wave 18+ Recommendations
+## 21. Wave 18 — Observability Hardening, Input Validation, Resume Recap
 
-### Wave 18 — Production Polish & Observability
+**Branch**: `wave-18/observability-validation-recap`
+**Tests**: 1441 total (26 new), 0 pyright errors
+
+### Completed
+
+1. **Rate limit & abuse metrics** (S15 C1): Added `tta_rate_limit_enforced_total`
+   counter (labels: route) in rate limit middleware, and `tta_abuse_detected_total`
+   counter (labels: pattern) in both InMemory and Redis abuse detectors.
+
+2. **DB query duration & Redis metrics** (S15 §4 C4): Added
+   `tta_db_query_duration_seconds` histogram (labels: database, operation) and
+   `tta_redis_operations_total` counter (labels: operation). Created
+   `src/tta/observability/db_metrics.py` with `observe_db_query()` and
+   `count_redis_op()` context managers. Callsite instrumentation deferred to
+   persistence layer integration wave.
+
+3. **Re-enabled DB pool exhaustion alert** (C5): Uncommented DBPoolExhausted
+   alert in `monitoring/prometheus/alerts.yml`. Pool gauges already instrumented
+   by `pool_metrics.py`.
+
+4. **Input validation hardening** (H5): Added Pydantic `field_validator` to
+   `SubmitTurnRequest` that strips zero-width Unicode characters (U+200B,
+   U+200C, U+200D, U+2060, U+FEFF, U+FFFE). Whitespace-only input correctly
+   triggers nudge flow — no rejection needed.
+
+5. **Resume contextual recap** (FR-5.4): Resume endpoint now returns `recap`
+   field: "When we last left off: {context_summary}" for games with turns,
+   or derives from `world_seed.genesis.narrative_intro` for 0-turn resumes.
+   Returns `None` when no summary available.
+
+### Decisions
+
+- **DB_CONNECTIONS_ACTIVE omitted**: Existing pool gauges (`tta_pg_pool_size`,
+  `tta_pg_pool_checked_out`, etc.) already cover this. Redundant gauge would
+  confuse operators.
+- **Route labels use parameterized patterns** (e.g., `/api/v1/games/{game_id}`)
+  not raw paths, preventing Prometheus cardinality explosion.
+- **Zero-width char stripping, not rejection**: Pydantic validator silently
+  strips invisible chars rather than returning 422, matching existing UX pattern
+  where `input.strip()` normalizes whitespace.
+
+## 22. Wave 19+ Recommendations
+
+### Wave 19 — Production Polish & Observability
 
 1. Alertmanager integration for notification routing (PagerDuty, Slack, email)
 2. Performance load testing and SLO validation against S28 targets
 3. node_exporter for disk usage alerting (S15 FR-15.23)
 4. Session token rotation (security improvement)
 5. Turn history pagination (S12 FR-12.03)
-6. Game resume flow validation (S01 AC-1.7 resume path)
-7. Live character state system (evolving traits beyond genesis)
+6. Live character state system (evolving traits beyond genesis)
+7. Instrument persistence call sites with `observe_db_query()` / `count_redis_op()`
 
 ### Beyond v1
 

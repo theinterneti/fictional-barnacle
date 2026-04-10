@@ -16,9 +16,11 @@ import structlog
 from starlette.datastructures import State
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.routing import Match
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from tta.logging import bind_context, bind_correlation_id, clear_contextvars
+from tta.observability.metrics import RATE_LIMIT_ENFORCED
 from tta.observability.tracing import current_trace_id
 from tta.resilience.anti_abuse import AbuseDetector, AbusePattern
 from tta.resilience.rate_limiter import (
@@ -29,6 +31,20 @@ from tta.resilience.rate_limiter import (
 )
 
 log = structlog.get_logger()
+
+
+def _get_route_pattern_for_scope(request: Request) -> str:
+    """Extract the route pattern (e.g. /api/v1/games/{game_id}).
+
+    Same logic as prometheus_middleware._get_route_pattern — kept local
+    to avoid coupling the two middleware modules.
+    """
+    app = request.app
+    for route in app.routes:
+        match, _ = route.matches(request.scope)
+        if match == Match.FULL:
+            return getattr(route, "path", request.url.path)
+    return "unmatched"
 
 
 class RequestIDMiddleware:
@@ -304,6 +320,8 @@ class RateLimitMiddleware:
             return
 
         if not result.allowed:
+            route_pattern = _get_route_pattern_for_scope(request)
+            RATE_LIMIT_ENFORCED.labels(route=route_pattern).inc()
             log.warning(
                 "rate_limited",
                 key=key,

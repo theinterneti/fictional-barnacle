@@ -1,13 +1,14 @@
 # Prometheus alerting rules for TTA
 # Spec ref: S15 FR-15.22/23 (alerting rules)
 #
-# Six conditions monitored:
-#   1. API error rate > 10% over 5 min (Critical) — ACTIVE
-#   2. LLM API unreachable > 2 min (Critical) — ACTIVE
-#   3. Turn processing > 30s p95 (Warning) — ACTIVE
-#   4. Daily LLM cost > threshold (Warning) — ACTIVE (uses cost histogram)
-#   5. DB connection pool exhausted (Critical) — DISABLED (metric not yet instrumented)
-#   6. Disk usage > 80% (deferred — requires node_exporter)
+# Five active conditions:
+#   1. API error rate > 10% over 5 min (Critical)
+#   2. LLM API unreachable > 2 min (Critical)
+#   3. Turn processing > 30s p95 (Warning)
+#   4. Daily LLM cost > threshold (Warning)
+#   5. DB connection pool exhausted (Critical)
+#
+# Deferred: Disk usage > 80% (requires node_exporter)
 #
 # FR-15.24: Dedup is handled at the Alertmanager level (not yet deployed).
 #           Currently, Prometheus evaluates rules only.
@@ -82,16 +83,14 @@ groups:
             Threshold: $50.
 
       # 5. DB connection pool exhausted → Critical
-      # DISABLED: tta_pg_pool_* gauges are not yet instrumented.
-      # TODO: Re-enable after Wave 13 metrics instrumentation.
-      # - alert: DBPoolExhausted
-      #   expr: |
-      #     (tta_pg_pool_checked_out / tta_pg_pool_size) > 0.95
-      #   for: 2m
-      #   labels:
-      #     severity: critical
-      #   annotations:
-      #     summary: "PostgreSQL connection pool near exhaustion"
-      #     description: >-
-      #       {{ $value | humanizePercentage }} of the PG connection pool
-      #       is in use for over 2 minutes.
+      - alert: DBPoolExhausted
+        expr: |
+          (tta_pg_pool_checked_out / tta_pg_pool_size) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL connection pool near exhaustion"
+          description: >-
+            {{ $value | humanizePercentage }} of the PG connection pool
+            is in use for over 2 minutes.

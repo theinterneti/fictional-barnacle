@@ -157,6 +157,39 @@ NEO4J_POOL_ACTIVE = Gauge(
     registry=REGISTRY,
 )
 
+# -- Rate limiting & abuse metrics (S15 §4, S25) ---------------------------
+
+RATE_LIMIT_ENFORCED = Counter(
+    "tta_rate_limit_enforced_total",
+    "Rate limit rejections",
+    ["route"],
+    registry=REGISTRY,
+)
+
+ABUSE_DETECTED = Counter(
+    "tta_abuse_detected_total",
+    "Abuse pattern violations detected",
+    ["pattern"],
+    registry=REGISTRY,
+)
+
+# -- DB & Redis metrics (S15 §4) ------------------------------------------
+
+DB_QUERY_DURATION = Histogram(
+    "tta_db_query_duration_seconds",
+    "Database query duration",
+    ["database", "operation"],
+    buckets=DURATION_BUCKETS,
+    registry=REGISTRY,
+)
+
+REDIS_OPERATIONS = Counter(
+    "tta_redis_operations_total",
+    "Redis operations",
+    ["operation"],
+    registry=REGISTRY,
+)
+
 # -- LLM semaphore metrics (S28 FR-28.11) ---------------------------------
 
 LLM_SEMAPHORE_ACTIVE = Gauge(
