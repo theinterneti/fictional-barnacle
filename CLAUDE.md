@@ -91,6 +91,33 @@ See `.github/instructions/` for detailed usage guides. Key MCP tools:
 - **Hindsight** — Persistent memory across sessions (recall before work, retain after)
 - **Context7** — Live library documentation lookup
 
+## LLM Integration
+
+For LLM calls, use the smart router from `~/Repos/openrouter-smart-router/`:
+
+```typescript
+import { createSmartRouter, TaskType } from 'openrouter-smart-router';
+
+const router = createSmartRouter({
+  openRouterApiKey: process.env.OPENROUTER_API_KEY!,
+  byokProviders: ['google', 'xai', 'openai', 'anthropic'],
+  fallbackToFree: true,
+});
+
+// Map pipeline stages to task types
+await router.chat('Player input', TaskType.REASONING);    // understand stage
+await router.chat('Generate narrative', TaskType.GENERATION); // generate stage
+await router.chat('Classify choice', TaskType.CLASSIFICATION); // choice classifier
+await router.chat('Extract entities', TaskType.EXTRACTION); // context enrichment
+await router.chat('Summarize state', TaskType.SUMMARIZATION); // world memory
+```
+
+**Benefits:**
+- Auto-selects best model per task (free → BYOK → paid)
+- Uses your provider keys (Google, xAI, OpenAI, Anthropic) with 5% fee (waived for 1M+/month)
+- Falls back to free models automatically
+- Validates model availability at runtime
+
 ## Agent Roster
 
 | Agent | Config |

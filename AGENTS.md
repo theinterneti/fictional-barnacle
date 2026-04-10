@@ -88,6 +88,45 @@ See `.github/instructions/` for detailed usage guides:
 - **Hindsight** — Persistent memory across sessions
 - **Context7** — Live external documentation
 
+## External Dependencies
+
+External packages and services used by TTA:
+
+| Dependency | Purpose | Integration |
+|---|---|---|
+| **OpenRouter** | LLM routing with BYOK support | Use `openrouter-smart-router` package |
+| **LiteLLM** | LLM client for provider abstraction | Direct import from `tta.llm` |
+
+### OpenRouter Smart Router
+
+For LLM calls, use the smart router from `~/Repos/openrouter-smart-router/`:
+
+```typescript
+import { createSmartRouter, TaskType } from 'openrouter-smart-router';
+
+const router = createSmartRouter({
+  openRouterApiKey: process.env.OPENROUTER_API_KEY!,
+  byokProviders: ['google', 'xai', 'openai', 'anthropic'],
+  fallbackToFree: true,
+});
+
+// Task types map to TTA pipeline stages
+await router.chat('Player input', TaskType.REASONING);    // understand stage
+await router.chat('Generate narrative', TaskType.GENERATION); // generate stage
+await router.chat('Classify choice', TaskType.CLASSIFICATION); // choice classifier
+```
+
+**Task Types:**
+- `SIMPLE` - Basic Q&A
+- `REASONING` - Complex analysis
+- `CODING` - Code generation
+- `VISION` - Image understanding
+- `TOOLS` - Function calling
+- `GENERATION` - Narrative generation
+- `CLASSIFICATION` - Player choice classification
+- `EXTRACTION` - Entity/state extraction
+- `SUMMARIZATION` - Game state summarization
+
 ## Agent Roster
 
 | Agent | Role | Config |
