@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import random
 import time
@@ -1032,6 +1033,80 @@ async def get_game_state(
     }
 
 
+@router.get("/{game_id}/turns")
+async def list_turns(
+    game_id: UUID,
+    request: Request,
+    player: Player = Depends(get_current_player),
+    pg: AsyncSession = Depends(get_pg),
+    limit: int = Query(default=20, ge=1, le=100),
+    cursor: str | None = Query(default=None),
+) -> dict:
+    """Paginated turn history for a game (FR-10.13, FR-12.03)."""
+    await _get_owned_game(pg, game_id, player)
+
+    # Decode cursor (base64-encoded turn_number)
+    cursor_turn: int | None = None
+    if cursor is not None:
+        try:
+            decoded = base64.urlsafe_b64decode(cursor).decode("utf-8")
+            cursor_turn = int(decoded)
+            if cursor_turn < 1:
+                raise ValueError("non-positive cursor")
+        except Exception:
+            raise AppError(
+                ErrorCategory.INPUT_INVALID,
+                "INVALID_CURSOR",
+                "Malformed pagination cursor.",
+            ) from None
+
+    # Build query — status='complete' only (matches get_game_state invariant)
+    params: dict = {"sid": game_id, "lim": limit + 1}
+    where = "session_id = :sid AND status = 'complete'"
+    if cursor_turn is not None:
+        where += " AND turn_number < :cursor_tn"
+        params["cursor_tn"] = cursor_turn
+
+    result = await pg.execute(
+        sa.text(
+            f"SELECT id, turn_number, player_input, narrative_output, "
+            f"created_at FROM turns "
+            f"WHERE {where} "
+            f"ORDER BY turn_number DESC LIMIT :lim"
+        ),
+        params,
+    )
+    rows = result.all()
+
+    has_more = len(rows) > limit
+    items = rows[:limit]
+
+    turns = [
+        {
+            "turn_id": str(t.id),
+            "turn_number": t.turn_number,
+            "player_input": t.player_input,
+            "narrative_output": t.narrative_output,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        }
+        for t in items
+    ]
+
+    next_cursor = (
+        base64.urlsafe_b64encode(str(items[-1].turn_number).encode()).decode()
+        if has_more and items
+        else None
+    )
+
+    return {
+        "data": turns,
+        "meta": PaginationMeta(
+            next_cursor=next_cursor,
+            has_more=has_more,
+        ).model_dump(mode="json"),
+    }
+
+
 @router.post(
     "/{game_id}/turns",
     status_code=202,
@@ -1265,8 +1340,8 @@ async def stream_turn(
 
         # FR-23.22: keepalive loop while waiting for pipeline result
         store = request.app.state.turn_result_store
-        keepalive_interval = 15.0
         settings: Settings = request.app.state.settings
+        keepalive_interval = settings.sse_heartbeat_interval
         total_timeout = settings.pipeline_timeout_seconds
         deadline = time.monotonic() + total_timeout
         result: TurnState | None = None
