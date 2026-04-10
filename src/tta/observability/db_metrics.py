@@ -1,0 +1,43 @@
+"""Database and Redis observability helpers.
+
+Context managers that record query duration and operation counts
+to the Prometheus metrics defined in ``metrics.py``.
+
+Usage::
+
+    async with observe_db_query("postgresql", "get_turn"):
+        result = await session.execute(stmt)
+
+    with count_redis_op("get"):
+        value = await redis.get(key)
+"""
+
+from __future__ import annotations
+
+import time
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
+
+from tta.observability.metrics import DB_QUERY_DURATION, REDIS_OPERATIONS
+
+
+@asynccontextmanager
+async def observe_db_query(database: str, operation: str) -> AsyncIterator[None]:
+    """Time an async DB operation and record to histogram."""
+    start = time.monotonic()
+    try:
+        yield
+    finally:
+        elapsed = time.monotonic() - start
+        DB_QUERY_DURATION.labels(database=database, operation=operation).observe(
+            elapsed
+        )
+
+
+@contextmanager
+def count_redis_op(operation: str) -> Iterator[None]:
+    """Increment the Redis operations counter on exit."""
+    try:
+        yield
+    finally:
+        REDIS_OPERATIONS.labels(operation=operation).inc()

@@ -13,7 +13,7 @@ import sqlalchemy as sa
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg, require_active_player
@@ -422,6 +422,13 @@ class PaginationMeta(BaseModel):
     has_more: bool
 
 
+_ZERO_WIDTH_CHARS = str.maketrans(
+    "",
+    "",
+    "\u200b\u200c\u200d\u2060\ufeff\ufffe",
+)
+
+
 class SubmitTurnRequest(BaseModel):
     input: str = Field(
         ...,
@@ -432,6 +439,12 @@ class SubmitTurnRequest(BaseModel):
         None,
         description="Client-generated UUID for deduplication.",
     )
+
+    @field_validator("input")
+    @classmethod
+    def strip_zero_width_chars(cls, v: str) -> str:
+        """Remove invisible Unicode chars that defeat .strip()."""
+        return v.translate(_ZERO_WIDTH_CHARS)
 
 
 class TurnAccepted(BaseModel):
@@ -1452,6 +1465,19 @@ async def resume_game(
     if summary_stale and recent_turns:
         asyncio.create_task(_regen_summary_bg(request.app.state, game_id))
 
+    # FR-5.4: Build contextual recap for the player
+    recap: str | None = None
+    if turn_count > 0 and context_summary:
+        recap = f"When we last left off: {context_summary}"
+    elif turn_count == 0:
+        # Zero-turn game — derive recap from genesis narrative intro
+        ws = row.world_seed
+        if isinstance(ws, dict):
+            genesis = ws.get("genesis", {})
+            intro = genesis.get("narrative_intro")
+            if intro:
+                recap = str(intro)
+
     # Use actual timestamps — only reflect `now` when we updated.
     resp_updated = now.isoformat() if status_updated else row.updated_at.isoformat()
     resp_last_played = (
@@ -1468,6 +1494,7 @@ async def resume_game(
             "turn_count": turn_count,
             "title": row.title,
             "context_summary": context_summary,
+            "recap": recap,
             "recent_turns": recent_turns,
             "created_at": row.created_at.isoformat(),
             "updated_at": resp_updated,

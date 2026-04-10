@@ -29,6 +29,8 @@ from typing import Protocol
 
 import structlog
 
+from tta.observability.metrics import ABUSE_DETECTED
+
 log = structlog.get_logger()
 
 __all__ = [
@@ -197,6 +199,7 @@ class InMemoryAbuseDetector:
 
         count = len(timestamps)
         if count > config.threshold:
+            ABUSE_DETECTED.labels(pattern=pattern.value).inc()
             cooldown = _calculate_cooldown(count, config, self._max_cooldown)
             self._cooldowns[identity] = (now + cooldown, pattern, count)
             return ViolationResult(
@@ -294,6 +297,7 @@ class RedisAbuseDetector:
         count: int = results[2]
 
         if count > config.threshold:
+            ABUSE_DETECTED.labels(pattern=pattern.value).inc()
             cooldown = _calculate_cooldown(count, config, self._max_cooldown)
             cd_key = f"abuse:cd:{identity}"
             await self._redis.setex(  # type: ignore[union-attr]
