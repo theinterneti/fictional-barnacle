@@ -39,12 +39,13 @@ def _game_row(
     template_id: str = "enchanted-forest",
     last_played_at: datetime | None = _NOW,
     needs_recovery: bool = False,
+    world_seed: Any = "{}",
 ) -> dict[str, Any]:
     return {
         "id": game_id or _GAME_ID,
         "player_id": player_id or _PLAYER_ID,
         "status": status,
-        "world_seed": "{}",
+        "world_seed": world_seed,
         "title": None,
         "summary": None,
         "turn_count": turn_count,
@@ -243,3 +244,205 @@ class TestCommandOnInactiveGame:
         pg.execute.return_value = _make_result([_game_row(status="ended")])
         resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/help"})
         assert resp.status_code == 409
+
+
+# --- World seed fixture for character/relationships tests ---
+
+_WORLD_SEED_DICT: dict[str, Any] = {
+    "world_id": "test-world",
+    "preferences": {
+        "character_name": "Elara",
+        "character_concept": "A wandering herbalist seeking lost knowledge",
+        "tone": "whimsical",
+    },
+    "genesis": {
+        "world_id": "test-world",
+        "player_location_id": "clearing",
+        "template_key": "enchanted-forest",
+        "narrative_intro": "The mist parts before you...",
+    },
+}
+
+
+# --- /character command tests (S06-AC-6.1) ---
+
+
+class TestCharacterCommand:
+    def test_character_returns_details(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute.return_value = _make_result([_game_row(world_seed=_WORLD_SEED_DICT)])
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/character"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["command"] == "character"
+        assert "Elara" in data["message"]
+        assert "herbalist" in data["message"]
+
+    def test_character_includes_tone(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute.return_value = _make_result([_game_row(world_seed=_WORLD_SEED_DICT)])
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/character"}
+        )
+        data = resp.json()["data"]
+        assert "whimsical" in data["message"].lower()
+
+    def test_character_no_world_seed(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute.return_value = _make_result([_game_row(world_seed=None)])
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/character"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["command"] == "character"
+        assert "hasn't been created" in data["message"]
+
+    def test_character_invalid_world_seed(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        pg.execute.return_value = _make_result([_game_row(world_seed="not-json")])
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/character"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["command"] == "character"
+        assert "hasn't been created" in data["message"].lower()
+
+
+# --- /relationships command tests (S06-AC-6.3) ---
+
+
+class TestRelationshipsCommand:
+    def _mock_npc(self, key: str, role: str, disposition: str) -> MagicMock:
+        npc = MagicMock()
+        npc.key = key
+        npc.role = MagicMock(value=role)
+        npc.disposition = disposition
+        return npc
+
+    def test_relationships_lists_npcs(
+        self, client: TestClient, app: FastAPI, pg: AsyncMock
+    ) -> None:
+        template = MagicMock()
+        template.npcs = [
+            self._mock_npc("old_sage", "quest_giver", "friendly"),
+            self._mock_npc("shadow_fox", "merchant", "wary"),
+        ]
+        registry = MagicMock()
+        registry.get.return_value = template
+        app.state.template_registry = registry
+
+        pg.execute.return_value = _make_result([_game_row(world_seed=_WORLD_SEED_DICT)])
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/relationships"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["command"] == "relationships"
+        assert "Old Sage" in data["message"]
+        assert "Shadow Fox" in data["message"]
+        assert "friendly" in data["message"]
+        assert "wary" in data["message"]
+
+    def test_relationships_no_world_seed(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        pg.execute.return_value = _make_result([_game_row(world_seed=None)])
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/relationships"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert "haven't met anyone" in data["message"]
+
+    def test_relationships_empty_npcs(
+        self, client: TestClient, app: FastAPI, pg: AsyncMock
+    ) -> None:
+        template = MagicMock()
+        template.npcs = []
+        registry = MagicMock()
+        registry.get.return_value = template
+        app.state.template_registry = registry
+
+        pg.execute.return_value = _make_result([_game_row(world_seed=_WORLD_SEED_DICT)])
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/relationships"}
+        )
+        data = resp.json()["data"]
+        assert "haven't met anyone" in data["message"]
+
+
+# --- /end command tests (S01-AC-1.6) ---
+
+
+class TestEndCommand:
+    def test_end_transitions_to_ended(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute.side_effect = [
+            _make_result([_game_row(world_seed=_WORLD_SEED_DICT)]),
+            MagicMock(),  # UPDATE
+            _make_result(scalar=10),  # turn count
+        ]
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/end"})
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["command"] == "end"
+        assert "Elara" in data["message"]
+        assert "10 turns" in data["message"]
+        assert "new game" in data["message"].lower()
+
+    def test_end_already_ended(self, client: TestClient, pg: AsyncMock) -> None:
+        """Ending an already-ended game returns 409 (status check before routing)."""
+        pg.execute.return_value = _make_result(
+            [_game_row(status="ended", world_seed=_WORLD_SEED_DICT)]
+        )
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/end"})
+        assert resp.status_code == 409
+
+    def test_end_without_character_name(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        seed: dict[str, Any] = {
+            "world_id": "test-world",
+            "preferences": {"tone": "dark"},
+            "genesis": {
+                "world_id": "test-world",
+                "player_location_id": "void",
+                "template_key": "test-template",
+                "narrative_intro": "...",
+            },
+        }
+        pg.execute.side_effect = [
+            _make_result([_game_row(world_seed=seed)]),
+            MagicMock(),  # UPDATE
+            _make_result(scalar=3),  # turn count
+        ]
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/end"})
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert "Traveler" in data["message"]
+        assert "3 turns" in data["message"]
+
+    def test_end_singular_turn(self, client: TestClient, pg: AsyncMock) -> None:
+        pg.execute.side_effect = [
+            _make_result([_game_row(world_seed=_WORLD_SEED_DICT)]),
+            MagicMock(),  # UPDATE
+            _make_result(scalar=1),  # turn count
+        ]
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/end"})
+        data = resp.json()["data"]
+        assert "1 turn," in data["message"]
+        assert "1 turns" not in data["message"]
+
+
+# --- Help text includes new commands ---
+
+
+class TestHelpTextUpdated:
+    def test_help_includes_character(self, client: TestClient, pg: AsyncMock) -> None:
+        _setup_active_game(pg)
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/help"})
+        data = resp.json()["data"]
+        assert "/character" in data["message"]
+        assert "/relationships" in data["message"]
+        assert "/end" in data["message"]

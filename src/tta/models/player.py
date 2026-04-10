@@ -13,6 +13,7 @@ class Player(BaseModel):
     handle: str
     status: str = "active"
     suspended_reason: str | None = None
+    deletion_requested_at: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

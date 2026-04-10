@@ -278,12 +278,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         redis=settings.redis_url,
     )
 
-    # Start background purge loop (S17 FR-17.15)
+    # Start background loops
     import asyncio
 
+    from tta.lifecycle.cleanup import lifecycle_loop
     from tta.privacy.purge import purge_loop
 
     purge_task = asyncio.create_task(purge_loop(session_factory, interval_hours=24))
+    lifecycle_task = asyncio.create_task(
+        lifecycle_loop(session_factory, interval_hours=1)
+    )
 
     # Start pool metrics sampler (S28 FR-28.10)
     from tta.observability.pool_metrics import start_pool_metrics_sampler
@@ -296,6 +300,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     metrics_task.cancel()
     try:
         await metrics_task
+    except asyncio.CancelledError:
+        pass
+    lifecycle_task.cancel()
+    try:
+        await lifecycle_task
     except asyncio.CancelledError:
         pass
     purge_task.cancel()

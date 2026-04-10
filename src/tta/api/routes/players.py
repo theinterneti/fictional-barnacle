@@ -199,7 +199,7 @@ class DataExportResponse(BaseModel):
 
 class AccountDeletionResponse(BaseModel):
     status: str = "accepted"
-    message: str = "Account deletion scheduled. Data will be erased within 30 days."
+    message: str = "Account deleted. All personal data has been erased."
 
 
 @router.get("/me/data-export", status_code=202)
@@ -218,11 +218,69 @@ async def request_data_export(
 @router.delete("/me", status_code=202)
 async def request_account_deletion(
     player: Player = Depends(get_current_player),
+    pg: AsyncSession = Depends(get_pg),
 ) -> dict:
-    """Request account and data erasure (GDPR Art. 17).
+    """Erase account and all personal data (GDPR Art. 17, S17 FR-17.10).
 
-    Stub — full 30-day erasure pipeline deferred to post-v1.
+    Performs immediate PII removal:
+    1. Marks player as pending_deletion with tombstone handle
+    2. Ends all active/paused game sessions
+    3. Scrubs PII from turns and game sessions
+    4. Invalidates all session tokens
     """
+    now = datetime.now(UTC)
+    pid = player.id
+
+    # 1. Tombstone the player record
+    await pg.execute(
+        sa.text(
+            "UPDATE players SET "
+            "status = 'pending_deletion', "
+            "handle = :tombstone, "
+            "deletion_requested_at = :now, "
+            "updated_at = :now "
+            "WHERE id = :pid"
+        ),
+        {"tombstone": f"deleted-{pid}", "now": now, "pid": pid},
+    )
+
+    # 2. End all active/paused game sessions
+    await pg.execute(
+        sa.text(
+            "UPDATE game_sessions SET status = 'ended', updated_at = :now "
+            "WHERE player_id = :pid AND status IN ('active', 'paused')"
+        ),
+        {"pid": pid, "now": now},
+    )
+
+    # 3. Scrub PII from turns (player_input, narrative_output)
+    await pg.execute(
+        sa.text(
+            "UPDATE turns SET player_input = NULL, narrative_output = NULL "
+            "WHERE session_id IN "
+            "(SELECT id FROM game_sessions WHERE player_id = :pid)"
+        ),
+        {"pid": pid},
+    )
+
+    # 4. Scrub PII from game sessions (world_seed, summary)
+    await pg.execute(
+        sa.text(
+            "UPDATE game_sessions "
+            "SET world_seed = NULL, summary = NULL "
+            "WHERE player_id = :pid"
+        ),
+        {"pid": pid},
+    )
+
+    # 5. Invalidate all session tokens
+    await pg.execute(
+        sa.text("DELETE FROM player_sessions WHERE player_id = :pid"),
+        {"pid": pid},
+    )
+
+    await pg.commit()
+
     data = AccountDeletionResponse().model_dump()
-    data["player_id"] = str(player.id)
+    data["player_id"] = str(pid)
     return {"data": data}

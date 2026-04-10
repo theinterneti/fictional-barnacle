@@ -379,7 +379,7 @@ _PUBLIC_STATE_MAP: dict[str, str] = {
     "active": "active",
     "paused": "active",
     "completed": "completed",
-    "ended": "abandoned",
+    "ended": "completed",
     "expired": "abandoned",
     "abandoned": "abandoned",
 }
@@ -485,13 +485,25 @@ _NUDGE_PHRASES = (
     "The scene invites a choice. What feels right to do next?",
 )
 
-_KNOWN_COMMANDS = frozenset({"help", "save", "status"})
+_KNOWN_COMMANDS = frozenset(
+    {
+        "help",
+        "save",
+        "status",
+        "character",
+        "relationships",
+        "end",
+    }
+)
 
 _HELP_TEXT = (
     "Available commands:\n"
-    "  /help   \u2014 Show this list of commands\n"
-    "  /save   \u2014 Save your current progress\n"
-    "  /status \u2014 View your game session info\n"
+    "  /help          \u2014 Show this list of commands\n"
+    "  /save          \u2014 Save your current progress\n"
+    "  /status        \u2014 View your game session info\n"
+    "  /character     \u2014 View your character details\n"
+    "  /relationships \u2014 See the people you've met\n"
+    "  /end           \u2014 End your story and see your epilogue\n"
     "\nOr simply type what you'd like to do in the world."
 )
 
@@ -512,6 +524,8 @@ async def _execute_command(
     game_id: UUID,
     row: object,
     pg: AsyncSession,
+    *,
+    template_registry: object | None = None,
 ) -> dict:
     """Execute a known slash command and return response payload."""
     if cmd == "help":
@@ -548,7 +562,124 @@ async def _execute_command(
         )
         return {"type": "command", "command": "status", "message": msg}
 
+    if cmd == "character":
+        return _build_character_response(row)
+
+    if cmd == "relationships":
+        return _build_relationships_response(row, template_registry=template_registry)
+
+    if cmd == "end":
+        return await _execute_end_command(game_id, row, pg)
+
     return {"type": "command", "command": "help", "message": _HELP_TEXT}
+
+
+def _build_character_response(row: object) -> dict:
+    """Build response for /character command from persisted world_seed dict."""
+    ws_raw = getattr(row, "world_seed", None)
+    if not ws_raw or not isinstance(ws_raw, dict):
+        return {
+            "type": "command",
+            "command": "character",
+            "message": "Your character hasn't been created yet. "
+            "Play a turn to begin your story.",
+        }
+    prefs = ws_raw.get("preferences", {})
+    name = prefs.get("character_name") or "Unknown"
+    concept = prefs.get("character_concept") or "A wanderer with no known past"
+    tone = prefs.get("tone")
+    parts = [f"Character: {name}", f"  {concept}"]
+    if tone:
+        parts.append(f"  Tone: {tone}")
+    return {
+        "type": "command",
+        "command": "character",
+        "message": "\n".join(parts),
+    }
+
+
+def _build_relationships_response(
+    row: object,
+    *,
+    template_registry: object | None = None,
+) -> dict:
+    """Build response for /relationships command using template NPCs."""
+    ws_raw = getattr(row, "world_seed", None)
+    if not ws_raw or not isinstance(ws_raw, dict):
+        return {
+            "type": "command",
+            "command": "relationships",
+            "message": "You haven't met anyone yet.",
+        }
+    template_key = ws_raw.get("genesis", {}).get("template_key")
+    if not template_key or not template_registry:
+        return {
+            "type": "command",
+            "command": "relationships",
+            "message": "You haven't met anyone yet.",
+        }
+    try:
+        template = template_registry.get(template_key)  # type: ignore[union-attr]
+    except (KeyError, AttributeError):
+        return {
+            "type": "command",
+            "command": "relationships",
+            "message": "Relationship details are unavailable.",
+        }
+    npcs = getattr(template, "npcs", None) or []
+    if not npcs:
+        return {
+            "type": "command",
+            "command": "relationships",
+            "message": "You haven't met anyone yet.",
+        }
+    lines = ["People you know:"]
+    for npc in npcs:
+        name = npc.key.replace("_", " ").title()
+        role_label = npc.role.value if hasattr(npc.role, "value") else str(npc.role)
+        lines.append(f"  {name} — {role_label}, {npc.disposition}")
+    return {
+        "type": "command",
+        "command": "relationships",
+        "message": "\n".join(lines),
+    }
+
+
+async def _execute_end_command(
+    game_id: UUID,
+    row: object,
+    pg: AsyncSession,
+) -> dict:
+    """End the current game and return an epilogue message."""
+    status = getattr(row, "status", None)
+    if status in ("ended", "completed", "abandoned"):
+        return {
+            "type": "command",
+            "command": "end",
+            "message": "This story has already concluded.",
+        }
+    now = datetime.now(UTC)
+    await pg.execute(
+        sa.text(
+            "UPDATE game_sessions SET status = 'ended', "
+            "updated_at = :now WHERE id = :id"
+        ),
+        {"id": game_id, "now": now},
+    )
+    await pg.commit()
+    turn_count = await _get_turn_count(pg, game_id)
+    name = "Traveler"
+    ws_raw = getattr(row, "world_seed", None)
+    if isinstance(ws_raw, dict):
+        name = ws_raw.get("preferences", {}).get("character_name") or name
+    msg = (
+        f"The story of {name} comes to a close.\n"
+        f"Over {turn_count} turn{'s' if turn_count != 1 else ''}, "
+        "you shaped this world with your choices.\n\n"
+        "Thank you for playing. "
+        "Start a new game whenever you're ready for another adventure."
+    )
+    return {"type": "command", "command": "end", "message": msg}
 
 
 # --- Helper functions ---
@@ -562,7 +693,7 @@ async def _get_owned_game(pg: AsyncSession, game_id: UUID, player: Player) -> sa
             "title, summary, turn_count, last_played_at, "
             "deleted_at, needs_recovery, summary_generated_at, "
             "created_at, updated_at "
-            "FROM game_sessions WHERE id = :id"
+            "FROM game_sessions WHERE id = :id AND deleted_at IS NULL"
         ),
         {"id": game_id},
     )
@@ -954,7 +1085,14 @@ async def submit_turn(
     if normalized.startswith("/") and len(normalized) > 1:
         known_cmd = _parse_slash_command(normalized)
         if known_cmd:
-            payload = await _execute_command(known_cmd, game_id, row, pg)
+            reg = getattr(request.app.state, "template_registry", None)
+            payload = await _execute_command(
+                known_cmd,
+                game_id,
+                row,
+                pg,
+                template_registry=reg,
+            )
         else:
             payload = {
                 "type": "command",
