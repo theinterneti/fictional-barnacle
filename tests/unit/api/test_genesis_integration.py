@@ -156,9 +156,7 @@ class TestTranslateWorldUpdates:
         assert p["to_id"] == "cave"
 
     def test_npc_disposition_payload_has_disposition(self) -> None:
-        raw = [
-            {"entity": "guard", "attribute": "mood", "new_value": "hostile"}
-        ]
+        raw = [{"entity": "guard", "attribute": "mood", "new_value": "hostile"}]
         changes = _translate_world_updates(raw)
         assert changes[0].payload["disposition"] == "hostile"
 

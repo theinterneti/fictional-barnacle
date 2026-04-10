@@ -66,9 +66,7 @@ _ATTRIBUTE_TYPE_MAP: dict[str, WorldChangeType] = {
 }
 
 
-def _build_typed_payload(
-    change_type: WorldChangeType, item: dict
-) -> dict:
+def _build_typed_payload(change_type: WorldChangeType, item: dict) -> dict:
     """Build a payload dict with the keys required by validate_change()."""
     base: dict = {
         "attribute": str(item.get("attribute") or ""),
