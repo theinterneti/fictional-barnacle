@@ -315,9 +315,7 @@ async def request_account_deletion(
             except NotImplementedError:
                 pass
             except Exception:
-                log.warning(
-                    "gdpr_neo4j_cleanup_failed", session_id=str(sid)
-                )
+                log.warning("gdpr_neo4j_cleanup_failed", session_id=str(sid))
 
     data = AccountDeletionResponse().model_dump()
     data["player_id"] = str(pid)

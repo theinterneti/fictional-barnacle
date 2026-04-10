@@ -277,6 +277,128 @@ async def test_extraction_non_list_json_returns_empty() -> None:
     assert result.world_state_updates == []
 
 
+async def test_extraction_dict_format_with_suggestions() -> None:
+    """New dict format returns both world_changes and suggested_actions."""
+    call_count = 0
+    payload = json.dumps(
+        {
+            "world_changes": [{"entity": "door", "attribute": "open", "value": True}],
+            "suggested_actions": ["Open the chest", "Talk to the guard", "Leave"],
+        }
+    )
+
+    async def _generate(role, messages, params=None):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return LLMResponse(
+                content="Narrative text.",
+                model_used="mock",
+                token_count=TokenCount(
+                    prompt_tokens=5, completion_tokens=3, total_tokens=8
+                ),
+                latency_ms=0.0,
+            )
+        return LLMResponse(
+            content=payload,
+            model_used="mock",
+            token_count=TokenCount(
+                prompt_tokens=5, completion_tokens=3, total_tokens=8
+            ),
+            latency_ms=0.0,
+        )
+
+    llm = AsyncMock()
+    llm.generate = _generate
+    state = _make_state()
+    deps = _make_deps(llm=llm)
+    result = await generate_stage(state, deps)
+
+    assert len(result.world_state_updates) == 1
+    assert result.world_state_updates[0]["entity"] == "door"
+    assert result.suggested_actions == [
+        "Open the chest",
+        "Talk to the guard",
+        "Leave",
+    ]
+
+
+async def test_extraction_list_format_gives_no_suggestions() -> None:
+    """Old plain-list format → world_changes work, suggested_actions is None."""
+    call_count = 0
+    payload = json.dumps([{"entity": "x", "attribute": "y", "value": 1}])
+
+    async def _generate(role, messages, params=None):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return LLMResponse(
+                content="Narrative.",
+                model_used="mock",
+                token_count=TokenCount(
+                    prompt_tokens=5, completion_tokens=3, total_tokens=8
+                ),
+                latency_ms=0.0,
+            )
+        return LLMResponse(
+            content=payload,
+            model_used="mock",
+            token_count=TokenCount(
+                prompt_tokens=5, completion_tokens=3, total_tokens=8
+            ),
+            latency_ms=0.0,
+        )
+
+    llm = AsyncMock()
+    llm.generate = _generate
+    state = _make_state()
+    deps = _make_deps(llm=llm)
+    result = await generate_stage(state, deps)
+
+    assert len(result.world_state_updates) == 1
+    assert result.suggested_actions is None
+
+
+async def test_extraction_filters_invalid_suggestions() -> None:
+    """Non-string and empty suggestions are filtered out."""
+    call_count = 0
+    payload = json.dumps(
+        {
+            "world_changes": [],
+            "suggested_actions": ["valid", "", 123, "also valid"],
+        }
+    )
+
+    async def _generate(role, messages, params=None):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return LLMResponse(
+                content="Narrative.",
+                model_used="mock",
+                token_count=TokenCount(
+                    prompt_tokens=5, completion_tokens=3, total_tokens=8
+                ),
+                latency_ms=0.0,
+            )
+        return LLMResponse(
+            content=payload,
+            model_used="mock",
+            token_count=TokenCount(
+                prompt_tokens=5, completion_tokens=3, total_tokens=8
+            ),
+            latency_ms=0.0,
+        )
+
+    llm = AsyncMock()
+    llm.generate = _generate
+    state = _make_state()
+    deps = _make_deps(llm=llm)
+    result = await generate_stage(state, deps)
+
+    assert result.suggested_actions == ["valid", "also valid"]
+
+
 # --- immutability ---
 
 

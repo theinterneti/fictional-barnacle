@@ -1101,18 +1101,65 @@ no turn_count pollution. Client distinguishes by status code: 202 = go to SSE,
 - S11-AC-11.06 ✓, S11-AC-11.08 ✓, S12-AC-12.03 ✓
 - Estimated: ~35% → ~45% overall AC coverage
 
-## 20. Wave 17+ Recommendations
+## 20. Wave 17 — Compliance, GDPR Multi-Store & Idle Timeout
 
-### Wave 17 — Gameplay Polish & Observability
+**Branch**: `wave-17/compliance-gdpr-idle` | **PR**: #TBD | **Tests**: ~1415+
+
+### Tasks Completed
+
+1. **Purge timing fix** (FR-27.17): Added `soft_deleted_game_postgresql` retention policy
+   with 3-day retention. Rewrote `purge.py` with dual cutoff paths — soft-deleted games
+   purge at 72 hours, completed/expired sessions at 90 days.
+
+2. **Multi-store GDPR erasure** (AC-12.03): Extended `request_account_deletion()` to clean
+   Redis active sessions and Neo4j world graph data after PostgreSQL scrubbing. Graceful
+   degradation — Redis/Neo4j failures don't block the deletion response.
+
+3. **30-minute idle timeout** (AC-1.7): Added Rule 3 to lifecycle cleanup — active sessions
+   with `turn_count > 0` and no activity for 30 minutes transition to `paused`. New games
+   (0 turns) are excluded to preserve the 24h abandon window. Configurable via
+   `idle_timeout_minutes` setting.
+
+4. **Suggested actions** (AC-5.2): Extended LLM extraction prompt to request `suggested_actions`
+   alongside `world_changes`. `_extract_world_changes()` now returns a tuple. Backwards
+   compatible with plain list format from older LLM responses. Invalid suggestions (too
+   long, too short) are filtered.
+
+5. **NEXT_STEPS.md update**: This section.
+
+### AC Coverage Impact
+
+| AC | Description | Status |
+|----|-------------|--------|
+| FR-27.17 | Soft-deleted data purged after 72 hours | ✅ Fixed |
+| AC-12.03 | GDPR erasure from ALL data stores | ✅ Complete |
+| AC-1.7 | 30-min idle → auto-save + pause | ✅ Implemented |
+| AC-5.2 | Suggested actions populated per turn | ✅ Implemented |
+
+Estimated AC coverage: ~45% → ~52%
+
+### Key Files Changed
+
+- `src/tta/privacy/retention.py` — new `soft_deleted_game_postgresql` policy
+- `src/tta/privacy/purge.py` — dual cutoff purge rewrite
+- `src/tta/api/routes/players.py` — multi-store GDPR cleanup
+- `src/tta/lifecycle/cleanup.py` — idle timeout Rule 3
+- `src/tta/pipeline/stages/generate.py` — suggested actions extraction
+- `src/tta/config.py` — `idle_timeout_minutes` setting
+- `src/tta/api/app.py` — call signature fixes
+- `src/tta/api/routes/games.py` — suggested_actions SSE wiring
+
+## 21. Wave 18+ Recommendations
+
+### Wave 18 — Production Polish & Observability
 
 1. Alertmanager integration for notification routing (PagerDuty, Slack, email)
 2. Performance load testing and SLO validation against S28 targets
 3. node_exporter for disk usage alerting (S15 FR-15.23)
 4. Session token rotation (security improvement)
 5. Turn history pagination (S12 FR-12.03)
-6. Game resume flow validation (S01 AC-1.7)
+6. Game resume flow validation (S01 AC-1.7 resume path)
 7. Live character state system (evolving traits beyond genesis)
-8. Neo4j world data cleanup on game/account deletion (S17 multi-store erasure)
 
 ### Beyond v1
 

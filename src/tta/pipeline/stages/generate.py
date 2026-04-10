@@ -181,7 +181,8 @@ async def _extract_world_changes(
 
         # Validate suggested actions (must be strings)
         suggestions: list[str] = [
-            s for s in (raw_suggestions if isinstance(raw_suggestions, list) else [])
+            s
+            for s in (raw_suggestions if isinstance(raw_suggestions, list) else [])
             if isinstance(s, str) and s.strip()
         ]
 

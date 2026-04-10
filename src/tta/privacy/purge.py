@@ -70,9 +70,7 @@ async def _collect_session_ids(
     return ids_soft + ids_completed
 
 
-async def _delete_sessions(
-    pg: Any, session_ids: list
-) -> dict[str, int]:
+async def _delete_sessions(pg: Any, session_ids: list) -> dict[str, int]:
     """Delete sessions and dependents in FK-safe order."""
     we_result = await pg.execute(
         sa.text("DELETE FROM world_events WHERE session_id = ANY(:ids)"),
@@ -114,9 +112,7 @@ async def run_purge(
     cutoff_completed = now - timedelta(days=_completed_retention_days())
 
     async with session_factory() as pg:
-        session_ids = await _collect_session_ids(
-            pg, cutoff_soft, cutoff_completed
-        )
+        session_ids = await _collect_session_ids(pg, cutoff_soft, cutoff_completed)
 
         if not session_ids:
             log.info("purge_pass", action="noop", sessions=0)
@@ -131,17 +127,13 @@ async def run_purge(
         if dry_run:
             we_result = await pg.execute(
                 sa.text(
-                    "SELECT count(*) FROM world_events "
-                    "WHERE session_id = ANY(:ids)"
+                    "SELECT count(*) FROM world_events WHERE session_id = ANY(:ids)"
                 ),
                 {"ids": session_ids},
             )
             world_events_count = we_result.scalar() or 0
             turn_result = await pg.execute(
-                sa.text(
-                    "SELECT count(*) FROM turns "
-                    "WHERE session_id = ANY(:ids)"
-                ),
+                sa.text("SELECT count(*) FROM turns WHERE session_id = ANY(:ids)"),
                 {"ids": session_ids},
             )
             turn_count = turn_result.scalar() or 0

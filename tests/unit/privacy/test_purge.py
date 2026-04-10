@@ -102,9 +102,7 @@ class TestDeleteSessions:
         we_result = SimpleNamespace(rowcount=5)
         turn_result = SimpleNamespace(rowcount=10)
         session_result = SimpleNamespace(rowcount=2)
-        pg.execute = AsyncMock(
-            side_effect=[we_result, turn_result, session_result]
-        )
+        pg.execute = AsyncMock(side_effect=[we_result, turn_result, session_result])
         pg.commit = AsyncMock()
 
         result = await _delete_sessions(pg, ["s1", "s2"])
