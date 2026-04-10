@@ -187,6 +187,9 @@ class Settings(BaseSettings):
         if v <= 0:
             msg = "sse_heartbeat_interval must be positive"
             raise ValueError(msg)
+        if v > 15.0:
+            msg = "sse_heartbeat_interval must be <= 15s (FR-10.38)"
+            raise ValueError(msg)
         return v
 
     # Application

@@ -1205,7 +1205,7 @@ SSE heartbeat not configurable, and env-based CORS parsing.
 
 1. **Turn history pagination** (`GET /{game_id}/turns`): New endpoint with
    cursor-based (base64-encoded turn_number) keyset pagination, N+1 fetch
-   pattern, reuses existing `PaginationMeta` model. (S10 FR-10.13, S12 FR-12.03)
+   pattern, reuses existing `PaginationMeta` model. (S10 FR-10.13)
 2. **CORS environment config**: Custom `_TtaEnvSource(EnvSettingsSource)` that
    overrides `decode_complex_value` to handle both JSON arrays and
    comma-separated strings for `TTA_CORS_ORIGINS`. (S10 FR-10.67)

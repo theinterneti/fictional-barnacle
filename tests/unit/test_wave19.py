@@ -53,16 +53,18 @@ class TestListTurnsCursorEncoding:
         decoded = int(base64.urlsafe_b64decode(encoded).decode("utf-8"))
         assert decoded == turn_number
 
-    def test_invalid_cursor_is_detected(self) -> None:
-        """Non-base64 or non-integer cursors should be rejected."""
-        bad_cursors = ["not-base64!!!", base64.urlsafe_b64encode(b"abc").decode()]
-        for bad in bad_cursors:
-            try:
-                decoded = base64.urlsafe_b64decode(bad).decode("utf-8")
-                int(decoded)
-                # If we get here without error, the cursor is unexpectedly valid
-            except Exception:
-                pass  # Expected — invalid cursors are caught
+    def test_invalid_base64_cursor_is_detected(self) -> None:
+        """Non-base64 cursor should raise on decode."""
+        import binascii
+
+        with pytest.raises(binascii.Error):
+            base64.urlsafe_b64decode("not-base64!!!").decode("utf-8")
+
+    def test_non_integer_cursor_is_detected(self) -> None:
+        """Base64 of a non-integer should raise ValueError."""
+        encoded = base64.urlsafe_b64encode(b"abc").decode()
+        with pytest.raises(ValueError):
+            int(base64.urlsafe_b64decode(encoded).decode("utf-8"))
 
     def test_zero_cursor_rejected(self) -> None:
         """A cursor encoding 0 should be considered non-positive."""
@@ -115,12 +117,18 @@ class TestCorsEnvironmentConfig:
         "TTA_NEO4J_PASSWORD": "test",
     }
 
+    @pytest.fixture(autouse=True)
+    def _clean_tta_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Remove all TTA_ env vars so host env doesn't leak into tests."""
+        for key in list(os.environ):
+            if key.startswith("TTA_"):
+                monkeypatch.delenv(key, raising=False)
+
     def _make_settings(self, **env_overrides: str) -> Any:
         from tta.config import Settings
 
         env = {**self._REQUIRED_ENV, **env_overrides}
-        with patch.dict(os.environ, env, clear=False):
-            # Clear lru_cache to get fresh settings
+        with patch.dict(os.environ, env, clear=True):
             return Settings()
 
     def test_csv_origins_parsed(self) -> None:
@@ -146,7 +154,7 @@ class TestCorsEnvironmentConfig:
         from tta.config import Settings
 
         env = {**self._REQUIRED_ENV}
-        with patch.dict(os.environ, env, clear=False):
+        with patch.dict(os.environ, env, clear=True):
             s = Settings(cors_origins=["https://custom.dev"])
         assert s.cors_origins == ["https://custom.dev"]
 
@@ -360,17 +368,23 @@ class TestHeartbeatConfig:
         "TTA_NEO4J_PASSWORD": "test",
     }
 
+    @pytest.fixture(autouse=True)
+    def _clean_tta_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for key in list(os.environ):
+            if key.startswith("TTA_"):
+                monkeypatch.delenv(key, raising=False)
+
     def test_default_is_15(self) -> None:
         from tta.config import Settings
 
-        with patch.dict(os.environ, self._REQUIRED_ENV, clear=False):
+        with patch.dict(os.environ, self._REQUIRED_ENV, clear=True):
             s = Settings()
         assert s.sse_heartbeat_interval == 15.0
 
     def test_custom_value(self) -> None:
         from tta.config import Settings
 
-        with patch.dict(os.environ, self._REQUIRED_ENV, clear=False):
+        with patch.dict(os.environ, self._REQUIRED_ENV, clear=True):
             s = Settings(sse_heartbeat_interval=5.0)
         assert s.sse_heartbeat_interval == 5.0
 
@@ -378,7 +392,7 @@ class TestHeartbeatConfig:
         from tta.config import Settings
 
         env = {**self._REQUIRED_ENV, "TTA_SSE_HEARTBEAT_INTERVAL": "10.0"}
-        with patch.dict(os.environ, env, clear=False):
+        with patch.dict(os.environ, env, clear=True):
             s = Settings()
         assert s.sse_heartbeat_interval == 10.0
 
@@ -388,7 +402,7 @@ class TestHeartbeatConfig:
         from tta.config import Settings
 
         with (
-            patch.dict(os.environ, self._REQUIRED_ENV, clear=False),
+            patch.dict(os.environ, self._REQUIRED_ENV, clear=True),
             pytest.raises(ValidationError, match="positive"),
         ):
             Settings(sse_heartbeat_interval=0.0)
@@ -399,10 +413,21 @@ class TestHeartbeatConfig:
         from tta.config import Settings
 
         with (
-            patch.dict(os.environ, self._REQUIRED_ENV, clear=False),
+            patch.dict(os.environ, self._REQUIRED_ENV, clear=True),
             pytest.raises(ValidationError, match="positive"),
         ):
             Settings(sse_heartbeat_interval=-1.0)
+
+    def test_above_15_rejected(self) -> None:
+        from pydantic import ValidationError
+
+        from tta.config import Settings
+
+        with (
+            patch.dict(os.environ, self._REQUIRED_ENV, clear=True),
+            pytest.raises(ValidationError, match="<= 15s"),
+        ):
+            Settings(sse_heartbeat_interval=20.0)
 
 
 class TestDbQueryDurationLabels:
