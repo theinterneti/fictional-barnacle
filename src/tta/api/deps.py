@@ -11,7 +11,7 @@ from fastapi import Depends, Request
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.errors import AppError
-from tta.config import CURRENT_CONSENT_VERSION
+from tta.config import CURRENT_CONSENT_VERSION, REQUIRED_CONSENT_CATEGORIES
 from tta.errors import ErrorCategory
 from tta.models.player import Player
 
@@ -115,17 +115,37 @@ async def require_consent(
 ) -> Player:
     """Ensure the player has valid, current consent (S17 FR-17.22).
 
-    Raises 403 CONSENT_REQUIRED if consent is missing or stale.
+    Checks consent version, accepted timestamp, required categories,
+    and age confirmation. Raises 403 CONSENT_REQUIRED if any fail.
     """
     if (
         player.consent_version is None
         or player.consent_version != CURRENT_CONSENT_VERSION
+        or player.consent_accepted_at is None
+        or player.age_confirmed_at is None
     ):
         raise AppError(
             ErrorCategory.FORBIDDEN,
             "CONSENT_REQUIRED",
             "You must accept the current consent agreement before playing.",
         )
+
+    # Verify all required categories are accepted
+    cats = player.consent_categories
+    if not isinstance(cats, dict):
+        raise AppError(
+            ErrorCategory.FORBIDDEN,
+            "CONSENT_REQUIRED",
+            "You must accept the current consent agreement before playing.",
+        )
+    for cat in REQUIRED_CONSENT_CATEGORIES:
+        if not cats.get(cat):
+            raise AppError(
+                ErrorCategory.FORBIDDEN,
+                "CONSENT_REQUIRED",
+                "You must accept the current consent agreement before playing.",
+            )
+
     return player
 
 

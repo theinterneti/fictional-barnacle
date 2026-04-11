@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
 from tta.api.deps import get_current_player, get_pg
+from tta.api.errors import AppError
 from tta.config import CURRENT_CONSENT_VERSION, Settings
 from tta.models.player import Player
 
@@ -464,9 +465,10 @@ class TestRequireConsent:
         """_PLAYER has no consent fields → game routes should 403."""
         from tta.api.deps import require_consent
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             await require_consent(_PLAYER)
-        assert "CONSENT_REQUIRED" in str(exc_info.value)
+        assert exc_info.value.code == "CONSENT_REQUIRED"
+        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
     async def test_passes_consented_player(self) -> None:
@@ -488,9 +490,10 @@ class TestRequireConsent:
             consent_version="0.9",
             consent_accepted_at=_NOW,
         )
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             await require_consent(stale)
-        assert "CONSENT_REQUIRED" in str(exc_info.value)
+        assert exc_info.value.code == "CONSENT_REQUIRED"
+        assert exc_info.value.status_code == 403
 
 
 # ------------------------------------------------------------------

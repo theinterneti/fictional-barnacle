@@ -6,6 +6,7 @@ Revises: 006
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "007"
 down_revision = "006"
@@ -26,7 +27,7 @@ def upgrade() -> None:
         "players",
         sa.Column(
             "consent_categories",
-            sa.JSON(),
+            postgresql.JSONB(),
             nullable=True,
         ),
     )

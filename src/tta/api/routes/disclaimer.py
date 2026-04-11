@@ -11,7 +11,7 @@ _DISCLAIMER_TEXT = (
     "for professional mental health treatment. If you are in crisis, please "
     "contact a licensed professional or call a crisis hotline. "
     "No personal health information (PHI) is collected, stored, or "
-    "transmitted. See /api/v1/privacy-policy for full details."
+    "transmitted. See /privacy for full details."
 )
 
 

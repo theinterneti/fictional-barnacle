@@ -32,6 +32,14 @@ log = structlog.get_logger()
 router = APIRouter(prefix="/players", tags=["players"])
 
 
+def _client_ip(request: Request) -> str:
+    """Extract the client IP, respecting X-Forwarded-For behind proxies."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 # --- Request / Response schemas ---
 
 
@@ -76,6 +84,11 @@ class UpdateConsentRequest(BaseModel):
     )
     consent_categories: dict[str, bool] = Field(
         ..., description="Categories to update (merged with existing)."
+    )
+    age_13_plus_confirmed: bool | None = Field(
+        None,
+        description="Set to true to confirm age gate (for existing players "
+        "who registered before consent was required).",
     )
 
 
@@ -138,8 +151,7 @@ async def register_player(
     # Create player with consent data
     player_id = uuid4()
     now = datetime.now(UTC)
-    client_ip = request.client.host if request.client else "unknown"
-    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
+    ip_hash = hashlib.sha256(_client_ip(request).encode()).hexdigest()
 
     await pg.execute(
         sa.text(
@@ -305,7 +317,7 @@ async def update_consent(
 ) -> dict:
     """Update consent categories (atomic JSONB merge).
 
-    Required categories cannot be withdrawn (returns 422).
+    Required categories cannot be withdrawn (returns 400).
     """
     if body.consent_version != CURRENT_CONSENT_VERSION:
         raise AppError(
@@ -324,42 +336,37 @@ async def update_consent(
             )
 
     now = datetime.now(UTC)
-    ip_hash = hashlib.sha256(
-        (request.client.host if request.client else "unknown").encode()
-    ).hexdigest()
+    ip_hash = hashlib.sha256(_client_ip(request).encode()).hexdigest()
 
     patch_json = json.dumps(body.consent_categories)
 
+    # Build SET clause dynamically for optional age gate
+    set_parts = [
+        "consent_version = :version",
+        "consent_categories = "
+        "COALESCE(consent_categories, '{}'::jsonb) || :patch::jsonb",
+        "consent_accepted_at = :now",
+        "consent_ip_hash = :ip_hash",
+        "updated_at = :now",
+    ]
+    params: dict[str, object] = {
+        "version": body.consent_version,
+        "patch": patch_json,
+        "now": now,
+        "ip_hash": ip_hash,
+        "id": player.id,
+    }
+    if body.age_13_plus_confirmed:
+        set_parts.append("age_confirmed_at = :age_at")
+        params["age_at"] = now
+
     await pg.execute(
-        sa.text(
-            "UPDATE players SET "
-            "consent_version = :version, "
-            "consent_categories = "
-            "COALESCE(consent_categories, '{}'::jsonb) || :patch::jsonb, "
-            "consent_accepted_at = :now, "
-            "consent_ip_hash = :ip_hash, "
-            "updated_at = :now "
-            "WHERE id = :id"
-        ),
-        {
-            "version": body.consent_version,
-            "patch": patch_json,
-            "now": now,
-            "ip_hash": ip_hash,
-            "id": player.id,
-        },
+        sa.text(f"UPDATE players SET {', '.join(set_parts)} WHERE id = :id"),
+        params,
     )
     await pg.commit()
 
-    # Audit log
-    log.info(
-        "consent_updated",
-        player_id=str(player.id),
-        consent_version=body.consent_version,
-        categories_updated=list(body.consent_categories.keys()),
-    )
-
-    # Fetch merged state to return
+    # Validate merged state has all required categories
     result = await pg.execute(
         sa.text(
             "SELECT consent_version, consent_accepted_at, "
@@ -373,6 +380,21 @@ async def update_consent(
     cats = row.consent_categories
     if isinstance(cats, str):
         cats = json.loads(cats)
+
+    missing = REQUIRED_CONSENT_CATEGORIES - {k for k, v in (cats or {}).items() if v}
+    if missing:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "MISSING_REQUIRED_CONSENT",
+            f"After merge, required categories still missing: {sorted(missing)}",
+        )
+
+    log.info(
+        "consent_updated",
+        player_id=str(player.id),
+        consent_version=body.consent_version,
+        categories_updated=list(body.consent_categories.keys()),
+    )
 
     return {
         "data": ConsentState(
