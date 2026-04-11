@@ -251,9 +251,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from tta.choices.consequence_service import InMemoryConsequenceService
     from tta.game.summary import ContextSummaryService
     from tta.pipeline.types import PipelineDeps
+    from tta.resilience.circuit_breaker import LLM_BREAKER, CircuitBreaker
+    from tta.world.relationship_service import InMemoryRelationshipService
 
     consequence_svc = InMemoryConsequenceService()
     app.state.summary_service = ContextSummaryService(model=settings.summary_model)
+    relationship_svc = InMemoryRelationshipService()
+    llm_circuit_breaker = CircuitBreaker(LLM_BREAKER)
 
     app.state.pipeline_deps = PipelineDeps(
         llm=app.state.llm_client,
@@ -265,6 +269,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         safety_post_gen=safety_hook,
         settings=settings,
         consequence_service=consequence_svc,
+        relationship_service=relationship_svc,
+        prompt_registry=app.state.prompt_registry,
+        llm_semaphore=app.state.llm_semaphore,
+        llm_circuit_breaker=llm_circuit_breaker,
     )
 
     # Redact credentials from DSN before logging

@@ -16,7 +16,6 @@ Scenarios:
 
 from __future__ import annotations
 
-import asyncio
 from uuid import UUID, uuid4
 
 import pytest
@@ -194,7 +193,8 @@ def _suggestion_stats(results: list[TurnState]) -> dict[str, float]:
         "turns_with_suggestions": len(with_suggestions),
         "coverage_pct": len(with_suggestions) / total * 100 if total else 0,
         "avg_suggestions": (
-            sum(len(r.suggested_actions) for r in with_suggestions) / len(with_suggestions)
+            sum(len(r.suggested_actions) for r in with_suggestions)
+            / len(with_suggestions)
             if with_suggestions
             else 0
         ),
@@ -257,12 +257,15 @@ async def test_medium_game_multi_session(
     state across sessions but resetting turn numbering per batch.
     """
     await _bootstrap_world(
-        session_id, sim_llm, world_service, template_registry,
+        session_id,
+        sim_llm,
+        world_service,
+        template_registry,
         template_key="haunted_manor",
     )
 
     all_results: list[TurnState] = []
-    for session_num, script_key in enumerate(
+    for _session_num, script_key in enumerate(
         ["medium_session_1", "medium_session_2", "medium_session_3"], 1
     ):
         results = await _play_script(
@@ -306,7 +309,10 @@ async def test_long_game_marathon(
     narrative variety doesn't collapse.
     """
     await _bootstrap_world(
-        session_id, sim_llm, world_service, template_registry,
+        session_id,
+        sim_llm,
+        world_service,
+        template_registry,
         template_key="haunted_manor",
     )
 
@@ -385,8 +391,7 @@ async def test_player_surprise_inputs(
     # Most should still complete despite weird inputs
     sr = _success_rate(results)
     assert sr >= 0.6, (
-        f"Too many surprise inputs failed: {sr:.0%} "
-        f"(expected ≥60% graceful handling)"
+        f"Too many surprise inputs failed: {sr:.0%} (expected ≥60% graceful handling)"
     )
 
     # Even completed ones should have narratives
@@ -412,10 +417,21 @@ async def test_narrative_variety(
     await _bootstrap_world(session_id, sim_llm, world_service, template_registry)
 
     # 10 "examine" actions in a row
-    examine_inputs = [f"examine the {thing}" for thing in [
-        "room", "floor", "ceiling", "walls", "furniture",
-        "doorway", "shelves", "corner", "window", "table",
-    ]]
+    examine_inputs = [
+        f"examine the {thing}"
+        for thing in [
+            "room",
+            "floor",
+            "ceiling",
+            "walls",
+            "furniture",
+            "doorway",
+            "shelves",
+            "corner",
+            "window",
+            "table",
+        ]
+    ]
 
     results = await _play_script(session_id, examine_inputs, pipeline_deps)
 
@@ -425,7 +441,7 @@ async def test_narrative_variety(
     # Check no two CONSECUTIVE narratives are identical
     for i in range(len(narratives) - 1):
         assert narratives[i] != narratives[i + 1], (
-            f"Consecutive identical narratives at turns {i+1} and {i+2}"
+            f"Consecutive identical narratives at turns {i + 1} and {i + 2}"
         )
 
     # At least 3 distinct narratives out of 10
@@ -459,10 +475,10 @@ async def test_world_state_evolution(
     # Every completed turn should have world_context from the live service
     for i, r in enumerate(results):
         if r.status == TurnStatus.complete:
-            assert r.world_context is not None, f"Turn {i+1}: no world_context"
+            assert r.world_context is not None, f"Turn {i + 1}: no world_context"
             # Live context should have "location" key (from get_full_context)
             assert "location" in r.world_context, (
-                f"Turn {i+1}: world_context missing 'location' — "
+                f"Turn {i + 1}: world_context missing 'location' — "
                 f"got keys: {list(r.world_context.keys())}"
             )
 
@@ -499,12 +515,8 @@ async def test_intent_classification_coverage(
 
     # All turns should complete
     for intent, r in results.items():
-        assert r.status == TurnStatus.complete, (
-            f"Intent '{intent}' failed: {r.status}"
-        )
-        assert r.parsed_intent is not None, (
-            f"Intent '{intent}' has no parsed_intent"
-        )
+        assert r.status == TurnStatus.complete, f"Intent '{intent}' failed: {r.status}"
+        assert r.parsed_intent is not None, f"Intent '{intent}' has no parsed_intent"
 
     # Verify classification accuracy
     classified_intents = {
@@ -515,8 +527,7 @@ async def test_intent_classification_coverage(
 
     # At least 4 of 6 should be classified correctly
     correct = sum(
-        1 for expected, actual in classified_intents.items()
-        if expected == actual
+        1 for expected, actual in classified_intents.items() if expected == actual
     )
     assert correct >= 4, (
         f"Intent classification accuracy too low: {correct}/6 correct. "
@@ -545,8 +556,7 @@ async def test_suggested_actions_quality(
     results = await _play_script(session_id, inputs, pipeline_deps)
 
     turns_with_suggestions = [
-        r for r in results
-        if r.status == TurnStatus.complete and r.suggested_actions
+        r for r in results if r.status == TurnStatus.complete and r.suggested_actions
     ]
 
     # At least 60% of turns should have suggestions
@@ -606,11 +616,26 @@ async def test_rapid_fire_turns(
     rapid_inputs = [
         f"quickly {action}"
         for action in [
-            "look around", "go forward", "take item", "talk to NPC",
-            "examine wall", "go left", "use door", "search floor",
-            "go right", "talk to guard", "examine ceiling", "take torch",
-            "go back", "use lever", "look at map", "talk to elder",
-            "examine table", "go upstairs", "take scroll", "search chest",
+            "look around",
+            "go forward",
+            "take item",
+            "talk to NPC",
+            "examine wall",
+            "go left",
+            "use door",
+            "search floor",
+            "go right",
+            "talk to guard",
+            "examine ceiling",
+            "take torch",
+            "go back",
+            "use lever",
+            "look at map",
+            "talk to elder",
+            "examine table",
+            "go upstairs",
+            "take scroll",
+            "search chest",
         ]
     ]
 
@@ -635,7 +660,10 @@ async def test_full_simulation_report(
     produces a detailed quality report as test output.
     """
     await _bootstrap_world(
-        session_id, sim_llm, world_service, template_registry,
+        session_id,
+        sim_llm,
+        world_service,
+        template_registry,
         template_key="haunted_manor",
     )
 
@@ -707,7 +735,9 @@ async def test_full_simulation_report(
     narrative_lengths = [
         len(r.narrative_output) for r in completed if r.narrative_output
     ]
-    avg_length = sum(narrative_lengths) / len(narrative_lengths) if narrative_lengths else 0
+    avg_length = (
+        sum(narrative_lengths) / len(narrative_lengths) if narrative_lengths else 0
+    )
     min_length = min(narrative_lengths) if narrative_lengths else 0
     max_length = max(narrative_lengths) if narrative_lengths else 0
 
@@ -722,13 +752,13 @@ async def test_full_simulation_report(
 ║  Total turns: {len(results):<39}║
 ║  Completed: {len(completed):<41}║
 ║  Failed: {len(failed):<44}║
-║  Success rate: {sr:.1%}{' ':>37}║
+║  Success rate: {sr:.1%}{" ":>37}║
 ╠══════════════════════════════════════════════════════╣
 ║  NARRATIVE QUALITY                                   ║
-║  Unique narratives: {unique_ratio:.1%}{' ':>32}║
-║  Avg length: {avg_length:.0f} chars{' ':>34}║
-║  Min length: {min_length} chars{' ':>35}║
-║  Max length: {max_length} chars{' ':>35}║
+║  Unique narratives: {unique_ratio:.1%}{" ":>32}║
+║  Avg length: {avg_length:.0f} chars{" ":>34}║
+║  Min length: {min_length} chars{" ":>35}║
+║  Max length: {max_length} chars{" ":>35}║
 ╠══════════════════════════════════════════════════════╣
 ║  INTENT DISTRIBUTION                                 ║"""
     for intent, count in sorted(intents.items(), key=lambda x: -x[1]):
@@ -737,13 +767,13 @@ async def test_full_simulation_report(
     report += f"""
 ╠══════════════════════════════════════════════════════╣
 ║  SUGGESTIONS                                         ║
-║  Turns with suggestions: {suggestions['turns_with_suggestions']:<28}║
-║  Coverage: {suggestions['coverage_pct']:.1f}%{' ':>39}║
-║  Avg per turn: {suggestions['avg_suggestions']:.1f}{' ':>37}║
+║  Turns with suggestions: {suggestions["turns_with_suggestions"]:<28}║
+║  Coverage: {suggestions["coverage_pct"]:.1f}%{" ":>39}║
+║  Avg per turn: {suggestions["avg_suggestions"]:.1f}{" ":>37}║
 ╠══════════════════════════════════════════════════════╣
 ║  SYSTEM METRICS                                      ║
 ║  Total LLM calls: {total_llm_calls:<34}║
-║  Avg calls/turn: {total_llm_calls / len(results):.1f}{' ':>35}║
+║  Avg calls/turn: {total_llm_calls / len(results):.1f}{" ":>35}║
 ╚══════════════════════════════════════════════════════╝"""
 
     # Print to test output (visible with pytest -s)

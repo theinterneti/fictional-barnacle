@@ -13,12 +13,11 @@ import pytest
 from tta.choices.consequence_service import InMemoryConsequenceService
 from tta.llm.client import GenerationParams, LLMResponse, Message
 from tta.llm.roles import ModelRole
-from tta.models.turn import TokenCount, TurnState
+from tta.models.turn import TokenCount
 from tta.pipeline.types import PipelineDeps
 from tta.safety.hooks import PassthroughHook
 from tta.world.memory_service import InMemoryWorldService
 from tta.world.template_registry import TemplateRegistry
-
 
 # ---------------------------------------------------------------------------
 # SimulationLLMClient — role-aware mock that produces meaningful responses
@@ -30,7 +29,10 @@ _INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("move", re.compile(r"\b(go|walk|move|run|head|travel|enter|leave)\b", re.I)),
     ("examine", re.compile(r"\b(look|examine|inspect|search|check|observe)\b", re.I)),
     ("talk", re.compile(r"\b(talk|say|ask|tell|speak|greet|whisper)\b", re.I)),
-    ("use", re.compile(r"\b(use|take|grab|pick|drop|put|open|close|push|pull)\b", re.I)),
+    (
+        "use",
+        re.compile(r"\b(use|take|grab|pick|drop|put|open|close|push|pull)\b", re.I),
+    ),
 ]
 
 # Narrative pool indexed by intent for variety
@@ -168,7 +170,11 @@ _NARRATIVE_POOL: dict[str, list[str]] = {
 # Suggested actions pool by intent
 _SUGGESTIONS: dict[str, list[list[str]]] = {
     "move": [
-        ["Look around the new area", "Talk to anyone nearby", "Search for hidden paths"],
+        [
+            "Look around the new area",
+            "Talk to anyone nearby",
+            "Search for hidden paths",
+        ],
         ["Explore further ahead", "Return the way you came", "Rest and observe"],
         ["Follow the sound of water", "Climb the nearby hill", "Enter the building"],
     ],
@@ -178,7 +184,11 @@ _SUGGESTIONS: dict[str, list[list[str]]] = {
         ["Take notes on what you see", "Examine the floor closely", "Open the box"],
     ],
     "talk": [
-        ["Ask about the local history", "Inquire about recent events", "Share your story"],
+        [
+            "Ask about the local history",
+            "Inquire about recent events",
+            "Share your story",
+        ],
         ["Press for more details", "Change the subject", "Offer to help"],
         ["Ask about the mysterious stranger", "Request a favour", "Say farewell"],
     ],
@@ -264,20 +274,22 @@ class SimulationLLMClient:
                 intent = _classify_input(action_line)
 
             suggestions = self._pick_suggestions(intent)
-            return json.dumps({
-                "world_changes": [],
-                "suggested_actions": suggestions,
-            })
+            return json.dumps(
+                {
+                    "world_changes": [],
+                    "suggested_actions": suggestions,
+                }
+            )
 
         if role == ModelRole.SUMMARIZATION:
-            return "The adventurer has been exploring a mysterious locale, encountering " \
+            return (
+                "The adventurer has been exploring a mysterious locale, encountering "
                 "various characters and uncovering secrets along the way."
+            )
 
         return "Mock response for unknown role."
 
-    def _build_response(
-        self, role: ModelRole, messages: list[Message]
-    ) -> LLMResponse:
+    def _build_response(self, role: ModelRole, messages: list[Message]) -> LLMResponse:
         content = self._respond(role, messages)
         prompt_tokens = sum(len(m.content.split()) for m in messages)
         completion_tokens = len(content.split())
@@ -320,6 +332,7 @@ class SimulationLLMClient:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def sim_llm() -> SimulationLLMClient:
     return SimulationLLMClient()
@@ -332,7 +345,9 @@ def world_service() -> InMemoryWorldService:
 
 @pytest.fixture
 def template_registry() -> TemplateRegistry:
-    templates_dir = Path(__file__).resolve().parents[2] / "src" / "tta" / "world" / "templates"
+    templates_dir = (
+        Path(__file__).resolve().parents[2] / "src" / "tta" / "world" / "templates"
+    )
     return TemplateRegistry(templates_dir)
 
 
