@@ -245,19 +245,34 @@ class TestCreatePlayerRequest:
     @given(handle=_handles)
     @settings(max_examples=50)
     def test_valid_handle_accepted(self, handle: str) -> None:
-        req = CreatePlayerRequest(handle=handle)
+        req = CreatePlayerRequest(
+            handle=handle,
+            age_13_plus_confirmed=True,
+            consent_version="1.0",
+            consent_categories={"core_gameplay": True, "llm_processing": True},
+        )
         assert req.handle == handle
 
     @given(handle=st.just(""))
     def test_empty_handle_rejected(self, handle: str) -> None:
         with pytest.raises(ValidationError):
-            CreatePlayerRequest(handle=handle)
+            CreatePlayerRequest(
+                handle=handle,
+                age_13_plus_confirmed=True,
+                consent_version="1.0",
+                consent_categories={"core_gameplay": True, "llm_processing": True},
+            )
 
     @given(handle=st.text(min_size=51, max_size=100))
     @settings(max_examples=10)
     def test_too_long_handle_rejected(self, handle: str) -> None:
         with pytest.raises(ValidationError):
-            CreatePlayerRequest(handle=handle)
+            CreatePlayerRequest(
+                handle=handle,
+                age_13_plus_confirmed=True,
+                consent_version="1.0",
+                consent_categories={"core_gameplay": True, "llm_processing": True},
+            )
 
     @given(handle=st.from_regex(r"^[!@#$%^&*()]{1,10}$", fullmatch=True))
     @settings(max_examples=20)

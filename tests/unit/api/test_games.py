@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
-from tta.api.deps import get_current_player, get_pg
+from tta.api.deps import get_current_player, get_pg, require_consent
 from tta.config import Settings
 from tta.models.player import Player
 
@@ -100,6 +100,7 @@ def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
 
     a.dependency_overrides[get_pg] = _pg
     a.dependency_overrides[get_current_player] = lambda: _PLAYER
+    a.dependency_overrides[require_consent] = lambda: None
     return a
 
 

@@ -309,7 +309,7 @@ def _app_for_genesis(monkeypatch: pytest.MonkeyPatch) -> Any:
     from fastapi.testclient import TestClient
 
     from tta.api.app import create_app
-    from tta.api.deps import get_current_player, get_pg
+    from tta.api.deps import get_current_player, get_pg, require_consent
     from tta.models.player import Player
 
     settings = _settings()
@@ -337,6 +337,7 @@ def _app_for_genesis(monkeypatch: pytest.MonkeyPatch) -> Any:
     player = Player(id=_PLAYER_ID, handle="Tester", created_at=_NOW)
     app.dependency_overrides[get_pg] = _pg
     app.dependency_overrides[get_current_player] = lambda: player
+    app.dependency_overrides[require_consent] = lambda: None
 
     return app, TestClient(app), pg_mock
 

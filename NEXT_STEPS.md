@@ -1237,9 +1237,56 @@ SSE heartbeat not configurable, and env-based CORS parsing.
 - **Base64-encoded cursors**: Opaque to clients, allows changing internal
   representation (e.g., from turn_number to composite key) without breaking API.
 
-## 23. Wave 20+ Recommendations
+## 23. Wave 20 — Privacy Consent, Deployment Polish & Coverage Hardening
 
-### Wave 20 — Production Polish & Hardening
+**Branch**: `wave-20/privacy-deployment-polish` → PR #TBD
+**Specs**: S17 (Privacy), S14 (Deployment), S16 (Testing)
+**Tests**: 1503 total (+15 new)
+
+### What Changed
+
+1. **Consent & age gate foundation** (S17 FR-17.22–17.26, FR-17.36–17.39):
+   Migration 007 adds 5 columns (`consent_version`, `consent_accepted_at`,
+   `consent_categories` JSONB, `age_confirmed_at`, `consent_ip_hash`).
+   Registration requires `age_13_plus_confirmed`, `consent_version`, and
+   `consent_categories`. GET/PATCH `/me/consent` endpoints with atomic JSONB
+   merge and required-consent-withdrawal guard. `require_consent()` dependency
+   returns 403 `CONSENT_REQUIRED` on game routes for pre-consent players.
+2. **HIPAA disclaimer** (S17 FR-17.32, FR-17.35): `GET /api/v1/disclaimer`
+   endpoint returns structured notice (scope, not_a_substitute, data_use,
+   emergency, version). README.md health disclaimer section.
+3. **OCI Docker labels** (S14 FR-14.18): ARG + LABEL directives for
+   `org.opencontainers.image.*` metadata (title, description, version,
+   revision, created, source, licenses).
+4. **Coverage configuration** (S16 FR-16.25, FR-16.28): `branch=true`,
+   `fail_under=80`, `exclude_lines` patterns in `pyproject.toml`.
+5. **Environment templates** (S14 FR-14.25): `.env.ci` (localhost URLs, test
+   tokens) and `.env.staging` (Docker DNS, CHANGE_ME placeholders).
+
+### Stats
+
+- 15 new unit tests (1503 total)
+- 0 pyright errors, 0 ruff errors
+- Files created: `007_consent_and_age_gate.py`, `disclaimer.py`, `.env.ci`,
+  `.env.staging`
+- Files modified: `player.py`, `players.py`, `deps.py`, `config.py`, `app.py`,
+  `classification.py`, `Dockerfile`, `pyproject.toml`, `README.md`
+
+### Decisions
+
+- **Consent fields non-erasable**: GDPR Art. 7(1) requires proof of consent.
+  Consent fields marked `erasable=False` in privacy classification registry.
+- **SHA-256 IP hash**: `consent_ip_hash` stores hash of client IP for audit
+  trail without storing raw PII.
+- **Required consent categories cannot be withdrawn**: PATCH /me/consent
+  returns 422 `REQUIRED_CONSENT_WITHDRAWAL` if attempting to set
+  `core_gameplay` or `llm_processing` to `false`.
+- **Migration 007 nullable columns**: Existing players get NULL consent fields,
+  forcing re-consent via `require_consent()` dependency.
+
+## 24. Wave 21+ Recommendations
+
+### Wave 21 — Production Polish & Hardening
 
 1. Alertmanager integration for notification routing (PagerDuty, Slack, email)
 2. Performance load testing and SLO validation against S28 targets

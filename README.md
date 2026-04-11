@@ -99,6 +99,18 @@ All code is written against formal specifications in `specs/`. See
 [specs/README.md](specs/README.md) for the full inventory of 29 specs across
 6 levels. Technical plans live in `plans/`.
 
+## Health & Privacy Disclaimer
+
+**TTA is not a healthcare application.** It does not collect, store, or transmit
+Protected Health Information (PHI) as defined by HIPAA. This application is not
+HIPAA-regulated and is not a substitute for professional mental health treatment.
+
+If you are in crisis, please contact a licensed professional or call a crisis
+hotline (e.g. 988 Suicide & Crisis Lifeline in the US).
+
+For privacy details see [`docs/privacy-policy.md`](docs/privacy-policy.md) and
+the in-game disclaimer at `GET /api/v1/disclaimer`.
+
 ## License
 
 TBD

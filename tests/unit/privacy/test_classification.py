@@ -83,9 +83,14 @@ class TestGetFieldsByCategory:
 class TestFieldClassification:
     def test_pii_fields_mostly_erasable(self) -> None:
         pii = get_pii_fields()
-        # Most PII fields should be erasable; consent_records is the exception
         erasable = [fc for fc in pii if fc.erasable]
-        assert len(erasable) >= len(pii) - 1
+        non_erasable = [fc for fc in pii if not fc.erasable]
+        # Consent/age-gate fields are non-erasable (legal retention)
+        assert all(
+            "consent" in fc.name or "age_confirmed" in fc.name for fc in non_erasable
+        )
+        # Most non-consent PII fields should be erasable
+        assert len(erasable) >= 1
 
     def test_storage_is_populated(self) -> None:
         result = classify_field("email")

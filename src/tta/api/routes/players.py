@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -16,7 +18,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.api.errors import AppError
-from tta.config import get_settings
+from tta.config import (
+    CURRENT_CONSENT_VERSION,
+    REQUIRED_CONSENT_CATEGORIES,
+    get_settings,
+)
 from tta.errors import ErrorCategory
 from tta.models.player import Player
 from tta.persistence.redis_session import delete_active_session
@@ -24,6 +30,14 @@ from tta.persistence.redis_session import delete_active_session
 log = structlog.get_logger()
 
 router = APIRouter(prefix="/players", tags=["players"])
+
+
+def _client_ip(request: Request) -> str:
+    """Extract the client IP, respecting X-Forwarded-For behind proxies."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 # --- Request / Response schemas ---
@@ -36,6 +50,18 @@ class CreatePlayerRequest(BaseModel):
         max_length=50,
         pattern=r"^[a-zA-Z0-9 _\-\.]+$",
         description="Unique player handle.",
+    )
+    age_13_plus_confirmed: bool = Field(
+        ...,
+        description="Player confirms they are 13 years or older.",
+    )
+    consent_version: str = Field(
+        ...,
+        description="Version of the consent agreement being accepted.",
+    )
+    consent_categories: dict[str, bool] = Field(
+        ...,
+        description="Consent categories and acceptance status.",
     )
 
 
@@ -50,6 +76,20 @@ class PlayerProfile(BaseModel):
     player_id: str
     handle: str
     created_at: datetime
+
+
+class UpdateConsentRequest(BaseModel):
+    consent_version: str = Field(
+        ..., description="Must match the current consent version."
+    )
+    consent_categories: dict[str, bool] = Field(
+        ..., description="Categories to update (merged with existing)."
+    )
+    age_13_plus_confirmed: bool | None = Field(
+        None,
+        description="Set to true to confirm age gate (for existing players "
+        "who registered before consent was required).",
+    )
 
 
 class UpdatePlayerRequest(BaseModel):
@@ -67,9 +107,35 @@ class UpdatePlayerRequest(BaseModel):
 @router.post("", status_code=201)
 async def register_player(
     body: CreatePlayerRequest,
+    request: Request,
     pg: AsyncSession = Depends(get_pg),
 ) -> JSONResponse:
     """Register a new anonymous player with a unique handle."""
+    # Age gate (S17 FR-17.36)
+    if not body.age_13_plus_confirmed:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "AGE_CONFIRMATION_REQUIRED",
+            "You must confirm you are 13 years or older.",
+        )
+
+    # Consent version match (S17 FR-17.22)
+    if body.consent_version != CURRENT_CONSENT_VERSION:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "CONSENT_VERSION_MISMATCH",
+            f"Expected consent version {CURRENT_CONSENT_VERSION}.",
+        )
+
+    # Required categories must be accepted (S17 FR-17.24)
+    for cat in REQUIRED_CONSENT_CATEGORIES:
+        if not body.consent_categories.get(cat):
+            raise AppError(
+                ErrorCategory.INPUT_INVALID,
+                "REQUIRED_CONSENT_MISSING",
+                f"Required consent category '{cat}' must be accepted.",
+            )
+
     # Check handle uniqueness
     existing = await pg.execute(
         sa.text("SELECT id FROM players WHERE handle = :handle"),
@@ -82,15 +148,31 @@ async def register_player(
             "Handle is already taken.",
         )
 
-    # Create player
+    # Create player with consent data
     player_id = uuid4()
     now = datetime.now(UTC)
+    ip_hash = hashlib.sha256(_client_ip(request).encode()).hexdigest()
+
     await pg.execute(
         sa.text(
-            "INSERT INTO players (id, handle, created_at) "
-            "VALUES (:id, :handle, :created_at)"
+            "INSERT INTO players "
+            "(id, handle, created_at, consent_version, "
+            "consent_accepted_at, consent_categories, "
+            "age_confirmed_at, consent_ip_hash) "
+            "VALUES (:id, :handle, :created_at, :consent_version, "
+            ":consent_accepted_at, :consent_categories::jsonb, "
+            ":age_confirmed_at, :consent_ip_hash)"
         ),
-        {"id": player_id, "handle": body.handle, "created_at": now},
+        {
+            "id": player_id,
+            "handle": body.handle,
+            "created_at": now,
+            "consent_version": body.consent_version,
+            "consent_accepted_at": now,
+            "consent_categories": json.dumps(body.consent_categories),
+            "age_confirmed_at": now,
+            "consent_ip_hash": ip_hash,
+        },
     )
 
     # Create session token
@@ -190,6 +272,136 @@ async def update_profile(
             player_id=str(player.id),
             handle=body.handle,
             created_at=player.created_at,
+        ).model_dump(mode="json")
+    }
+
+
+# --- Consent management (S17 FR-17.22–17.26) ---
+
+
+class ConsentState(BaseModel):
+    consent_version: str | None
+    consent_accepted_at: datetime | None
+    consent_categories: dict[str, bool] | None
+    age_confirmed_at: datetime | None
+
+
+@router.get("/me/consent")
+async def get_consent(
+    player: Player = Depends(get_current_player),
+) -> dict:
+    """Return the authenticated player's current consent state."""
+    cats = None
+    if player.consent_categories is not None:
+        cats = (
+            json.loads(player.consent_categories)
+            if isinstance(player.consent_categories, str)
+            else player.consent_categories
+        )
+    return {
+        "data": ConsentState(
+            consent_version=player.consent_version,
+            consent_accepted_at=player.consent_accepted_at,
+            consent_categories=cats,
+            age_confirmed_at=player.age_confirmed_at,
+        ).model_dump(mode="json")
+    }
+
+
+@router.patch("/me/consent")
+async def update_consent(
+    body: UpdateConsentRequest,
+    request: Request,
+    player: Player = Depends(get_current_player),
+    pg: AsyncSession = Depends(get_pg),
+) -> dict:
+    """Update consent categories (atomic JSONB merge).
+
+    Required categories cannot be withdrawn (returns 400).
+    """
+    if body.consent_version != CURRENT_CONSENT_VERSION:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "CONSENT_VERSION_MISMATCH",
+            f"Expected consent version {CURRENT_CONSENT_VERSION}.",
+        )
+
+    # Reject withdrawal of required categories (S17 FR-17.24)
+    for cat in REQUIRED_CONSENT_CATEGORIES:
+        if cat in body.consent_categories and not body.consent_categories[cat]:
+            raise AppError(
+                ErrorCategory.INPUT_INVALID,
+                "REQUIRED_CONSENT_WITHDRAWAL",
+                f"Cannot withdraw required consent category: {cat}",
+            )
+
+    now = datetime.now(UTC)
+    ip_hash = hashlib.sha256(_client_ip(request).encode()).hexdigest()
+
+    patch_json = json.dumps(body.consent_categories)
+
+    # Build SET clause dynamically for optional age gate
+    set_parts = [
+        "consent_version = :version",
+        "consent_categories = "
+        "COALESCE(consent_categories, '{}'::jsonb) || :patch::jsonb",
+        "consent_accepted_at = :now",
+        "consent_ip_hash = :ip_hash",
+        "updated_at = :now",
+    ]
+    params: dict[str, object] = {
+        "version": body.consent_version,
+        "patch": patch_json,
+        "now": now,
+        "ip_hash": ip_hash,
+        "id": player.id,
+    }
+    if body.age_13_plus_confirmed:
+        set_parts.append("age_confirmed_at = :age_at")
+        params["age_at"] = now
+
+    await pg.execute(
+        sa.text(f"UPDATE players SET {', '.join(set_parts)} WHERE id = :id"),
+        params,
+    )
+    await pg.commit()
+
+    # Validate merged state has all required categories
+    result = await pg.execute(
+        sa.text(
+            "SELECT consent_version, consent_accepted_at, "
+            "consent_categories, age_confirmed_at "
+            "FROM players WHERE id = :id"
+        ),
+        {"id": player.id},
+    )
+    row = result.one()
+
+    cats = row.consent_categories
+    if isinstance(cats, str):
+        cats = json.loads(cats)
+
+    missing = REQUIRED_CONSENT_CATEGORIES - {k for k, v in (cats or {}).items() if v}
+    if missing:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "MISSING_REQUIRED_CONSENT",
+            f"After merge, required categories still missing: {sorted(missing)}",
+        )
+
+    log.info(
+        "consent_updated",
+        player_id=str(player.id),
+        consent_version=body.consent_version,
+        categories_updated=list(body.consent_categories.keys()),
+    )
+
+    return {
+        "data": ConsentState(
+            consent_version=row.consent_version,
+            consent_accepted_at=row.consent_accepted_at,
+            consent_categories=cats,
+            age_confirmed_at=row.age_confirmed_at,
         ).model_dump(mode="json")
     }
 

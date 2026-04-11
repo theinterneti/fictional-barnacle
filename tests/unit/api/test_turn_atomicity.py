@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
-from tta.api.deps import get_current_player, get_pg
+from tta.api.deps import get_current_player, get_pg, require_consent
 from tta.config import Settings
 from tta.models.events import ErrorEvent
 from tta.models.player import Player
@@ -88,6 +88,7 @@ def app(pg: AsyncMock) -> FastAPI:
     application = create_app(_settings())
     application.dependency_overrides[get_current_player] = lambda: _PLAYER
     application.dependency_overrides[get_pg] = lambda: pg
+    application.dependency_overrides[require_consent] = lambda: None
     return application
 
 

@@ -11,6 +11,7 @@ from fastapi import Depends, Request
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.errors import AppError
+from tta.config import CURRENT_CONSENT_VERSION, REQUIRED_CONSENT_CATEGORIES
 from tta.errors import ErrorCategory
 from tta.models.player import Player
 
@@ -63,8 +64,10 @@ async def get_current_player(
 
     player_result = await pg.execute(
         sa.text(
-            "SELECT id, handle, status, suspended_reason, "
-            "created_at FROM players WHERE id = :id"
+            "SELECT id, handle, status, suspended_reason, created_at, "
+            "consent_version, consent_accepted_at, consent_categories, "
+            "age_confirmed_at, consent_ip_hash "
+            "FROM players WHERE id = :id"
         ),
         {"id": row.player_id},
     )
@@ -82,6 +85,11 @@ async def get_current_player(
         status=player_row.status,
         suspended_reason=player_row.suspended_reason,
         created_at=player_row.created_at,
+        consent_version=player_row.consent_version,
+        consent_accepted_at=player_row.consent_accepted_at,
+        consent_categories=player_row.consent_categories,
+        age_confirmed_at=player_row.age_confirmed_at,
+        consent_ip_hash=player_row.consent_ip_hash,
     )
 
 
@@ -99,6 +107,45 @@ async def require_active_player(
             "Your account is suspended.",
             details={"reason": player.suspended_reason},
         )
+    return player
+
+
+async def require_consent(
+    player: Player = Depends(require_active_player),
+) -> Player:
+    """Ensure the player has valid, current consent (S17 FR-17.22).
+
+    Checks consent version, accepted timestamp, required categories,
+    and age confirmation. Raises 403 CONSENT_REQUIRED if any fail.
+    """
+    if (
+        player.consent_version is None
+        or player.consent_version != CURRENT_CONSENT_VERSION
+        or player.consent_accepted_at is None
+        or player.age_confirmed_at is None
+    ):
+        raise AppError(
+            ErrorCategory.FORBIDDEN,
+            "CONSENT_REQUIRED",
+            "You must accept the current consent agreement before playing.",
+        )
+
+    # Verify all required categories are accepted
+    cats = player.consent_categories
+    if not isinstance(cats, dict):
+        raise AppError(
+            ErrorCategory.FORBIDDEN,
+            "CONSENT_REQUIRED",
+            "You must accept the current consent agreement before playing.",
+        )
+    for cat in REQUIRED_CONSENT_CATEGORIES:
+        if not cats.get(cat):
+            raise AppError(
+                ErrorCategory.FORBIDDEN,
+                "CONSENT_REQUIRED",
+                "You must accept the current consent agreement before playing.",
+            )
+
     return player
 
 

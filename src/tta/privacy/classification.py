@@ -69,6 +69,22 @@ _FIELD_REGISTRY: list[FieldClassification] = [
         None,
         erasable=False,
     ),
+    # Consent & age gate (S17 FR-17.22, GDPR Art. 7(1) — retained for legal proof)
+    FieldClassification(
+        "consent_version", DataCategory.PII, "postgresql", None, erasable=False
+    ),
+    FieldClassification(
+        "consent_accepted_at", DataCategory.PII, "postgresql", None, erasable=False
+    ),
+    FieldClassification(
+        "consent_categories", DataCategory.PII, "postgresql", None, erasable=False
+    ),
+    FieldClassification(
+        "age_confirmed_at", DataCategory.PII, "postgresql", None, erasable=False
+    ),
+    FieldClassification(
+        "consent_ip_hash", DataCategory.PII, "postgresql", None, erasable=False
+    ),
     # Game state data
     FieldClassification("world_state", DataCategory.GAME_DATA, "neo4j", 30),
     FieldClassification(
