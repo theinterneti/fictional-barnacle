@@ -405,7 +405,11 @@ include: input context (anonymized), failure reason, retry count, final outcome.
   engine generates a response, then the description is shorter and references
   what changed (not a copy of the first description).
 
-- **AC-3.3**: Given 5 consecutive high-tension turns (level 4-5), when the 6th turn
+- > **[v2 — Pacing]** Requires a tension-tracking subsystem that scores each turn
+  > and feeds pacing directives into the generation prompt. v1 relies on the LLM's
+  > inherent narrative sense; explicit pacing control is deferred to v2.
+
+  **AC-3.3**: Given 5 consecutive high-tension turns (level 4-5), when the 6th turn
   occurs, then the engine introduces a pacing shift (tension reduction or release).
 
 - **AC-3.4**: Given a fantasy WorldSeed, when the engine generates narrative, then

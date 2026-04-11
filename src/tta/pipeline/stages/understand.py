@@ -118,14 +118,15 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     # 3. LLM fallback for ambiguous input
     if intent_state is None:
-        # Use prompt registry if available, else fall back to hardcoded
+        # Use prompt registry if available, else fall back to hardcoded.
+        # Keep SYSTEM message free of user input to reduce prompt-injection risk.
         system_content = _CLASSIFICATION_SYSTEM_PROMPT
         if deps.prompt_registry and deps.prompt_registry.has("classification.intent"):
-            rendered = deps.prompt_registry.render(
-                "classification.intent",
-                {"player_input": state.player_input},
-            )
-            system_content = rendered.text
+            try:
+                rendered = deps.prompt_registry.render("classification.intent", {})
+                system_content = rendered.text
+            except (KeyError, ValueError):
+                log.warning("classification_template_render_failed", exc_info=True)
 
         messages = [
             Message(
@@ -189,7 +190,12 @@ async def _evaluate_consequences(state: TurnState, deps: PipelineDeps) -> TurnSt
         if result.world_changes:
             existing = list(state.world_state_updates or [])
             existing.extend(
-                {"type": str(wc.change_type), "description": wc.description}
+                {
+                    "entity": wc.entity_id,
+                    "attribute": str(wc.type),
+                    "new_value": wc.payload.get("value", ""),
+                    "reason": wc.payload.get("reason", "consequence"),
+                }
                 for wc in result.world_changes
             )
             updates["world_state_updates"] = existing

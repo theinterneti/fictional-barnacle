@@ -82,17 +82,15 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         )
 
     # 3. Call LLM for narrative generation
-    # Use prompt registry if available, else fall back to hardcoded
+    # Use prompt registry for SYSTEM message if available.
+    # Keep SYSTEM message free of user input to reduce prompt-injection risk.
     gen_system = _GENERATION_SYSTEM_PROMPT
     if deps.prompt_registry and deps.prompt_registry.has("narrative.generate"):
-        rendered = deps.prompt_registry.render(
-            "narrative.generate",
-            {
-                "player_input": state.player_input,
-                "world_context": state.world_context or "",
-            },
-        )
-        gen_system = rendered.text
+        try:
+            rendered = deps.prompt_registry.render("narrative.generate", {})
+            gen_system = rendered.text
+        except (KeyError, ValueError):
+            log.warning("generation_template_render_failed", exc_info=True)
 
     messages = [
         Message(role=MessageRole.SYSTEM, content=gen_system),

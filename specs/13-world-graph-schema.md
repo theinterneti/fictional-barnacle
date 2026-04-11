@@ -756,6 +756,10 @@ game queries. The full session data lives in SQL (see S12).
 
 ### Query Performance
 
+> **[v2 — Neo4j]** AC-13.04 through AC-13.06 require a live Neo4j instance with
+> seeded data at scale. v1 uses an in-memory world service; Neo4j graph query
+> benchmarks are deferred to v2 when the full graph backend is integrated.
+
 - **AC-13.04**: Location context query (§8.1) completes in under 50ms on a world with 1,000
   locations.
 - **AC-13.05**: Movement validation query (§8.2) completes in under 10ms.
@@ -763,6 +767,10 @@ game queries. The full session data lives in SQL (see S12).
   1,000 locations.
 
 ### State Mutation
+
+> **[v2 — Neo4j]** AC-13.07 through AC-13.09 require Neo4j transactional atomicity
+> verification. v1 world mutations go through the in-memory world service; Neo4j
+> atomic state mutation tests are deferred to v2.
 
 - **AC-13.07**: Player movement atomically updates the `LOCATED_IN` relationship and creates
   an Event — verified by checking that on transaction failure, neither change persists.
@@ -787,6 +795,10 @@ game queries. The full session data lives in SQL (see S12).
   in that window.
 
 ### Cross-Store Consistency
+
+> **[v2 — Neo4j]** AC-13.15 and AC-13.16 require dual-store consistency between
+> PostgreSQL and Neo4j. v1 uses PostgreSQL only; cross-store consistency tests
+> are deferred to v2.
 
 - **AC-13.15**: The `session_id` on a PlayerSession node in Neo4j matches a `game_id` in
   the SQL games table.

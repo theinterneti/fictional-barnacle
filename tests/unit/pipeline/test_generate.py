@@ -6,6 +6,8 @@ import json
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import pytest
+
 from tta.llm.client import LLMResponse
 from tta.llm.testing import MockLLMClient
 from tta.models.turn import (
@@ -461,3 +463,76 @@ async def test_original_state_not_mutated() -> None:
     assert state.narrative_output is None
     assert result.narrative_output is not None
     assert state is not result
+
+
+# --- prompt registry ---
+
+
+class _StubRegistry:
+    """Minimal prompt registry stub for testing."""
+
+    def __init__(
+        self,
+        *,
+        templates: dict[str, str] | None = None,
+        raise_on_render: Exception | None = None,
+    ) -> None:
+        self._templates = templates or {}
+        self._raise_on_render = raise_on_render
+
+    def has(self, template_id: str) -> bool:
+        return template_id in self._templates
+
+    def render(self, template_id: str, variables: dict) -> object:
+        if self._raise_on_render is not None:
+            raise self._raise_on_render
+        from tta.prompts.registry import RenderedPrompt
+
+        return RenderedPrompt(
+            text=self._templates[template_id],
+            template_id=template_id,
+            template_version="1.0.0",
+        )
+
+    def get(self, template_id: str) -> object:
+        raise NotImplementedError
+
+    def list_templates(self) -> list[str]:
+        return list(self._templates)
+
+
+@pytest.mark.asyncio
+async def test_prompt_registry_used_for_generation() -> None:
+    """When prompt_registry has narrative.generate, it's used."""
+    custom_system = "You are a custom narrative engine."
+    registry = _StubRegistry(templates={"narrative.generate": custom_system})
+    llm = MockLLMClient()
+    state = _make_state()
+    deps = _make_deps(llm=llm)
+    deps.prompt_registry = registry  # type: ignore[assignment]
+
+    result = await generate_stage(state, deps)
+
+    assert result.narrative_output is not None
+    # First LLM call is generation; verify system message from registry
+    assert len(llm.call_history) > 0
+    system_msg = llm.call_history[0]["messages"][0]
+    assert system_msg.content == custom_system
+
+
+@pytest.mark.asyncio
+async def test_prompt_registry_render_error_falls_back() -> None:
+    """When render() raises ValueError, falls back to hardcoded."""
+    registry = _StubRegistry(
+        templates={"narrative.generate": "unused"},
+        raise_on_render=ValueError("missing var"),
+    )
+    llm = MockLLMClient()
+    state = _make_state()
+    deps = _make_deps(llm=llm)
+    deps.prompt_registry = registry  # type: ignore[assignment]
+
+    result = await generate_stage(state, deps)
+
+    # Should succeed with fallback, not crash
+    assert result.narrative_output is not None

@@ -337,6 +337,9 @@ Feature: Content Moderation v1
     And the player receives a gentle redirect message
     And a moderation event is logged with category "self_harm"
 
+  # [v2 — Streaming] v1 uses buffer-then-stream: output moderation runs on the
+  # complete generated text before SSE delivery. Token-level stream interruption
+  # requires true token-level streaming with inline moderation checks (v2).
   Scenario: AC-24.3 — Streaming output interrupted on detection
     Given a player is receiving narrative via SSE
     When the output moderation detects "graphic_violence" in the token stream

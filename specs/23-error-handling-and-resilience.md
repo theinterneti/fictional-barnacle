@@ -419,6 +419,9 @@ Feature: Error Handling & Resilience
     And the error code is "conflict"
     And the message indicates a turn is already in progress
 
+  # [v2 — Streaming] v1 uses buffer-then-stream: the full response is generated
+  # before SSE delivery begins, so mid-stream generation errors cannot occur.
+  # Mid-stream error injection requires true token-level streaming (v2).
   Scenario: AC-23.8 — SSE error event delivery
     Given a player is connected to the SSE stream
     When an error occurs during narrative streaming
