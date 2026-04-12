@@ -16,6 +16,10 @@ import structlog
 from tta.llm.client import LLMResponse, Message
 from tta.llm.errors import BudgetExceededError
 from tta.llm.roles import ModelRole
+from tta.observability.metrics import (
+    LLM_COST_TOTAL,
+    SESSION_COST_EXCEEDED,
+)
 from tta.pipeline.types import PipelineDeps
 from tta.privacy.cost import get_cost_tracker
 
@@ -38,6 +42,7 @@ async def guarded_llm_call(
             warn_pct=settings.session_cost_warn_pct,
         )
         if budget_status == "exceeded":
+            SESSION_COST_EXCEEDED.inc()
             raise BudgetExceededError(
                 "Session cost cap reached — please start a new session.",
                 model="",
@@ -48,6 +53,17 @@ async def guarded_llm_call(
                 session_id=tracker.session_id,
                 total_usd=tracker.session_total_usd,
                 cap_usd=settings.session_cost_cap_usd,
+            )
+        # Per-turn cost cap check (FR-07.21)
+        if tracker.turn_cost_usd >= settings.turn_cost_cap_usd:
+            _log.warning(
+                "turn_cost_cap_reached",
+                turn_cost=tracker.turn_cost_usd,
+                cap=settings.turn_cost_cap_usd,
+            )
+            raise BudgetExceededError(
+                "Turn cost cap reached — this turn used too many LLM calls.",
+                model="",
             )
 
     # --- LLM call with semaphore + circuit breaker ---
@@ -63,12 +79,27 @@ async def guarded_llm_call(
         response = await _call()
 
     # --- Post-call: record actual cost (FR-07.17) ---
+    # Prefer response.cost_usd from LiteLLM when available;
+    # fall back to estimate_cost() via tracker.record().
     tc = response.token_count
-    if tc.prompt_tokens or tc.completion_tokens:
-        tracker.record(
+    role_name = role.value if hasattr(role, "value") else str(role)
+
+    if response.cost_usd and response.cost_usd > 0:
+        # Use actual provider cost
+        tracker.record_actual(
+            model=response.model_used,
+            cost_usd=response.cost_usd,
+        )
+        LLM_COST_TOTAL.labels(model=response.model_used, role=role_name).inc(
+            response.cost_usd
+        )
+    elif tc.prompt_tokens or tc.completion_tokens:
+        # Fall back to estimation
+        estimated = tracker.record(
             model=response.model_used,
             prompt_tokens=tc.prompt_tokens,
             completion_tokens=tc.completion_tokens,
         )
+        LLM_COST_TOTAL.labels(model=response.model_used, role=role_name).inc(estimated)
 
     return response

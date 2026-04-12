@@ -186,6 +186,7 @@ class TestGuardedLLMCallCostEnforcement:
         settings = MagicMock()
         settings.session_cost_cap_usd = 1.0
         settings.session_cost_warn_pct = 0.8
+        settings.turn_cost_cap_usd = 0.10
 
         deps = MagicMock()
         deps.settings = settings
@@ -215,6 +216,7 @@ class TestGuardedLLMCallCostEnforcement:
         settings = MagicMock()
         settings.session_cost_cap_usd = 1.0
         settings.session_cost_warn_pct = 0.8
+        settings.turn_cost_cap_usd = 0.10
 
         mock_response = LLMResponse(
             content="hello",

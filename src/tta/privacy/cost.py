@@ -123,7 +123,7 @@ class LLMCostTracker:
         completion_tokens: int,
         pricing: dict[str, ModelPricing] | None = None,
     ) -> float:
-        """Record one LLM call's cost. Returns the estimated cost."""
+        """Record one LLM call's cost via estimation. Returns the cost."""
         cost = estimate_cost(model, prompt_tokens, completion_tokens, pricing)
         self._calls.append(
             {
@@ -138,6 +138,21 @@ class LLMCostTracker:
         # Push to Prometheus
         TURN_LLM_COST.labels(model=model).observe(cost)
         return cost
+
+    def record_actual(
+        self,
+        model: str,
+        cost_usd: float,
+    ) -> None:
+        """Record one LLM call using the actual provider cost."""
+        self._calls.append(
+            {
+                "model": model,
+                "cost_usd": cost_usd,
+            }
+        )
+        self._turn_cost_usd += cost_usd
+        TURN_LLM_COST.labels(model=model).observe(cost_usd)
 
     def check_session_budget(
         self,

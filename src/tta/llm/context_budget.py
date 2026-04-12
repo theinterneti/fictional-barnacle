@@ -6,9 +6,9 @@ Implements chunk-based priority fitting:
   P2 — world state / NPC context (~40 % budget)
   P3 — extended history / flavour (remainder)
 
-The budget fitter removes P3 first, then P2, and never touches P0.
-When chunks are dropped they are replaced with a one-line summary
-placeholder so the LLM knows information was elided.
+The budget fitter removes P3 first, then P2, and never touches P0/P1.
+Callers are responsible for replacing dropped chunks with a summary
+stub if FR-07.15 placeholder text is needed.
 """
 
 from __future__ import annotations
@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 
 import structlog
+
+from tta.observability.metrics import CONTEXT_CHUNKS_DROPPED
 
 _log = structlog.get_logger(__name__)
 
@@ -78,22 +80,23 @@ def fit_chunks_to_budget(
     # Sort by priority (P0 first) — stable sort keeps insertion order
     ordered = sorted(chunks, key=lambda c: c.priority)
 
-    kept: list[ContextChunk] = []
+    # Start with all chunks, then drop lowest-priority first (FR-07.13)
+    kept = list(ordered)
     dropped: list[str] = []
-    used = 0
+    used = sum(c.token_count for c in kept)
 
-    for chunk in ordered:
-        if chunk.priority <= Priority.P1:
-            # P0/P1 are always kept (FR-07.13: never truncate P0)
-            kept.append(chunk)
-            used += chunk.token_count
-        elif used + chunk.token_count <= budget_tokens:
-            kept.append(chunk)
-            used += chunk.token_count
-        else:
-            dropped.append(chunk.name)
+    for priority in (Priority.P3, Priority.P2):
+        idx = len(kept) - 1
+        while used > budget_tokens and idx >= 0:
+            chunk = kept[idx]
+            if chunk.priority == priority:
+                used -= chunk.token_count
+                dropped.append(chunk.name)
+                del kept[idx]
+            idx -= 1
 
     if dropped:
+        CONTEXT_CHUNKS_DROPPED.inc(len(dropped))
         _log.info(
             "context_chunks_dropped",
             dropped=dropped,
