@@ -258,9 +258,7 @@ async def app(integration_settings: Settings) -> AsyncIterator[Any]:
     # Bound the lifespan shutdown to prevent CI hangs — background tasks
     # (lifecycle_loop, etc.) can race with engine disposal on slow runners.
     try:
-        await asyncio.wait_for(
-            ctx.__aexit__(None, None, None), timeout=10.0
-        )
+        await asyncio.wait_for(ctx.__aexit__(None, None, None), timeout=10.0)
     except Exception:
         import logging
 
