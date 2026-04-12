@@ -261,7 +261,7 @@ async def app(integration_settings: Settings) -> AsyncIterator[Any]:
         await asyncio.wait_for(
             ctx.__aexit__(None, None, None), timeout=10.0
         )
-    except (asyncio.TimeoutError, Exception):
+    except Exception:
         import logging
 
         logging.getLogger(__name__).warning(
