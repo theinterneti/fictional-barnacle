@@ -93,7 +93,39 @@ _EXTRACTION_SYSTEM_PROMPT = (
 )
 
 
-_CONTEXT_META_KEYS = {"tone", "genre", "session_summary"}
+_CONTEXT_META_KEYS = {
+    "tone",
+    "genre",
+    "session_summary",
+    "npc_dialogue_contexts",
+    "active_companions",
+}
+
+
+def _build_npc_section(npc_contexts: list[dict]) -> str:
+    """Render a dedicated NPC prompt section for dialogue salience (S06 AC-6.5)."""
+    lines = ["NPCs in this scene:"]
+    for ctx in npc_contexts:
+        name = ctx.get("npc_name", "Unknown")
+        parts = [f"- {name}"]
+        if ctx.get("personality"):
+            parts.append(f"  Personality: {ctx['personality']}")
+        if ctx.get("voice"):
+            parts.append(f"  Voice: {ctx['voice']}")
+        if ctx.get("mannerisms"):
+            parts.append(f"  Mannerisms: {ctx['mannerisms']}")
+        if ctx.get("disposition"):
+            parts.append(f"  Disposition: {ctx['disposition']}")
+        if ctx.get("occupation"):
+            parts.append(f"  Occupation: {ctx['occupation']}")
+        # Revealed goals influence dialogue (S06 AC-6.6)
+        if ctx.get("goals_short"):
+            parts.append(
+                f"  {name} subtly steers conversation toward: {ctx['goals_short']}"
+            )
+        lines.extend(parts)
+    lines.append("Write each NPC's dialogue in their distinct voice and mannerisms.")
+    return "\n".join(lines)
 
 
 def _build_generation_prompt(state: TurnState) -> str:
@@ -168,6 +200,25 @@ def _build_generation_prompt(state: TurnState) -> str:
         parts.append(
             f"\nFading story threads to resolve naturally: {closure_text}. "
             "Briefly acknowledge their conclusion in passing."
+        )
+
+    # NPC dialogue salience (S06 AC-6.5, AC-6.6)
+    npc_contexts = wc.get("npc_dialogue_contexts")
+    if npc_contexts and isinstance(npc_contexts, list):
+        raw_ctxs = [
+            c.model_dump() if hasattr(c, "model_dump") else c for c in npc_contexts
+        ]
+        if raw_ctxs:
+            parts.append(f"\n{_build_npc_section(raw_ctxs)}")
+
+    # Companion presence (S06 AC-6.7)
+    companions = wc.get("active_companions")
+    if companions and isinstance(companions, list):
+        names = ", ".join(companions)
+        parts.append(
+            f"\nCompanion(s) present: {names}. "
+            "Include them naturally in the scene — they may comment, "
+            "react, assist, or offer perspective as fits their character."
         )
 
     parts.append(f"\nAim for {word_min}-{word_max} words.")
