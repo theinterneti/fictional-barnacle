@@ -92,10 +92,17 @@ _EXTRACTION_SYSTEM_PROMPT = (
 )
 
 
+_CONTEXT_META_KEYS = {"tone", "genre", "session_summary"}
+
+
 def _build_generation_prompt(state: TurnState) -> str:
     """Build the user prompt from pipeline state."""
     intent = state.parsed_intent.intent if state.parsed_intent else "unknown"
-    context_str = json.dumps(state.world_context or {}, default=str)
+
+    # Exclude meta keys from JSON dump to avoid duplication
+    wc = state.world_context or {}
+    context_data = {k: v for k, v in wc.items() if k not in _CONTEXT_META_KEYS}
+    context_str = json.dumps(context_data, default=str)
 
     # Adaptive word count from intent (S03 FR-4.2)
     word_min, word_max = INTENT_WORD_RANGES.get(intent, _DEFAULT_WORD_RANGE)
@@ -107,7 +114,6 @@ def _build_generation_prompt(state: TurnState) -> str:
     ]
 
     # Tone/genre injection (S03 FR-6.1)
-    wc = state.world_context or {}
     tone = wc.get("tone")
     genre = wc.get("genre")
     if tone or genre:
@@ -178,8 +184,8 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         narrative = response.content
     except (BudgetExceededError, AppError, PermanentLLMError):
         raise  # Non-transient — propagate immediately
-    except Exception:
-        # All retries exhausted — use fallback narrative
+    except (TransientLLMError, AllTiersFailedError):
+        # All retries exhausted — use graceful in-world fallback
         log.warning(
             "generation_fallback_activated",
             session_id=str(state.session_id),
@@ -267,6 +273,18 @@ def _resolve_system_prompt(deps: PipelineDeps) -> str:
     return _GENERATION_SYSTEM_PROMPT
 
 
+def _simplify_prompt(state: TurnState) -> str:
+    """Build a shorter prompt without world context JSON for retry tier 2."""
+    intent = state.parsed_intent.intent if state.parsed_intent else "unknown"
+    word_min, word_max = INTENT_WORD_RANGES.get(intent, _DEFAULT_WORD_RANGE)
+    return (
+        f"Player action: {state.player_input}\n"
+        f"Intent: {intent}\n"
+        f"Aim for {word_min}-{word_max} words.\n"
+        "Generate a narrative response."
+    )
+
+
 async def _llm_with_retries(
     messages: list[Message],
     deps: PipelineDeps,
@@ -275,7 +293,7 @@ async def _llm_with_retries(
     """Call LLM with retry cascade for transient failures (S03 FR-8).
 
     Tier 1: retry with same messages
-    Tier 2: retry with simplified context (system + user only)
+    Tier 2: retry with simplified prompt (no world context JSON)
     Raises on non-transient or all-tiers-exhausted errors.
     """
     last_exc: Exception | None = None
@@ -291,10 +309,14 @@ async def _llm_with_retries(
                 session_id=str(state.session_id),
                 error=str(exc),
             )
-            # Tier 2: simplify context on second retry
-            if attempt == 0 and len(messages) > 2:
-                messages = [messages[0], messages[-1]]
-        except (BudgetExceededError, AppError):
+            # Tier 2: simplify prompt on second retry
+            if attempt == 0:
+                simplified = _simplify_prompt(state)
+                messages = [
+                    messages[0],
+                    Message(role=MessageRole.USER, content=simplified),
+                ]
+        except (BudgetExceededError, AppError, PermanentLLMError):
             raise
         except Exception as exc:
             # Classify unknown exceptions
@@ -312,8 +334,9 @@ async def _llm_with_retries(
                 continue
             raise
 
-    # All retries exhausted
-    raise last_exc or RuntimeError("All generation retries exhausted")
+    # All retries exhausted — wrap as AllTiersFailedError for consistent handling
+    errors = [last_exc] if last_exc else []
+    raise AllTiersFailedError(ModelRole.GENERATION, errors)
 
 
 async def _extract_world_changes(
