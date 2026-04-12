@@ -11,7 +11,14 @@ import json
 
 import structlog
 
-from tta.llm.client import Message, MessageRole
+from tta.api.errors import AppError
+from tta.llm.client import LLMResponse, Message, MessageRole
+from tta.llm.errors import (
+    AllTiersFailedError,
+    BudgetExceededError,
+    PermanentLLMError,
+    TransientLLMError,
+)
 from tta.llm.roles import ModelRole
 from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
@@ -19,12 +26,57 @@ from tta.pipeline.types import PipelineDeps
 
 log = structlog.get_logger()
 
+# --- Narrator prompt: hard constraints vs soft guidance (S03 FR-1, FR-4) ---
+
+_NARRATOR_CONSTRAINTS = (
+    "Hard constraints (never violate):\n"
+    "- Write in second person present tense\n"
+    "- Never break the fourth wall or reference being an AI/game\n"
+    "- Never expose game mechanics, stats, or dice rolls\n"
+    "- Maintain consistency with established world facts\n"
+    "- Never narrate player thoughts or decisions for them"
+)
+
+_NARRATOR_GUIDANCE = (
+    "Narrative quality guidance:\n"
+    "- Engage at least two senses per scene (sight + sound/smell/touch)\n"
+    "- Prefer active voice and concrete verbs over passive constructions\n"
+    "- Show, don't tell — reveal character through action, not exposition\n"
+    "- Avoid purple prose — favor clarity over ornate descriptions\n"
+    "- Avoid info-dumping — weave world details naturally into action"
+)
+
 _GENERATION_SYSTEM_PROMPT = (
     "You are a narrative game engine. "
     "Write immersive second-person prose responding to the player's "
-    "action within the current world context. "
-    "Keep responses concise (2-4 paragraphs)."
+    "action within the current world context.\n\n"
+    f"{_NARRATOR_CONSTRAINTS}\n\n"
+    f"{_NARRATOR_GUIDANCE}"
 )
+
+# --- Adaptive word counts by intent (S03 FR-4.2, AC-3.8) ---
+
+INTENT_WORD_RANGES: dict[str, tuple[int, int]] = {
+    "move": (80, 150),
+    "examine": (150, 300),
+    "talk": (100, 250),
+    "use": (80, 200),
+    "meta": (50, 100),
+    "other": (100, 200),
+}
+
+_DEFAULT_WORD_RANGE = (100, 200)
+
+# --- Graceful fallback narrative (S03 FR-8.1, FR-8.2) ---
+
+_FALLBACK_NARRATIVE = (
+    "A strange stillness settles over the world around you. "
+    "The air shimmers briefly, as though reality itself drew a breath. "
+    "After a moment, everything steadies — "
+    "the world is still here, waiting for your next move."
+)
+
+_MAX_TRANSIENT_RETRIES = 2
 
 _EXTRACTION_SYSTEM_PROMPT = (
     "Extract world state changes and suggested actions from the narrative. "
@@ -40,15 +92,43 @@ _EXTRACTION_SYSTEM_PROMPT = (
 )
 
 
+_CONTEXT_META_KEYS = {"tone", "genre", "session_summary"}
+
+
 def _build_generation_prompt(state: TurnState) -> str:
     """Build the user prompt from pipeline state."""
     intent = state.parsed_intent.intent if state.parsed_intent else "unknown"
-    context_str = json.dumps(state.world_context or {}, default=str)
+
+    # Exclude meta keys from JSON dump to avoid duplication
+    wc = state.world_context or {}
+    context_data = {k: v for k, v in wc.items() if k not in _CONTEXT_META_KEYS}
+    context_str = json.dumps(context_data, default=str)
+
+    # Adaptive word count from intent (S03 FR-4.2)
+    word_min, word_max = INTENT_WORD_RANGES.get(intent, _DEFAULT_WORD_RANGE)
+
     parts = [
         f"Player action: {state.player_input}",
         f"Intent: {intent}",
         f"World context: {context_str}",
     ]
+
+    # Tone/genre injection (S03 FR-6.1)
+    tone = wc.get("tone")
+    genre = wc.get("genre")
+    if tone or genre:
+        style_parts = []
+        if tone:
+            style_parts.append(f"tone: {tone}")
+        if genre:
+            style_parts.append(f"genre: {genre}")
+        parts.append(f"\nNarrative style: {', '.join(style_parts)}")
+
+    # Session summary for long-game continuity (S03 FR-3.2)
+    summary = wc.get("session_summary")
+    if summary:
+        parts.append(f"\nStory so far: {summary}")
+
     if state.consequence_hints:
         hints = "; ".join(state.consequence_hints)
         parts.append(
@@ -56,12 +136,19 @@ def _build_generation_prompt(state: TurnState) -> str:
         )
     if state.active_consequences:
         parts.append(f"\nActive consequence chains: {len(state.active_consequences)}")
-    parts.append("\nGenerate a narrative response.")
+
+    parts.append(f"\nAim for {word_min}-{word_max} words.")
+    parts.append("Generate a narrative response.")
     return "\n".join(parts)
 
 
 async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
-    """Generate narrative and extract world changes."""
+    """Generate narrative and extract world changes.
+
+    Implements a 3-tier retry cascade for transient LLM failures
+    (S03 FR-8.1, FR-8.2). Non-transient failures (safety, budget,
+    moderation) are never retried.
+    """
     # 1. Build generation prompt
     prompt = _build_generation_prompt(state)
     state = state.model_copy(update={"generation_prompt": prompt})
@@ -81,50 +168,50 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             }
         )
 
-    # 3. Call LLM for narrative generation
-    # Use prompt registry for SYSTEM message if available.
-    # Keep SYSTEM message free of user input to reduce prompt-injection risk.
-    gen_system = _GENERATION_SYSTEM_PROMPT
-    if deps.prompt_registry and deps.prompt_registry.has("narrative.generate"):
-        try:
-            rendered = deps.prompt_registry.render("narrative.generate", {})
-            gen_system = rendered.text
-        except (KeyError, ValueError):
-            log.warning("generation_template_render_failed", exc_info=True)
-
+    # 3. Call LLM with transient-failure retry cascade
+    gen_system = _resolve_system_prompt(deps)
     messages = [
         Message(role=MessageRole.SYSTEM, content=gen_system),
         Message(role=MessageRole.USER, content=prompt),
     ]
-    response = await guarded_llm_call(deps, ModelRole.GENERATION, messages)
+
+    narrative: str | None = None
+    degraded = False
+    response: LLMResponse | None = None
+
+    try:
+        response = await _llm_with_retries(messages, deps, state)
+        narrative = response.content
+    except (BudgetExceededError, AppError, PermanentLLMError):
+        raise  # Non-transient — propagate immediately
+    except (TransientLLMError, AllTiersFailedError):
+        # All retries exhausted — use graceful in-world fallback
+        log.warning(
+            "generation_fallback_activated",
+            session_id=str(state.session_id),
+            exc_info=True,
+        )
+        narrative = _FALLBACK_NARRATIVE
+        degraded = True
 
     # 4. Post-generation safety check
-    safety_post = await deps.safety_post_gen.post_generation_check(
-        response.content, state
-    )
+    safety_post = await deps.safety_post_gen.post_generation_check(narrative, state)
     if not safety_post.safe:
         log.warning(
             "safety_blocked_post_gen",
             session_id=str(state.session_id),
             flags=safety_post.flags,
         )
-        # Buffer-then-stream moderation: the full LLM output is
-        # moderated before any SSE events are sent to the client.
-        # On block the redirect narrative replaces the original
-        # content (AC-24.2) and the SSE layer emits a ModerationEvent.
         if safety_post.modified_content:
             import hashlib
 
-            content_hash = hashlib.sha256(response.content.encode()).hexdigest()
-            # Log content_hash for audit correlation (FR-24.14).
-            # Raw content is stored only in moderation_records DB
-            # via ModerationRecorder, not in general logs.
+            content_hash = hashlib.sha256(narrative.encode()).hexdigest()
             log.warning(
                 "moderation_blocked_output",
                 session_id=str(state.session_id),
                 flags=safety_post.flags,
                 content_hash=content_hash,
-                blocked_content_length=len(response.content),
+                blocked_content_length=len(narrative),
             )
             return state.model_copy(
                 update={
@@ -140,26 +227,116 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             }
         )
 
-    narrative = safety_post.modified_content or response.content
+    narrative = safety_post.modified_content or narrative
 
-    # 5. Extract world changes + suggested actions via LLM
+    # 5. Extract world changes (skip on degraded turns)
+    if degraded:
+        log.info(
+            "extraction_skipped_degraded",
+            session_id=str(state.session_id),
+        )
+        return state.model_copy(
+            update={
+                "narrative_output": narrative,
+                "model_used": "fallback",
+                "world_state_updates": list(state.world_state_updates or []),
+                "suggested_actions": None,
+            }
+        )
+
     world_updates, suggestions = await _extract_world_changes(
         narrative, state.player_input, deps
     )
 
-    # Merge consequence-originated updates with extraction-originated ones
     prior = list(state.world_state_updates or [])
     merged = prior + (world_updates or [])
 
     return state.model_copy(
         update={
             "narrative_output": narrative,
-            "model_used": response.model_used,
-            "token_count": response.token_count,
+            "model_used": response.model_used if response else "fallback",
+            "token_count": response.token_count if response else None,
             "world_state_updates": merged if merged else [],
             "suggested_actions": suggestions or None,
         }
     )
+
+
+def _resolve_system_prompt(deps: PipelineDeps) -> str:
+    """Resolve generation system prompt from registry or default."""
+    if deps.prompt_registry and deps.prompt_registry.has("narrative.generate"):
+        try:
+            rendered = deps.prompt_registry.render("narrative.generate", {})
+            return rendered.text
+        except (KeyError, ValueError):
+            log.warning("generation_template_render_failed", exc_info=True)
+    return _GENERATION_SYSTEM_PROMPT
+
+
+def _simplify_prompt(state: TurnState) -> str:
+    """Build a shorter prompt without world context JSON for retry tier 2."""
+    intent = state.parsed_intent.intent if state.parsed_intent else "unknown"
+    word_min, word_max = INTENT_WORD_RANGES.get(intent, _DEFAULT_WORD_RANGE)
+    return (
+        f"Player action: {state.player_input}\n"
+        f"Intent: {intent}\n"
+        f"Aim for {word_min}-{word_max} words.\n"
+        "Generate a narrative response."
+    )
+
+
+async def _llm_with_retries(
+    messages: list[Message],
+    deps: PipelineDeps,
+    state: TurnState,
+) -> LLMResponse:
+    """Call LLM with retry cascade for transient failures (S03 FR-8).
+
+    Tier 1: retry with same messages
+    Tier 2: retry with simplified prompt (no world context JSON)
+    Raises on non-transient or all-tiers-exhausted errors.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_TRANSIENT_RETRIES + 1):
+        try:
+            return await guarded_llm_call(deps, ModelRole.GENERATION, messages)
+        except (TransientLLMError, AllTiersFailedError) as exc:
+            last_exc = exc
+            log.warning(
+                "generation_retry",
+                attempt=attempt + 1,
+                max_retries=_MAX_TRANSIENT_RETRIES,
+                session_id=str(state.session_id),
+                error=str(exc),
+            )
+            # Tier 2: simplify prompt on second retry
+            if attempt == 0:
+                simplified = _simplify_prompt(state)
+                messages = [
+                    messages[0],
+                    Message(role=MessageRole.USER, content=simplified),
+                ]
+        except (BudgetExceededError, AppError, PermanentLLMError):
+            raise
+        except Exception as exc:
+            # Classify unknown exceptions
+            from tta.llm.errors import classify_error
+
+            err_cls = classify_error(exc)
+            if err_cls is TransientLLMError:
+                last_exc = exc
+                log.warning(
+                    "generation_retry_classified",
+                    attempt=attempt + 1,
+                    session_id=str(state.session_id),
+                    error=str(exc),
+                )
+                continue
+            raise
+
+    # All retries exhausted — wrap as AllTiersFailedError for consistent handling
+    errors = [last_exc] if last_exc else []
+    raise AllTiersFailedError(ModelRole.GENERATION, errors)
 
 
 async def _extract_world_changes(

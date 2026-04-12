@@ -65,6 +65,12 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         }
         context_partial = True
 
+    # Inject tone/genre from world seed (S03 FR-6.1)
+    world_context = _inject_tone(world_context, state)
+
+    # Inject existing session summary (S03 FR-3.2)
+    world_context = _inject_summary(world_context, state)
+
     # Enrich with NPC dialogue contexts (S06 FR-6)
     world_context = await _enrich_npc_dialogue(world_context, state, deps)
 
@@ -97,6 +103,31 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         update["active_consequences"] = active_consequence_chains
 
     return state.model_copy(update=update)
+
+
+def _inject_tone(world_context: dict, state: TurnState) -> dict:
+    """Add tone from world seed to context (S03 FR-6.1)."""
+    world_seed = state.game_state.get("world_seed")
+    if isinstance(world_seed, dict):
+        tone = world_seed.get("tone")
+        if tone:
+            world_context["tone"] = tone
+        genre = world_seed.get("genre")
+        if genre:
+            world_context["genre"] = genre
+    return world_context
+
+
+def _inject_summary(world_context: dict, state: TurnState) -> dict:
+    """Add existing session summary to context (S03 FR-3.2).
+
+    Reuses the summary already persisted by ContextSummaryService
+    via the game routes — no new persistence path.
+    """
+    summary = state.game_state.get("summary")
+    if summary:
+        world_context["session_summary"] = summary
+    return world_context
 
 
 async def _enrich_npc_dialogue(
