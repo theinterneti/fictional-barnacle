@@ -112,7 +112,12 @@ class TestPlayerRegistration:
         """POST /players returns 201 with player_id and session_token."""
         resp = await client.post(
             "/api/v1/players",
-            json={"handle": "integration-hero"},
+            json={
+                "handle": "integration-hero",
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {"core_gameplay": True, "llm_processing": True},
+            },
         )
         assert resp.status_code == 201
         data = resp.json()["data"]
@@ -128,11 +133,21 @@ class TestPlayerRegistration:
         """Registering the same handle twice returns 409."""
         await client.post(
             "/api/v1/players",
-            json={"handle": "unique-hero"},
+            json={
+                "handle": "unique-hero",
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {"core_gameplay": True, "llm_processing": True},
+            },
         )
         resp = await client.post(
             "/api/v1/players",
-            json={"handle": "unique-hero"},
+            json={
+                "handle": "unique-hero",
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {"core_gameplay": True, "llm_processing": True},
+            },
         )
         assert resp.status_code == 409
 
@@ -323,16 +338,19 @@ class TestErrorHandling:
         )
         assert resp.status_code == 404
 
-    async def test_empty_input_rejected(
+    async def test_empty_input_returns_nudge(
         self,
         auth_client: httpx.AsyncClient,
         auth_headers: dict[str, str],
     ) -> None:
-        """Submitting blank input returns 422."""
+        """Submitting blank input returns a narrative nudge (S01 AC-1.2)."""
         game_id = await _create_game(auth_client, auth_headers)
         resp = await auth_client.post(
             f"/api/v1/games/{game_id}/turns",
             json={"input": "   "},
             headers=auth_headers,
         )
-        assert resp.status_code == 422
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["type"] == "nudge"
+        assert isinstance(data["message"], str)

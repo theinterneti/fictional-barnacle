@@ -253,6 +253,14 @@ async def app(integration_settings: Settings) -> AsyncIterator[Any]:
     async with application.router.lifespan_context(application):
         yield application
 
+    # Force-shutdown Langfuse daemon threads to prevent teardown hangs
+    try:
+        from tta.observability.langfuse import shutdown_langfuse
+
+        shutdown_langfuse()
+    except Exception:
+        pass
+
 
 @pytest.fixture()
 async def client(app: Any) -> AsyncIterator[AsyncClient]:
@@ -276,7 +284,12 @@ async def registered_player(
     handle = f"test-player-{uuid.uuid4().hex[:8]}"
     resp = await client.post(
         "/api/v1/players",
-        json={"handle": handle},
+        json={
+            "handle": handle,
+            "age_13_plus_confirmed": True,
+            "consent_version": "1.0",
+            "consent_categories": {"core_gameplay": True, "llm_processing": True},
+        },
     )
     assert resp.status_code == 201, resp.text
     data = resp.json()["data"]
