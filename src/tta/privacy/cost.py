@@ -2,12 +2,16 @@
 
 Provides per-model pricing tables, cost estimation, and a session-level
 cost tracker that feeds into Prometheus metrics and Langfuse metadata.
+
+Pricing can be overridden via ``config/llm_pricing.yml`` (AC-30).
 """
 
 from __future__ import annotations
 
 import contextvars
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import structlog
 
@@ -53,6 +57,84 @@ _DEFAULT_PRICING: dict[str, ModelPricing] = {
         completion_cost_per_1m=1.25,
     ),
 }
+
+# --- YAML pricing loader (AC-30) ---
+_cached_pricing: dict[str, ModelPricing] | None = None
+_cached_pricing_path: str | None = None
+
+
+def load_pricing_yaml(path: str | None) -> dict[str, ModelPricing]:
+    """Load model pricing from a YAML file, with caching.
+
+    Falls back to ``_DEFAULT_PRICING`` if *path* is ``None``, the file
+    is missing, or the YAML is malformed.  The result is cached so the
+    file is only read once per process (including fallback results, to
+    avoid repeated filesystem checks and log spam).
+
+    Expected YAML format per FR-15.35::
+
+        llm_pricing:
+          model_name:
+            prompt_per_1k_tokens: 0.00015
+            completion_per_1k_tokens: 0.0006
+    """
+    global _cached_pricing, _cached_pricing_path  # noqa: PLW0603
+
+    if path is None:
+        return _DEFAULT_PRICING
+
+    if _cached_pricing is not None and _cached_pricing_path == path:
+        return _cached_pricing
+
+    resolved = Path(path)
+    if not resolved.is_file():
+        _log.warning("pricing_yaml_not_found", path=path)
+        # Cache the fallback so we don't re-check the filesystem
+        _cached_pricing = _DEFAULT_PRICING
+        _cached_pricing_path = path
+        return _DEFAULT_PRICING
+
+    try:
+        import yaml  # lazy import — yaml may not be available in tests
+
+        raw: Any = yaml.safe_load(resolved.read_text())
+        if not isinstance(raw, dict):
+            raise ValueError("expected top-level dict")
+
+        # FR-15.35: top-level key is 'llm_pricing'
+        models_dict = raw.get("llm_pricing", raw)
+        if not isinstance(models_dict, dict):
+            raise ValueError("llm_pricing must be a dict")
+
+        result: dict[str, ModelPricing] = {}
+        for model, vals in models_dict.items():
+            if not isinstance(vals, dict):
+                continue
+            # FR-15.35: keys are prompt_per_1k_tokens / completion_per_1k_tokens
+            prompt_1k = float(vals.get("prompt_per_1k_tokens", 0))
+            completion_1k = float(vals.get("completion_per_1k_tokens", 0))
+            result[str(model)] = ModelPricing(
+                model=str(model),
+                prompt_cost_per_1m=prompt_1k * 1000,
+                completion_cost_per_1m=completion_1k * 1000,
+            )
+        _cached_pricing = result
+        _cached_pricing_path = path
+        _log.info("pricing_yaml_loaded", path=path, models=len(result))
+        return result
+    except Exception:
+        _log.warning("pricing_yaml_invalid", path=path, exc_info=True)
+        # Cache the fallback so we don't re-read a bad file
+        _cached_pricing = _DEFAULT_PRICING
+        _cached_pricing_path = path
+        return _DEFAULT_PRICING
+
+
+def clear_pricing_cache() -> None:
+    """Reset cached pricing — primarily for testing."""
+    global _cached_pricing, _cached_pricing_path  # noqa: PLW0603
+    _cached_pricing = None
+    _cached_pricing_path = None
 
 
 def estimate_cost(
