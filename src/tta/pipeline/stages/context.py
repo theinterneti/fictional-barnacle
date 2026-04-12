@@ -13,7 +13,11 @@ from tta.models.turn import TurnState
 from tta.models.world import NPC
 from tta.pipeline.types import PipelineDeps
 from tta.world.dialogue import build_dialogue_contexts_for_location
-from tta.world.relationship_service import RelationshipService
+from tta.world.relationship_service import (
+    COMPANION_AFFINITY_THRESHOLD,
+    COMPANION_TRUST_THRESHOLD,
+    RelationshipService,
+)
 from tta.world.state import get_full_context
 
 log = structlog.get_logger()
@@ -172,10 +176,6 @@ def _inject_summary(world_context: dict, state: TurnState) -> dict:
     return world_context
 
 
-_COMPANION_TRUST_THRESHOLD = 30
-_COMPANION_AFFINITY_THRESHOLD = 20
-
-
 def _identify_companions(world_context: dict) -> dict:
     """Tag NPCs meeting companion thresholds (S06 AC-6.7).
 
@@ -193,8 +193,8 @@ def _identify_companions(world_context: dict) -> dict:
         if (
             trust is not None
             and affinity is not None
-            and trust >= _COMPANION_TRUST_THRESHOLD
-            and affinity >= _COMPANION_AFFINITY_THRESHOLD
+            and trust > COMPANION_TRUST_THRESHOLD
+            and affinity > COMPANION_AFFINITY_THRESHOLD
         ):
             name = obj.get("npc_name", obj.get("npc_id", ""))
             if name:

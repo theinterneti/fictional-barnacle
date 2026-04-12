@@ -190,6 +190,20 @@ class TestCompanionPresence:
         result = _identify_companions(wc)
         assert "active_companions" not in result
 
+    def test_companion_boundary_at_threshold_not_eligible(self):
+        """Exactly at threshold should NOT qualify (strict >)."""
+        wc = {
+            "npc_dialogue_contexts": [
+                {
+                    "npc_name": "Borderline",
+                    "relationship_trust": 30,
+                    "relationship_affinity": 20,
+                }
+            ]
+        }
+        result = _identify_companions(wc)
+        assert "active_companions" not in result
+
     def test_companion_in_generation_prompt(self):
         state = _make_turn_state(world_context={"active_companions": ["Lyra"]})
         prompt = _build_generation_prompt(state)

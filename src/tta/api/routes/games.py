@@ -751,6 +751,11 @@ async def _build_relationships_response(
                 entity_id="player",
             )
         except Exception:
+            log.warning(
+                "runtime relationship lookup failed; falling back to template NPCs",
+                session_id=str(game_id),
+                exc_info=True,
+            )
             rels = []
         if rels:
             lines = ["People you know:"]
