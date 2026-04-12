@@ -88,23 +88,35 @@ def record_llm_generation(
     cost_usd: float,
     otel_trace_id: str | None = None,
 ) -> None:
-    """Record a single LLM call as a Langfuse trace + generation.
+    """Record a single LLM call as a Langfuse generation on a per-turn trace.
 
     Called from ``guarded_llm_call()`` after each LLM call completes.
-    Applies the same privacy guarantees as ``@trace_llm``:
+
+    **Hierarchy (FR-15.18)**: Session → Trace (per turn) → Generation (per call).
+    Traces are keyed by ``turn_id`` from structlog context so that all
+    generations within the same turn attach to one trace.
+
+    Privacy guarantees (same as ``@trace_llm``):
     - PII fields stripped from messages (AC-3)
     - Player IDs pseudonymized (FR-15.21)
+    - Full prompt/completion stored in Langfuse (FR-15.17/FR-15.33)
     - Langfuse errors are swallowed with throttled warnings (EC-15.5)
     """
     if _langfuse_client is None:
         return
 
     ctx = _get_context_ids()
+    turn_id = ctx.get("turn_id")
+
+    # FR-15.18: reuse a per-turn trace (keyed by turn_id) so that
+    # multiple LLM calls within one turn share the same trace.
     trace_kwargs: dict[str, Any] = {
-        "name": name,
+        "name": f"turn-{turn_id}" if turn_id else name,
         "tags": [role],
         "metadata": {"correlation_id": ctx.get("correlation_id")},
     }
+    if turn_id:
+        trace_kwargs["id"] = turn_id
     if ctx.get("session_id"):
         trace_kwargs["session_id"] = ctx["session_id"]
     if otel_trace_id:
@@ -141,8 +153,8 @@ def record_llm_generation(
             "cost_usd": cost_usd,
         },
     }
-    if ctx.get("turn_id"):
-        gen["metadata"]["turn_id"] = ctx["turn_id"]
+    if turn_id:
+        gen["metadata"]["turn_id"] = turn_id
     if otel_trace_id:
         gen["metadata"]["otel_trace_id"] = otel_trace_id
 
@@ -156,10 +168,11 @@ def record_llm_generation(
             "output": getattr(tc, "completion_tokens", None),
             "total": getattr(tc, "total_tokens", None),
         }
+    # FR-15.17/FR-15.33: store full prompt and completion (no truncation)
     if hasattr(result, "content"):
-        gen["output"] = _sanitize_error(str(result.content)[:500])
+        gen["output"] = str(result.content)
     else:
-        gen["output"] = str(result)[:500]
+        gen["output"] = str(result)
 
     try:
         trace_obj.generation(**gen)

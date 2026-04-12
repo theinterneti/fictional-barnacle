@@ -68,7 +68,15 @@ def load_pricing_yaml(path: str | None) -> dict[str, ModelPricing]:
 
     Falls back to ``_DEFAULT_PRICING`` if *path* is ``None``, the file
     is missing, or the YAML is malformed.  The result is cached so the
-    file is only read once per process.
+    file is only read once per process (including fallback results, to
+    avoid repeated filesystem checks and log spam).
+
+    Expected YAML format per FR-15.35::
+
+        llm_pricing:
+          model_name:
+            prompt_per_1k_tokens: 0.00015
+            completion_per_1k_tokens: 0.0006
     """
     global _cached_pricing, _cached_pricing_path  # noqa: PLW0603
 
@@ -81,6 +89,9 @@ def load_pricing_yaml(path: str | None) -> dict[str, ModelPricing]:
     resolved = Path(path)
     if not resolved.is_file():
         _log.warning("pricing_yaml_not_found", path=path)
+        # Cache the fallback so we don't re-check the filesystem
+        _cached_pricing = _DEFAULT_PRICING
+        _cached_pricing_path = path
         return _DEFAULT_PRICING
 
     try:
@@ -90,14 +101,22 @@ def load_pricing_yaml(path: str | None) -> dict[str, ModelPricing]:
         if not isinstance(raw, dict):
             raise ValueError("expected top-level dict")
 
+        # FR-15.35: top-level key is 'llm_pricing'
+        models_dict = raw.get("llm_pricing", raw)
+        if not isinstance(models_dict, dict):
+            raise ValueError("llm_pricing must be a dict")
+
         result: dict[str, ModelPricing] = {}
-        for model, vals in raw.items():
+        for model, vals in models_dict.items():
             if not isinstance(vals, dict):
                 continue
+            # FR-15.35: keys are prompt_per_1k_tokens / completion_per_1k_tokens
+            prompt_1k = float(vals.get("prompt_per_1k_tokens", 0))
+            completion_1k = float(vals.get("completion_per_1k_tokens", 0))
             result[str(model)] = ModelPricing(
                 model=str(model),
-                prompt_cost_per_1m=float(vals.get("prompt", 0)),
-                completion_cost_per_1m=float(vals.get("completion", 0)),
+                prompt_cost_per_1m=prompt_1k * 1000,
+                completion_cost_per_1m=completion_1k * 1000,
             )
         _cached_pricing = result
         _cached_pricing_path = path
@@ -105,6 +124,9 @@ def load_pricing_yaml(path: str | None) -> dict[str, ModelPricing]:
         return result
     except Exception:
         _log.warning("pricing_yaml_invalid", path=path, exc_info=True)
+        # Cache the fallback so we don't re-read a bad file
+        _cached_pricing = _DEFAULT_PRICING
+        _cached_pricing_path = path
         return _DEFAULT_PRICING
 
 

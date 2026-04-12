@@ -21,7 +21,9 @@ import pytest
 
 from tta.observability.daily_cost import (
     get_daily_costs,
+    get_daily_turns,
     record_daily_cost,
+    record_daily_turn,
     reset_daily_costs,
 )
 from tta.privacy.cost import (
@@ -54,23 +56,29 @@ def test_load_pricing_yaml_valid_file(tmp_path: Path):
     yml = tmp_path / "pricing.yml"
     yml.write_text(
         textwrap.dedent("""\
-        openai/gpt-4o:
-          prompt: 2.50
-          completion: 10.00
-        groq/llama3:
-          prompt: 0.10
-          completion: 0.20
+        llm_pricing:
+          openai/gpt-4o:
+            prompt_per_1k_tokens: 0.0025
+            completion_per_1k_tokens: 0.01
+          groq/llama3:
+            prompt_per_1k_tokens: 0.0001
+            completion_per_1k_tokens: 0.0002
     """)
     )
     result = load_pricing_yaml(str(yml))
     assert "openai/gpt-4o" in result
+    # per_1k * 1000 = per_1M
     assert result["openai/gpt-4o"].prompt_cost_per_1m == 2.50
     assert result["groq/llama3"].completion_cost_per_1m == 0.20
 
 
 def test_load_pricing_yaml_caches_result(tmp_path: Path):
     yml = tmp_path / "pricing.yml"
-    yml.write_text("openai/gpt-4o:\n  prompt: 2.50\n  completion: 10.00\n")
+    yml.write_text(
+        "llm_pricing:\n  openai/gpt-4o:\n"
+        "    prompt_per_1k_tokens: 0.0025\n"
+        "    completion_per_1k_tokens: 0.01\n"
+    )
     r1 = load_pricing_yaml(str(yml))
     r2 = load_pricing_yaml(str(yml))
     assert r1 is r2  # same object — cached
@@ -85,7 +93,11 @@ def test_load_pricing_yaml_malformed_returns_defaults(tmp_path: Path):
 
 def test_load_pricing_yaml_models_are_model_pricing(tmp_path: Path):
     yml = tmp_path / "p.yml"
-    yml.write_text("m1:\n  prompt: 1.0\n  completion: 2.0\n")
+    yml.write_text(
+        "llm_pricing:\n  m1:\n"
+        "    prompt_per_1k_tokens: 0.001\n"
+        "    completion_per_1k_tokens: 0.002\n"
+    )
     result = load_pricing_yaml(str(yml))
     assert isinstance(result["m1"], ModelPricing)
     assert result["m1"].model == "m1"
@@ -120,8 +132,17 @@ def test_record_daily_cost_ignores_zero():
 
 def test_reset_daily_costs_clears():
     record_daily_cost("m", 1.0)
+    record_daily_turn()
     reset_daily_costs()
     assert get_daily_costs() == {}
+    assert get_daily_turns() == 0
+
+
+def test_record_daily_turn_increments():
+    record_daily_turn()
+    record_daily_turn()
+    record_daily_turn()
+    assert get_daily_turns() == 3
 
 
 @pytest.mark.asyncio
@@ -130,6 +151,8 @@ async def test_daily_cost_summary_loop_emits_log():
     from tta.observability.daily_cost import daily_cost_summary_loop
 
     record_daily_cost("openai/gpt-4o", 0.50)
+    record_daily_turn()
+    record_daily_turn()
 
     with patch(
         "tta.observability.daily_cost._seconds_until_midnight_utc",
@@ -143,8 +166,44 @@ async def test_daily_cost_summary_loop_emits_log():
         except asyncio.CancelledError:
             pass
 
-    # After the loop fired, costs should be reset
+    # After the loop fired, costs and turns should be reset
     assert get_daily_costs() == {}
+    assert get_daily_turns() == 0
+
+
+def test_record_llm_generation_no_output_truncation():
+    """FR-15.17/FR-15.33: full content is sent to Langfuse, not truncated."""
+    from tta.observability.langfuse import record_llm_generation
+
+    mock_client = MagicMock()
+    mock_trace = MagicMock()
+    mock_client.trace.return_value = mock_trace
+
+    long_content = "x" * 2000  # > 500 chars to verify no truncation
+
+    with (
+        patch("tta.observability.langfuse._langfuse_client", mock_client),
+        patch(
+            "tta.observability.langfuse._get_context_ids",
+            return_value={
+                "correlation_id": None,
+                "session_id": None,
+                "turn_id": None,
+                "player_id": None,
+            },
+        ),
+    ):
+        record_llm_generation(
+            name="test",
+            role="gen",
+            messages=[],
+            result=_make_llm_response(content=long_content),
+            latency_ms=10,
+            cost_usd=0.0,
+        )
+
+    gen_kwargs = mock_trace.generation.call_args[1]
+    assert gen_kwargs["output"] == long_content  # full, not truncated
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +278,9 @@ def test_record_llm_generation_calls_langfuse():
 
     mock_client.trace.assert_called_once()
     trace_kwargs = mock_client.trace.call_args[1]
-    assert trace_kwargs["name"] == "pipeline.generation"
+    # FR-15.18: trace keyed by turn_id, name is "turn-<turn_id>"
+    assert trace_kwargs["name"] == "turn-turn-1"
+    assert trace_kwargs["id"] == "turn-1"
     assert trace_kwargs["metadata"]["otel_trace_id"] == "abc123"
 
     mock_trace.generation.assert_called_once()

@@ -29,7 +29,7 @@ from tta.observability.metrics import (
 )
 from tta.observability.tracing import current_trace_id
 from tta.pipeline.types import PipelineDeps
-from tta.privacy.cost import get_cost_tracker
+from tta.privacy.cost import get_cost_tracker, load_pricing_yaml
 
 _log = structlog.get_logger(__name__)
 
@@ -111,17 +111,23 @@ async def guarded_llm_call(
                 response.cost_usd
             )
         elif tc.prompt_tokens or tc.completion_tokens:
+            pricing_path = settings.llm_pricing_path if settings is not None else None
+            pricing_table = load_pricing_yaml(pricing_path)
             cost_usd = tracker.record(
                 model=response.model_used,
                 prompt_tokens=tc.prompt_tokens,
                 completion_tokens=tc.completion_tokens,
+                pricing=pricing_table,
             )
             LLM_COST_TOTAL.labels(model=response.model_used, role=role_name).inc(
                 cost_usd
             )
 
-        # Set OTel span attributes (AC-10)
-        llm_span.set_attribute("llm.model", response.model_used)
+        # Set OTel span attributes (AC-10, FR-15.15)
+        model_name = response.model_used
+        provider = model_name.split("/")[0] if "/" in model_name else "unknown"
+        llm_span.set_attribute("llm.model", model_name)
+        llm_span.set_attribute("llm.provider", provider)
         llm_span.set_attribute("llm.tokens.prompt", tc.prompt_tokens)
         llm_span.set_attribute("llm.tokens.completion", tc.completion_tokens)
         llm_span.set_attribute("llm.cost_usd", cost_usd)

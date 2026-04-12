@@ -1,35 +1,37 @@
-# LLM model pricing — cost per 1 million tokens (USD).
-# Update without code deploy per S15 AC-30.
+# LLM model pricing — cost per 1k tokens (USD).
+# Update without code deploy per S15 FR-15.35.
 #
-# Format:
-#   model_name:
-#     prompt: <cost per 1M prompt tokens>
-#     completion: <cost per 1M completion tokens>
+# Format per spec:
+#   llm_pricing:
+#     model_name:
+#       prompt_per_1k_tokens: <cost>
+#       completion_per_1k_tokens: <cost>
 
-openai/gpt-4o-mini:
-  prompt: 0.15
-  completion: 0.60
+llm_pricing:
+  openai/gpt-4o-mini:
+    prompt_per_1k_tokens: 0.00015
+    completion_per_1k_tokens: 0.0006
 
-openai/gpt-4o:
-  prompt: 2.50
-  completion: 10.00
+  openai/gpt-4o:
+    prompt_per_1k_tokens: 0.0025
+    completion_per_1k_tokens: 0.01
 
-openai/gpt-4-turbo:
-  prompt: 10.00
-  completion: 30.00
+  openai/gpt-4-turbo:
+    prompt_per_1k_tokens: 0.01
+    completion_per_1k_tokens: 0.03
 
-anthropic/claude-3-5-sonnet:
-  prompt: 3.00
-  completion: 15.00
+  anthropic/claude-3-5-sonnet:
+    prompt_per_1k_tokens: 0.003
+    completion_per_1k_tokens: 0.015
 
-anthropic/claude-3-haiku:
-  prompt: 0.25
-  completion: 1.25
+  anthropic/claude-3-haiku:
+    prompt_per_1k_tokens: 0.00025
+    completion_per_1k_tokens: 0.00125
 
-groq/llama-3.3-70b-versatile:
-  prompt: 0.59
-  completion: 0.79
+  groq/llama-3.3-70b-versatile:
+    prompt_per_1k_tokens: 0.00059
+    completion_per_1k_tokens: 0.00079
 
-groq/llama-3.1-8b-instant:
-  prompt: 0.05
-  completion: 0.08
+  groq/llama-3.1-8b-instant:
+    prompt_per_1k_tokens: 0.00005
+    completion_per_1k_tokens: 0.00008

@@ -15,6 +15,7 @@ from opentelemetry import trace
 
 from tta.logging import bind_context
 from tta.models.turn import TurnState, TurnStatus
+from tta.observability.daily_cost import record_daily_turn
 from tta.observability.metrics import TURN_DURATION, TURN_TOTAL
 from tta.observability.tracing import get_tracer, set_span_error
 from tta.pipeline.stages.context import context_stage
@@ -69,6 +70,8 @@ async def run_pipeline(
             "tta.turn_number": state.turn_number or 0,
         },
     ) as pipeline_span:
+        # FR-15.37: count turns for daily cost summary
+        record_daily_turn()
         try:
             async with asyncio.timeout(config.overall_timeout_seconds):
                 for stage_config in config.stages:
