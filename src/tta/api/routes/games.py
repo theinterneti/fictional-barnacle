@@ -8,6 +8,7 @@ import json
 import random
 import time
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
@@ -611,6 +612,7 @@ async def _execute_command(
     pg: AsyncSession,
     *,
     template_registry: object | None = None,
+    relationship_service: Any | None = None,
 ) -> dict:
     """Execute a known slash command and return response payload."""
     if cmd == "help":
@@ -651,7 +653,12 @@ async def _execute_command(
         return _build_character_response(row)
 
     if cmd == "relationships":
-        return _build_relationships_response(row, template_registry=template_registry)
+        return await _build_relationships_response(
+            row,
+            game_id=game_id,
+            template_registry=template_registry,
+            relationship_service=relationship_service,
+        )
 
     if cmd == "end":
         return await _execute_end_command(game_id, row, pg)
@@ -660,7 +667,10 @@ async def _execute_command(
 
 
 def _build_character_response(row: object) -> dict:
-    """Build response for /character command from persisted world_seed dict."""
+    """Build response for /character command from persisted world_seed dict.
+
+    Shows all available character and world fields richly (S06 AC-6.1).
+    """
     ws_raw = getattr(row, "world_seed", None)
     if not ws_raw or not isinstance(ws_raw, dict):
         return {
@@ -672,10 +682,27 @@ def _build_character_response(row: object) -> dict:
     prefs = ws_raw.get("preferences", {})
     name = prefs.get("character_name") or "Unknown"
     concept = prefs.get("character_concept") or "A wanderer with no known past"
+    parts = [f"Character: {name}", f"  Concept: {concept}"]
+
     tone = prefs.get("tone")
-    parts = [f"Character: {name}", f"  {concept}"]
     if tone:
         parts.append(f"  Tone: {tone}")
+    genre = prefs.get("genre")
+    if genre:
+        parts.append(f"  Genre: {genre}")
+    defining = prefs.get("defining_detail")
+    if defining:
+        parts.append(f"  Defining detail: {defining}")
+    tech = prefs.get("tech_level")
+    if tech:
+        parts.append(f"  Tech level: {tech}")
+    magic = prefs.get("magic_presence")
+    if magic:
+        parts.append(f"  Magic: {magic}")
+    scale = prefs.get("world_scale")
+    if scale:
+        parts.append(f"  World scale: {scale}")
+
     return {
         "type": "command",
         "command": "character",
@@ -683,12 +710,31 @@ def _build_character_response(row: object) -> dict:
     }
 
 
-def _build_relationships_response(
+def _dimension_label(value: int, positive: str, negative: str) -> str:
+    """Map a dimension value to a narrative descriptor."""
+    if value >= 60:
+        return f"very {positive}"
+    if value >= 30:
+        return positive
+    if value >= -10:
+        return "neutral"
+    if value >= -40:
+        return negative
+    return f"very {negative}"
+
+
+async def _build_relationships_response(
     row: object,
     *,
+    game_id: UUID | None = None,
     template_registry: object | None = None,
+    relationship_service: Any | None = None,
 ) -> dict:
-    """Build response for /relationships command using template NPCs."""
+    """Build response for /relationships command.
+
+    Prefers runtime relationship dimensions from RelationshipService.
+    Falls back to template NPC list when no runtime data exists (S06 AC-6.3).
+    """
     ws_raw = getattr(row, "world_seed", None)
     if not ws_raw or not isinstance(ws_raw, dict):
         return {
@@ -696,6 +742,37 @@ def _build_relationships_response(
             "command": "relationships",
             "message": "You haven't met anyone yet.",
         }
+
+    # Try runtime relationships first
+    if relationship_service and game_id:
+        try:
+            rels = await relationship_service.get_relationships_for(
+                session_id=game_id,
+                entity_id="player",
+            )
+        except Exception:
+            rels = []
+        if rels:
+            lines = ["People you know:"]
+            for rel in rels:
+                name = rel.target_id.replace("_", " ").title()
+                d = rel.dimensions
+                parts = [
+                    _dimension_label(d.trust, "trusting", "wary"),
+                    _dimension_label(d.affinity, "warm", "cold"),
+                    _dimension_label(d.respect, "respectful", "dismissive"),
+                ]
+                if d.fear > 20:
+                    parts.append("fearful" if d.fear < 60 else "very fearful")
+                desc = ", ".join(parts)
+                lines.append(f"  {name} — {desc}")
+            return {
+                "type": "command",
+                "command": "relationships",
+                "message": "\n".join(lines),
+            }
+
+    # Fallback: template NPCs
     template_key = ws_raw.get("genesis", {}).get("template_key")
     if not template_key or not template_registry:
         return {
@@ -1246,12 +1323,18 @@ async def submit_turn(
         known_cmd = _parse_slash_command(normalized)
         if known_cmd:
             reg = getattr(request.app.state, "template_registry", None)
+            rel_svc = getattr(
+                getattr(request.app.state, "pipeline_deps", None),
+                "relationship_service",
+                None,
+            )
             payload = await _execute_command(
                 known_cmd,
                 game_id,
                 row,
                 pg,
                 template_registry=reg,
+                relationship_service=rel_svc,
             )
         else:
             payload = {

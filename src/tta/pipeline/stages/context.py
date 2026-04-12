@@ -74,6 +74,9 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     # Enrich with NPC dialogue contexts (S06 FR-6)
     world_context = await _enrich_npc_dialogue(world_context, state, deps)
 
+    # Identify active companions from NPC dialogue contexts (S06 AC-6.7)
+    world_context = _identify_companions(world_context)
+
     # Enrich with active consequence data (S05 FR-3)
     world_context = await _enrich_consequences(world_context, state, deps)
 
@@ -166,6 +169,38 @@ def _inject_summary(world_context: dict, state: TurnState) -> dict:
     summary = state.game_state.get("summary")
     if summary:
         world_context["session_summary"] = summary
+    return world_context
+
+
+_COMPANION_TRUST_THRESHOLD = 30
+_COMPANION_AFFINITY_THRESHOLD = 20
+
+
+def _identify_companions(world_context: dict) -> dict:
+    """Tag NPCs meeting companion thresholds (S06 AC-6.7).
+
+    Reads trust/affinity from npc_dialogue_contexts and stores qualifying
+    NPC names in world_context['active_companions'].
+    """
+    npc_ctxs = world_context.get("npc_dialogue_contexts")
+    if not npc_ctxs:
+        return world_context
+    companions: list[str] = []
+    for ctx in npc_ctxs:
+        obj = ctx.model_dump() if hasattr(ctx, "model_dump") else ctx
+        trust = obj.get("relationship_trust")
+        affinity = obj.get("relationship_affinity")
+        if (
+            trust is not None
+            and affinity is not None
+            and trust >= _COMPANION_TRUST_THRESHOLD
+            and affinity >= _COMPANION_AFFINITY_THRESHOLD
+        ):
+            name = obj.get("npc_name", obj.get("npc_id", ""))
+            if name:
+                companions.append(name)
+    if companions:
+        world_context["active_companions"] = companions
     return world_context
 
 
