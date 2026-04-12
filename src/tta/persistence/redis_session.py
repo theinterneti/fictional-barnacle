@@ -7,6 +7,7 @@ hot-path avoids a Postgres round-trip on every turn.
 from __future__ import annotations
 
 import time
+from collections.abc import Awaitable, Callable
 from uuid import UUID
 
 import structlog
@@ -41,11 +42,14 @@ async def get_active_session(
     return GameState.model_validate_json(raw)
 
 
+LoadFromSQL = Callable[[UUID], Awaitable[GameState | None]]
+
+
 async def get_or_reconstruct_session(
     redis: Redis,
     session_id: UUID,
     *,
-    load_from_sql: object = None,
+    load_from_sql: LoadFromSQL | None = None,
 ) -> GameState | None:
     """Get session from cache, falling back to SQL reconstruction.
 
@@ -65,7 +69,7 @@ async def get_or_reconstruct_session(
         return None
 
     start = time.monotonic()
-    state = await load_from_sql(session_id)  # type: ignore[operator]
+    state = await load_from_sql(session_id)
     elapsed = time.monotonic() - start
     CACHE_RECONSTRUCTION_DURATION.observe(elapsed)
 

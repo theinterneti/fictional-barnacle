@@ -32,7 +32,7 @@ class TestAuditTtlCompliance:
             result = await audit_ttl_compliance(mock_redis)
 
         assert result == {}
-        gauge.set.assert_called_once_with(0)
+        gauge.labels.assert_not_called()
 
     async def test_key_without_ttl_detected(self, mock_redis: AsyncMock) -> None:
         """Keys returning TTL=-1 are reported as violations."""
@@ -51,7 +51,8 @@ class TestAuditTtlCompliance:
             result = await audit_ttl_compliance(mock_redis)
 
         assert result == {"tta:session": 1}
-        gauge.set.assert_called_once_with(1)
+        gauge.labels.assert_called_once_with(prefix="tta:session")
+        gauge.labels.return_value.set.assert_called_once_with(1)
 
     async def test_empty_keyspace(self, mock_redis: AsyncMock) -> None:
         """No keys at all is fine — zero violations."""
@@ -61,7 +62,7 @@ class TestAuditTtlCompliance:
             result = await audit_ttl_compliance(mock_redis)
 
         assert result == {}
-        gauge.set.assert_called_once_with(0)
+        gauge.labels.assert_not_called()
 
     async def test_multi_batch_scan(self, mock_redis: AsyncMock) -> None:
         """Handles paginated SCAN results across multiple batches."""
@@ -80,5 +81,6 @@ class TestAuditTtlCompliance:
             result = await audit_ttl_compliance(mock_redis)
 
         assert result == {"tta:turn_result": 1}
-        gauge.set.assert_called_once_with(1)
+        gauge.labels.assert_called_once_with(prefix="tta:turn_result")
+        gauge.labels.return_value.set.assert_called_once_with(1)
         assert mock_redis.scan.call_count == 2

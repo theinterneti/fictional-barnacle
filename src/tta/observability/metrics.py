@@ -274,6 +274,7 @@ CACHE_RECONSTRUCTION_DURATION = Histogram(
 REDIS_KEYS_WITHOUT_TTL = Gauge(
     "tta_redis_keys_without_ttl",
     "Redis keys missing a TTL in the tta: namespace",
+    labelnames=["prefix"],
     registry=REGISTRY,
 )
 

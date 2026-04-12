@@ -25,8 +25,9 @@ _DEFAULT_INTERVAL_S = 1800  # 30 minutes
 async def audit_ttl_compliance(redis: Redis) -> dict[str, int]:
     """Scan tta:* keys and return counts of TTL-less keys per prefix.
 
-    Returns a dict like ``{"tta:session": 2, "tta:turn_result": 0}``.
-    Updates the ``tta_redis_keys_without_ttl`` gauge.
+    Returns only prefixes with one or more missing TTLs, for example
+    ``{"tta:session": 2}``.  Updates the ``tta_redis_keys_without_ttl``
+    gauge (one label per prefix).
     """
     missing: dict[str, int] = defaultdict(int)
     total_missing = 0
@@ -61,7 +62,8 @@ async def audit_ttl_compliance(redis: Redis) -> dict[str, int]:
         else:
             await asyncio.sleep(0)
 
-    REDIS_KEYS_WITHOUT_TTL.set(total_missing)
+    for prefix, count in missing.items():
+        REDIS_KEYS_WITHOUT_TTL.labels(prefix=prefix).set(count)
     if total_missing > 0:
         log.warning(
             "redis_ttl_audit_violations",
