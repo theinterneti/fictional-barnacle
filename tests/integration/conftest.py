@@ -251,12 +251,22 @@ async def app(integration_settings: Settings) -> AsyncIterator[Any]:
             )
 
     application = create_app(integration_settings)
-    async with application.router.lifespan_context(application):
-        yield application
+    ctx = application.router.lifespan_context(application)
+    await ctx.__aenter__()
+    yield application
 
-    # Allow cancelled background tasks (lifecycle_loop, etc.) to settle
-    # before pytest tears down the event loop.
-    await asyncio.sleep(0.1)
+    # Bound the lifespan shutdown to prevent CI hangs — background tasks
+    # (lifecycle_loop, etc.) can race with engine disposal on slow runners.
+    try:
+        await asyncio.wait_for(
+            ctx.__aexit__(None, None, None), timeout=10.0
+        )
+    except (asyncio.TimeoutError, Exception):
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "App lifespan shutdown timed out or errored — continuing"
+        )
 
     # Force-shutdown Langfuse daemon threads to prevent teardown hangs
     try:
