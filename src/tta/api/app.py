@@ -306,9 +306,19 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     metrics_task = start_pool_metrics_sampler(app)
 
+    # Start daily LLM cost summary task (S15 AC-31)
+    from tta.observability.daily_cost import daily_cost_summary_loop
+
+    daily_cost_task = asyncio.create_task(daily_cost_summary_loop())
+
     yield
 
     # --- Shutdown ---
+    daily_cost_task.cancel()
+    try:
+        await daily_cost_task
+    except asyncio.CancelledError:
+        pass
     metrics_task.cancel()
     try:
         await metrics_task

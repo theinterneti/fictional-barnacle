@@ -4,6 +4,10 @@ Provides conditional Langfuse initialization (no-op when unconfigured)
 and a ``@trace_llm`` decorator that records input, output, model,
 latency, token counts, and estimated cost for every LLM call.
 
+Also exposes ``record_llm_generation()`` for imperative use from
+``guarded_llm_call()`` — same privacy/resilience guarantees as the
+decorator but callable from non-decorator contexts (S15 §4).
+
 Privacy: PII is sanitized before trace/generation creation (S17 / AC-3).
 Traces carry session_id and correlation_id for cross-system linking (S15 §7).
 Player IDs are pseudonymized via SHA-256 hash (FR-15.21).
@@ -72,6 +76,95 @@ def shutdown_langfuse() -> None:
     """Flush pending events and shut down the Langfuse client."""
     if _langfuse_client is not None:
         _langfuse_client.flush()
+
+
+def record_llm_generation(
+    *,
+    name: str,
+    role: str,
+    messages: list[Any],
+    result: Any,
+    latency_ms: int,
+    cost_usd: float,
+    otel_trace_id: str | None = None,
+) -> None:
+    """Record a single LLM call as a Langfuse trace + generation.
+
+    Called from ``guarded_llm_call()`` after each LLM call completes.
+    Applies the same privacy guarantees as ``@trace_llm``:
+    - PII fields stripped from messages (AC-3)
+    - Player IDs pseudonymized (FR-15.21)
+    - Langfuse errors are swallowed with throttled warnings (EC-15.5)
+    """
+    if _langfuse_client is None:
+        return
+
+    ctx = _get_context_ids()
+    trace_kwargs: dict[str, Any] = {
+        "name": name,
+        "tags": [role],
+        "metadata": {"correlation_id": ctx.get("correlation_id")},
+    }
+    if ctx.get("session_id"):
+        trace_kwargs["session_id"] = ctx["session_id"]
+    if otel_trace_id:
+        trace_kwargs["metadata"]["otel_trace_id"] = otel_trace_id
+
+    player_id = ctx.get("player_id")
+    if player_id:
+        trace_kwargs["user_id"] = pseudonymize_player_id(str(player_id))
+
+    try:
+        trace_obj = _langfuse_client.trace(**trace_kwargs)
+    except Exception:
+        _warn_langfuse_error("langfuse_trace_failed", name=name)
+        return
+
+    # Build generation kwargs using the LLMResponse
+    sanitized_input = [
+        {
+            k: v
+            for k, v in (
+                m if isinstance(m, dict) else {"role": m.role, "content": m.content}
+            ).items()
+            if k not in _PII_FIELDS
+        }
+        for m in messages
+    ]
+
+    gen: dict[str, Any] = {
+        "name": name,
+        "input": sanitized_input,
+        "metadata": {
+            "latency_ms": latency_ms,
+            "correlation_id": ctx.get("correlation_id"),
+            "cost_usd": cost_usd,
+        },
+    }
+    if ctx.get("turn_id"):
+        gen["metadata"]["turn_id"] = ctx["turn_id"]
+    if otel_trace_id:
+        gen["metadata"]["otel_trace_id"] = otel_trace_id
+
+    # Extract model and tokens from LLMResponse
+    if hasattr(result, "model_used"):
+        gen["model"] = result.model_used
+    if hasattr(result, "token_count"):
+        tc = result.token_count
+        gen["usage"] = {
+            "input": getattr(tc, "prompt_tokens", None),
+            "output": getattr(tc, "completion_tokens", None),
+            "total": getattr(tc, "total_tokens", None),
+        }
+    if hasattr(result, "content"):
+        gen["output"] = _sanitize_error(str(result.content)[:500])
+    else:
+        gen["output"] = str(result)[:500]
+
+    try:
+        trace_obj.generation(**gen)
+    except Exception:
+        _warn_langfuse_error("langfuse_generation_failed", name=name)
 
 
 def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]

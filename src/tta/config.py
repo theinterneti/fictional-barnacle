@@ -116,6 +116,7 @@ class Settings(BaseSettings):
 
     # Cost tracking (S15 §4 US-15.11)
     daily_llm_cost_alert_usd: float = 50.0
+    llm_pricing_path: str | None = None
 
     # Rate limiting (S25 §3.2)
     rate_limit_enabled: bool = True
