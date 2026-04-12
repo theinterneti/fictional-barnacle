@@ -238,8 +238,9 @@ class TestPruneChains:
     @pytest.mark.asyncio
     async def test_no_prune_under_limit(self, svc, session_id) -> None:
         await svc.create_chain(session_id, "Only one", turn=0)
-        pruned = await svc.prune_chains(session_id, 10)
-        assert len(pruned) == 0
+        pruned_ids, closures = await svc.prune_chains(session_id, 10)
+        assert len(pruned_ids) == 0
+        assert len(closures) == 0
 
     @pytest.mark.asyncio
     async def test_resolved_pruned_first(self, svc, session_id) -> None:
@@ -252,8 +253,8 @@ class TestPruneChains:
             entry = ConsequenceEntry(chain_id=uuid4(), trigger=f"t{i}", effect=f"e{i}")
             await svc.create_chain(session_id, f"active_{i}", entries=[entry], turn=0)
         # 3 active + 1 resolved. Prune to max 2 active.
-        pruned = await svc.prune_chains(session_id, 10, max_chains=2)
-        assert len(pruned) == 1
+        pruned_ids, closures = await svc.prune_chains(session_id, 10, max_chains=2)
+        assert len(pruned_ids) == 1
 
     @pytest.mark.asyncio
     async def test_dormant_detection(self, svc, session_id) -> None:

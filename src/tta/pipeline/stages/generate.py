@@ -20,6 +20,7 @@ from tta.llm.errors import (
     TransientLLMError,
 )
 from tta.llm.roles import ModelRole
+from tta.models.choice import Reversibility
 from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
 from tta.pipeline.types import PipelineDeps
@@ -134,8 +135,40 @@ def _build_generation_prompt(state: TurnState) -> str:
         parts.append(
             f"\nSubtle foreshadowing (weave naturally, do not state directly): {hints}"
         )
+
+    # Consequence narrative surfacing (S05 AC-5.1)
     if state.active_consequences:
-        parts.append(f"\nActive consequence chains: {len(state.active_consequences)}")
+        descs = [c.root_trigger for c in state.active_consequences if not c.is_resolved]
+        if descs:
+            joined = "; ".join(descs[:5])
+            parts.append(
+                f"\nConsequences manifesting: {joined}. "
+                "Weave these effects naturally into the scene — "
+                "show their impact through environment and character reactions."
+            )
+
+    # Permanent choice signals (S05 AC-5.4)
+    cc = state.choice_classification
+    if cc and cc.reversibility == Reversibility.PERMANENT:
+        parts.append(
+            "\nThis is a PERMANENT, irreversible choice. "
+            "Signal its gravity through the environment: "
+            "a charged atmosphere, NPC reactions that convey finality, "
+            "environmental weight, and irreversible stakes. "
+            "Do NOT narrate the player's internal thoughts or decisions."
+        )
+
+    # Divergence steering (S05 AC-5.10)
+    if state.divergence_guidance:
+        parts.append(f"\n{state.divergence_guidance}")
+
+    # Dormant chain closure hints (S05 AC-5.8)
+    if state.pruned_chain_closures:
+        closure_text = "; ".join(state.pruned_chain_closures[:3])
+        parts.append(
+            f"\nFading story threads to resolve naturally: {closure_text}. "
+            "Briefly acknowledge their conclusion in passing."
+        )
 
     parts.append(f"\nAim for {word_min}-{word_max} words.")
     parts.append("Generate a narrative response.")
