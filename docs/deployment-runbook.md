@@ -111,11 +111,96 @@ docker compose restart tta-api
 
 ### Database Backup
 
+**Targets (from S12 spec):** RPO ≤ 1 hour, RTO ≤ 4 hours.
+
+#### Automated Backup (cron)
+
 ```bash
-# PostgreSQL dump
+# /etc/cron.d/tta-backup — runs hourly to meet RPO ≤ 1h
+0 * * * * root docker compose -f /opt/tta/docker-compose.yml \
+  exec -T tta-postgres pg_dump -U tta --format=custom tta \
+  | gzip > /opt/tta/backups/tta_$(date +\%Y\%m\%d_\%H\%M).dump.gz
+```
+
+#### Manual Backup
+
+```bash
+# PostgreSQL custom-format dump (recommended)
+docker compose exec tta-postgres \
+  pg_dump -U tta --format=custom tta > backup_$(date +%Y%m%d).dump
+
+# Plain SQL (human-readable, larger)
 docker compose exec tta-postgres \
   pg_dump -U tta tta > backup_$(date +%Y%m%d).sql
 ```
+
+#### Neo4j Backup (if enabled)
+
+```bash
+# Stop Neo4j, dump, restart
+docker compose stop tta-neo4j
+docker compose run --rm tta-neo4j \
+  neo4j-admin database dump neo4j --to-path=/backups
+docker compose start tta-neo4j
+```
+
+### Database Restore
+
+#### PostgreSQL Restore
+
+```bash
+# 1. Stop the API to prevent writes
+docker compose stop tta-api
+
+# 2. Drop and recreate the database
+docker compose exec tta-postgres \
+  psql -U tta -c "DROP DATABASE IF EXISTS tta;"
+docker compose exec tta-postgres \
+  psql -U tta -c "CREATE DATABASE tta;"
+
+# 3a. Restore from custom-format dump (recommended)
+docker compose exec -T tta-postgres \
+  pg_restore -U tta -d tta < backup_20250101.dump
+
+# 3b. OR restore from plain SQL
+docker compose exec -T tta-postgres \
+  psql -U tta tta < backup_20250101.sql
+
+# 4. Run pending migrations
+docker compose exec tta-api uv run alembic upgrade head
+
+# 5. Restart the API
+docker compose start tta-api
+
+# 6. Verify: check game count matches expectations
+docker compose exec tta-postgres \
+  psql -U tta -c "SELECT COUNT(*) FROM game_sessions;"
+```
+
+#### Neo4j Restore (if enabled)
+
+```bash
+docker compose stop tta-neo4j
+docker compose run --rm tta-neo4j \
+  neo4j-admin database load neo4j --from-path=/backups --overwrite-destination
+docker compose start tta-neo4j
+```
+
+#### Redis Cache
+
+Redis is ephemeral. After restoring PostgreSQL, the cache self-populates on
+first access. If needed, restart Redis to flush stale data:
+
+```bash
+docker compose restart tta-redis
+```
+
+#### Verification Checklist
+
+1. API health endpoint responds: `curl http://localhost:8000/api/v1/health`
+2. Game count matches pre-backup count
+3. Recent turns are present for active sessions
+4. Prometheus metrics are being collected: `curl http://localhost:8000/metrics`
 
 ### Database Migration
 

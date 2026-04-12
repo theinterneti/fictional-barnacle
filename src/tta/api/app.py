@@ -311,9 +311,22 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     daily_cost_task = asyncio.create_task(daily_cost_summary_loop())
 
+    # Start Redis TTL compliance monitor (S12 AC-12.12)
+    from tta.persistence.redis_health import ttl_monitor_loop
+
+    ttl_monitor_task: asyncio.Task[None] | None = None
+    if app.state.redis is not None:
+        ttl_monitor_task = asyncio.create_task(ttl_monitor_loop(app.state.redis))
+
     yield
 
     # --- Shutdown ---
+    if ttl_monitor_task is not None:
+        ttl_monitor_task.cancel()
+        try:
+            await ttl_monitor_task
+        except asyncio.CancelledError:
+            pass
     daily_cost_task.cancel()
     try:
         await daily_cost_task

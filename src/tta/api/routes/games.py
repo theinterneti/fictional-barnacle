@@ -45,6 +45,7 @@ from tta.observability.metrics import (
     SESSION_DURATION,
     SESSION_TURNS,
     SESSIONS_ACTIVE,
+    TURN_STORAGE_OPS_DURATION,
 )
 from tta.pipeline.orchestrator import run_pipeline
 from tta.privacy.cost import get_cost_tracker, reset_cost_tracker
@@ -952,7 +953,7 @@ async def create_game(
         {
             "id": game_id,
             "pid": player.id,
-            "status": GameStatus.active.value,
+            "status": GameStatus.created.value,
             "seed": json.dumps(world_seed_json),
             "now": now,
         },
@@ -1386,7 +1387,8 @@ async def submit_turn(
                 ).model_dump(mode="json")
             }
 
-    # Create turn
+    # Create turn — track storage latency (AC-12.07)
+    _storage_t0 = time.monotonic()
     turn_id = uuid4()
     turn_number = await _get_max_turn_number(pg, game_id) + 1
     now = datetime.now(UTC)
@@ -1427,6 +1429,9 @@ async def submit_turn(
         )
 
     await pg.commit()
+    TURN_STORAGE_OPS_DURATION.labels(operation="turn_insert").observe(
+        time.monotonic() - _storage_t0
+    )
 
     # Dispatch pipeline as background task
     game_state = row.world_seed if row.world_seed else {}

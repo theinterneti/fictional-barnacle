@@ -209,6 +209,74 @@ REDIS_OPERATIONS = Counter(
     registry=REGISTRY,
 )
 
+# -- S12 Persistence metrics -----------------------------------------------
+
+# AC-12.05: Redis cache read/write latency (p95 < 5 ms target)
+REDIS_CACHE_BUCKETS = (
+    0.0005,
+    0.001,
+    0.0025,
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+)
+
+REDIS_CACHE_READ_DURATION = Histogram(
+    "tta_redis_cache_read_duration_seconds",
+    "Redis cache read latency",
+    ["operation"],
+    buckets=REDIS_CACHE_BUCKETS,
+    registry=REGISTRY,
+)
+
+REDIS_CACHE_WRITE_DURATION = Histogram(
+    "tta_redis_cache_write_duration_seconds",
+    "Redis cache write latency",
+    ["operation"],
+    buckets=REDIS_CACHE_BUCKETS,
+    registry=REGISTRY,
+)
+
+# AC-12.07: Turn storage ops latency (p95 < 200 ms target)
+STORAGE_OPS_BUCKETS = (
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.2,
+    0.5,
+)
+
+TURN_STORAGE_OPS_DURATION = Histogram(
+    "tta_turn_storage_ops_duration_seconds",
+    "Turn storage operations duration (SQL + cache)",
+    ["operation"],
+    buckets=STORAGE_OPS_BUCKETS,
+    registry=REGISTRY,
+)
+
+# AC-12.02: Cache reconstruction metrics
+CACHE_RECONSTRUCTION_TOTAL = Counter(
+    "tta_cache_reconstruction_total",
+    "Cache reconstruction events after Redis miss",
+    registry=REGISTRY,
+)
+
+CACHE_RECONSTRUCTION_DURATION = Histogram(
+    "tta_cache_reconstruction_duration_seconds",
+    "Cache reconstruction duration",
+    buckets=STORAGE_OPS_BUCKETS,
+    registry=REGISTRY,
+)
+
+# AC-12.12: Redis TTL compliance
+REDIS_KEYS_WITHOUT_TTL = Gauge(
+    "tta_redis_keys_without_ttl",
+    "Redis keys missing a TTL in the tta: namespace",
+    registry=REGISTRY,
+)
+
 # -- LLM semaphore metrics (S28 FR-28.11) ---------------------------------
 
 LLM_SEMAPHORE_ACTIVE = Gauge(
