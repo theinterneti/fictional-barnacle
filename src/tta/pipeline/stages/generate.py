@@ -14,6 +14,7 @@ import structlog
 from tta.llm.client import Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.models.turn import TurnState, TurnStatus
+from tta.pipeline.llm_guard import guarded_llm_call
 from tta.pipeline.types import PipelineDeps
 
 log = structlog.get_logger()
@@ -43,12 +44,20 @@ def _build_generation_prompt(state: TurnState) -> str:
     """Build the user prompt from pipeline state."""
     intent = state.parsed_intent.intent if state.parsed_intent else "unknown"
     context_str = json.dumps(state.world_context or {}, default=str)
-    return (
-        f"Player action: {state.player_input}\n"
-        f"Intent: {intent}\n"
-        f"World context: {context_str}\n\n"
-        "Generate a narrative response."
-    )
+    parts = [
+        f"Player action: {state.player_input}",
+        f"Intent: {intent}",
+        f"World context: {context_str}",
+    ]
+    if state.consequence_hints:
+        hints = "; ".join(state.consequence_hints)
+        parts.append(
+            f"\nSubtle foreshadowing (weave naturally, do not state directly): {hints}"
+        )
+    if state.active_consequences:
+        parts.append(f"\nActive consequence chains: {len(state.active_consequences)}")
+    parts.append("\nGenerate a narrative response.")
+    return "\n".join(parts)
 
 
 async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
@@ -73,11 +82,21 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         )
 
     # 3. Call LLM for narrative generation
+    # Use prompt registry for SYSTEM message if available.
+    # Keep SYSTEM message free of user input to reduce prompt-injection risk.
+    gen_system = _GENERATION_SYSTEM_PROMPT
+    if deps.prompt_registry and deps.prompt_registry.has("narrative.generate"):
+        try:
+            rendered = deps.prompt_registry.render("narrative.generate", {})
+            gen_system = rendered.text
+        except (KeyError, ValueError):
+            log.warning("generation_template_render_failed", exc_info=True)
+
     messages = [
-        Message(role=MessageRole.SYSTEM, content=_GENERATION_SYSTEM_PROMPT),
+        Message(role=MessageRole.SYSTEM, content=gen_system),
         Message(role=MessageRole.USER, content=prompt),
     ]
-    response = await deps.llm.generate(role=ModelRole.GENERATION, messages=messages)
+    response = await guarded_llm_call(deps, ModelRole.GENERATION, messages)
 
     # 4. Post-generation safety check
     safety_post = await deps.safety_post_gen.post_generation_check(
@@ -128,12 +147,16 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         narrative, state.player_input, deps
     )
 
+    # Merge consequence-originated updates with extraction-originated ones
+    prior = list(state.world_state_updates or [])
+    merged = prior + (world_updates or [])
+
     return state.model_copy(
         update={
             "narrative_output": narrative,
             "model_used": response.model_used,
             "token_count": response.token_count,
-            "world_state_updates": world_updates,
+            "world_state_updates": merged if merged else [],
             "suggested_actions": suggestions or None,
         }
     )
@@ -157,7 +180,7 @@ async def _extract_world_changes(
         ),
     ]
     try:
-        response = await deps.llm.generate(role=ModelRole.EXTRACTION, messages=messages)
+        response = await guarded_llm_call(deps, ModelRole.EXTRACTION, messages)
         parsed = json.loads(response.content)
 
         # New format: {"world_changes": [...], "suggested_actions": [...]}

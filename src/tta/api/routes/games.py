@@ -32,6 +32,7 @@ from tta.models.events import (
     KeepaliveEvent,
     ModerationEvent,
     NarrativeBlockEvent,
+    ThinkingEvent,
     TurnCompleteEvent,
     TurnStartEvent,
 )
@@ -1341,6 +1342,9 @@ async def stream_turn(
             turn_id=current_turn_id,
             turn_number=current_turn_number,
         ).format_sse(counter.next_id())
+
+        # Signal that the pipeline is processing
+        yield ThinkingEvent().format_sse(counter.next_id())
 
         # FR-23.22: keepalive loop while waiting for pipeline result
         store = request.app.state.turn_result_store

@@ -399,7 +399,11 @@ transforms query results into narrative.
   the world model provides the narrative engine with: current entities present,
   environmental conditions, time of day, and active events — within 200ms.
 
-- **AC-4.2**: Given a player sets fire to a building, when the turn resolves, then
+- > **[v2 — Cascading State]** Requires a world-tick engine that propagates state
+  > changes across entities. v1 tracks world_changes from LLM output but does not
+  > cascade effects to nearby entities autonomously.
+
+  **AC-4.2**: Given a player sets fire to a building, when the turn resolves, then
   the building's state changes to "burning," nearby NPC behaviors change, and
   subsequent turns reflect the fire's progression.
 
@@ -407,18 +411,29 @@ transforms query results into narrative.
   arrive, then the Diff query returns all state changes that occurred during their
   absence, and the narrative reflects those changes.
 
-- **AC-4.4**: Given a player travels to an ungenerated region, when they arrive, then
+- > **[v2 — Region Generation]** Requires on-demand region generation with adjacency
+  > consistency checks. v1 uses a single pre-seeded world; dynamic region expansion
+  > is deferred to v2.
+
+  **AC-4.4**: Given a player travels to an ungenerated region, when they arrive, then
   a new region is generated within 3 seconds, consistent with WorldSeed parameters
   and adjacent region characteristics.
 
-- **AC-4.5**: Given it is midday in the world and the player waits for several turns,
+- > **[v2 — World Ticks]** Requires an autonomous world-tick scheduler that advances
+  > NPC schedules and environmental state independently of player actions. v1 reflects
+  > time-of-day in narrative prompts but does not move NPCs autonomously.
+
+  **AC-4.5**: Given it is midday in the world and the player waits for several turns,
   when time advances to evening, then NPC positions change (shops close, schedules
   shift) and location descriptions reflect the time change.
 
 - **AC-4.6**: Given the player has visited 5 regions, when they revisit any of them,
   then each region has a distinct identity (different terrain, culture, atmosphere).
 
-- **AC-4.7**: Given the world model has 5,000 entities, when a Nearby query runs,
+- > **[v2 — Scale]** Requires Neo4j graph backend for performant traversal at this
+  > entity count. v1 uses in-memory world state with smaller worlds.
+
+  **AC-4.7**: Given the world model has 5,000 entities, when a Nearby query runs,
   then it completes within 200ms.
 
 - **AC-4.8**: Given a player's session crashes mid-turn, when they resume, then the

@@ -20,11 +20,15 @@ if TYPE_CHECKING:
     from tta.choices.consequence_service import ConsequenceService
     from tta.config import Settings
     from tta.llm.client import LLMClient
+    from tta.llm.semaphore import LLMSemaphore
     from tta.persistence.repositories import (
         SessionRepository,
         TurnRepository,
     )
+    from tta.prompts.loader import FilePromptRegistry
+    from tta.resilience.circuit_breaker import CircuitBreaker
     from tta.safety.hooks import SafetyHook
+    from tta.world.relationship_service import RelationshipService
     from tta.world.service import WorldService
 
 
@@ -45,6 +49,10 @@ class PipelineDeps:
     langfuse_trace: Any | None = None
     settings: Settings | None = None
     consequence_service: ConsequenceService | None = None
+    relationship_service: RelationshipService | None = None
+    prompt_registry: FilePromptRegistry | None = None
+    llm_semaphore: LLMSemaphore | None = None
+    llm_circuit_breaker: CircuitBreaker | None = None
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState

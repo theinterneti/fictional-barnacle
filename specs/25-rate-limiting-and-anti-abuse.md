@@ -302,6 +302,9 @@ Feature: Rate Limiting & Anti-Abuse
     And a warning is logged indicating degraded rate limiting
     And the /health endpoint reports Redis as degraded
 
+  # [v2 — Streaming] v1 rate limiting runs as ASGI middleware before the SSE
+  # endpoint handler; once a connection is accepted, there is no mechanism to
+  # check rate limits mid-stream. True stream-aware rate limiting requires v2.
   Scenario: AC-25.7 — Active stream not interrupted
     Given a player is receiving an SSE narrative stream
     And the player exceeds their rate limit

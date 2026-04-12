@@ -62,12 +62,13 @@ FRONT_RE = {
 
 TITLE_RE = re.compile(r"^#\s+S(\d+)\s*[—–-]\s*(.+)", re.IGNORECASE)
 SECTION_RE = re.compile(r"^##\s+\d*\.?\s*(.+)")
-AC_RE = re.compile(
-    r"^-\s*\[[ x]\]\s*\*\*AC-\d+"
-    r"|^###\s*AC-\d+"
-    r"|^-\s+\*\*AC-\d+",
+AC_ITEM_RE = re.compile(
+    r"^-\s*\[[ x]\]\s*\*\*AC-\d+"  # - [ ] **AC-XX**: (S00, S23-S28)
+    r"|^-\s+\*\*AC-\d+",  # - **AC-XX.YY**: (S01-S13)
     re.IGNORECASE,
 )
+# Group headings like ### AC-07.1 — deferred counting (may have sub-items)
+AC_GROUP_RE = re.compile(r"^###\s*AC-\d+", re.IGNORECASE)
 AC_SECTION_RE = re.compile(r"^#{2,3}\s+.*(?:Acceptance\s+Criteria)", re.IGNORECASE)
 AC_CHECKBOX_RE = re.compile(r"^-\s*\[[ x]\]")
 STORY_RE = re.compile(
@@ -137,6 +138,7 @@ def parse_spec(path: Path) -> SpecMeta | None:
 
     # Extract sections and quality signals
     in_ac_section = False
+    pending_ac_group = False  # Deferred count for ### AC- group headings
     for line in lines:
         sm = SECTION_RE.match(line)
         if sm:
@@ -146,13 +148,28 @@ def parse_spec(path: Path) -> SpecMeta | None:
         if AC_SECTION_RE.match(line):
             in_ac_section = True
         elif re.match(r"^#{2,3}\s+", line) and not AC_SECTION_RE.match(line):
-            in_ac_section = False
+            if not AC_GROUP_RE.match(line):
+                # Leaving AC area — flush any pending group heading
+                if pending_ac_group:
+                    meta.has_acceptance_criteria = True
+                    meta.acceptance_criteria_count += 1
+                    pending_ac_group = False
+                in_ac_section = False
 
-        if AC_RE.match(line):
+        if AC_GROUP_RE.match(line):
+            # Flush previous group if it had no sub-items (S08 case)
+            if pending_ac_group:
+                meta.has_acceptance_criteria = True
+                meta.acceptance_criteria_count += 1
+            pending_ac_group = True
+            in_ac_section = True
+        elif AC_ITEM_RE.match(line):
+            pending_ac_group = False
             meta.has_acceptance_criteria = True
             meta.acceptance_criteria_count += 1
             in_ac_section = True
         elif in_ac_section and AC_CHECKBOX_RE.match(line):
+            pending_ac_group = False
             meta.has_acceptance_criteria = True
             meta.acceptance_criteria_count += 1
 
@@ -166,6 +183,11 @@ def parse_spec(path: Path) -> SpecMeta | None:
             meta.has_gherkin_scenarios = True
             if re.match(r"\s*Scenario", line, re.IGNORECASE):
                 meta.gherkin_scenario_count += 1
+
+    # Flush any pending AC group at end of file
+    if pending_ac_group:
+        meta.has_acceptance_criteria = True
+        meta.acceptance_criteria_count += 1
 
     # Check section presence (also check subsection headers in body)
     section_lower = [s.lower() for s in meta.sections]

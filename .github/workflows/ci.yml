@@ -47,6 +47,7 @@ jobs:
   integration-test:
     runs-on: ubuntu-latest
     continue-on-error: true
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -57,11 +58,12 @@ jobs:
 
       - run: uv python install 3.12
       - run: uv sync --dev --frozen
-      - run: docker compose -f docker-compose.test.yml up -d --wait
+      - name: Start test services
+        run: timeout 120 docker compose -f docker-compose.test.yml up -d --wait || echo "::warning::Services failed to start within 2 minutes"
       - name: Run integration tests
         run: |
           # Exit code 5 = no tests collected (acceptable during bootstrap)
-          uv run pytest tests/integration/ -v || [ $? -eq 5 ]
+          uv run pytest tests/integration/ -v --timeout=30 || [ $? -eq 5 ]
 
       - run: docker compose -f docker-compose.test.yml down
         if: always()

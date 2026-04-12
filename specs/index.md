@@ -12,10 +12,10 @@
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S01 | [Gameplay Loop & Progression](01-gameplay-loop.md) | 📝 Draft | 3302 | 10 | 0 | ✅ | ✅ | — |
+| S01 | [Gameplay Loop & Progression](01-gameplay-loop.md) | 📝 Draft | 3340 | 10 | 0 | ✅ | ✅ | — |
 | S02 | [Genesis Onboarding](02-genesis-onboarding.md) | 📝 Draft | 3338 | 10 | 0 | ✅ | ✅ | — |
-| S03 | [Narrative Engine](03-narrative-engine.md) | 📝 Draft | 3519 | 10 | 0 | ✅ | ✅ | — |
-| S04 | [World Model](04-world-model.md) | 📝 Draft | 3530 | 8 | 0 | ✅ | ✅ | — |
+| S03 | [Narrative Engine](03-narrative-engine.md) | 📝 Draft | 3556 | 9 | 0 | ✅ | ✅ | — |
+| S04 | [World Model](04-world-model.md) | 📝 Draft | 3649 | 4 | 0 | ✅ | ✅ | — |
 | S05 | [Choice & Consequence](05-choice-and-consequence.md) | 📝 Draft | 3623 | 10 | 0 | ✅ | ✅ | — |
 | S06 | [Character System](06-character-system.md) | 📝 Draft | 4266 | 10 | 0 | ✅ | ✅ | — |
 | S27 | [Save/Load & Game Management](27-save-load-and-game-management.md) | 📝 Draft | 3222 | 10 | 10 | ✅ | ✅ | — |
@@ -24,10 +24,10 @@
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S07 | [LLM Integration](07-llm-integration.md) | 📝 Draft | 3991 | 31 | 0 | ✅ | ✅ | — |
+| S07 | [LLM Integration](07-llm-integration.md) | 📝 Draft | 3991 | 24 | 0 | ✅ | ✅ | — |
 | S08 | [Turn Processing Pipeline](08-turn-processing-pipeline.md) | 📝 Draft | 5958 | 7 | 24 | ✅ | ✅ | — |
-| S09 | [Prompt & Content Management](09-prompt-and-content.md) | 📝 Draft | 5436 | 44 | 1 | ✅ | ✅ | — |
-| S24 | [Content Moderation v1](24-content-moderation-v1.md) | 📝 Draft | 3780 | 10 | 10 | ✅ | ✅ | — |
+| S09 | [Prompt & Content Management](09-prompt-and-content.md) | 📝 Draft | 5436 | 35 | 1 | ✅ | ✅ | — |
+| S24 | [Content Moderation v1](24-content-moderation-v1.md) | 📝 Draft | 3812 | 10 | 10 | ✅ | ✅ | — |
 
 ## 3 — Platform
 
@@ -35,17 +35,17 @@
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
 | S10 | [API & Streaming](10-api-and-streaming.md) | 📝 Draft | 3453 | 12 | 0 | ✅ | ✅ | — |
 | S11 | [Player Identity & Sessions](11-player-identity-and-sessions.md) | 📝 Draft | 3935 | 14 | 4 | ✅ | ✅ | — |
-| S12 | [Persistence Strategy](12-persistence-strategy.md) | 📝 Draft | 3697 | 12 | 0 | ✅ | ✅ | — |
-| S13 | [World Graph Schema](13-world-graph-schema.md) | 📝 Draft | 5431 | 16 | 0 | ✅ | ✅ | — |
-| S23 | [Error Handling & Resilience](23-error-handling-and-resilience.md) | 📝 Draft | 4196 | 12 | 12 | ✅ | ✅ | — |
-| S25 | [Rate Limiting & Anti-Abuse](25-rate-limiting-and-anti-abuse.md) | 📝 Draft | 2866 | 8 | 8 | ✅ | ✅ | — |
+| S12 | [Persistence Strategy](12-persistence-strategy.md) | 📝 Draft | 3728 | 12 | 0 | ✅ | ✅ | — |
+| S13 | [World Graph Schema](13-world-graph-schema.md) | 📝 Draft | 5530 | 16 | 0 | ✅ | ✅ | — |
+| S23 | [Error Handling & Resilience](23-error-handling-and-resilience.md) | 📝 Draft | 4228 | 12 | 12 | ✅ | ✅ | — |
+| S25 | [Rate Limiting & Anti-Abuse](25-rate-limiting-and-anti-abuse.md) | 📝 Draft | 2904 | 8 | 8 | ✅ | ✅ | — |
 
 ## 4 — Operations
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
 | S14 | [Deployment & Infrastructure](14-deployment.md) | 📝 Draft | 3223 | 34 | 4 | ✅ | ✅ | — |
-| S15 | [Observability](15-observability.md) | 📝 Draft | 3387 | 32 | 4 | ✅ | ✅ | — |
+| S15 | [Observability](15-observability.md) | 📝 Draft | 3415 | 32 | 4 | ✅ | ✅ | — |
 | S16 | [Testing Infrastructure](16-testing-infrastructure.md) | 📝 Draft | 4707 | 48 | 8 | ✅ | ✅ | — |
 | S17 | [Data Privacy](17-data-privacy.md) | 📝 Draft | 4208 | 44 | 4 | ✅ | ✅ | — |
 | S26 | [Admin & Operator Tooling](26-admin-and-operator-tooling.md) | 📝 Draft | 3126 | 8 | 8 | ✅ | ✅ | — |
@@ -56,16 +56,16 @@
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
 | S18 | [Therapeutic Framework](future/18-therapeutic-framework.md) | 📝 Stub (Future) | 451 | 0 | 0 | ❌ | ❌ | Missing acceptance criteria, No user stories found, No edge cases section, No 'Out of Scope' section |
-| S19 | [Crisis & Content Safety](future/19-crisis-and-content-safety.md) | 📝 Stub (Future) | 473 | 0 | 0 | ❌ | ❌ | Missing acceptance criteria, No user stories found, No edge cases section, No 'Out of Scope' section |
+| S19 | [Crisis & Content Safety](future/19-crisis-and-content-safety.md) | 📝 Stub (Future) | 589 | 0 | 0 | ❌ | ❌ | Missing acceptance criteria, No user stories found, No edge cases section, No 'Out of Scope' section |
 | S20 | [Story Sharing](future/20-story-sharing.md) | 📝 Stub (Future) | 396 | 0 | 0 | ❌ | ❌ | Missing acceptance criteria, No user stories found, No edge cases section, No 'Out of Scope' section |
-| S21 | [Collaborative Writing](future/21-collaborative-writing.md) | 📝 Stub (Future) | 491 | 0 | 0 | ❌ | ❌ | Missing acceptance criteria, No user stories found, No edge cases section, No 'Out of Scope' section |
+| S21 | [Collaborative Writing](future/21-collaborative-writing.md) | 📝 Stub (Future) | 631 | 0 | 0 | ❌ | ❌ | Missing acceptance criteria, No user stories found, No edge cases section, No 'Out of Scope' section |
 | S22 | [Community](future/22-community.md) | 📝 Stub (Future) | 443 | 0 | 0 | ❌ | ❌ | Missing acceptance criteria, No user stories found, No edge cases section, No 'Out of Scope' section |
 
 ## Summary
 
 - **Total specs**: 29
-- **Total words**: 93,029
-- **Total acceptance criteria**: 415
+- **Total words**: 93,739
+- **Total acceptance criteria**: 394
 - **Specs with warnings**: 6/29
 - **Specs with Gherkin scenarios**: 26/29
 - **Total Gherkin scenarios**: 105

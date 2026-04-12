@@ -202,3 +202,80 @@ async def test_original_state_not_mutated() -> None:
     assert state.parsed_intent is None  # original unchanged
     assert result.parsed_intent is not None  # new state enriched
     assert state is not result
+
+
+# --- prompt registry ---
+
+
+class _StubRegistry:
+    """Minimal prompt registry stub for testing."""
+
+    def __init__(
+        self,
+        *,
+        templates: dict[str, str] | None = None,
+        raise_on_render: Exception | None = None,
+    ) -> None:
+        self._templates = templates or {}
+        self._raise_on_render = raise_on_render
+
+    def has(self, template_id: str) -> bool:
+        return template_id in self._templates
+
+    def render(self, template_id: str, variables: dict) -> object:
+        if self._raise_on_render is not None:
+            raise self._raise_on_render
+        from tta.prompts.registry import RenderedPrompt
+
+        return RenderedPrompt(
+            text=self._templates[template_id],
+            template_id=template_id,
+            template_version="1.0.0",
+        )
+
+    def get(self, template_id: str) -> object:
+        raise NotImplementedError
+
+    def list_templates(self) -> list[str]:
+        return list(self._templates)
+
+
+@pytest.mark.asyncio
+async def test_prompt_registry_used_for_classification() -> None:
+    """When prompt_registry has classification.intent, it's used."""
+    custom_system = "You are a custom classifier."
+    registry = _StubRegistry(templates={"classification.intent": custom_system})
+    # "mysterious input" won't match any regex, forcing LLM fallback
+    llm = MockLLMClient(response="examine")
+    state = _make_state(player_input="mysterious input")
+    deps = _make_deps(llm=llm)
+    deps.prompt_registry = registry  # type: ignore[assignment]
+
+    result = await understand_stage(state, deps)
+
+    assert result.parsed_intent is not None
+    assert result.parsed_intent.intent == "examine"
+    # LLM was called — verify system message came from registry
+    assert len(llm.call_history) > 0
+    system_msg = llm.call_history[0]["messages"][0]
+    assert system_msg.content == custom_system
+
+
+@pytest.mark.asyncio
+async def test_prompt_registry_render_error_falls_back() -> None:
+    """When render() raises ValueError, falls back to hardcoded."""
+    registry = _StubRegistry(
+        templates={"classification.intent": "unused"},
+        raise_on_render=ValueError("missing var"),
+    )
+    # Response won't be a valid intent, so classified as "other"
+    llm = MockLLMClient(response="examine")
+    state = _make_state(player_input="mysterious input")
+    deps = _make_deps(llm=llm)
+    deps.prompt_registry = registry  # type: ignore[assignment]
+
+    result = await understand_stage(state, deps)
+
+    # Should succeed with fallback, not crash
+    assert result.parsed_intent is not None
+    assert result.parsed_intent.intent == "examine"

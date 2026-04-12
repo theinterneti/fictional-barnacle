@@ -11,10 +11,12 @@ import re
 
 import structlog
 
+from tta.api.errors import AppError
 from tta.choices.classifier import classify_choice
 from tta.llm.client import Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.models.turn import ParsedIntent, TurnState, TurnStatus
+from tta.pipeline.llm_guard import guarded_llm_call
 from tta.pipeline.types import PipelineDeps
 
 log = structlog.get_logger()
@@ -116,17 +118,25 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     # 3. LLM fallback for ambiguous input
     if intent_state is None:
+        # Use prompt registry if available, else fall back to hardcoded.
+        # Keep SYSTEM message free of user input to reduce prompt-injection risk.
+        system_content = _CLASSIFICATION_SYSTEM_PROMPT
+        if deps.prompt_registry and deps.prompt_registry.has("classification.intent"):
+            try:
+                rendered = deps.prompt_registry.render("classification.intent", {})
+                system_content = rendered.text
+            except (KeyError, ValueError):
+                log.warning("classification_template_render_failed", exc_info=True)
+
         messages = [
             Message(
                 role=MessageRole.SYSTEM,
-                content=_CLASSIFICATION_SYSTEM_PROMPT,
+                content=system_content,
             ),
             Message(role=MessageRole.USER, content=state.player_input),
         ]
         try:
-            response = await deps.llm.generate(
-                role=ModelRole.CLASSIFICATION, messages=messages
-            )
+            response = await guarded_llm_call(deps, ModelRole.CLASSIFICATION, messages)
             intent = response.content.strip().lower()
             if intent not in VALID_INTENTS:
                 intent = "other"
@@ -140,6 +150,8 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                     "parsed_intent": ParsedIntent(intent=intent, confidence=0.7),
                 }
             )
+        except AppError:
+            raise
         except Exception:
             log.warning(
                 "llm_classification_failed",
@@ -167,9 +179,28 @@ async def _evaluate_consequences(state: TurnState, deps: PipelineDeps) -> TurnSt
     if consequence_svc is None:
         return state
     try:
-        await consequence_svc.evaluate(
+        result = await consequence_svc.evaluate(
             state.session_id, state.turn_number, state.player_input
         )
+        updates: dict[str, object] = {}
+        if result.hints:
+            updates["consequence_hints"] = result.hints
+        if result.chain_updates:
+            updates["active_consequences"] = result.chain_updates
+        if result.world_changes:
+            existing = list(state.world_state_updates or [])
+            existing.extend(
+                {
+                    "entity": wc.entity_id,
+                    "attribute": str(wc.type),
+                    "new_value": wc.payload.get("value", ""),
+                    "reason": wc.payload.get("reason", "consequence"),
+                }
+                for wc in result.world_changes
+            )
+            updates["world_state_updates"] = existing
+        if updates:
+            return state.model_copy(update=updates)
     except Exception:
         log.warning("consequence_evaluation_failed", exc_info=True)
     return state
