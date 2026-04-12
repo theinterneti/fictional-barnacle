@@ -79,6 +79,7 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     # Populate TurnState.active_consequences from chain data
     active_consequence_chains = None
+    divergence_guidance: str | None = None
     consequence_svc = getattr(deps, "consequence_service", None)
     if consequence_svc is not None:
         try:
@@ -87,6 +88,42 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                 active_consequence_chains = chains
         except Exception:
             pass  # Already logged in _enrich_consequences
+
+        # Divergence steering (S05 AC-5.10)
+        try:
+            score = await consequence_svc.calculate_divergence(
+                state.session_id, state.turn_number
+            )
+            if score and score.needs_steering:
+                anchors = await consequence_svc.get_active_anchors(state.session_id)
+                # Pick the anchor matching nearest_anchor_id when available
+                nearest_desc: str | None = None
+                if anchors and score.nearest_anchor_id:
+                    for a in anchors:
+                        if a.id == score.nearest_anchor_id:
+                            nearest_desc = a.description
+                            break
+                if nearest_desc is None and anchors:
+                    nearest_desc = anchors[0].description
+                if nearest_desc:
+                    divergence_guidance = (
+                        f"The story is diverging significantly "
+                        f"(divergence {score.score:.1f}). "
+                        f"Gently steer toward: {nearest_desc}"
+                    )
+                else:
+                    divergence_guidance = (
+                        f"The story is diverging significantly "
+                        f"(divergence {score.score:.1f}). "
+                        "Introduce narrative elements that reconnect "
+                        "to established story threads."
+                    )
+        except Exception:
+            log.warning(
+                "divergence_calculation_failed",
+                session_id=str(state.session_id),
+                exc_info=True,
+            )
 
     log.debug(
         "context_assembled",
@@ -101,6 +138,8 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     }
     if active_consequence_chains is not None:
         update["active_consequences"] = active_consequence_chains
+    if divergence_guidance is not None:
+        update["divergence_guidance"] = divergence_guidance
 
     return state.model_copy(update=update)
 

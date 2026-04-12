@@ -159,8 +159,8 @@ class ConsequenceService(Protocol):
         current_turn: int,
         *,
         max_chains: int = MAX_ACTIVE_CHAINS,
-    ) -> list[UUID]:
-        """Prune excess chains. Returns IDs of pruned chains."""
+    ) -> tuple[list[UUID], list[str]]:
+        """Prune excess chains. Returns (pruned IDs, closure descriptions)."""
         ...
 
     async def get_foreshadowing_hints(
@@ -173,6 +173,7 @@ class ConsequenceService(Protocol):
     async def reveal_hidden_entry(
         self,
         entry_id: UUID,
+        turn: int | None = None,
     ) -> ConsequenceEntry | None:
         """Transition a hidden entry to visible. Returns updated entry."""
         ...
@@ -255,7 +256,6 @@ class InMemoryConsequenceService:
         for chain in chains:
             if chain.is_resolved or chain.is_dormant:
                 continue
-            chain.last_active_turn = turn
             changed = False
 
             for entry in chain.entries:
@@ -285,6 +285,7 @@ class InMemoryConsequenceService:
                         continue  # Stay pending until reveal
 
                     entry.status = ConsequenceStatus.ACTIVE
+                    chain.last_active_turn = turn
                     changed = True
                     world_changes.append(
                         WorldChange(
@@ -350,9 +351,11 @@ class InMemoryConsequenceService:
         current_turn: int,
         *,
         max_chains: int = MAX_ACTIVE_CHAINS,
-    ) -> list[UUID]:
+    ) -> tuple[list[UUID], list[str]]:
+        """Prune excess/dormant chains. Returns (pruned IDs, closure descriptions)."""
         chains = self._chains.get(session_id, [])
         pruned_ids: list[UUID] = []
+        closures: list[str] = []
 
         # Mark dormant chains first (50+ turns inactive, S05 FR-8)
         for chain in chains:
@@ -368,11 +371,12 @@ class InMemoryConsequenceService:
                         ConsequenceStatus.ACTIVE,
                     ):
                         entry.status = ConsequenceStatus.DORMANT
+                closures.append(chain.root_trigger)
 
         # Capacity pruning
         active = [c for c in chains if not c.is_resolved and not c.is_dormant]
         if len(active) <= max_chains:
-            return pruned_ids
+            return pruned_ids, closures
 
         scored = sorted(active, key=_chain_prune_score)
         to_prune = len(active) - max_chains
@@ -381,13 +385,14 @@ class InMemoryConsequenceService:
             for entry in chain.entries:
                 entry.status = ConsequenceStatus.PRUNED
             pruned_ids.append(chain.id)
+            closures.append(chain.root_trigger)
             log.debug(
                 "consequence_chain_pruned",
                 chain_id=str(chain.id),
                 reason="over_capacity",
             )
 
-        return pruned_ids
+        return pruned_ids, closures
 
     async def get_foreshadowing_hints(
         self,
@@ -413,6 +418,7 @@ class InMemoryConsequenceService:
     async def reveal_hidden_entry(
         self,
         entry_id: UUID,
+        turn: int | None = None,
     ) -> ConsequenceEntry | None:
         for chains in self._chains.values():
             for chain in chains:
@@ -423,6 +429,8 @@ class InMemoryConsequenceService:
                     ):
                         entry.visibility = ConsequenceVisibility.VISIBLE
                         entry.status = ConsequenceStatus.ACTIVE
+                        if turn is not None:
+                            chain.last_active_turn = turn
                         return entry
         return None
 

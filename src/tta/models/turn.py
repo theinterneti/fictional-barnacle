@@ -97,3 +97,5 @@ class TurnState(BaseModel):
     choice_classification: ChoiceClassification | None = None
     active_consequences: list[ConsequenceChain] | None = None
     consequence_hints: list[str] | None = None
+    divergence_guidance: str | None = None
+    pruned_chain_closures: list[str] | None = None

@@ -170,6 +170,9 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     # 5. Consequence evaluation (S05 FR-3) — evaluate pending consequences
     classified_state = await _evaluate_consequences(classified_state, deps)
 
+    # 6. Prune dormant/excess chains (S05 AC-5.8)
+    classified_state = await _prune_consequence_chains(classified_state, deps)
+
     return classified_state
 
 
@@ -203,6 +206,22 @@ async def _evaluate_consequences(state: TurnState, deps: PipelineDeps) -> TurnSt
             return state.model_copy(update=updates)
     except Exception:
         log.warning("consequence_evaluation_failed", exc_info=True)
+    return state
+
+
+async def _prune_consequence_chains(state: TurnState, deps: PipelineDeps) -> TurnState:
+    """Prune dormant/excess chains and capture closure descriptions (S05 AC-5.8)."""
+    consequence_svc = getattr(deps, "consequence_service", None)
+    if consequence_svc is None:
+        return state
+    try:
+        _pruned_ids, closures = await consequence_svc.prune_chains(
+            state.session_id, state.turn_number
+        )
+        if closures:
+            return state.model_copy(update={"pruned_chain_closures": closures})
+    except Exception:
+        log.warning("consequence_pruning_failed", exc_info=True)
     return state
 
 
