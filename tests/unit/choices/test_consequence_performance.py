@@ -52,6 +52,7 @@ async def _populate_service(
         )
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_evaluate_30_chains_under_300ms() -> None:
     """AC-5.6: evaluate() < 300ms for 30 active chains."""
@@ -74,6 +75,7 @@ async def test_evaluate_30_chains_under_300ms() -> None:
     assert median < 300, f"evaluate() median {median:.1f}ms exceeds 300ms"
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_calculate_divergence_under_100ms() -> None:
     """AC-5.6: calculate_divergence() < 100ms."""
@@ -95,6 +97,7 @@ async def test_calculate_divergence_under_100ms() -> None:
     assert median < 100, f"calculate_divergence() median {median:.1f}ms exceeds 100ms"
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_prune_chains_under_100ms() -> None:
     """AC-5.6: prune_chains() < 100ms."""

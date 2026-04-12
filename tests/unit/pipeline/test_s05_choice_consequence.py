@@ -166,6 +166,7 @@ class TestDivergenceSteering:
 
     @pytest.mark.asyncio
     async def test_no_anchors_still_provides_guidance(self) -> None:
+        """Without anchors, divergence is 0.0 — guidance should be None."""
         svc = InMemoryConsequenceService()
         for i in range(25):
             await svc.create_chain(
@@ -174,12 +175,11 @@ class TestDivergenceSteering:
                 impact_level=ImpactLevel.DEFINING,
                 entries=[_entry(trigger=f"t-{i}", effect=f"e-{i}")],
             )
-        # No anchors set
+        # No anchors set — divergence returns 0.0 (unmeasurable)
         state = _make_state(turn_number=5)
         deps = _make_deps(consequence_service=svc)
         result = await context_stage(state, deps)
-        if result.divergence_guidance:
-            assert "reconnect" in result.divergence_guidance.lower()
+        assert result.divergence_guidance is None
 
 
 # --- AC-5.8: Dormant Fix + Closure ---

@@ -96,12 +96,20 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             )
             if score and score.needs_steering:
                 anchors = await consequence_svc.get_active_anchors(state.session_id)
-                if anchors:
-                    nearest = anchors[0].description
+                # Pick the anchor matching nearest_anchor_id when available
+                nearest_desc: str | None = None
+                if anchors and score.nearest_anchor_id:
+                    for a in anchors:
+                        if a.id == score.nearest_anchor_id:
+                            nearest_desc = a.description
+                            break
+                if nearest_desc is None and anchors:
+                    nearest_desc = anchors[0].description
+                if nearest_desc:
                     divergence_guidance = (
                         f"The story is diverging significantly "
                         f"(divergence {score.score:.1f}). "
-                        f"Gently steer toward: {nearest}"
+                        f"Gently steer toward: {nearest_desc}"
                     )
                 else:
                     divergence_guidance = (

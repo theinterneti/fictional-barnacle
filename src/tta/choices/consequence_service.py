@@ -173,6 +173,7 @@ class ConsequenceService(Protocol):
     async def reveal_hidden_entry(
         self,
         entry_id: UUID,
+        turn: int | None = None,
     ) -> ConsequenceEntry | None:
         """Transition a hidden entry to visible. Returns updated entry."""
         ...
@@ -417,6 +418,7 @@ class InMemoryConsequenceService:
     async def reveal_hidden_entry(
         self,
         entry_id: UUID,
+        turn: int | None = None,
     ) -> ConsequenceEntry | None:
         for chains in self._chains.values():
             for chain in chains:
@@ -427,6 +429,8 @@ class InMemoryConsequenceService:
                     ):
                         entry.visibility = ConsequenceVisibility.VISIBLE
                         entry.status = ConsequenceStatus.ACTIVE
+                        if turn is not None:
+                            chain.last_active_turn = turn
                         return entry
         return None
 
