@@ -49,6 +49,8 @@ def _make_deps(
     safety_pre_input: AsyncMock | None = None,
     safety_post_gen: AsyncMock | None = None,
 ) -> PipelineDeps:
+    from tests.unit.pipeline.conftest import make_mock_registry
+
     safe = _safe()
 
     pre_input = safety_pre_input or AsyncMock()
@@ -69,6 +71,7 @@ def _make_deps(
         safety_pre_input=pre_input,
         safety_pre_gen=pre_gen,
         safety_post_gen=post_gen,
+        prompt_registry=make_mock_registry(),
     )
 
 

@@ -38,11 +38,54 @@ def _safe_result() -> SafetyResult:
     return SafetyResult(safe=True)
 
 
+class _StubRegistry:
+    """Minimal prompt registry stub for testing."""
+
+    def __init__(
+        self,
+        *,
+        templates: dict[str, str] | None = None,
+        raise_on_render: Exception | None = None,
+    ) -> None:
+        self._templates = templates or {}
+        self._raise_on_render = raise_on_render
+
+    def has(self, template_id: str) -> bool:
+        return template_id in self._templates
+
+    def render(self, template_id: str, variables: dict) -> object:
+        if self._raise_on_render is not None:
+            raise self._raise_on_render
+        from tta.prompts.registry import RenderedPrompt
+
+        return RenderedPrompt(
+            text=self._templates[template_id],
+            template_id=template_id,
+            template_version="1.0.0",
+        )
+
+    def get(self, template_id: str) -> object:
+        raise NotImplementedError
+
+    def list_templates(self) -> list[str]:
+        return list(self._templates)
+
+
+def _default_registry() -> _StubRegistry:
+    return _StubRegistry(
+        templates={
+            "narrative.generate": "You are a narrative engine.",
+            "extraction.world-changes": "Extract world changes as JSON.",
+        }
+    )
+
+
 def _make_deps(
     *,
     llm: MockLLMClient | AsyncMock | None = None,
     safety_pre_gen: AsyncMock | None = None,
     safety_post_gen: AsyncMock | None = None,
+    prompt_registry: object | None = None,
 ) -> PipelineDeps:
     safe = _safe_result()
     pre_gen = safety_pre_gen or AsyncMock()
@@ -51,7 +94,7 @@ def _make_deps(
         pre_gen.pre_generation_check = AsyncMock(return_value=safe)
     if safety_post_gen is None:
         post_gen.post_generation_check = AsyncMock(return_value=safe)
-    return PipelineDeps(
+    deps = PipelineDeps(
         llm=llm or MockLLMClient(),
         world=AsyncMock(),
         session_repo=AsyncMock(),
@@ -60,6 +103,8 @@ def _make_deps(
         safety_pre_gen=pre_gen,
         safety_post_gen=post_gen,
     )
+    deps.prompt_registry = prompt_registry or _default_registry()  # type: ignore[assignment]
+    return deps
 
 
 # --- happy path ---
@@ -468,39 +513,6 @@ async def test_original_state_not_mutated() -> None:
 # --- prompt registry ---
 
 
-class _StubRegistry:
-    """Minimal prompt registry stub for testing."""
-
-    def __init__(
-        self,
-        *,
-        templates: dict[str, str] | None = None,
-        raise_on_render: Exception | None = None,
-    ) -> None:
-        self._templates = templates or {}
-        self._raise_on_render = raise_on_render
-
-    def has(self, template_id: str) -> bool:
-        return template_id in self._templates
-
-    def render(self, template_id: str, variables: dict) -> object:
-        if self._raise_on_render is not None:
-            raise self._raise_on_render
-        from tta.prompts.registry import RenderedPrompt
-
-        return RenderedPrompt(
-            text=self._templates[template_id],
-            template_id=template_id,
-            template_version="1.0.0",
-        )
-
-    def get(self, template_id: str) -> object:
-        raise NotImplementedError
-
-    def list_templates(self) -> list[str]:
-        return list(self._templates)
-
-
 @pytest.mark.asyncio
 async def test_prompt_registry_used_for_generation() -> None:
     """When prompt_registry has narrative.generate, it's used."""
@@ -521,8 +533,8 @@ async def test_prompt_registry_used_for_generation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_prompt_registry_render_error_falls_back() -> None:
-    """When render() raises ValueError, falls back to hardcoded."""
+async def test_prompt_registry_render_error_propagates() -> None:
+    """When render() raises ValueError, it propagates (no inline fallback)."""
     registry = _StubRegistry(
         templates={"narrative.generate": "unused"},
         raise_on_render=ValueError("missing var"),
@@ -532,7 +544,5 @@ async def test_prompt_registry_render_error_falls_back() -> None:
     deps = _make_deps(llm=llm)
     deps.prompt_registry = registry  # type: ignore[assignment]
 
-    result = await generate_stage(state, deps)
-
-    # Should succeed with fallback, not crash
-    assert result.narrative_output is not None
+    with pytest.raises(ValueError, match="missing var"):
+        await generate_stage(state, deps)

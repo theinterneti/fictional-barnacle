@@ -26,6 +26,8 @@ def _build_deps(
     llm_response: str = "You step through the creaking door into a dimly lit tavern.",
 ) -> PipelineDeps:
     """Build pipeline deps with all in-memory fakes."""
+    from tests.unit.pipeline.conftest import make_mock_registry
+
     return PipelineDeps(
         llm=MockLLMClient(response=llm_response),
         world=InMemoryWorldService(),
@@ -34,6 +36,7 @@ def _build_deps(
         safety_pre_input=PassthroughHook(),
         safety_pre_gen=PassthroughHook(),
         safety_post_gen=PassthroughHook(),
+        prompt_registry=make_mock_registry(),
     )
 
 

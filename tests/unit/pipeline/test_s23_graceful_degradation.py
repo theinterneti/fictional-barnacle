@@ -35,6 +35,8 @@ def _safe() -> SafetyResult:
 
 
 def _make_deps(*, llm: MockLLMClient | None = None) -> PipelineDeps:
+    from tests.unit.pipeline.conftest import make_mock_registry
+
     safe = _safe()
     return PipelineDeps(
         llm=llm or MockLLMClient(),
@@ -50,6 +52,7 @@ def _make_deps(*, llm: MockLLMClient | None = None) -> PipelineDeps:
         safety_post_gen=AsyncMock(
             post_generation_check=AsyncMock(return_value=safe),
         ),
+        prompt_registry=make_mock_registry(),
     )
 
 

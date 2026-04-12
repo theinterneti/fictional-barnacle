@@ -12,6 +12,7 @@ import json
 import structlog
 
 from tta.api.errors import AppError
+from tta.errors import ErrorCategory
 from tta.llm.client import LLMResponse, Message, MessageRole
 from tta.llm.errors import (
     AllTiersFailedError,
@@ -27,33 +28,9 @@ from tta.pipeline.types import PipelineDeps
 
 log = structlog.get_logger()
 
-# --- Narrator prompt: hard constraints vs soft guidance (S03 FR-1, FR-4) ---
-
-_NARRATOR_CONSTRAINTS = (
-    "Hard constraints (never violate):\n"
-    "- Write in second person present tense\n"
-    "- Never break the fourth wall or reference being an AI/game\n"
-    "- Never expose game mechanics, stats, or dice rolls\n"
-    "- Maintain consistency with established world facts\n"
-    "- Never narrate player thoughts or decisions for them"
-)
-
-_NARRATOR_GUIDANCE = (
-    "Narrative quality guidance:\n"
-    "- Engage at least two senses per scene (sight + sound/smell/touch)\n"
-    "- Prefer active voice and concrete verbs over passive constructions\n"
-    "- Show, don't tell — reveal character through action, not exposition\n"
-    "- Avoid purple prose — favor clarity over ornate descriptions\n"
-    "- Avoid info-dumping — weave world details naturally into action"
-)
-
-_GENERATION_SYSTEM_PROMPT = (
-    "You are a narrative game engine. "
-    "Write immersive second-person prose responding to the player's "
-    "action within the current world context.\n\n"
-    f"{_NARRATOR_CONSTRAINTS}\n\n"
-    f"{_NARRATOR_GUIDANCE}"
-)
+# Inline prompt constants removed in Wave 28 (S09 AC-09.1).
+# All system prompts are now managed via FilePromptRegistry templates:
+#   narrative.generate, classification.intent, extraction.world-changes
 
 # --- Adaptive word counts by intent (S03 FR-4.2, AC-3.8) ---
 
@@ -78,20 +55,6 @@ _FALLBACK_NARRATIVE = (
 )
 
 _MAX_TRANSIENT_RETRIES = 2
-
-_EXTRACTION_SYSTEM_PROMPT = (
-    "Extract world state changes and suggested actions from the narrative. "
-    "Return a JSON object with two keys:\n"
-    '  "world_changes": an array of objects with keys '
-    "'entity', 'attribute', 'old_value', 'new_value', 'reason'. "
-    "Use an empty array if nothing changed.\n"
-    '  "suggested_actions": an array of exactly 3 short strings — '
-    "distinct actions the player could take next.\n"
-    "Example: "
-    '{"world_changes": [], "suggested_actions": ["Look around", '
-    '"Talk to the stranger", "Open the chest"]}'
-)
-
 
 _CONTEXT_META_KEYS = {
     "tone",
@@ -347,14 +310,19 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
 
 def _resolve_system_prompt(deps: PipelineDeps) -> str:
-    """Resolve generation system prompt from registry or default."""
-    if deps.prompt_registry and deps.prompt_registry.has("narrative.generate"):
-        try:
-            rendered = deps.prompt_registry.render("narrative.generate", {})
-            return rendered.text
-        except (KeyError, ValueError):
-            log.warning("generation_template_render_failed", exc_info=True)
-    return _GENERATION_SYSTEM_PROMPT
+    """Resolve generation system prompt from registry (AC-09.1).
+
+    Templates are the single source of truth — no inline fallback.
+    """
+    if not deps.prompt_registry or not deps.prompt_registry.has("narrative.generate"):
+        log.error("generation_template_missing")
+        raise AppError(
+            ErrorCategory.INTERNAL_ERROR,
+            "TEMPLATE_MISSING",
+            "Narrative generation template not available",
+        )
+    rendered = deps.prompt_registry.render("narrative.generate", {})
+    return rendered.text
 
 
 def _simplify_prompt(state: TurnState) -> str:
@@ -433,8 +401,15 @@ async def _extract_world_changes(
     Returns ``(world_changes, suggested_actions)`` — both default to
     empty lists on any failure (extraction is best-effort).
     """
+    # Resolve extraction system prompt from registry (AC-09.1).
+    if not deps.prompt_registry or not deps.prompt_registry.has(
+        "extraction.world-changes"
+    ):
+        log.debug("extraction_template_missing")
+        return [], []
+    extraction_prompt = deps.prompt_registry.render("extraction.world-changes", {})
     messages = [
-        Message(role=MessageRole.SYSTEM, content=_EXTRACTION_SYSTEM_PROMPT),
+        Message(role=MessageRole.SYSTEM, content=extraction_prompt.text),
         Message(
             role=MessageRole.USER,
             content=(f"Narrative: {narrative}\nPlayer action: {player_input}"),
