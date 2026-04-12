@@ -74,8 +74,12 @@ class TestLLMFailureGracefulDegradation:
 
         assert result.status == TurnStatus.failed
 
-    async def test_llm_runtime_error_returns_failed(self) -> None:
-        """Any runtime error from LLM provider is caught gracefully."""
+    async def test_llm_runtime_error_returns_degraded(self) -> None:
+        """Runtime error triggers fallback narrative (degraded but complete).
+
+        Wave 24 added graceful in-world fallback for transient LLM errors,
+        so RuntimeError now produces a degraded narrative instead of failed.
+        """
         llm = MockLLMClient()
         llm.generate = AsyncMock(  # type: ignore[method-assign]
             side_effect=RuntimeError("provider unavailable"),
@@ -85,10 +89,15 @@ class TestLLMFailureGracefulDegradation:
 
         result = await run_pipeline(state, deps)
 
-        assert result.status == TurnStatus.failed
+        assert result.status == TurnStatus.complete
+        assert result.narrative_output is not None
 
-    async def test_llm_timeout_returns_failed(self) -> None:
-        """LLM timeout within generate stage produces failed status."""
+    async def test_llm_timeout_returns_degraded(self) -> None:
+        """LLM timeout triggers fallback narrative (degraded but complete).
+
+        Wave 24 added graceful in-world fallback for transient LLM errors,
+        so TimeoutError now produces a degraded narrative instead of failed.
+        """
         llm = MockLLMClient()
         llm.generate = AsyncMock(  # type: ignore[method-assign]
             side_effect=TimeoutError("LLM call timed out"),
@@ -98,7 +107,8 @@ class TestLLMFailureGracefulDegradation:
 
         result = await run_pipeline(state, deps)
 
-        assert result.status == TurnStatus.failed
+        assert result.status == TurnStatus.complete
+        assert result.narrative_output is not None
 
     async def test_llm_queue_full_returns_failed(self) -> None:
         """When LLM semaphore is full, pipeline fails gracefully."""
@@ -117,8 +127,8 @@ class TestLLMFailureGracefulDegradation:
 
         assert result.status == TurnStatus.failed
 
-    async def test_original_state_preserved_on_failure(self) -> None:
-        """Failure doesn't corrupt session_id or player_input."""
+    async def test_original_state_preserved_on_degraded(self) -> None:
+        """Degraded fallback doesn't corrupt session_id or player_input."""
         llm = MockLLMClient()
         llm.generate = AsyncMock(  # type: ignore[method-assign]
             side_effect=RuntimeError("boom"),
@@ -129,7 +139,7 @@ class TestLLMFailureGracefulDegradation:
 
         result = await run_pipeline(state, deps)
 
-        assert result.status == TurnStatus.failed
+        assert result.status == TurnStatus.complete
         assert result.session_id == sid
         assert result.player_input == "test input"
 
