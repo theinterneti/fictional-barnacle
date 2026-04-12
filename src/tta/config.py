@@ -98,6 +98,8 @@ class Settings(BaseSettings):
 
     # Pipeline / cost
     session_cost_cap_usd: float = 1.0
+    session_cost_warn_pct: float = 0.8
+    turn_cost_cap_usd: float = 0.10
     pipeline_timeout_seconds: float = 120.0
 
     # Langfuse (optional)

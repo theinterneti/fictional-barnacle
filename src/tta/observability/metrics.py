@@ -116,11 +116,30 @@ SESSION_TURNS = Histogram(
     registry=REGISTRY,
 )
 
-# -- Cost tracking metrics (S15 §4 US-15.11) ------------------------------
+# -- Cost tracking metrics (S15 §4 US-15.11, S07 §6 FR-07.22) -------------
 
 LLM_COST_DAILY_USD = Gauge(
     "tta_llm_cost_daily_usd",
     "Cumulative LLM cost in USD since last reset (daily)",
+    registry=REGISTRY,
+)
+
+LLM_COST_TOTAL = Counter(
+    "tta_llm_cost_usd_total",
+    "Cumulative LLM cost in USD by model and role",
+    ["model", "role"],
+    registry=REGISTRY,
+)
+
+SESSION_COST_EXCEEDED = Counter(
+    "tta_session_cost_exceeded_total",
+    "Sessions that hit the cost cap",
+    registry=REGISTRY,
+)
+
+CONTEXT_CHUNKS_DROPPED = Counter(
+    "tta_context_chunks_dropped_total",
+    "Context chunks dropped due to budget fitting",
     registry=REGISTRY,
 )
 

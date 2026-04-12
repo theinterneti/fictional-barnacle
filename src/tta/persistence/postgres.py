@@ -172,7 +172,8 @@ class PostgresGameRepository:
                     "VALUES (:id, :player_id, "
                     "cast(:world_seed AS jsonb)) "
                     "RETURNING id, player_id, world_seed, "
-                    "status, created_at, updated_at"
+                    "status, total_cost_usd, cost_warning_sent, "
+                    "created_at, updated_at"
                 ),
                 {
                     "id": game_id,
@@ -187,6 +188,8 @@ class PostgresGameRepository:
                 player_id=row.player_id,
                 world_seed=row.world_seed,
                 status=GameStatus(row.status),
+                total_cost_usd=row.total_cost_usd,
+                cost_warning_sent=row.cost_warning_sent,
                 created_at=row.created_at,
                 updated_at=row.updated_at,
             )
@@ -197,6 +200,7 @@ class PostgresGameRepository:
                 sa.text(
                     "SELECT id, player_id, world_seed, status, "
                     "title, summary, turn_count, needs_recovery, "
+                    "total_cost_usd, cost_warning_sent, "
                     "last_played_at, deleted_at, "
                     "created_at, updated_at "
                     "FROM game_sessions WHERE id = :id"
@@ -215,6 +219,8 @@ class PostgresGameRepository:
                 summary=row.summary,
                 turn_count=row.turn_count,
                 needs_recovery=row.needs_recovery,
+                total_cost_usd=row.total_cost_usd,
+                cost_warning_sent=row.cost_warning_sent,
                 last_played_at=row.last_played_at,
                 deleted_at=row.deleted_at,
                 created_at=row.created_at,
@@ -238,12 +244,53 @@ class PostgresGameRepository:
             )
             await session.commit()
 
+    async def accumulate_session_cost(
+        self,
+        game_id: UUID,
+        cost_usd: float,
+    ) -> tuple[float, bool]:
+        """Atomically add *cost_usd* to the session total.
+
+        Returns ``(new_total, cost_warning_sent)`` so the caller can
+        decide whether an 80 % warning or 100 % refusal is needed.
+        """
+        now = datetime.now(UTC)
+        async with self._sf() as session:
+            result = await session.execute(
+                sa.text(
+                    "UPDATE game_sessions "
+                    "SET total_cost_usd = total_cost_usd + :cost, "
+                    "updated_at = :now "
+                    "WHERE id = :id "
+                    "RETURNING total_cost_usd, cost_warning_sent"
+                ),
+                {"id": game_id, "cost": cost_usd, "now": now},
+            )
+            row = result.one()
+            await session.commit()
+            return float(row.total_cost_usd), bool(row.cost_warning_sent)
+
+    async def mark_cost_warning_sent(self, game_id: UUID) -> None:
+        """Set cost_warning_sent flag so the 80 % warning fires once."""
+        async with self._sf() as session:
+            await session.execute(
+                sa.text(
+                    "UPDATE game_sessions "
+                    "SET cost_warning_sent = true, "
+                    "updated_at = :now "
+                    "WHERE id = :id"
+                ),
+                {"id": game_id, "now": datetime.now(UTC)},
+            )
+            await session.commit()
+
     async def list_player_games(self, player_id: UUID) -> list[GameSession]:
         async with self._sf() as session:
             result = await session.execute(
                 sa.text(
                     "SELECT id, player_id, world_seed, status, "
                     "title, summary, turn_count, needs_recovery, "
+                    "total_cost_usd, cost_warning_sent, "
                     "last_played_at, deleted_at, "
                     "created_at, updated_at "
                     "FROM game_sessions "
@@ -264,6 +311,8 @@ class PostgresGameRepository:
                     summary=r.summary,
                     turn_count=r.turn_count,
                     needs_recovery=r.needs_recovery,
+                    total_cost_usd=r.total_cost_usd,
+                    cost_warning_sent=r.cost_warning_sent,
                     last_played_at=r.last_played_at,
                     deleted_at=r.deleted_at,
                     created_at=r.created_at,

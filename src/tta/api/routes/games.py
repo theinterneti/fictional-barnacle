@@ -46,6 +46,7 @@ from tta.observability.metrics import (
     SESSIONS_ACTIVE,
 )
 from tta.pipeline.orchestrator import run_pipeline
+from tta.privacy.cost import get_cost_tracker, reset_cost_tracker
 
 log = structlog.get_logger()
 
@@ -145,6 +146,7 @@ async def _dispatch_pipeline(
     turn_number: int,
     player_input: str,
     game_state: dict,
+    session_cost_usd: float = 0.0,
 ) -> None:
     """Run the pipeline as a background task and persist results."""
     deps = app_state.pipeline_deps  # type: ignore[attr-defined]
@@ -152,6 +154,12 @@ async def _dispatch_pipeline(
 
     # Bind game/turn context for correlated logging (S15 §7).
     bind_context(session_id=game_id, turn_id=turn_id)
+
+    # Seed cost tracker with session total from DB (FR-07.19).
+    reset_cost_tracker(
+        session_id=str(game_id),
+        session_total_usd=session_cost_usd,
+    )
 
     state = TurnState(
         session_id=game_id,
@@ -258,6 +266,64 @@ async def _dispatch_pipeline(
         if turn_number == 1 and result.narrative_output:
             asyncio.create_task(
                 _generate_title_bg(app_state, game_id, result.narrative_output)
+            )
+
+        # --- FR-07.19: Persist turn cost to session (S07 cost management) ---
+        try:
+            tracker = get_cost_tracker()
+            turn_cost = tracker.turn_cost_usd
+            if turn_cost > 0:
+                async with sf() as cost_sess:
+                    cost_result = await cost_sess.execute(
+                        sa.text(
+                            "UPDATE game_sessions "
+                            "SET total_cost_usd = total_cost_usd + :cost, "
+                            "updated_at = :now "
+                            "WHERE id = :gid "
+                            "RETURNING total_cost_usd, cost_warning_sent"
+                        ),
+                        {
+                            "gid": game_id,
+                            "cost": turn_cost,
+                            "now": datetime.now(UTC),
+                        },
+                    )
+                    cost_row = cost_result.one()
+                    await cost_sess.commit()
+
+                    # Send 80% warning once
+                    settings = get_settings()
+                    cap = settings.session_cost_cap_usd
+                    if (
+                        cap > 0
+                        and not cost_row.cost_warning_sent
+                        and float(cost_row.total_cost_usd)
+                        >= cap * settings.session_cost_warn_pct
+                    ):
+                        async with sf() as warn_sess:
+                            await warn_sess.execute(
+                                sa.text(
+                                    "UPDATE game_sessions "
+                                    "SET cost_warning_sent = true, "
+                                    "updated_at = :now WHERE id = :gid"
+                                ),
+                                {
+                                    "gid": game_id,
+                                    "now": datetime.now(UTC),
+                                },
+                            )
+                            await warn_sess.commit()
+                        log.warning(
+                            "session_cost_warning",
+                            game_id=str(game_id),
+                            total=float(cost_row.total_cost_usd),
+                            cap=cap,
+                        )
+        except Exception:
+            log.warning(
+                "cost_persist_failed",
+                game_id=str(game_id),
+                exc_info=True,
             )
 
         # FR-27.20: fire-and-forget summary regen every Nth turn
@@ -711,6 +777,7 @@ async def _get_owned_game(pg: AsyncSession, game_id: UUID, player: Player) -> sa
             "SELECT id, player_id, status, world_seed, "
             "title, summary, turn_count, last_played_at, "
             "deleted_at, needs_recovery, summary_generated_at, "
+            "total_cost_usd, cost_warning_sent, "
             "created_at, updated_at "
             "FROM game_sessions WHERE id = :id AND deleted_at IS NULL"
         ),
@@ -1285,6 +1352,7 @@ async def submit_turn(
             turn_number=turn_number,
             player_input=body.input,
             game_state=game_state,
+            session_cost_usd=float(getattr(row, "total_cost_usd", 0) or 0),
         )
     )
 

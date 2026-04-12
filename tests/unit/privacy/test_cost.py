@@ -62,7 +62,7 @@ class TestLLMCostTracker:
         )
         summary = tracker.summary()
         assert summary["call_count"] == 1
-        assert summary["total_cost_usd"] > 0  # type: ignore[operator]
+        assert summary["session_total_usd"] > 0  # type: ignore[operator]
 
     def test_multiple_records_accumulate(self) -> None:
         tracker = get_cost_tracker()
@@ -105,4 +105,4 @@ class TestLLMCostTracker:
         )
         summary = tracker.summary()
         assert summary["call_count"] == 1
-        assert summary["total_cost_usd"] == 0.0
+        assert summary["session_total_usd"] == 0.0
