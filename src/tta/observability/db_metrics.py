@@ -18,7 +18,12 @@ import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 
-from tta.observability.metrics import DB_QUERY_DURATION, REDIS_OPERATIONS
+from tta.observability.metrics import (
+    DB_QUERY_DURATION,
+    REDIS_CACHE_READ_DURATION,
+    REDIS_CACHE_WRITE_DURATION,
+    REDIS_OPERATIONS,
+)
 
 
 @asynccontextmanager
@@ -41,3 +46,27 @@ def count_redis_op(operation: str) -> Iterator[None]:
         yield
     finally:
         REDIS_OPERATIONS.labels(operation=operation).inc()
+
+
+@contextmanager
+def observe_redis_read(operation: str) -> Iterator[None]:
+    """Time a Redis read and record to histogram (AC-12.05)."""
+    start = time.monotonic()
+    try:
+        yield
+    finally:
+        elapsed = time.monotonic() - start
+        REDIS_OPERATIONS.labels(operation=operation).inc()
+        REDIS_CACHE_READ_DURATION.labels(operation=operation).observe(elapsed)
+
+
+@contextmanager
+def observe_redis_write(operation: str) -> Iterator[None]:
+    """Time a Redis write and record to histogram (AC-12.05)."""
+    start = time.monotonic()
+    try:
+        yield
+    finally:
+        elapsed = time.monotonic() - start
+        REDIS_OPERATIONS.labels(operation=operation).inc()
+        REDIS_CACHE_WRITE_DURATION.labels(operation=operation).observe(elapsed)

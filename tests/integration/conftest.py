@@ -6,6 +6,7 @@ service or *skips* the test.  We never silently fall back to mocks.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
@@ -250,8 +251,28 @@ async def app(integration_settings: Settings) -> AsyncIterator[Any]:
             )
 
     application = create_app(integration_settings)
-    async with application.router.lifespan_context(application):
-        yield application
+    ctx = application.router.lifespan_context(application)
+    await ctx.__aenter__()
+    yield application
+
+    # Bound the lifespan shutdown to prevent CI hangs — background tasks
+    # (lifecycle_loop, etc.) can race with engine disposal on slow runners.
+    try:
+        await asyncio.wait_for(ctx.__aexit__(None, None, None), timeout=10.0)
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "App lifespan shutdown timed out or errored — continuing"
+        )
+
+    # Force-shutdown Langfuse daemon threads to prevent teardown hangs
+    try:
+        from tta.observability.langfuse import shutdown_langfuse
+
+        shutdown_langfuse()
+    except Exception:
+        pass
 
 
 @pytest.fixture()
@@ -276,7 +297,12 @@ async def registered_player(
     handle = f"test-player-{uuid.uuid4().hex[:8]}"
     resp = await client.post(
         "/api/v1/players",
-        json={"handle": handle},
+        json={
+            "handle": handle,
+            "age_13_plus_confirmed": True,
+            "consent_version": "1.0",
+            "consent_categories": {"core_gameplay": True, "llm_processing": True},
+        },
     )
     assert resp.status_code == 201, resp.text
     data = resp.json()["data"]

@@ -160,7 +160,7 @@ async def register_player(
             "consent_accepted_at, consent_categories, "
             "age_confirmed_at, consent_ip_hash) "
             "VALUES (:id, :handle, :created_at, :consent_version, "
-            ":consent_accepted_at, :consent_categories::jsonb, "
+            ":consent_accepted_at, CAST(:consent_categories AS jsonb), "
             ":age_confirmed_at, :consent_ip_hash)"
         ),
         {
@@ -344,7 +344,7 @@ async def update_consent(
     set_parts = [
         "consent_version = :version",
         "consent_categories = "
-        "COALESCE(consent_categories, '{}'::jsonb) || :patch::jsonb",
+        "COALESCE(consent_categories, '{}'::jsonb) || CAST(:patch AS jsonb)",
         "consent_accepted_at = :now",
         "consent_ip_hash = :ip_hash",
         "updated_at = :now",
