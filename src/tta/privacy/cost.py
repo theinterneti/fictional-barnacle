@@ -82,16 +82,35 @@ class LLMCostTracker:
 
     Thread-safe for single-request use (one tracker per pipeline run).
     Feeds TURN_LLM_COST Prometheus histogram on each ``record()`` call.
+
+    ``session_total_usd`` is seeded from the DB at request start so
+    budget checks reflect the full session history, not just the
+    current turn.
     """
 
-    def __init__(self, session_id: str | None = None) -> None:
+    def __init__(
+        self,
+        session_id: str | None = None,
+        session_total_usd: float = 0.0,
+    ) -> None:
         self.session_id = session_id
         self._calls: list[dict[str, float | str]] = []
-        self._total_usd: float = 0.0
+        self._turn_cost_usd: float = 0.0
+        self._session_total_usd: float = session_total_usd
 
     @property
     def total_usd(self) -> float:
-        return self._total_usd
+        """Cost accumulated *this turn* (backwards-compat name)."""
+        return self._turn_cost_usd
+
+    @property
+    def turn_cost_usd(self) -> float:
+        return self._turn_cost_usd
+
+    @property
+    def session_total_usd(self) -> float:
+        """Full session cost including prior turns + this turn."""
+        return self._session_total_usd + self._turn_cost_usd
 
     @property
     def call_count(self) -> int:
@@ -114,17 +133,34 @@ class LLMCostTracker:
                 "cost_usd": cost,
             }
         )
-        self._total_usd += cost
+        self._turn_cost_usd += cost
 
         # Push to Prometheus
         TURN_LLM_COST.labels(model=model).observe(cost)
         return cost
 
+    def check_session_budget(
+        self,
+        cap_usd: float,
+        warn_pct: float = 0.8,
+    ) -> str:
+        """Check session cost against the cap.
+
+        Returns one of ``"ok"``, ``"warning"``, ``"exceeded"``.
+        """
+        total = self.session_total_usd
+        if total >= cap_usd:
+            return "exceeded"
+        if total >= cap_usd * warn_pct:
+            return "warning"
+        return "ok"
+
     def summary(self) -> dict[str, float | int | str | None]:
         """Return a JSON-safe summary for Langfuse metadata."""
         return {
             "session_id": self.session_id,
-            "total_cost_usd": round(self._total_usd, 6),
+            "turn_cost_usd": round(self._turn_cost_usd, 6),
+            "session_total_usd": round(self.session_total_usd, 6),
             "call_count": self.call_count,
         }
 
@@ -144,8 +180,14 @@ def get_cost_tracker() -> LLMCostTracker:
     return tracker
 
 
-def reset_cost_tracker(session_id: str | None = None) -> LLMCostTracker:
+def reset_cost_tracker(
+    session_id: str | None = None,
+    session_total_usd: float = 0.0,
+) -> LLMCostTracker:
     """Reset and return a fresh tracker for a new request."""
-    tracker = LLMCostTracker(session_id=session_id)
+    tracker = LLMCostTracker(
+        session_id=session_id,
+        session_total_usd=session_total_usd,
+    )
     _tracker_var.set(tracker)
     return tracker
