@@ -6,6 +6,7 @@ service or *skips* the test.  We never silently fall back to mocks.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
@@ -252,6 +253,10 @@ async def app(integration_settings: Settings) -> AsyncIterator[Any]:
     application = create_app(integration_settings)
     async with application.router.lifespan_context(application):
         yield application
+
+    # Allow cancelled background tasks (lifecycle_loop, etc.) to settle
+    # before pytest tears down the event loop.
+    await asyncio.sleep(0.1)
 
     # Force-shutdown Langfuse daemon threads to prevent teardown hangs
     try:

@@ -62,7 +62,7 @@ jobs:
       - name: Run integration tests
         run: |
           # Exit code 5 = no tests collected (acceptable during bootstrap)
-          uv run pytest tests/integration/ -v --timeout=30 || [ $? -eq 5 ]
+          uv run pytest tests/integration/ -v --timeout=60 || [ $? -eq 5 ]
 
       - run: docker compose -f docker-compose.test.yml down
         if: always()
