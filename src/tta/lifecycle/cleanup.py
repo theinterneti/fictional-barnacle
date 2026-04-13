@@ -4,6 +4,8 @@ Transitions enforced:
   - ``created``/``active``  + 0 turns + age > 24 h  →  ``abandoned``
   - ``paused``  + last_played > 30 days  →  ``expired``
   - ``active``  + turn_count > 0 + idle > 30 min  →  ``paused``  (AC-1.7)
+  - Anonymous players with no active games + 30 d old  →  soft-deleted
+    (FR-11.12, FR-11.59)
 
 Usage:
   - Background: started automatically by the FastAPI lifespan.
@@ -25,6 +27,7 @@ log = structlog.get_logger()
 ABANDON_HOURS = 24
 EXPIRE_DAYS = 30
 IDLE_TIMEOUT_MINUTES = 30
+ANON_CLEANUP_DAYS = 30
 
 
 async def run_lifecycle_pass(
@@ -33,6 +36,7 @@ async def run_lifecycle_pass(
     abandon_hours: int = ABANDON_HOURS,
     expire_days: int = EXPIRE_DAYS,
     idle_timeout_minutes: int = IDLE_TIMEOUT_MINUTES,
+    anon_cleanup_days: int = ANON_CLEANUP_DAYS,
 ) -> dict[str, int]:
     """Execute a single lifecycle-transition pass.
 
@@ -42,6 +46,7 @@ async def run_lifecycle_pass(
     abandon_cutoff = now - timedelta(hours=abandon_hours)
     expire_cutoff = now - timedelta(days=expire_days)
     idle_cutoff = now - timedelta(minutes=idle_timeout_minutes)
+    anon_cutoff = now - timedelta(days=anon_cleanup_days)
 
     async with session_factory() as pg:
         # Rule 1: created/active + 0 turns + older than 24 h → abandoned
@@ -72,8 +77,6 @@ async def run_lifecycle_pass(
         expired = expire_result.rowcount or 0
 
         # Rule 3 (AC-1.7): active + turn_count > 0 + idle > 30 min → paused
-        # Guard: turn_count > 0 prevents newly-created games from being
-        # paused before the player takes their first action.
         idle_result = await pg.execute(
             sa.text(
                 "UPDATE game_sessions "
@@ -87,7 +90,27 @@ async def run_lifecycle_pass(
         )
         idle_paused = idle_result.rowcount or 0
 
-        if abandoned or expired or idle_paused:
+        # Rule 4 (FR-11.12, FR-11.59): anonymous players with no active
+        # games and older than 30 days → soft-delete
+        anon_result = await pg.execute(
+            sa.text(
+                "UPDATE players "
+                "SET status = 'deleted', updated_at = :now "
+                "WHERE is_anonymous = true "
+                "AND status != 'deleted' "
+                "AND created_at < :cutoff "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM game_sessions gs "
+                "  WHERE gs.player_id = players.id "
+                "  AND gs.status IN ('created', 'active', 'paused') "
+                "  AND gs.deleted_at IS NULL"
+                ")"
+            ),
+            {"now": now, "cutoff": anon_cutoff},
+        )
+        anon_cleaned = anon_result.rowcount or 0
+
+        if abandoned or expired or idle_paused or anon_cleaned:
             await pg.commit()
 
         log.info(
@@ -95,11 +118,13 @@ async def run_lifecycle_pass(
             abandoned=abandoned,
             expired=expired,
             idle_paused=idle_paused,
+            anon_cleaned=anon_cleaned,
         )
         return {
             "abandoned": abandoned,
             "expired": expired,
             "idle_paused": idle_paused,
+            "anon_cleaned": anon_cleaned,
         }
 
 

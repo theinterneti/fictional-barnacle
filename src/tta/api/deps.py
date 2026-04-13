@@ -12,7 +12,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.errors import AppError
 from tta.auth.jwt import TokenError, decode_token, is_token_denied
-from tta.config import CURRENT_CONSENT_VERSION, REQUIRED_CONSENT_CATEGORIES
+from tta.config import (
+    CURRENT_CONSENT_VERSION,
+    REQUIRED_CONSENT_CATEGORIES,
+    get_settings,
+)
 from tta.errors import ErrorCategory
 from tta.models.player import Player
 
@@ -158,6 +162,39 @@ async def require_consent(
                 "You must accept the current consent agreement before playing.",
             )
 
+    return player
+
+
+async def require_anonymous_game_limit(
+    player: Player = Depends(require_consent),
+    pg: AsyncSession = Depends(get_pg),
+) -> Player:
+    """Enforce FR-11.56: anonymous players limited to 1 active game.
+
+    Raises 403 if the anonymous player already has an active game.
+    Registered players pass through unchecked.
+    """
+    if not player.is_anonymous:
+        return player
+
+    settings = get_settings()
+    result = await pg.execute(
+        sa.text(
+            "SELECT COUNT(*) FROM game_sessions "
+            "WHERE player_id = :pid "
+            "AND status IN ('created', 'active') "
+            "AND deleted_at IS NULL"
+        ),
+        {"pid": player.id},
+    )
+    count = result.scalar() or 0
+    if count >= settings.anon_max_active_games:
+        raise AppError(
+            ErrorCategory.FORBIDDEN,
+            "ANON_GAME_LIMIT",
+            "Anonymous players are limited to 1 active game. "
+            "Finish or abandon your current game, or upgrade your account.",
+        )
     return player
 
 
