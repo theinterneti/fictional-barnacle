@@ -2,19 +2,30 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 
+from tta.models.game import GameState
 from tta.persistence.consistency import (
-    _content_hash,
     audit_cache_consistency,
     check_session_consistency,
 )
 
 SID = UUID("00000000-0000-0000-0000-000000000001")
+
+
+def _cached_payload(turn_number: int = 5) -> bytes:
+    """Build a realistic Redis-cached GameState payload."""
+    return GameState(session_id=SID, turn_number=turn_number).model_dump_json().encode()
+
+
+def _sql_row(turn_count: int = 5) -> MagicMock:
+    """Build a mock SQL row with turn_count."""
+    row = MagicMock()
+    row.turn_count = turn_count
+    return row
 
 
 @pytest.fixture
@@ -25,17 +36,6 @@ def mock_redis() -> AsyncMock:
 @pytest.fixture
 def mock_pg() -> AsyncMock:
     return AsyncMock()
-
-
-class TestContentHash:
-    def test_deterministic(self) -> None:
-        assert _content_hash("hello") == _content_hash("hello")
-
-    def test_bytes_and_str_match(self) -> None:
-        assert _content_hash(b"abc") == _content_hash("abc")
-
-    def test_different_input_different_hash(self) -> None:
-        assert _content_hash("a") != _content_hash("b")
 
 
 class TestCheckSessionConsistency:
@@ -55,14 +55,11 @@ class TestCheckSessionConsistency:
     async def test_matching_state_is_consistent(
         self, mock_redis: AsyncMock, mock_pg: AsyncMock
     ) -> None:
-        """Cache matches SQL → consistent."""
-        world_seed = json.dumps({"theme": "forest"}, sort_keys=True)
-        mock_redis.get.return_value = world_seed.encode()
+        """Cache turn_number matches SQL turn_count → consistent."""
+        mock_redis.get.return_value = _cached_payload(turn_number=5)
 
-        row = MagicMock()
-        row.world_seed = {"theme": "forest"}
         result_proxy = MagicMock()
-        result_proxy.one_or_none.return_value = row
+        result_proxy.one_or_none.return_value = _sql_row(turn_count=5)
         mock_pg.execute.return_value = result_proxy
 
         with (
@@ -78,7 +75,7 @@ class TestCheckSessionConsistency:
         self, mock_redis: AsyncMock, mock_pg: AsyncMock
     ) -> None:
         """Session in Redis but not SQL → phantom drift."""
-        mock_redis.get.return_value = b"some_data"
+        mock_redis.get.return_value = _cached_payload(turn_number=3)
 
         result_proxy = MagicMock()
         result_proxy.one_or_none.return_value = None
@@ -98,13 +95,11 @@ class TestCheckSessionConsistency:
     async def test_content_mismatch_detected(
         self, mock_redis: AsyncMock, mock_pg: AsyncMock
     ) -> None:
-        """Different content → mismatch drift, cache evicted."""
-        mock_redis.get.return_value = b'{"theme": "cave"}'
+        """Different turn numbers → mismatch drift, cache evicted."""
+        mock_redis.get.return_value = _cached_payload(turn_number=10)
 
-        row = MagicMock()
-        row.world_seed = {"theme": "forest"}
         result_proxy = MagicMock()
-        result_proxy.one_or_none.return_value = row
+        result_proxy.one_or_none.return_value = _sql_row(turn_count=7)
         mock_pg.execute.return_value = result_proxy
 
         with (
@@ -118,14 +113,14 @@ class TestCheckSessionConsistency:
         detected.labels.assert_called_once_with(kind="content_mismatch")
         evict.assert_awaited_once_with(mock_redis, SID)
 
-    async def test_string_world_seed(
+    async def test_sql_null_turn_count_treated_as_zero(
         self, mock_redis: AsyncMock, mock_pg: AsyncMock
     ) -> None:
-        """world_seed stored as a string (not dict) still works."""
-        mock_redis.get.return_value = b"plain-text-seed"
+        """SQL NULL turn_count defaults to 0; matches cached turn 0."""
+        mock_redis.get.return_value = _cached_payload(turn_number=0)
 
         row = MagicMock()
-        row.world_seed = "plain-text-seed"
+        row.turn_count = None
         result_proxy = MagicMock()
         result_proxy.one_or_none.return_value = row
         mock_pg.execute.return_value = result_proxy
@@ -185,7 +180,7 @@ class TestAuditCacheConsistency:
             0,
             [f"tta:session:{sid}".encode()],
         )
-        mock_redis.get.return_value = b"stale"
+        mock_redis.get.return_value = _cached_payload(turn_number=1)
 
         result_proxy = MagicMock()
         result_proxy.one_or_none.return_value = None  # phantom

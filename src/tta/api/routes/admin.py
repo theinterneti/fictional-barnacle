@@ -878,7 +878,7 @@ async def run_consistency_check(
     automatically evicted so the next read triggers SQL reconstruction.
     """
     redis: Redis = request.app.state.redis  # type: ignore[attr-defined]
-    sf = request.app.state.pipeline_deps.turn_repo._sf  # type: ignore[attr-defined]
+    sf = request.app.state.pipeline_deps.db_session_factory
 
     from tta.persistence.consistency import audit_cache_consistency
 

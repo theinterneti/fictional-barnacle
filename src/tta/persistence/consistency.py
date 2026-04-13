@@ -8,13 +8,13 @@ safe SQL reconstruction (get_or_reconstruct_session).
 
 from __future__ import annotations
 
-import hashlib
 from uuid import UUID
 
 import structlog
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tta.models.game import GameState
 from tta.observability.metrics import (
     STATE_DRIFT_CHECKS,
     STATE_DRIFT_DETECTED,
@@ -26,13 +26,6 @@ from tta.persistence.redis_session import (
 )
 
 log = structlog.get_logger()
-
-
-def _content_hash(data: bytes | str) -> str:
-    """SHA-256 digest of serialised state for drift comparison."""
-    if isinstance(data, str):
-        data = data.encode()
-    return hashlib.sha256(data).hexdigest()
 
 
 async def check_session_consistency(
@@ -54,11 +47,13 @@ async def check_session_consistency(
     if cached_raw is None:
         return True  # no cached state → nothing to drift
 
+    cached_state = GameState.model_validate_json(cached_raw)
+
     # Fetch the authoritative SQL row
     import sqlalchemy as sa
 
     row = await pg.execute(
-        sa.text("SELECT world_seed FROM game_sessions WHERE id = :sid"),
+        sa.text("SELECT turn_count FROM game_sessions WHERE id = :sid"),
         {"sid": session_id},
     )
     sql_row = row.one_or_none()
@@ -73,22 +68,16 @@ async def check_session_consistency(
         await delete_active_session(redis, session_id)
         return False
 
-    # Compare content hashes of the world_seed field
-    sql_data = sql_row.world_seed or ""
-    if isinstance(sql_data, dict):
-        import json
+    sql_turn_count = sql_row.turn_count
+    if sql_turn_count is None:
+        sql_turn_count = 0
 
-        sql_data = json.dumps(sql_data, sort_keys=True)
-
-    sql_hash = _content_hash(str(sql_data))
-    cached_hash = _content_hash(cached_raw)
-
-    if sql_hash != cached_hash:
+    if cached_state.turn_number != sql_turn_count:
         log.error(
             "state_drift_detected",
             session_id=str(session_id),
-            sql_hash=sql_hash[:12],
-            cache_hash=cached_hash[:12],
+            cached_turn=cached_state.turn_number,
+            sql_turn=sql_turn_count,
             detail="Redis cache diverged from Postgres source of truth",
         )
         STATE_DRIFT_DETECTED.labels(kind="content_mismatch").inc()
