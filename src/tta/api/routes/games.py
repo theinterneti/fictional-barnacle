@@ -705,6 +705,7 @@ async def _execute_command(
     *,
     template_registry: object | None = None,
     relationship_service: Any | None = None,
+    llm_client: Any | None = None,
 ) -> dict:
     """Execute a known slash command and return response payload."""
     if cmd == "help":
@@ -753,7 +754,7 @@ async def _execute_command(
         )
 
     if cmd == "end":
-        return await _execute_end_command(game_id, row, pg)
+        return await _execute_end_command(game_id, row, pg, llm_client=llm_client)
 
     return {"type": "command", "command": "help", "message": _HELP_TEXT}
 
@@ -908,8 +909,15 @@ async def _execute_end_command(
     game_id: UUID,
     row: object,
     pg: AsyncSession,
+    *,
+    llm_client: Any | None = None,
 ) -> dict:
-    """End the current game and return an epilogue message."""
+    """End the current game and return an epilogue message (AC-1.6).
+
+    Generates an LLM-powered epilogue narrative referencing the player's
+    journey, then archives the game and presents the option to begin a new
+    adventure. Falls back to a static epilogue if the LLM is unavailable.
+    """
     status = getattr(row, "status", None)
     if status in ("ended", "completed", "abandoned"):
         return {
@@ -927,18 +935,87 @@ async def _execute_end_command(
     )
     await pg.commit()
     turn_count = await _get_turn_count(pg, game_id)
+
+    # Extract character/world context from world_seed
     name = "Traveler"
+    world_name = "this world"
     ws_raw = getattr(row, "world_seed", None)
     if isinstance(ws_raw, dict):
         name = ws_raw.get("preferences", {}).get("character_name") or name
-    msg = (
-        f"The story of {name} comes to a close.\n"
+        world_name = ws_raw.get("world_name") or ws_raw.get("name") or world_name
+
+    summary = getattr(row, "summary", None) or ""
+
+    epilogue = await _generate_epilogue(
+        llm_client=llm_client,
+        character_name=name,
+        world_name=world_name,
+        turn_count=turn_count,
+        summary=summary,
+    )
+
+    return {"type": "command", "command": "end", "message": epilogue}
+
+
+async def _generate_epilogue(
+    *,
+    llm_client: Any | None,
+    character_name: str,
+    world_name: str,
+    turn_count: int,
+    summary: str,
+) -> str:
+    """Generate an LLM-powered epilogue or fall back to a static one."""
+    fallback = (
+        f"— Epilogue: What Remained —\n\n"
+        f"The story of {character_name} comes to a close.\n"
         f"Over {turn_count} turn{'s' if turn_count != 1 else ''}, "
-        "you shaped this world with your choices.\n\n"
+        f"you shaped {world_name} with your choices.\n\n"
         "Thank you for playing. "
         "Start a new game whenever you're ready for another adventure."
     )
-    return {"type": "command", "command": "end", "message": msg}
+    if llm_client is None:
+        return fallback
+
+    try:
+        from tta.llm.client import Message, MessageRole
+        from tta.llm.roles import ModelRole
+
+        summary_ctx = (
+            f"\nJourney summary: {summary}" if summary else ""
+        )
+        system_prompt = (
+            "You are the narrator closing a text adventure story. "
+            "Write a short, poignant epilogue (100-200 words). "
+            "Begin with the chapter title '— Epilogue: What Remained —' on "
+            "its own line. Describe the aftermath of the player's journey: "
+            "what changed in the world, how NPCs remember the player's "
+            "choices, and what legacy remains. End on a reflective, hopeful "
+            "note. Do NOT break the fourth wall or mention game mechanics.\n\n"
+            f"Character: {character_name}\n"
+            f"World: {world_name}\n"
+            f"Turns played: {turn_count}"
+            f"{summary_ctx}"
+        )
+        messages = [
+            Message(role=MessageRole.SYSTEM, content=system_prompt),
+            Message(
+                role=MessageRole.USER,
+                content="Write the epilogue for this adventure.",
+            ),
+        ]
+        resp = await llm_client.generate(ModelRole.GENERATION, messages)
+        epilogue_text = resp.content.strip()
+        if epilogue_text:
+            epilogue_text += (
+                "\n\nStart a new game whenever you're "
+                "ready for another adventure."
+            )
+            return epilogue_text
+    except Exception:
+        pass
+
+    return fallback
 
 
 # --- Helper functions ---
@@ -1426,6 +1503,7 @@ async def submit_turn(
                 "relationship_service",
                 None,
             )
+            llm = getattr(request.app.state, "llm_client", None)
             payload = await _execute_command(
                 known_cmd,
                 game_id,
@@ -1433,6 +1511,7 @@ async def submit_turn(
                 pg,
                 template_registry=reg,
                 relationship_service=rel_svc,
+                llm_client=llm,
             )
         else:
             payload = {
