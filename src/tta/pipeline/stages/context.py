@@ -237,6 +237,77 @@ def _identify_companions(world_context: dict) -> dict:
     return world_context
 
 
+_SHARED_HISTORY_TURN_LIMIT = 10
+_SHARED_HISTORY_MAX_MENTIONS = 3
+
+
+async def _inject_shared_history(
+    dialogue_contexts: list[dict],
+    state: TurnState,
+    deps: PipelineDeps,
+) -> list[dict]:
+    """Populate shared_history for each NPC from recent turn narratives (S06 AC-6.8).
+
+    Scans the last N turns for mentions of each NPC's name and builds
+    brief history snippets so the LLM can reference past interactions.
+    """
+    if not dialogue_contexts:
+        return dialogue_contexts
+
+    turn_repo = getattr(deps, "turn_repo", None)
+    if turn_repo is None:
+        return dialogue_contexts
+
+    try:
+        recent = await turn_repo.get_recent_turns(
+            state.session_id, limit=_SHARED_HISTORY_TURN_LIMIT
+        )
+    except Exception:
+        log.debug("shared_history_fetch_failed", exc_info=True)
+        return dialogue_contexts
+
+    if not recent:
+        return dialogue_contexts
+
+    # Build name→mentions index (case-insensitive scan of narrative text)
+    npc_names = {
+        ctx.get("npc_name", "").lower(): ctx.get("npc_name", "")
+        for ctx in dialogue_contexts
+        if ctx.get("npc_name")
+    }
+
+    mentions: dict[str, list[str]] = {name_lower: [] for name_lower in npc_names}
+
+    for turn_dict in recent:
+        narrative = turn_dict.get("narrative_output") or ""
+        turn_num = turn_dict.get("turn_number", "?")
+        if not narrative:
+            continue
+        narrative_lower = narrative.lower()
+        for name_lower, _display_name in npc_names.items():
+            if name_lower in narrative_lower and len(
+                mentions[name_lower]
+            ) < _SHARED_HISTORY_MAX_MENTIONS:
+                # Extract a brief excerpt around the mention
+                idx = narrative_lower.index(name_lower)
+                start = max(0, idx - 40)
+                end = min(len(narrative), idx + len(name_lower) + 60)
+                snippet = narrative[start:end].strip()
+                if start > 0:
+                    snippet = "…" + snippet
+                if end < len(narrative):
+                    snippet = snippet + "…"
+                mentions[name_lower].append(f"Turn {turn_num}: {snippet}")
+
+    # Inject into dialogue contexts
+    for ctx in dialogue_contexts:
+        name_lower = (ctx.get("npc_name") or "").lower()
+        if name_lower in mentions and mentions[name_lower]:
+            ctx["shared_history"] = "; ".join(mentions[name_lower])
+
+    return dialogue_contexts
+
+
 async def _enrich_npc_dialogue(
     world_context: dict,
     state: TurnState,
@@ -257,6 +328,10 @@ async def _enrich_npc_dialogue(
             session_id=state.session_id,
             source_id=_PLAYER_SOURCE_ID,
             relationship_service=rel_svc,
+        )
+        # AC-6.8: populate shared_history from recent turns
+        dialogue_contexts = await _inject_shared_history(
+            dialogue_contexts, state, deps
         )
         world_context["npc_dialogue_contexts"] = dialogue_contexts
     except Exception:

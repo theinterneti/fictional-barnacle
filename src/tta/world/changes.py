@@ -106,6 +106,12 @@ def _validate_item_visibility_changed(change: WorldChange) -> None:
         raise ChangeValidationError(msg)
 
 
+def _validate_relationship_changed(change: WorldChange) -> None:
+    if not change.entity_id:
+        msg = "RELATIONSHIP_CHANGED requires entity_id (the NPC identifier)"
+        raise ChangeValidationError(msg)
+
+
 # -- Public API -----------------------------------------------------
 
 
@@ -139,6 +145,8 @@ async def validate_change(
         _validate_quest_status_changed(change)
     elif ct == WorldChangeType.ITEM_VISIBILITY_CHANGED:
         _validate_item_visibility_changed(change)
+    elif ct == WorldChangeType.RELATIONSHIP_CHANGED:
+        _validate_relationship_changed(change)
 
     log.debug(
         "change_validated",

@@ -41,7 +41,12 @@ from tta.models.events import (
 from tta.models.game import GameStatus
 from tta.models.player import Player
 from tta.models.turn import TurnState, TurnStatus
-from tta.models.world import WorldChange, WorldChangeType, WorldSeed
+from tta.models.world import (
+    RelationshipChange,
+    WorldChange,
+    WorldChangeType,
+    WorldSeed,
+)
 from tta.observability.metrics import (
     SESSION_DURATION,
     SESSION_TURNS,
@@ -112,6 +117,9 @@ def _build_typed_payload(change_type: WorldChangeType, item: dict) -> dict:
     elif ct == WorldChangeType.ITEM_VISIBILITY_CHANGED:
         hidden = nv if isinstance(nv, bool) else str(nv).lower() == "true"
         base.setdefault("hidden", hidden)
+    elif ct == WorldChangeType.RELATIONSHIP_CHANGED:
+        base.setdefault("dimension", str(item.get("attribute") or "trust"))
+        base.setdefault("direction", str(nv) if nv is not None else "positive")
     return base
 
 
@@ -140,6 +148,60 @@ def _translate_world_updates(raw: list[dict]) -> list[WorldChange]:
             )
         )
     return changes
+
+
+# Keywords for inferring relationship dimension and direction from LLM output
+_POSITIVE_KEYWORDS = frozenset(
+    {"increase", "improve", "gain", "grow", "positive", "warm", "better", "higher"}
+)
+_NEGATIVE_KEYWORDS = frozenset(
+    {"decrease", "lose", "drop", "worsen", "negative", "cold", "worse", "lower"}
+)
+
+
+def _parse_relationship_delta(payload: dict) -> RelationshipChange:
+    """Convert LLM-extracted relationship payload to a RelationshipChange.
+
+    The payload contains ``dimension`` (attribute like "trust", "fear") and
+    ``direction`` (a descriptive string like "increased", "grew warmer").
+    We map these to a small numeric delta on the appropriate axis.
+    """
+    dimension = payload.get("dimension", "trust").lower()
+    direction_raw = str(payload.get("direction", "positive")).lower()
+
+    # Determine sign: positive or negative shift
+    sign = 1
+    if any(kw in direction_raw for kw in _NEGATIVE_KEYWORDS):
+        sign = -1
+
+    delta = 5 * sign  # modest default step
+
+    trust = 0
+    affinity = 0
+    respect = 0
+    fear = 0
+    familiarity = 3  # any interaction increases familiarity
+
+    if "trust" in dimension:
+        trust = delta
+    elif "affinity" in dimension or "warmth" in dimension:
+        affinity = delta
+    elif "respect" in dimension:
+        respect = delta
+    elif "fear" in dimension:
+        fear = abs(delta) if sign > 0 else -abs(delta)
+    else:
+        # Generic / unmapped → trust + affinity
+        trust = delta
+        affinity = delta
+
+    return RelationshipChange(
+        trust=trust,
+        affinity=affinity,
+        respect=respect,
+        fear=fear,
+        familiarity=familiarity,
+    )
 
 
 async def _dispatch_pipeline(
@@ -344,12 +406,40 @@ async def _dispatch_pipeline(
 
             world_svc = deps.world
             changes = _translate_world_updates(result.world_state_updates)
-            if changes:
-                await apply_changes(changes, world_svc, game_id)
+            # Separate relationship changes for dedicated handling (S06 AC-6.4)
+            rel_changes = [
+                c for c in changes if c.type == WorldChangeType.RELATIONSHIP_CHANGED
+            ]
+            other_changes = [
+                c for c in changes if c.type != WorldChangeType.RELATIONSHIP_CHANGED
+            ]
+            if other_changes:
+                await apply_changes(other_changes, world_svc, game_id)
+            # Apply relationship changes via RelationshipService (fire-and-forget)
+            rel_svc = deps.relationship_service
+            if rel_changes and rel_svc is not None:
+                for rc in rel_changes:
+                    try:
+                        delta = _parse_relationship_delta(rc.payload)
+                        await rel_svc.update_relationship(
+                            session_id=str(game_id),
+                            source_id="player",
+                            target_id=rc.entity_id,
+                            change=delta,
+                        )
+                    except Exception:
+                        log.debug(
+                            "relationship_change_skipped",
+                            entity=rc.entity_id,
+                            exc_info=True,
+                        )
+            applied = len(other_changes) + len(rel_changes)
+            if applied:
                 log.info(
                     "world_changes_applied",
                     game_id=str(game_id),
-                    count=len(changes),
+                    count=applied,
+                    relationships=len(rel_changes),
                 )
         except asyncio.CancelledError:
             raise
