@@ -435,6 +435,81 @@ class TestEndCommand:
         assert "1 turn," in data["message"]
         assert "1 turns" not in data["message"]
 
+    def test_end_epilogue_chapter_title(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """Fallback epilogue includes spec-required chapter title."""
+        pg.execute.side_effect = [
+            _make_result([_game_row(world_seed=_WORLD_SEED_DICT)]),
+            MagicMock(),  # UPDATE
+            _make_result(scalar=5),  # turn count
+        ]
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/end"})
+        data = resp.json()["data"]
+        assert "— Epilogue: What Remained —" in data["message"]
+
+    def test_end_includes_world_name(self, client: TestClient, pg: AsyncMock) -> None:
+        """Epilogue references the world name from world_seed."""
+        seed: dict[str, Any] = {
+            **_WORLD_SEED_DICT,
+            "world_name": "The Whispering Woods",
+        }
+        pg.execute.side_effect = [
+            _make_result([_game_row(world_seed=seed)]),
+            MagicMock(),  # UPDATE
+            _make_result(scalar=7),  # turn count
+        ]
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/end"})
+        data = resp.json()["data"]
+        assert "Whispering Woods" in data["message"]
+
+    def test_end_with_llm_client(
+        self, app: FastAPI, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """When LLM client is available, epilogue comes from LLM."""
+        llm_resp = SimpleNamespace(
+            content="— Epilogue: What Remained —\nThe forest remembers Elara.",
+            model_used="test-model",
+            token_count=50,
+            latency_ms=100,
+            tier_used="default",
+            cost_usd=None,
+        )
+        mock_llm = AsyncMock()
+        mock_llm.generate.return_value = llm_resp
+        app.state.llm_client = mock_llm
+
+        pg.execute.side_effect = [
+            _make_result([_game_row(world_seed=_WORLD_SEED_DICT)]),
+            MagicMock(),  # UPDATE
+            _make_result(scalar=10),  # turn count
+        ]
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/end"})
+        data = resp.json()["data"]
+        assert "forest remembers Elara" in data["message"]
+        msg = data["message"].lower()
+        assert "new game" in msg or "another adventure" in msg
+        mock_llm.generate.assert_awaited_once()
+
+    def test_end_llm_failure_falls_back(
+        self, app: FastAPI, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """LLM failure gracefully falls back to static epilogue."""
+        mock_llm = AsyncMock()
+        mock_llm.generate.side_effect = RuntimeError("LLM unavailable")
+        app.state.llm_client = mock_llm
+
+        pg.execute.side_effect = [
+            _make_result([_game_row(world_seed=_WORLD_SEED_DICT)]),
+            MagicMock(),  # UPDATE
+            _make_result(scalar=5),  # turn count
+        ]
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "/end"})
+        data = resp.json()["data"]
+        assert "— Epilogue: What Remained —" in data["message"]
+        assert "Elara" in data["message"]
+        assert "another adventure" in data["message"].lower()
+
 
 # --- Help text includes new commands ---
 

@@ -6,6 +6,8 @@ Register and login are deferred per S11 §14 Out of Scope.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -29,7 +31,11 @@ from tta.auth.jwt import (
     is_token_denied,
 )
 from tta.auth.passwords import hash_password
-from tta.config import get_settings
+from tta.config import (
+    CURRENT_CONSENT_VERSION,
+    REQUIRED_CONSENT_CATEGORIES,
+    get_settings,
+)
 from tta.errors import ErrorCategory
 from tta.models.player import Player
 
@@ -65,6 +71,20 @@ class UpgradeRequest(BaseModel):
     )
     password: str = Field(..., min_length=_PASSWORD_MIN, max_length=_PASSWORD_MAX)
     display_name: str | None = Field(None, max_length=50)
+    # S17 FR-17.36: age gate
+    age_13_plus_confirmed: bool = Field(
+        ...,
+        description="Player confirms they are 13 years or older.",
+    )
+    # S17 FR-17.22: consent
+    consent_version: str = Field(
+        ...,
+        description="Version of the consent agreement being accepted.",
+    )
+    consent_categories: dict[str, bool] = Field(
+        ...,
+        description="Consent categories and acceptance status.",
+    )
 
 
 # ── Helpers ─────────────────────────────────────────────────────
@@ -456,6 +476,7 @@ async def logout(
 @router.post("/upgrade")
 async def upgrade_anonymous(
     body: UpgradeRequest,
+    request: Request,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
     redis: Redis = Depends(get_redis),
@@ -471,6 +492,31 @@ async def upgrade_anonymous(
 
     # FR-11.16: validate password
     _validate_password(body.password)
+
+    # S17 FR-17.36: age gate (input validation before DB queries)
+    if not body.age_13_plus_confirmed:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "AGE_GATE_FAILED",
+            "You must confirm you are 13 years or older.",
+        )
+
+    # S17 FR-17.22: consent version must match current
+    if body.consent_version != CURRENT_CONSENT_VERSION:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "CONSENT_VERSION_MISMATCH",
+            f"Expected consent version {CURRENT_CONSENT_VERSION}.",
+        )
+
+    # S17 FR-17.24: required consent categories must be accepted
+    for cat in REQUIRED_CONSENT_CATEGORIES:
+        if not body.consent_categories.get(cat):
+            raise AppError(
+                ErrorCategory.INPUT_INVALID,
+                "CONSENT_REQUIRED",
+                f"Required consent category '{cat}' must be accepted.",
+            )
 
     # FR-11.28: check email uniqueness
     existing = await pg.execute(
@@ -490,12 +536,25 @@ async def upgrade_anonymous(
     # FR-11.14: bcrypt hash, FR-11.15: no raw password in logs/responses
     pw_hash = hash_password(body.password)
 
+    # S17 FR-17.23: hash IP for consent audit trail
+    forwarded = request.headers.get("X-Forwarded-For")
+    client_ip = (
+        forwarded.split(",")[0].strip()
+        if forwarded
+        else (request.client.host if request.client else "unknown")
+    )
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
+
     # FR-11.24: preserve player_id, FR-11.26: set is_anonymous=false
+    # S17 FR-17.22-25: record consent alongside upgrade
     await pg.execute(
         sa.text(
             "UPDATE players SET "
             "email = :email, password_hash = :pw, is_anonymous = false, "
-            "display_name = :dn, last_login_at = :now "
+            "display_name = :dn, last_login_at = :now, "
+            "consent_version = :cv, consent_accepted_at = :now, "
+            "consent_categories = :cc, "
+            "age_confirmed_at = :now, consent_ip_hash = :ip_hash "
             "WHERE id = :id"
         ),
         {
@@ -504,6 +563,9 @@ async def upgrade_anonymous(
             "dn": display,
             "now": now,
             "id": player.id,
+            "cv": body.consent_version,
+            "cc": json.dumps(body.consent_categories),
+            "ip_hash": ip_hash,
         },
     )
 

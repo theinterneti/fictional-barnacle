@@ -68,6 +68,14 @@ class GenesisResult(BaseModel):
     player_location_id: str
     template_key: str
     narrative_intro: str
+    genesis_elements: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Key world elements established during genesis — location names, "
+            "NPC names, notable items. Injected into early turns for "
+            "continuity (S02 AC-2.3, AC-2.10)."
+        ),
+    )
     created_at: datetime
 
 
@@ -105,6 +113,7 @@ async def run_genesis_lite(
         template,
         world_seed,
         llm,
+        session_id=session_id,
     )
 
     # 2 — build enriched seed and materialise the world graph
@@ -134,6 +143,9 @@ async def run_genesis_lite(
         world_seed=world_seed,
     )
 
+    # 5 — extract genesis elements for post-genesis continuity
+    elements = _extract_genesis_elements(enriched, loc_name)
+
     world_id = f"world_{template_key}_{session_id.hex[:8]}"
     log.info(
         "genesis_lite_complete",
@@ -148,6 +160,7 @@ async def run_genesis_lite(
         player_location_id=player_loc.id,
         template_key=template_key,
         narrative_intro=narrative_intro,
+        genesis_elements=elements,
         created_at=datetime.now(UTC),
     )
 
@@ -159,23 +172,62 @@ async def enrich_template(
     template: WorldTemplate,
     world_seed: WorldSeed,
     llm: LLMClient,
+    *,
+    session_id: UUID | None = None,
 ) -> EnrichedTemplate:
     """Ask the LLM to generate names / descriptions.
 
     On parse failure the call is retried once with error
     context.  If the retry also fails, a deterministic
     default enrichment is returned.
+
+    Terse or single-word seed values are expanded with safe
+    defaults before prompting (S02 AC-2.8).
+
+    A session-derived creativity seed is appended so repeat
+    genesis with the same template produces varied output
+    (S02 AC-2.6).
     """
+    # Defensive expansion for terse inputs (AC-2.8)
+    tone = world_seed.tone or "mysterious"
+    tech_level = world_seed.tech_level or "medieval"
+    magic_presence = world_seed.magic_presence or "low"
+    world_scale = world_seed.world_scale or "village"
+    defining_detail = world_seed.defining_detail or ""
+    character_concept = world_seed.character_concept or "adventurer"
+
+    # Expand single-word defining_detail into a richer description
+    if defining_detail and len(defining_detail.split()) <= 2:
+        defining_detail = (
+            f"a world defined by {defining_detail} — "
+            "interpret this freely to create a unique setting"
+        )
+
     template_json = _build_template_summary(template)
     user_prompt = ENRICHMENT_USER_PROMPT.format(
-        tone=world_seed.tone or "mysterious",
-        tech_level=world_seed.tech_level or "medieval",
-        magic_presence=world_seed.magic_presence or "low",
-        world_scale=world_seed.world_scale or "village",
-        defining_detail=world_seed.defining_detail or "",
-        character_concept=(world_seed.character_concept or "adventurer"),
+        tone=tone,
+        tech_level=tech_level,
+        magic_presence=magic_presence,
+        world_scale=world_scale,
+        defining_detail=defining_detail,
+        character_concept=character_concept,
         template_json=template_json,
     )
+
+    # Session-scoped creativity variance (AC-2.6)
+    if session_id is not None:
+        _VARIANCE_ADJECTIVES = [
+            "bold and dramatic",
+            "subtle and atmospheric",
+            "gritty and realistic",
+            "whimsical and surprising",
+            "dark and foreboding",
+            "warm and inviting",
+        ]
+        idx = int(session_id.hex[:8], 16) % len(_VARIANCE_ADJECTIVES)
+        user_prompt += (
+            f"\n\nCreative direction: make this world feel {_VARIANCE_ADJECTIVES[idx]}."
+        )
     messages = [
         Message(
             role=MessageRole.SYSTEM,
@@ -235,6 +287,30 @@ async def enrich_template(
 
 
 # -- Private helpers ---------------------------------------------
+
+
+def _extract_genesis_elements(
+    enriched: EnrichedTemplate,
+    loc_name: str,
+) -> list[str]:
+    """Extract key world elements established during genesis (S02 AC-2.3).
+
+    Returns a compact list of names/facts the narrative can reference
+    in early post-genesis turns for continuity.
+    """
+    elements: list[str] = []
+    elements.append(f"Starting location: {loc_name}")
+    for npc in enriched.npcs:
+        label = npc.name
+        if npc.occupation:
+            label += f" ({npc.occupation})"
+        elements.append(f"NPC: {label}")
+    for item in enriched.items:
+        elements.append(f"Notable object: {item.name}")
+    for loc in enriched.locations:
+        if loc.name != loc_name:
+            elements.append(f"Nearby area: {loc.name}")
+    return elements
 
 
 def _build_template_summary(
