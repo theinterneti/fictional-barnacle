@@ -448,9 +448,7 @@ class TestEndCommand:
         data = resp.json()["data"]
         assert "— Epilogue: What Remained —" in data["message"]
 
-    def test_end_includes_world_name(
-        self, client: TestClient, pg: AsyncMock
-    ) -> None:
+    def test_end_includes_world_name(self, client: TestClient, pg: AsyncMock) -> None:
         """Epilogue references the world name from world_seed."""
         seed: dict[str, Any] = {
             **_WORLD_SEED_DICT,

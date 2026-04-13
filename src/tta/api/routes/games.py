@@ -981,9 +981,7 @@ async def _generate_epilogue(
         from tta.llm.client import Message, MessageRole
         from tta.llm.roles import ModelRole
 
-        summary_ctx = (
-            f"\nJourney summary: {summary}" if summary else ""
-        )
+        summary_ctx = f"\nJourney summary: {summary}" if summary else ""
         system_prompt = (
             "You are the narrator closing a text adventure story. "
             "Write a short, poignant epilogue (100-200 words). "
@@ -1008,8 +1006,7 @@ async def _generate_epilogue(
         epilogue_text = resp.content.strip()
         if epilogue_text:
             epilogue_text += (
-                "\n\nStart a new game whenever you're "
-                "ready for another adventure."
+                "\n\nStart a new game whenever you're ready for another adventure."
             )
             return epilogue_text
     except Exception:

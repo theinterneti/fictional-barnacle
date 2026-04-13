@@ -285,9 +285,10 @@ async def _inject_shared_history(
             continue
         narrative_lower = narrative.lower()
         for name_lower, _display_name in npc_names.items():
-            if name_lower in narrative_lower and len(
-                mentions[name_lower]
-            ) < _SHARED_HISTORY_MAX_MENTIONS:
+            if (
+                name_lower in narrative_lower
+                and len(mentions[name_lower]) < _SHARED_HISTORY_MAX_MENTIONS
+            ):
                 # Extract a brief excerpt around the mention
                 idx = narrative_lower.index(name_lower)
                 start = max(0, idx - 40)
@@ -330,9 +331,7 @@ async def _enrich_npc_dialogue(
             relationship_service=rel_svc,
         )
         # AC-6.8: populate shared_history from recent turns
-        dialogue_contexts = await _inject_shared_history(
-            dialogue_contexts, state, deps
-        )
+        dialogue_contexts = await _inject_shared_history(dialogue_contexts, state, deps)
         world_context["npc_dialogue_contexts"] = dialogue_contexts
     except Exception:
         log.warning(
