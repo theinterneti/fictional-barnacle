@@ -301,6 +301,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             session_factory,
             interval_seconds=900,
             idle_timeout_minutes=settings.idle_timeout_minutes,
+            anon_cleanup_days=settings.anon_cleanup_days,
         )
     )
 

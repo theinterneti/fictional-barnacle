@@ -134,9 +134,16 @@ async def deny_token(
         log.warning("deny_token_no_redis", jti=jti)
         return
 
-    key = f"{_DENY_PREFIX}{jti}"
-    await redis.setex(key, remaining, "1")
-    log.info("token_denied", jti=jti, ttl=remaining)
+    try:
+        key = f"{_DENY_PREFIX}{jti}"
+        await redis.setex(key, remaining, "1")
+        log.info("token_denied", jti=jti, ttl=remaining)
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        if settings.environment == Environment.PRODUCTION:
+            raise RuntimeError(
+                "Redis connection failed for deny-list in production"
+            ) from exc
+        log.warning("deny_token_redis_error", jti=jti, error=str(exc))
 
 
 async def is_token_denied(
@@ -150,5 +157,13 @@ async def is_token_denied(
             raise RuntimeError("Redis is required for auth deny-list in production")
         return False
 
-    key = f"{_DENY_PREFIX}{jti}"
-    return bool(await redis.exists(key))
+    try:
+        key = f"{_DENY_PREFIX}{jti}"
+        return bool(await redis.exists(key))
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        if settings.environment == Environment.PRODUCTION:
+            raise RuntimeError(
+                "Redis connection failed for deny-list in production"
+            ) from exc
+        log.warning("is_token_denied_redis_error", jti=jti, error=str(exc))
+        return False

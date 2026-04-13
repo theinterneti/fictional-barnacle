@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 import sqlalchemy as sa
 import structlog
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
@@ -312,11 +312,30 @@ async def refresh_tokens(
 
     is_anon = player.is_anonymous
 
-    # FR-11.20: mark old token as used
-    await pg.execute(
-        sa.text("UPDATE refresh_tokens SET used = true WHERE id = :id"),
+    # FR-11.20: atomically mark old token as used (prevents race)
+    mark_result = await pg.execute(
+        sa.text(
+            "UPDATE refresh_tokens SET used = true WHERE id = :id AND used = false"
+        ),
         {"id": token_record.id},
     )
+    if mark_result.rowcount == 0:  # type: ignore[union-attr]
+        # Another concurrent request already consumed this token —
+        # possible replay / theft. Invalidate the whole session family.
+        await pg.execute(
+            sa.text(
+                "UPDATE refresh_tokens SET used = true "
+                "WHERE session_family_id = :sfid AND used = false"
+            ),
+            {"sfid": str(session_family_id)},
+        )
+        await pg.commit()
+        raise AppError(
+            ErrorCategory.AUTH_REQUIRED,
+            "REFRESH_TOKEN_REUSED",
+            "Refresh token already consumed. All tokens in this "
+            "session family have been revoked for security.",
+        )
 
     # Issue new pair (FR-11.21: rotation returns new refresh)
     access = create_access_token(
@@ -385,7 +404,7 @@ async def logout(
     request: Request,
     pg: AsyncSession = Depends(get_pg),
     redis: Redis = Depends(get_redis),
-) -> JSONResponse:
+) -> Response:
     """Invalidate the current access token and associated session."""
     # Extract and decode access token
     token = request.cookies.get("tta_session")
@@ -425,7 +444,7 @@ async def logout(
         )
         await pg.commit()
 
-    response = JSONResponse(status_code=204, content=None)
+    response = Response(status_code=204)
     response.delete_cookie(key="tta_session", path="/")
     log.info("player_logged_out", player_id=claims["sub"])
     return response

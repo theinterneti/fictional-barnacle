@@ -7,7 +7,7 @@ from enum import StrEnum
 from functools import lru_cache
 from typing import Any
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 
 # S17 FR-17.22 — consent version & required categories
@@ -211,6 +211,19 @@ class Settings(BaseSettings):
     bcrypt_cost: int = 12
     anon_max_active_games: int = 1
     anon_cleanup_days: int = 30
+
+    @model_validator(mode="after")
+    def _reject_default_jwt_secret_in_prod(self) -> Settings:
+        if (
+            self.environment == Environment.PRODUCTION
+            and self.jwt_secret == "CHANGE-ME-IN-PRODUCTION-minimum-32-bytes"
+        ):
+            msg = (
+                "jwt_secret must be changed from the default "
+                "before running in production"
+            )
+            raise ValueError(msg)
+        return self
 
     # Application
     session_token_ttl: int = 86400  # legacy, kept for compat

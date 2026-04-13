@@ -19,5 +19,11 @@ def hash_password(plain: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """Verify a plaintext password against a bcrypt hash."""
-    return bcrypt.checkpw(plain.encode(), hashed.encode())
+    """Verify a plaintext password against a bcrypt hash.
+
+    Returns False for malformed hashes instead of raising.
+    """
+    try:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except (ValueError, TypeError, RuntimeError):
+        return False

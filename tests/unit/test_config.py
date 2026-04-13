@@ -94,6 +94,7 @@ class TestEnumValidation:
                 database_url="postgresql://x@localhost/tta",
                 neo4j_password="s",
                 environment=env,
+                jwt_secret="test-secret-that-is-not-the-default-value",
             )
             assert s.environment == env
 
@@ -122,6 +123,7 @@ class TestEnvPrefix:
         monkeypatch.setenv("TTA_NEO4J_PASSWORD", "pw")
         monkeypatch.setenv("TTA_LOG_LEVEL", "DEBUG")
         monkeypatch.setenv("TTA_ENVIRONMENT", "production")
+        monkeypatch.setenv("TTA_JWT_SECRET", "test-secret-not-default")
         s = Settings()
         assert s.log_level == LogLevel.DEBUG
         assert s.environment == Environment.PRODUCTION

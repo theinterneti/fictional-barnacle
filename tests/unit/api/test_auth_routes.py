@@ -85,6 +85,7 @@ def app(pg: AsyncMock, redis: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> Fas
     settings = _settings()
     monkeypatch.setattr("tta.api.routes.auth.get_settings", lambda: settings)
     monkeypatch.setattr("tta.auth.jwt.get_settings", lambda: settings)
+    monkeypatch.setattr("tta.auth.passwords.get_settings", lambda: settings)
     a = create_app(settings=settings)
 
     async def _pg():
@@ -324,6 +325,7 @@ class TestUpgradeAnonymous:
         settings = _settings()
         monkeypatch.setattr("tta.api.routes.auth.get_settings", lambda: settings)
         monkeypatch.setattr("tta.auth.jwt.get_settings", lambda: settings)
+        monkeypatch.setattr("tta.auth.passwords.get_settings", lambda: settings)
         a = create_app(settings=settings)
 
         async def _pg():
@@ -410,6 +412,7 @@ class TestUpgradeAnonymous:
         settings = _settings()
         monkeypatch.setattr("tta.api.routes.auth.get_settings", lambda: settings)
         monkeypatch.setattr("tta.auth.jwt.get_settings", lambda: settings)
+        monkeypatch.setattr("tta.auth.passwords.get_settings", lambda: settings)
         a = create_app(settings=settings)
 
         async def _pg_gen():
