@@ -25,6 +25,7 @@ import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
+from redis.asyncio import Redis
 
 from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
@@ -862,3 +863,26 @@ async def query_audit_log(
         repo.encode_cursor(entries[-1].timestamp, entries[-1].id) if entries else None
     )
     return JSONResponse(content={"entries": items, "next_cursor": next_cursor})
+
+
+@router.post("/consistency-check")
+async def run_consistency_check(
+    request: Request,
+    sample_limit: int = Query(100, ge=1, le=1000),
+    _admin: AdminIdentity = Depends(require_admin),
+) -> JSONResponse:
+    """Audit Redis/SQL cache consistency (AC-12.04, EC-12.01).
+
+    Scans up to *sample_limit* cached sessions and compares each
+    against the Postgres source of truth.  Stale cache entries are
+    automatically evicted so the next read triggers SQL reconstruction.
+    """
+    redis: Redis = request.app.state.redis  # type: ignore[attr-defined]
+    sf = request.app.state.pipeline_deps.turn_repo._sf  # type: ignore[attr-defined]
+
+    from tta.persistence.consistency import audit_cache_consistency
+
+    async with sf() as pg:
+        result = await audit_cache_consistency(redis, pg, sample_limit=sample_limit)
+
+    return JSONResponse(content=result)
