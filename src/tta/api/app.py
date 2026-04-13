@@ -139,6 +139,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         templates_dir=prompts_dir / "templates",
         fragments_dir=prompts_dir / "fragments",
     )
+    # Fail-loud on missing or broken required templates (AC-09.1).
+    app.state.prompt_registry.validate_required_templates()
 
     # 4. LLM client
     if settings.llm_mock:

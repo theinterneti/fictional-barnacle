@@ -413,35 +413,25 @@ class TestRealTemplates:
         assert real_registry.has("extraction.world-changes")
 
     def test_render_narrative_generate(self, real_registry: FilePromptRegistry) -> None:
-        result = real_registry.render(
-            "narrative.generate",
-            {
-                "player_input": "look around",
-                "world_context": "A dark forest clearing.",
-            },
-        )
-        assert "dark forest clearing" in result.text
-        assert "look around" in result.text
+        # v1.1.0: system-only template, no required variables
+        result = real_registry.render("narrative.generate", {})
         assert result.token_estimate > 0
-        assert result.template_version == "1.0.0"
+        assert result.template_version == "1.1.0"
+        # Safety preamble is prepended
+        assert "NEVER" in result.text
 
     def test_render_classification_intent(
         self, real_registry: FilePromptRegistry
     ) -> None:
-        result = real_registry.render(
-            "classification.intent",
-            {"player_input": "go north"},
-        )
-        assert "go north" in result.text
+        # v1.1.0: system-only template, no required variables
+        result = real_registry.render("classification.intent", {})
+        assert "intent" in result.text.lower()
+        assert result.template_version == "1.1.0"
 
     def test_render_extraction_world_changes(
         self, real_registry: FilePromptRegistry
     ) -> None:
-        result = real_registry.render(
-            "extraction.world-changes",
-            {
-                "narrative_text": "The door creaks open.",
-                "current_world_state": "Door is closed.",
-            },
-        )
-        assert "door" in result.text.lower()
+        # v1.1.0: system-only template, no required variables
+        result = real_registry.render("extraction.world-changes", {})
+        assert "world_changes" in result.text
+        assert result.template_version == "1.1.0"

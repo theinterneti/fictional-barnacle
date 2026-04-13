@@ -18,6 +18,7 @@ from tta.llm.roles import ModelRole
 from tta.models.turn import ParsedIntent, TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
 from tta.pipeline.types import PipelineDeps
+from tta.prompts.loader import log_injection_signals
 
 log = structlog.get_logger()
 
@@ -62,11 +63,8 @@ INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ),
 ]
 
-_CLASSIFICATION_SYSTEM_PROMPT = (
-    "Classify the player's intent into exactly one category. "
-    "Respond with a single word: move, examine, talk, use, meta, or other. "
-    "No explanation."
-)
+# Inline classification prompt removed in Wave 28 (S09 AC-09.1).
+# System prompt managed via FilePromptRegistry: classification.intent
 
 
 async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
@@ -118,15 +116,34 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     # 3. LLM fallback for ambiguous input
     if intent_state is None:
-        # Use prompt registry if available, else fall back to hardcoded.
+        # Use prompt registry for system content (AC-09.1).
         # Keep SYSTEM message free of user input to reduce prompt-injection risk.
-        system_content = _CLASSIFICATION_SYSTEM_PROMPT
-        if deps.prompt_registry and deps.prompt_registry.has("classification.intent"):
-            try:
-                rendered = deps.prompt_registry.render("classification.intent", {})
-                system_content = rendered.text
-            except (KeyError, ValueError):
-                log.warning("classification_template_render_failed", exc_info=True)
+        if not deps.prompt_registry or not deps.prompt_registry.has(
+            "classification.intent"
+        ):
+            log.error("classification_template_missing")
+            return state.model_copy(
+                update={
+                    "parsed_intent": ParsedIntent(intent="other", confidence=0.3),
+                }
+            )
+        try:
+            rendered = deps.prompt_registry.render("classification.intent", {})
+        except Exception:
+            log.error(
+                "classification_template_render_failed",
+                template_id="classification.intent",
+                exc_info=True,
+            )
+            return state.model_copy(
+                update={
+                    "parsed_intent": ParsedIntent(intent="other", confidence=0.3),
+                }
+            )
+        system_content = rendered.text
+
+        # Observe-only injection scan on player input (AC-09.8).
+        log_injection_signals(state.player_input, context="understand_player_input")
 
         messages = [
             Message(

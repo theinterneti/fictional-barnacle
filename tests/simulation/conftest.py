@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -15,6 +15,7 @@ from tta.llm.client import GenerationParams, LLMResponse, Message
 from tta.llm.roles import ModelRole
 from tta.models.turn import TokenCount
 from tta.pipeline.types import PipelineDeps
+from tta.prompts.registry import RenderedPrompt
 from tta.safety.hooks import PassthroughHook
 from tta.world.memory_service import InMemoryWorldService
 from tta.world.template_registry import TemplateRegistry
@@ -366,6 +367,23 @@ def mock_turn_repo() -> AsyncMock:
     return AsyncMock()
 
 
+def _make_sim_registry() -> MagicMock:
+    """Mock prompt registry for simulation tests."""
+    tpls = {
+        "narrative.generate": "You are a narrative engine.",
+        "classification.intent": "Classify the player intent.",
+        "extraction.world-changes": "Extract world changes as JSON.",
+    }
+    registry = MagicMock()
+    registry.has.side_effect = lambda tid: tid in tpls
+    registry.render.side_effect = lambda tid, _vars: RenderedPrompt(
+        text=tpls[tid],
+        template_id=tid,
+        template_version="1.1.0",
+    )
+    return registry
+
+
 @pytest.fixture
 def pipeline_deps(
     sim_llm: SimulationLLMClient,
@@ -382,4 +400,5 @@ def pipeline_deps(
         safety_pre_gen=PassthroughHook(),
         safety_post_gen=PassthroughHook(),
         consequence_service=InMemoryConsequenceService(),
+        prompt_registry=_make_sim_registry(),
     )

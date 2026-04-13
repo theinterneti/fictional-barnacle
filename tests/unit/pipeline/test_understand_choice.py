@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+from tests.unit.pipeline.conftest import make_mock_registry
 from tta.llm.testing import MockLLMClient
 from tta.models.choice import ChoiceType
 from tta.models.turn import TurnState
@@ -25,6 +26,8 @@ def _make_state(**overrides: object) -> TurnState:
 
 
 def _make_deps(*, llm: MockLLMClient | AsyncMock | None = None) -> PipelineDeps:
+    from tests.unit.pipeline.conftest import make_mock_registry
+
     safe_result = SafetyResult(safe=True)
     pre_input = AsyncMock()
     pre_input.pre_generation_check = AsyncMock(return_value=safe_result)
@@ -36,6 +39,7 @@ def _make_deps(*, llm: MockLLMClient | AsyncMock | None = None) -> PipelineDeps:
         safety_pre_input=pre_input,
         safety_pre_gen=AsyncMock(),
         safety_post_gen=AsyncMock(),
+        prompt_registry=make_mock_registry(),
     )
 
 
@@ -101,6 +105,7 @@ async def test_safety_blocked_skips_choice() -> None:
         safety_pre_input=safety,
         safety_pre_gen=AsyncMock(),
         safety_post_gen=AsyncMock(),
+        prompt_registry=make_mock_registry(),
     )
 
     state = _make_state(player_input="bad input")

@@ -87,6 +87,10 @@ def record_llm_generation(
     latency_ms: int,
     cost_usd: float,
     otel_trace_id: str | None = None,
+    prompt_id: str | None = None,
+    prompt_version: str | None = None,
+    fragment_versions: dict[str, str] | None = None,
+    prompt_hash: str | None = None,
 ) -> None:
     """Record a single LLM call as a Langfuse generation on a per-turn trace.
 
@@ -157,6 +161,16 @@ def record_llm_generation(
         gen["metadata"]["turn_id"] = turn_id
     if otel_trace_id:
         gen["metadata"]["otel_trace_id"] = otel_trace_id
+
+    # Prompt-to-trace linkage (AC-09.7).
+    if prompt_id:
+        gen["metadata"]["prompt_id"] = prompt_id
+    if prompt_version:
+        gen["metadata"]["prompt_version"] = prompt_version
+    if fragment_versions:
+        gen["metadata"]["fragment_versions"] = fragment_versions
+    if prompt_hash:
+        gen["metadata"]["prompt_hash"] = prompt_hash
 
     # Extract model and tokens from LLMResponse
     if hasattr(result, "model_used"):

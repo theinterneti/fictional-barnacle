@@ -32,6 +32,8 @@ def _make_deps(
     llm: MockLLMClient | AsyncMock | None = None,
     safety_pre_input: AsyncMock | None = None,
 ) -> PipelineDeps:
+    from tests.unit.pipeline.conftest import make_mock_registry
+
     safe_result = SafetyResult(safe=True)
     pre_input = safety_pre_input or AsyncMock()
     if safety_pre_input is None:
@@ -44,6 +46,7 @@ def _make_deps(
         safety_pre_input=pre_input,
         safety_pre_gen=AsyncMock(),
         safety_post_gen=AsyncMock(),
+        prompt_registry=make_mock_registry(),
     )
 
 
@@ -263,12 +266,11 @@ async def test_prompt_registry_used_for_classification() -> None:
 
 @pytest.mark.asyncio
 async def test_prompt_registry_render_error_falls_back() -> None:
-    """When render() raises ValueError, falls back to hardcoded."""
+    """When render() raises ValueError, returns low-confidence fallback."""
     registry = _StubRegistry(
         templates={"classification.intent": "unused"},
         raise_on_render=ValueError("missing var"),
     )
-    # Response won't be a valid intent, so classified as "other"
     llm = MockLLMClient(response="examine")
     state = _make_state(player_input="mysterious input")
     deps = _make_deps(llm=llm)
@@ -276,6 +278,8 @@ async def test_prompt_registry_render_error_falls_back() -> None:
 
     result = await understand_stage(state, deps)
 
-    # Should succeed with fallback, not crash
+    # Should return low-confidence fallback without calling LLM
     assert result.parsed_intent is not None
-    assert result.parsed_intent.intent == "examine"
+    assert result.parsed_intent.intent == "other"
+    assert result.parsed_intent.confidence == 0.3
+    assert len(llm.call_history) == 0

@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import pytest
 
+from tta.api.errors import AppError
 from tta.llm.errors import (
     AllTiersFailedError,
     BudgetExceededError,
@@ -20,8 +21,6 @@ from tta.llm.errors import (
 from tta.models.turn import ParsedIntent, TurnState
 from tta.pipeline.stages.generate import (
     _FALLBACK_NARRATIVE,
-    _GENERATION_SYSTEM_PROMPT,
-    _NARRATOR_CONSTRAINTS,
     INTENT_WORD_RANGES,
     _build_generation_prompt,
     _resolve_system_prompt,
@@ -51,11 +50,16 @@ def _safe() -> SafetyResult:
     return SafetyResult(safe=True)
 
 
+_UNSET = object()
+
+
 def _make_deps(
     *,
     llm: AsyncMock | None = None,
-    prompt_registry: MagicMock | None = None,
+    prompt_registry: MagicMock | None | object = _UNSET,
 ) -> MagicMock:
+    from tests.unit.pipeline.conftest import make_mock_registry
+
     deps = MagicMock()
     deps.llm = llm or AsyncMock()
     deps.world = AsyncMock()
@@ -66,7 +70,9 @@ def _make_deps(
     deps.safety_pre_gen.pre_generation_check = AsyncMock(return_value=_safe())
     deps.safety_post_gen = MagicMock()
     deps.safety_post_gen.post_generation_check = AsyncMock(return_value=_safe())
-    deps.prompt_registry = prompt_registry
+    deps.prompt_registry = (
+        make_mock_registry() if prompt_registry is _UNSET else prompt_registry
+    )
     return deps
 
 
@@ -108,14 +114,18 @@ class TestAdaptiveWordCounts:
 
 
 class TestNarratorConstraints:
-    """System prompt includes hard constraints and quality guidance."""
+    """System prompt (from registry template) includes hard constraints."""
 
     def test_constraints_in_system_prompt(self) -> None:
-        assert "fourth wall" in _NARRATOR_CONSTRAINTS.lower()
-        assert "AI" in _NARRATOR_CONSTRAINTS or "ai" in _NARRATOR_CONSTRAINTS.lower()
-
-    def test_system_prompt_includes_constraints(self) -> None:
-        assert _NARRATOR_CONSTRAINTS in _GENERATION_SYSTEM_PROMPT
+        registry = MagicMock()
+        registry.has.return_value = True
+        rendered = MagicMock()
+        rendered.text = "Never break the fourth wall. Never reveal you are an AI."
+        registry.render.return_value = rendered
+        deps = _make_deps(prompt_registry=registry)
+        result = _resolve_system_prompt(deps)
+        assert "fourth wall" in result.lower()
+        assert "ai" in result.lower()
 
 
 # ===================================================================
@@ -205,17 +215,17 @@ class TestPromptRegistryResolution:
         result = _resolve_system_prompt(deps)
         assert result == "Custom system prompt from registry"
 
-    def test_falls_back_when_no_registry(self) -> None:
+    def test_raises_when_no_registry(self) -> None:
         deps = _make_deps(prompt_registry=None)
-        result = _resolve_system_prompt(deps)
-        assert result == _GENERATION_SYSTEM_PROMPT
+        with pytest.raises(AppError):
+            _resolve_system_prompt(deps)
 
-    def test_falls_back_when_template_missing(self) -> None:
+    def test_raises_when_template_missing(self) -> None:
         registry = MagicMock()
         registry.has.return_value = False
         deps = _make_deps(prompt_registry=registry)
-        result = _resolve_system_prompt(deps)
-        assert result == _GENERATION_SYSTEM_PROMPT
+        with pytest.raises(AppError):
+            _resolve_system_prompt(deps)
 
 
 # ===================================================================

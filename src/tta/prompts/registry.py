@@ -31,6 +31,8 @@ class RenderedPrompt(BaseModel):
     template_id: str
     template_version: str
     token_estimate: int = 0
+    fragment_versions: dict[str, str] = Field(default_factory=dict)
+    prompt_hash: str = ""
 
 
 class PromptRegistry(Protocol):
