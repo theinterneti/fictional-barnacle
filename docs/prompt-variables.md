@@ -51,7 +51,8 @@ Not applied to `extraction` role templates.
 
 ## Injection Detection (Observe-Only)
 
-User-supplied text passed in USER messages is scanned for injection patterns.
+User-supplied text passed in USER messages is scanned for injection patterns
+by `log_injection_signals()` in both `generate_stage` and `understand_stage`.
 Detection is **observe-only** — it logs warnings but never blocks or mutates input.
 
 | Pattern | Trigger |
@@ -63,7 +64,9 @@ Detection is **observe-only** — it logs warnings but never blocks or mutates i
 
 ## Langfuse Trace Linkage
 
-Every LLM generation trace includes prompt metadata:
+`record_llm_generation()` accepts prompt metadata fields for trace linkage.
+These are populated **when the caller passes them**; not all pipeline paths
+wire metadata through yet.
 
 | Field | Source |
 |-------|--------|

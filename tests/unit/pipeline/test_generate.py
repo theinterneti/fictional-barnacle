@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import cast
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ from tta.models.turn import (
 )
 from tta.pipeline.stages.generate import generate_stage
 from tta.pipeline.types import PipelineDeps
+from tta.prompts.loader import FilePromptRegistry
 from tta.safety.hooks import SafetyResult
 
 
@@ -102,8 +104,11 @@ def _make_deps(
         safety_pre_input=AsyncMock(),
         safety_pre_gen=pre_gen,
         safety_post_gen=post_gen,
+        prompt_registry=cast(
+            "FilePromptRegistry | None",
+            prompt_registry or _default_registry(),
+        ),
     )
-    deps.prompt_registry = prompt_registry or _default_registry()  # type: ignore[assignment]
     return deps
 
 

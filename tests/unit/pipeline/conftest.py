@@ -27,6 +27,6 @@ def make_mock_registry(
     registry.render.side_effect = lambda tid, _vars: RenderedPrompt(
         text=tpls[tid],
         template_id=tid,
-        template_version="v1.1.0",
+        template_version="1.1.0",
     )
     return registry

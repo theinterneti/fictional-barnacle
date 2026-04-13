@@ -25,6 +25,7 @@ from tta.models.choice import Reversibility
 from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
 from tta.pipeline.types import PipelineDeps
+from tta.prompts.loader import log_injection_signals
 
 log = structlog.get_logger()
 
@@ -199,6 +200,9 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     # 1. Build generation prompt
     prompt = _build_generation_prompt(state)
     state = state.model_copy(update={"generation_prompt": prompt})
+
+    # Observe-only injection signal scan on USER content (AC-09.8)
+    log_injection_signals(prompt, context="generate_user_message")
 
     # 2. Pre-generation safety check
     safety_pre = await deps.safety_pre_gen.pre_generation_check(state)
@@ -407,7 +411,15 @@ async def _extract_world_changes(
     ):
         log.debug("extraction_template_missing")
         return [], []
-    extraction_prompt = deps.prompt_registry.render("extraction.world-changes", {})
+    try:
+        extraction_prompt = deps.prompt_registry.render("extraction.world-changes", {})
+    except Exception:
+        log.error(
+            "extraction_template_render_failed",
+            template_id="extraction.world-changes",
+            exc_info=True,
+        )
+        return [], []
     messages = [
         Message(role=MessageRole.SYSTEM, content=extraction_prompt.text),
         Message(

@@ -18,6 +18,7 @@ from tta.llm.roles import ModelRole
 from tta.models.turn import ParsedIntent, TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
 from tta.pipeline.types import PipelineDeps
+from tta.prompts.loader import log_injection_signals
 
 log = structlog.get_logger()
 
@@ -129,13 +130,20 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         try:
             rendered = deps.prompt_registry.render("classification.intent", {})
         except Exception:
-            log.error("classification_template_render_failed")
+            log.error(
+                "classification_template_render_failed",
+                template_id="classification.intent",
+                exc_info=True,
+            )
             return state.model_copy(
                 update={
                     "parsed_intent": ParsedIntent(intent="other", confidence=0.3),
                 }
             )
         system_content = rendered.text
+
+        # Observe-only injection scan on player input (AC-09.8).
+        log_injection_signals(state.player_input, context="understand_player_input")
 
         messages = [
             Message(
