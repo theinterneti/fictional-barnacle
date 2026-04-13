@@ -128,8 +128,7 @@ class SmartRouterLLMClient:
 
         # Fallback: return last non-empty lines
         non_empty = [
-            line for line in lines
-            if line.strip() and not line.startswith(" ")
+            line for line in lines if line.strip() and not line.startswith(" ")
         ]
         return " ".join(non_empty[-2:]) if non_empty else "Response from smart router"
 
