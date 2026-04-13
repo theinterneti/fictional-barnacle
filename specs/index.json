@@ -7,8 +7,8 @@
       "file": "00-project-charter.md",
       "number": "S00",
       "title": "Project Charter",
-      "status": "📝 Draft",
-      "level": "0 — Foundation",
+      "status": "\ud83d\udcdd Draft",
+      "level": "0 \u2014 Foundation",
       "dependencies": [
         "None (this is the root)"
       ],
@@ -48,8 +48,8 @@
       "file": "01-gameplay-loop.md",
       "number": "S01",
       "title": "Gameplay Loop & Progression",
-      "status": "📝 Draft",
-      "level": "1 — Core Game Experience",
+      "status": "\ud83d\udcdd Draft",
+      "level": "1 \u2014 Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -77,14 +77,67 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1.1",
+          "ac_status": "done",
+          "description": "Player submits action \u2192 narrative advances"
+        },
+        {
+          "id": "AC-1.2",
+          "ac_status": "done",
+          "description": "Turn includes consequences and choices"
+        },
+        {
+          "id": "AC-1.3",
+          "ac_status": "done",
+          "description": "Choice selection \u2192 narrative consequence"
+        },
+        {
+          "id": "AC-1.4",
+          "ac_status": "done",
+          "description": "Invalid command \u2192 helpful in-character guidance"
+        },
+        {
+          "id": "AC-1.5",
+          "ac_status": "done",
+          "description": "Character failure \u2192 narrative consequence (prompt hardened wave-29)"
+        },
+        {
+          "id": "AC-1.6",
+          "ac_status": "done",
+          "description": "Story completion \u2192 epilogue + archive (LLM epilogue wave-29)"
+        },
+        {
+          "id": "AC-1.7",
+          "ac_status": "done",
+          "description": "Turn count available in game state"
+        },
+        {
+          "id": "AC-1.8",
+          "ac_status": "v2",
+          "description": "Multiple concurrent sessions (needs session isolation)"
+        },
+        {
+          "id": "AC-1.9",
+          "ac_status": "done",
+          "description": "Meta-commands do not consume narrative turns"
+        },
+        {
+          "id": "AC-1.10",
+          "ac_status": "v2",
+          "description": "10+ turn session \u2192 narrative coherence (needs coherence detector)"
+        }
+      ],
+      "compliance_pct": 80
     },
     {
       "file": "02-genesis-onboarding.md",
       "number": "S02",
       "title": "Genesis Onboarding",
-      "status": "📝 Draft",
-      "level": "1 — Core Game Experience",
+      "status": "\ud83d\udcdd Draft",
+      "level": "1 \u2014 Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -111,14 +164,67 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-2.1",
+          "ac_status": "done",
+          "description": "Player greeting \u2192 Genesis prompt"
+        },
+        {
+          "id": "AC-2.2",
+          "ac_status": "done",
+          "description": "Complete Genesis \u2192 playable world"
+        },
+        {
+          "id": "AC-2.3",
+          "ac_status": "done",
+          "description": "Post-Genesis references \u22652 established elements (wave-29)"
+        },
+        {
+          "id": "AC-2.4",
+          "ac_status": "done",
+          "description": "Genre selection \u2192 appropriate world"
+        },
+        {
+          "id": "AC-2.5",
+          "ac_status": "v2",
+          "description": "Genesis act state machine (Act I-V modeling)"
+        },
+        {
+          "id": "AC-2.6",
+          "ac_status": "done",
+          "description": "Repeat Genesis \u2192 different phrasing (wave-29)"
+        },
+        {
+          "id": "AC-2.7",
+          "ac_status": "done",
+          "description": "Default genre available"
+        },
+        {
+          "id": "AC-2.8",
+          "ac_status": "done",
+          "description": "Terse responses \u2192 valid world (wave-29)"
+        },
+        {
+          "id": "AC-2.9",
+          "ac_status": "done",
+          "description": "Mid-Genesis trait correction (wave-29)"
+        },
+        {
+          "id": "AC-2.10",
+          "ac_status": "done",
+          "description": "Seamless Genesis\u2192gameplay transition (wave-29)"
+        }
+      ],
+      "compliance_pct": 90
     },
     {
       "file": "03-narrative-engine.md",
       "number": "S03",
       "title": "Narrative Engine",
-      "status": "📝 Draft",
-      "level": "1 — Core Game Experience",
+      "status": "\ud83d\udcdd Draft",
+      "level": "1 \u2014 Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -145,14 +251,62 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-3.1",
+          "ac_status": "done",
+          "description": "LLM generates narrative from context"
+        },
+        {
+          "id": "AC-3.2",
+          "ac_status": "done",
+          "description": "Narrative includes world state references"
+        },
+        {
+          "id": "AC-3.3",
+          "ac_status": "v2",
+          "description": "Tension pacing via 3-act structure (needs pacing system)"
+        },
+        {
+          "id": "AC-3.4",
+          "ac_status": "done",
+          "description": "Player action reflected in next response"
+        },
+        {
+          "id": "AC-3.5",
+          "ac_status": "done",
+          "description": "LLM failure \u2192 atmospheric in-world fallback (wave-29)"
+        },
+        {
+          "id": "AC-3.6",
+          "ac_status": "done",
+          "description": "Turn 100+ context \u2264500ms (timing added wave-29)"
+        },
+        {
+          "id": "AC-3.7",
+          "ac_status": "v2",
+          "description": "Coherence violation \u2192 self-correction (needs detector)"
+        },
+        {
+          "id": "AC-3.8",
+          "ac_status": "done",
+          "description": "Exploration \u2192 150-300 words + hooks (wave-29)"
+        },
+        {
+          "id": "AC-3.9",
+          "ac_status": "v2",
+          "description": "Streaming pause \u2192 suspense (needs streaming infra)"
+        }
+      ],
+      "compliance_pct": 67
     },
     {
       "file": "04-world-model.md",
       "number": "S04",
       "title": "World Model",
-      "status": "📝 Draft",
-      "level": "1 — Core Game Experience",
+      "status": "\ud83d\udcdd Draft",
+      "level": "1 \u2014 Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -185,8 +339,8 @@
       "file": "05-choice-and-consequence.md",
       "number": "S05",
       "title": "Choice & Consequence",
-      "status": "📝 Draft",
-      "level": "1 — Core Game Experience",
+      "status": "\ud83d\udcdd Draft",
+      "level": "1 \u2014 Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -219,8 +373,8 @@
       "file": "06-character-system.md",
       "number": "S06",
       "title": "Character System",
-      "status": "📝 Draft",
-      "level": "1 — Core Game Experience",
+      "status": "\ud83d\udcdd Draft",
+      "level": "1 \u2014 Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -247,37 +401,90 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-6.1",
+          "ac_status": "done",
+          "description": "NPCs have distinct personality traits"
+        },
+        {
+          "id": "AC-6.2",
+          "ac_status": "v2",
+          "description": "Trait evolution after 10+ contrary actions"
+        },
+        {
+          "id": "AC-6.3",
+          "ac_status": "done",
+          "description": "NPC dialogue reflects personality"
+        },
+        {
+          "id": "AC-6.4",
+          "ac_status": "done",
+          "description": "Help NPC \u2192 relationship increases (wave-29)"
+        },
+        {
+          "id": "AC-6.5",
+          "ac_status": "done",
+          "description": "NPC dialogue distinct per NPC (wave-29)"
+        },
+        {
+          "id": "AC-6.6",
+          "ac_status": "v2",
+          "description": "NPC hidden goals influence behavior (needs motivation graph)"
+        },
+        {
+          "id": "AC-6.7",
+          "ac_status": "v2",
+          "description": "Companion NPCs \u2192 inject relevant scenes"
+        },
+        {
+          "id": "AC-6.8",
+          "ac_status": "done",
+          "description": "Return after break \u2192 NPC references history (wave-29)"
+        },
+        {
+          "id": "AC-6.9",
+          "ac_status": "done",
+          "description": "NPC beyond knowledge \u2192 authentic response (wave-29)"
+        },
+        {
+          "id": "AC-6.10",
+          "ac_status": "v2",
+          "description": "NPC death \u2192 emotional cascade (needs motivation graph)"
+        }
+      ],
+      "compliance_pct": 60
     },
     {
       "file": "07-llm-integration.md",
       "number": "S07",
       "title": "LLM Integration",
-      "status": "📝 Draft",
-      "level": "2 — AI & Content",
+      "status": "\ud83d\udcdd Draft",
+      "level": "2 \u2014 AI & Content",
       "dependencies": [
         "S01 (Core Game Loop)",
         "S03 (Narrative Engine)"
       ],
       "last_updated": "2026-04-07",
       "sections": [
-        "— Purpose",
-        "— User Stories",
-        "— Model Abstraction Layer",
-        "— Fallback Tiers",
-        "— Context Window Management",
-        "— Token Budgeting and Cost Management",
-        "— Streaming",
-        "— Structured Output",
-        "— Generation Parameters",
-        "— Error Handling",
-        "— Observability",
-        "— Testing",
-        "— Edge Cases",
-        "— Acceptance Criteria",
-        "— Out of Scope",
-        "— Open Questions",
-        "Appendix A — Glossary"
+        "\u2014 Purpose",
+        "\u2014 User Stories",
+        "\u2014 Model Abstraction Layer",
+        "\u2014 Fallback Tiers",
+        "\u2014 Context Window Management",
+        "\u2014 Token Budgeting and Cost Management",
+        "\u2014 Streaming",
+        "\u2014 Structured Output",
+        "\u2014 Generation Parameters",
+        "\u2014 Error Handling",
+        "\u2014 Observability",
+        "\u2014 Testing",
+        "\u2014 Edge Cases",
+        "\u2014 Acceptance Criteria",
+        "\u2014 Out of Scope",
+        "\u2014 Open Questions",
+        "Appendix A \u2014 Glossary"
       ],
       "word_count": 3991,
       "has_acceptance_criteria": true,
@@ -295,8 +502,8 @@
       "file": "08-turn-processing-pipeline.md",
       "number": "S08",
       "title": "Turn Processing Pipeline",
-      "status": "📝 Draft",
-      "level": "2 — AI & Content",
+      "status": "\ud83d\udcdd Draft",
+      "level": "2 \u2014 AI & Content",
       "dependencies": [
         "S01 (Core Game Loop)",
         "S03 (Narrative Engine)",
@@ -304,24 +511,24 @@
       ],
       "last_updated": "2026-04-07",
       "sections": [
-        "— Purpose",
-        "— User Stories",
-        "— Pipeline Overview",
-        "— Stage 1: Input Understanding",
-        "— Stage 2: Context Assembly",
-        "— Stage 3: Narrative Generation",
-        "— Stage 4: Delivery",
-        "— Inter-Stage Contracts",
-        "— Latency Budget",
-        "— Concurrency",
-        "— Error Handling Summary",
-        "— Pipeline Observability",
-        "— Edge Cases",
-        "— Acceptance Criteria",
-        "— Out of Scope",
-        "— Open Questions",
-        "Appendix A — Glossary",
-        "Appendix B — Intent Categories"
+        "\u2014 Purpose",
+        "\u2014 User Stories",
+        "\u2014 Pipeline Overview",
+        "\u2014 Stage 1: Input Understanding",
+        "\u2014 Stage 2: Context Assembly",
+        "\u2014 Stage 3: Narrative Generation",
+        "\u2014 Stage 4: Delivery",
+        "\u2014 Inter-Stage Contracts",
+        "\u2014 Latency Budget",
+        "\u2014 Concurrency",
+        "\u2014 Error Handling Summary",
+        "\u2014 Pipeline Observability",
+        "\u2014 Edge Cases",
+        "\u2014 Acceptance Criteria",
+        "\u2014 Out of Scope",
+        "\u2014 Open Questions",
+        "Appendix A \u2014 Glossary",
+        "Appendix B \u2014 Intent Categories"
       ],
       "word_count": 5958,
       "has_acceptance_criteria": true,
@@ -339,35 +546,35 @@
       "file": "09-prompt-and-content.md",
       "number": "S09",
       "title": "Prompt & Content Management",
-      "status": "📝 Draft",
-      "level": "2 — AI & Content",
+      "status": "\ud83d\udcdd Draft",
+      "level": "2 \u2014 AI & Content",
       "dependencies": [
         "S07 (LLM Integration)",
         "S08 (Turn Processing Pipeline)"
       ],
       "last_updated": "2026-04-07",
       "sections": [
-        "— Purpose",
-        "— User Stories",
-        "— Prompt as Code",
+        "\u2014 Purpose",
+        "\u2014 User Stories",
+        "\u2014 Prompt as Code",
         "World Context",
         "Player's Action",
         "Your Task",
-        "— Prompt Registry",
-        "— Prompt Versioning",
-        "— Template Variables",
-        "— Prompt Composition",
-        "— Content Assets",
-        "— Prompt Testing",
-        "— Prompt Observability",
-        "— Prompt Authoring Workflow",
-        "— Guardrails",
-        "— Edge Cases",
-        "— Acceptance Criteria",
-        "— Out of Scope",
-        "— Open Questions",
-        "Appendix A — Glossary",
-        "Appendix B — Prompt Template Syntax Quick Reference"
+        "\u2014 Prompt Registry",
+        "\u2014 Prompt Versioning",
+        "\u2014 Template Variables",
+        "\u2014 Prompt Composition",
+        "\u2014 Content Assets",
+        "\u2014 Prompt Testing",
+        "\u2014 Prompt Observability",
+        "\u2014 Prompt Authoring Workflow",
+        "\u2014 Guardrails",
+        "\u2014 Edge Cases",
+        "\u2014 Acceptance Criteria",
+        "\u2014 Out of Scope",
+        "\u2014 Open Questions",
+        "Appendix A \u2014 Glossary",
+        "Appendix B \u2014 Prompt Template Syntax Quick Reference"
       ],
       "word_count": 5436,
       "has_acceptance_criteria": true,
@@ -385,8 +592,8 @@
       "file": "10-api-and-streaming.md",
       "number": "S10",
       "title": "API & Streaming",
-      "status": "📝 Draft",
-      "level": "3 — Platform",
+      "status": "\ud83d\udcdd Draft",
+      "level": "3 \u2014 Platform",
       "dependencies": [
         "S04 (World Model)",
         "S11 (Player Identity & Sessions)",
@@ -427,8 +634,8 @@
       "file": "11-player-identity-and-sessions.md",
       "number": "S11",
       "title": "Player Identity & Sessions",
-      "status": "📝 Draft",
-      "level": "3 — Platform",
+      "status": "\ud83d\udcdd Draft",
+      "level": "3 \u2014 Platform",
       "dependencies": [
         "S12 (Persistence Strategy)"
       ],
@@ -461,14 +668,14 @@
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
       "warnings": [],
-      "implementation_notes": " Wave 27: Fixed GameStatus bug — DB insert now uses created (not active), matching spec lifecycle."
+      "implementation_notes": " Wave 27: Fixed GameStatus bug \u2014 DB insert now uses created (not active), matching spec lifecycle."
     },
     {
       "file": "12-persistence-strategy.md",
       "number": "S12",
       "title": "Persistence Strategy",
-      "status": "🟡 Partial",
-      "level": "3 — Platform",
+      "status": "\ud83d\udfe1 Partial",
+      "level": "3 \u2014 Platform",
       "dependencies": [
         "S04 (World Model)",
         "S13 (World Graph Schema)"
@@ -517,8 +724,8 @@
       "file": "13-world-graph-schema.md",
       "number": "S13",
       "title": "World Graph Schema",
-      "status": "📝 Draft",
-      "level": "3 — Platform",
+      "status": "\ud83d\udcdd Draft",
+      "level": "3 \u2014 Platform",
       "dependencies": [
         "S04 (World Model)"
       ],
@@ -527,7 +734,7 @@
         "Purpose",
         "Design Philosophy",
         "User Stories",
-        "Co-Design Mapping: S04 → S13",
+        "Co-Design Mapping: S04 \u2192 S13",
         "Node Types",
         "Relationship Types",
         "Index Strategy",
@@ -558,8 +765,8 @@
       "file": "14-deployment.md",
       "number": "S14",
       "title": "Deployment & Infrastructure",
-      "status": "📝 Draft",
-      "level": "4 — Operations",
+      "status": "\ud83d\udcdd Draft",
+      "level": "4 \u2014 Operations",
       "dependencies": [
         "S01 (Gameplay Loop)",
         "S08 (Turn Pipeline)",
@@ -599,8 +806,8 @@
       "file": "15-observability.md",
       "number": "S15",
       "title": "Observability",
-      "status": "📝 Draft",
-      "level": "4 — Operations",
+      "status": "\ud83d\udcdd Draft",
+      "level": "4 \u2014 Operations",
       "dependencies": [
         "S08 (Turn Pipeline)",
         "S14 (Deployment)"
@@ -638,8 +845,8 @@
       "file": "16-testing-infrastructure.md",
       "number": "S16",
       "title": "Testing Infrastructure",
-      "status": "📝 Draft",
-      "level": "4 — Operations",
+      "status": "\ud83d\udcdd Draft",
+      "level": "4 \u2014 Operations",
       "dependencies": [
         "S00 (Testing Charter)",
         "S01 (Gameplay Loop)",
@@ -683,8 +890,8 @@
       "file": "17-data-privacy.md",
       "number": "S17",
       "title": "Data Privacy",
-      "status": "📝 Draft",
-      "level": "4 — Operations",
+      "status": "\ud83d\udcdd Draft",
+      "level": "4 \u2014 Operations",
       "dependencies": [
         "S01 (Gameplay Loop)",
         "S05 (Choice & Consequence)",
@@ -721,14 +928,67 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "FR-17.22",
+          "ac_status": "done",
+          "description": "Consent required for data processing (wave-29)"
+        },
+        {
+          "id": "FR-17.23",
+          "ac_status": "done",
+          "description": "Consent categories granular (wave-29)"
+        },
+        {
+          "id": "FR-17.24",
+          "ac_status": "done",
+          "description": "Consent version tracked (wave-29)"
+        },
+        {
+          "id": "FR-17.25",
+          "ac_status": "done",
+          "description": "Consent withdrawal possible (wave-29)"
+        },
+        {
+          "id": "FR-17.29",
+          "ac_status": "done",
+          "description": "LLM provider config documented (wave-29)"
+        },
+        {
+          "id": "FR-17.30",
+          "ac_status": "done",
+          "description": "Provider change notification logged (wave-29)"
+        },
+        {
+          "id": "FR-17.31",
+          "ac_status": "done",
+          "description": "Self-hosted Langfuse documented (wave-29)"
+        },
+        {
+          "id": "FR-17.36",
+          "ac_status": "done",
+          "description": "Age confirmation field (wave-29)"
+        },
+        {
+          "id": "FR-17.37",
+          "ac_status": "done",
+          "description": "Under-13 blocked (wave-29)"
+        },
+        {
+          "id": "FR-17.38",
+          "ac_status": "done",
+          "description": "Age gate before data collection (wave-29)"
+        }
+      ],
+      "compliance_pct": 100
     },
     {
       "file": "future/18-therapeutic-framework.md",
       "number": "S18",
       "title": "Therapeutic Framework",
-      "status": "📝 Stub (Future)",
-      "level": "5 — Future Vision",
+      "status": "\ud83d\udcdd Stub (Future)",
+      "level": "5 \u2014 Future Vision",
       "dependencies": [
         "S03",
         "S08",
@@ -763,8 +1023,8 @@
       "file": "future/19-crisis-and-content-safety.md",
       "number": "S19",
       "title": "Crisis & Content Safety",
-      "status": "📝 Stub (Future)",
-      "level": "5 — Future Vision",
+      "status": "\ud83d\udcdd Stub (Future)",
+      "level": "5 \u2014 Future Vision",
       "dependencies": [
         "S08",
         "S10",
@@ -800,8 +1060,8 @@
       "file": "future/20-story-sharing.md",
       "number": "S20",
       "title": "Story Sharing",
-      "status": "📝 Stub (Future)",
-      "level": "5 — Future Vision",
+      "status": "\ud83d\udcdd Stub (Future)",
+      "level": "5 \u2014 Future Vision",
       "dependencies": [
         "S01",
         "S03",
@@ -837,8 +1097,8 @@
       "file": "future/21-collaborative-writing.md",
       "number": "S21",
       "title": "Collaborative Writing",
-      "status": "📝 Stub (Future)",
-      "level": "5 — Future Vision",
+      "status": "\ud83d\udcdd Stub (Future)",
+      "level": "5 \u2014 Future Vision",
       "dependencies": [
         "S01",
         "S04",
@@ -876,8 +1136,8 @@
       "file": "future/22-community.md",
       "number": "S22",
       "title": "Community",
-      "status": "📝 Stub (Future)",
-      "level": "5 — Future Vision",
+      "status": "\ud83d\udcdd Stub (Future)",
+      "level": "5 \u2014 Future Vision",
       "dependencies": [
         "S04",
         "S09",
@@ -912,8 +1172,8 @@
       "file": "23-error-handling-and-resilience.md",
       "number": "S23",
       "title": "Error Handling & Resilience",
-      "status": "📝 Draft",
-      "level": "3 — Platform",
+      "status": "\ud83d\udcdd Draft",
+      "level": "3 \u2014 Platform",
       "dependencies": [
         "S07 (LLM Integration)",
         "S08 (Turn Pipeline)",
@@ -951,13 +1211,13 @@
       "file": "24-content-moderation-v1.md",
       "number": "S24",
       "title": "Content Moderation v1",
-      "status": "📝 Draft",
-      "level": "2 — AI & Content",
+      "status": "\ud83d\udcdd Draft",
+      "level": "2 \u2014 AI & Content",
       "dependencies": [
         "S07 (LLM Integration)",
         "S08 (Turn Pipeline)",
         "S09 (Prompts)",
-        "S19 (Crisis & Content Safety — future stub)"
+        "S19 (Crisis & Content Safety \u2014 future stub)"
       ],
       "last_updated": "2026-04-09",
       "sections": [
@@ -990,8 +1250,8 @@
       "file": "25-rate-limiting-and-anti-abuse.md",
       "number": "S25",
       "title": "Rate Limiting & Anti-Abuse",
-      "status": "📝 Draft",
-      "level": "3 — Platform",
+      "status": "\ud83d\udcdd Draft",
+      "level": "3 \u2014 Platform",
       "dependencies": [
         "S10 (API & Streaming)",
         "S11 (Player Identity & Sessions)",
@@ -1029,8 +1289,8 @@
       "file": "26-admin-and-operator-tooling.md",
       "number": "S26",
       "title": "Admin & Operator Tooling",
-      "status": "📝 Draft",
-      "level": "4 — Operations",
+      "status": "\ud83d\udcdd Draft",
+      "level": "4 \u2014 Operations",
       "dependencies": [
         "S10 (API)",
         "S11 (Identity)",
@@ -1068,8 +1328,8 @@
       "file": "27-save-load-and-game-management.md",
       "number": "S27",
       "title": "Save/Load & Game Management",
-      "status": "📝 Draft",
-      "level": "1 — Core Game Experience",
+      "status": "\ud83d\udcdd Draft",
+      "level": "1 \u2014 Core Game Experience",
       "dependencies": [
         "S01 (Gameplay Loop)",
         "S04 (World Model)",
@@ -1107,8 +1367,8 @@
       "file": "28-performance-and-scaling.md",
       "number": "S28",
       "title": "Performance & Scaling",
-      "status": "📝 Draft",
-      "level": "4 — Operations",
+      "status": "\ud83d\udcdd Draft",
+      "level": "4 \u2014 Operations",
       "dependencies": [
         "S07 (LLM Integration)",
         "S10 (API)",
