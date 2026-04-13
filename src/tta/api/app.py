@@ -28,6 +28,7 @@ from tta.api.middleware import (
 )
 from tta.api.prometheus_middleware import PrometheusMiddleware
 from tta.api.routes.admin import router as admin_router
+from tta.api.routes.auth import router as auth_router
 from tta.api.routes.games import router as games_router
 from tta.api.routes.metrics import router as metrics_router
 from tta.api.routes.players import router as players_router
@@ -415,6 +416,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(players_router, prefix="/api/v1")
     app.include_router(games_router, prefix="/api/v1")
+    app.include_router(auth_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/admin")
 
     from tta.api.routes.disclaimer import router as disclaimer_router
