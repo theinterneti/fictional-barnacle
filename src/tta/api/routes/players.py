@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import sqlalchemy as sa
@@ -18,6 +17,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.api.errors import AppError
+from tta.auth.jwt import create_access_token
 from tta.config import (
     CURRENT_CONSENT_VERSION,
     REQUIRED_CONSENT_CATEGORIES,
@@ -175,22 +175,12 @@ async def register_player(
         },
     )
 
-    # Create session token
+    # Issue JWT access token (S11 migration: replaced opaque token)
     settings = get_settings()
-    token = secrets.token_hex(32)
-    expires_at = now + timedelta(seconds=settings.session_token_ttl)
-    await pg.execute(
-        sa.text(
-            "INSERT INTO player_sessions "
-            "(player_id, token, expires_at, created_at) "
-            "VALUES (:player_id, :token, :expires_at, :created_at)"
-        ),
-        {
-            "player_id": player_id,
-            "token": token,
-            "expires_at": expires_at,
-            "created_at": now,
-        },
+    token = create_access_token(
+        player_id=player_id,
+        role="player",
+        is_anonymous=True,
     )
 
     await pg.commit()
@@ -213,7 +203,7 @@ async def register_player(
         secure=settings.environment != "development",
         samesite="lax",
         path="/",
-        max_age=settings.session_token_ttl,
+        max_age=settings.anon_access_token_ttl,
     )
     return response
 

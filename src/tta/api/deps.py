@@ -1,17 +1,22 @@
-"""FastAPI dependency injection (plan §1.3)."""
+"""FastAPI dependency injection (plan §1.3, S11 JWT auth)."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import sqlalchemy as sa
 from fastapi import Depends, Request
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.errors import AppError
-from tta.config import CURRENT_CONSENT_VERSION, REQUIRED_CONSENT_CATEGORIES
+from tta.auth.jwt import TokenError, decode_token, is_token_denied
+from tta.config import (
+    CURRENT_CONSENT_VERSION,
+    REQUIRED_CONSENT_CATEGORIES,
+    get_settings,
+)
 from tta.errors import ErrorCategory
 from tta.models.player import Player
 
@@ -33,11 +38,13 @@ async def get_redis(request: Request) -> Redis:
 async def get_current_player(
     request: Request,
     pg: AsyncSession = Depends(get_pg),
+    redis: Redis = Depends(get_redis),
 ) -> Player:
-    """Validate session token and return the authenticated Player.
+    """Decode JWT access token and return the authenticated Player.
 
     Token lookup: cookie first, then Authorization: Bearer header.
-    Raises 401 if missing/invalid/expired.
+    Validates token signature, expiry, type, and deny-list.
+    Raises 401 if missing/invalid/expired/denied.
     """
     token = _extract_token(request)
     if token is None:
@@ -47,36 +54,40 @@ async def get_current_player(
             "No session token provided.",
         )
 
-    result = await pg.execute(
-        sa.text(
-            "SELECT player_id, token, expires_at, created_at "
-            "FROM player_sessions WHERE token = :token"
-        ),
-        {"token": token},
-    )
-    row = result.one_or_none()
-    if row is None or row.expires_at < datetime.now(UTC):
+    try:
+        claims = decode_token(token, expected_type="access")
+    except TokenError:
         raise AppError(
             ErrorCategory.AUTH_REQUIRED,
             "AUTH_TOKEN_INVALID",
             "Session token is invalid or expired.",
+        ) from None
+
+    jti = claims.get("jti", "")
+    if await is_token_denied(redis, jti):
+        raise AppError(
+            ErrorCategory.AUTH_REQUIRED,
+            "AUTH_TOKEN_INVALID",
+            "Session token has been revoked.",
         )
 
+    player_id = UUID(claims["sub"])
     player_result = await pg.execute(
         sa.text(
             "SELECT id, handle, status, suspended_reason, created_at, "
+            "email, is_anonymous, display_name, role, last_login_at, "
             "consent_version, consent_accepted_at, consent_categories, "
             "age_confirmed_at, consent_ip_hash "
             "FROM players WHERE id = :id"
         ),
-        {"id": row.player_id},
+        {"id": player_id},
     )
     player_row = player_result.one_or_none()
     if player_row is None:
         raise AppError(
             ErrorCategory.AUTH_REQUIRED,
             "AUTH_TOKEN_INVALID",
-            "Session token is invalid or expired.",
+            "Player not found.",
         )
 
     return Player(
@@ -85,6 +96,11 @@ async def get_current_player(
         status=player_row.status,
         suspended_reason=player_row.suspended_reason,
         created_at=player_row.created_at,
+        email=player_row.email,
+        is_anonymous=player_row.is_anonymous,
+        display_name=player_row.display_name,
+        role=player_row.role,
+        last_login_at=player_row.last_login_at,
         consent_version=player_row.consent_version,
         consent_accepted_at=player_row.consent_accepted_at,
         consent_categories=player_row.consent_categories,
@@ -146,6 +162,39 @@ async def require_consent(
                 "You must accept the current consent agreement before playing.",
             )
 
+    return player
+
+
+async def require_anonymous_game_limit(
+    player: Player = Depends(require_consent),
+    pg: AsyncSession = Depends(get_pg),
+) -> Player:
+    """Enforce FR-11.56: anonymous players limited to 1 active game.
+
+    Raises 403 if the anonymous player already has an active game.
+    Registered players pass through unchecked.
+    """
+    if not player.is_anonymous:
+        return player
+
+    settings = get_settings()
+    result = await pg.execute(
+        sa.text(
+            "SELECT COUNT(*) FROM game_sessions "
+            "WHERE player_id = :pid "
+            "AND status IN ('created', 'active') "
+            "AND deleted_at IS NULL"
+        ),
+        {"pid": player.id},
+    )
+    count = result.scalar() or 0
+    if count >= settings.anon_max_active_games:
+        raise AppError(
+            ErrorCategory.FORBIDDEN,
+            "ANON_GAME_LIMIT",
+            "Anonymous players are limited to 1 active game. "
+            "Finish or abandon your current game, or upgrade your account.",
+        )
     return player
 
 

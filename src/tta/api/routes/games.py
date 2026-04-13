@@ -21,6 +21,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from tta.api.deps import (
     get_current_player,
     get_pg,
+    require_anonymous_game_limit,
     require_consent,
 )
 from tta.api.errors import AppError
@@ -917,7 +918,7 @@ async def _get_max_turn_number(pg: AsyncSession, game_id: UUID) -> int:
 # --- Routes ---
 
 
-@router.post("", status_code=201, dependencies=[Depends(require_consent)])
+@router.post("", status_code=201, dependencies=[Depends(require_anonymous_game_limit)])
 async def create_game(
     body: CreateGameRequest,
     request: Request,

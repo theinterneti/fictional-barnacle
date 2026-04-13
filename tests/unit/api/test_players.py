@@ -84,6 +84,8 @@ def pg() -> AsyncMock:
 def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     settings = _settings()
     monkeypatch.setattr("tta.api.routes.players.get_settings", lambda: settings)
+    monkeypatch.setattr("tta.auth.jwt.get_settings", lambda: settings)
+    monkeypatch.setattr("tta.auth.passwords.get_settings", lambda: settings)
     a = create_app(settings=settings)
 
     async def _pg():
@@ -99,6 +101,8 @@ def consented_app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     """App where the authenticated player has valid consent."""
     settings = _settings()
     monkeypatch.setattr("tta.api.routes.players.get_settings", lambda: settings)
+    monkeypatch.setattr("tta.auth.jwt.get_settings", lambda: settings)
+    monkeypatch.setattr("tta.auth.passwords.get_settings", lambda: settings)
     a = create_app(settings=settings)
 
     async def _pg():

@@ -7,7 +7,7 @@ from enum import StrEnum
 from functools import lru_cache
 from typing import Any
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 
 # S17 FR-17.22 — consent version & required categories
@@ -201,8 +201,32 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         return v
 
+    # JWT / Auth (S11, FR-11.29 lifetimes)
+    jwt_secret: str = "CHANGE-ME-IN-PRODUCTION-minimum-32-bytes"
+    jwt_algorithm: str = "HS256"
+    access_token_ttl: int = 3_600  # 1 h registered (FR-11.29)
+    anon_access_token_ttl: int = 86_400  # 24 h anonymous (FR-11.29)
+    refresh_token_ttl: int = 2_592_000  # 30 d registered (FR-11.29)
+    anon_refresh_token_ttl: int = 604_800  # 7 d anonymous (FR-11.29)
+    bcrypt_cost: int = 12
+    anon_max_active_games: int = 1
+    anon_cleanup_days: int = 30
+
+    @model_validator(mode="after")
+    def _reject_default_jwt_secret_in_prod(self) -> Settings:
+        if (
+            self.environment == Environment.PRODUCTION
+            and self.jwt_secret == "CHANGE-ME-IN-PRODUCTION-minimum-32-bytes"
+        ):
+            msg = (
+                "jwt_secret must be changed from the default "
+                "before running in production"
+            )
+            raise ValueError(msg)
+        return self
+
     # Application
-    session_token_ttl: int = 86400
+    session_token_ttl: int = 86400  # legacy, kept for compat
     max_active_games: int = 5
     game_listing_default_size: int = 10
     game_listing_max_size: int = 50

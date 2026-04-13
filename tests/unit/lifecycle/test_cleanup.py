@@ -18,13 +18,17 @@ def _make_pg(
     abandon_rowcount: int = 0,
     expire_rowcount: int = 0,
     idle_rowcount: int = 0,
+    anon_rowcount: int = 0,
 ) -> AsyncMock:
     """Build a mock PG session that returns the given rowcounts."""
     pg = AsyncMock()
     abandon_result = SimpleNamespace(rowcount=abandon_rowcount)
     expire_result = SimpleNamespace(rowcount=expire_rowcount)
     idle_result = SimpleNamespace(rowcount=idle_rowcount)
-    pg.execute = AsyncMock(side_effect=[abandon_result, expire_result, idle_result])
+    anon_result = SimpleNamespace(rowcount=anon_rowcount)
+    pg.execute = AsyncMock(
+        side_effect=[abandon_result, expire_result, idle_result, anon_result]
+    )
     pg.commit = AsyncMock()
     return pg
 
