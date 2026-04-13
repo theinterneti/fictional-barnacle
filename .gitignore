@@ -65,7 +65,8 @@ logs/
 *.log
 .research/
 
-# Claude Code local settings (user-specific permissions)
+# Claude Code local settings (user-specific, session state)
 .claude/settings.local.json
+.claude/ralph-loop.local.md
 .testmondata
 .hypothesis/
