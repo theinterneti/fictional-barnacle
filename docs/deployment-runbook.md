@@ -261,3 +261,55 @@ See `.env.example` for the complete list. Key variables:
 | `TTA_LITELLM_MODEL`    | No       | Primary LLM model (default: openai/gpt-4o-mini) |
 
 *Or whichever env var your LLM provider requires (e.g. `ANTHROPIC_API_KEY`).
+
+---
+
+## Langfuse Self-Hosted Deployment (S17 FR-17.31)
+
+> **Why self-host?** Self-hosted Langfuse keeps all observability data (traces,
+> prompts, scores) within your infrastructure, satisfying FR-17.31's requirement
+> that LLM observability data never leaves operator-controlled systems.
+
+### Quick Start (Docker Compose)
+
+```bash
+# Clone Langfuse
+git clone https://github.com/langfuse/langfuse.git
+cd langfuse
+
+# Start with Docker Compose
+docker compose up -d
+```
+
+Langfuse will be available at `http://localhost:3000`.
+
+### TTA Integration
+
+Set these environment variables in your TTA deployment:
+
+```bash
+TTA_LANGFUSE_ENABLED=true
+LANGFUSE_HOST=http://langfuse:3000   # Internal Docker network URL
+LANGFUSE_PUBLIC_KEY=pk-lf-...        # From Langfuse UI → Settings → API Keys
+LANGFUSE_SECRET_KEY=sk-lf-...        # From Langfuse UI → Settings → API Keys
+```
+
+### Data Retention
+
+Configure Langfuse data retention to match your privacy policy:
+
+1. **Trace retention** — Set via Langfuse UI → Settings → Data Retention
+2. **Score retention** — Follows trace retention by default
+3. **Prompt management** — Prompts are retained until manually deleted
+
+### Production Recommendations
+
+1. Use PostgreSQL (not SQLite) for Langfuse's backing store.
+2. Enable HTTPS via reverse proxy (nginx, Caddy, or cloud LB).
+3. Restrict network access — Langfuse should only be reachable from TTA
+   application servers, not the public internet.
+4. Back up Langfuse's PostgreSQL database on the same schedule as TTA's.
+5. Monitor Langfuse health at `/api/public/health`.
+
+For full self-hosting documentation, see:
+https://langfuse.com/docs/deployment/self-host

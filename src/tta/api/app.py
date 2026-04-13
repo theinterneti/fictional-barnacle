@@ -154,6 +154,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         app.state.llm_client = LiteLLMClient()
 
+    # S17 FR-17.30: log configured LLM provider on startup for audit trail
+    log.info(
+        "llm_provider_configured",
+        model=settings.litellm_model,
+        fallback_model=settings.litellm_fallback_model or "none",
+    )
+
     # 5. World service — Neo4j when explicitly configured, in-memory fallback
     app.state.neo4j_driver = None
     if settings.neo4j_uri:

@@ -359,6 +359,12 @@ class TestUpgradeAnonymous:
             json={
                 "email": "test@example.com",
                 "password": "Secure1pass",
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
             },
         )
         assert resp.status_code == 200
@@ -376,6 +382,12 @@ class TestUpgradeAnonymous:
             json={
                 "email": "taken@example.com",
                 "password": "Secure1pass",
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
             },
         )
         assert resp.status_code == 409
@@ -397,7 +409,16 @@ class TestUpgradeAnonymous:
 
         resp = anon_client.post(
             "/api/v1/auth/upgrade",
-            json={"email": "a@b.com", "password": "NoDigitsHere"},
+            json={
+                "email": "a@b.com",
+                "password": "NoDigitsHere",
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
+            },
         )
         assert resp.status_code == 400
         assert "PASSWORD_INVALID" in resp.text
@@ -425,7 +446,75 @@ class TestUpgradeAnonymous:
         c = TestClient(a)
         resp = c.post(
             "/api/v1/auth/upgrade",
-            json={"email": "x@y.com", "password": "Secure1pass"},
+            json={
+                "email": "x@y.com",
+                "password": "Secure1pass",
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
+            },
         )
         assert resp.status_code == 400
         assert "ALREADY_REGISTERED" in resp.text
+
+    # ── S17 consent rejection scenarios ────────────────────────────
+
+    def test_rejects_upgrade_without_age_confirmation(
+        self, anon_client: TestClient
+    ) -> None:
+        resp = anon_client.post(
+            "/api/v1/auth/upgrade",
+            json={
+                "email": "age-gate@example.com",
+                "password": "Secure1pass",
+                "age_13_plus_confirmed": False,
+                "consent_version": "1.0",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
+            },
+        )
+        assert resp.status_code == 400
+        assert "AGE_GATE_FAILED" in resp.text
+
+    def test_rejects_upgrade_wrong_consent_version(
+        self, anon_client: TestClient
+    ) -> None:
+        resp = anon_client.post(
+            "/api/v1/auth/upgrade",
+            json={
+                "email": "version-mismatch@example.com",
+                "password": "Secure1pass",
+                "age_13_plus_confirmed": True,
+                "consent_version": "0.9",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
+            },
+        )
+        assert resp.status_code == 400
+        assert "CONSENT_VERSION_MISMATCH" in resp.text
+
+    def test_rejects_upgrade_missing_required_category(
+        self, anon_client: TestClient
+    ) -> None:
+        resp = anon_client.post(
+            "/api/v1/auth/upgrade",
+            json={
+                "email": "missing-consent@example.com",
+                "password": "Secure1pass",
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": False,
+                },
+            },
+        )
+        assert resp.status_code == 400
+        assert "CONSENT_REQUIRED" in resp.text
