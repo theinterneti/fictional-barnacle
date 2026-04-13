@@ -26,7 +26,7 @@ async def test_with_smart_router():
     llm = SmartRouterLLMClient(task_type="simple")
     world_service = InMemoryWorldService()
     template_registry = TemplateRegistry(
-        template_dir=Path(__file__).resolve().parents[1]
+        directory=Path(__file__).resolve().parents[1]
         / "src"
         / "tta"
         / "world"
@@ -78,9 +78,8 @@ async def test_with_smart_router():
     )
     result1 = await run_pipeline(state1, pipeline_deps)
     print(f"   Status: {result1.status}")
-    print(
-        f"   Narrative: {result1.narrative_output[:100] if result1.narrative_output else 'none'}..."
-    )
+    narr1 = result1.narrative_output[:100] if result1.narrative_output else "none"
+    print(f"   Narrative: {narr1}...")
 
     # Turn 2: coding task
     print("\n3. Running turn 2 (coding task)...")
@@ -104,9 +103,8 @@ async def test_with_smart_router():
     )
     result2 = await run_pipeline(state2, pipeline_deps_coding)
     print(f"   Status: {result2.status}")
-    print(
-        f"   Narrative: {result2.narrative_output[:100] if result2.narrative_output else 'none'}..."
-    )
+    narr2 = result2.narrative_output[:100] if result2.narrative_output else "none"
+    print(f"   Narrative: {narr2}...")
 
     print("\n=== Test Complete ===")
 

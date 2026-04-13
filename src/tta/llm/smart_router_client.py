@@ -127,7 +127,10 @@ class SmartRouterLLMClient:
             return " ".join(response_parts[:3])  # First few lines
 
         # Fallback: return last non-empty lines
-        non_empty = [l for l in lines if l.strip() and not l.startswith(" ")]
+        non_empty = [
+            line for line in lines
+            if line.strip() and not line.startswith(" ")
+        ]
         return " ".join(non_empty[-2:]) if non_empty else "Response from smart router"
 
     def _mock_response(
@@ -141,7 +144,10 @@ class SmartRouterLLMClient:
         prompt_tokens = sum(len(m.content.split()) for m in messages)
 
         return LLMResponse(
-            content=f"[Smart Router unavailable: {error or 'unknown error'}] Using fallback.",
+            content=(
+                f"[Smart Router unavailable: "
+                f"{error or 'unknown error'}] Using fallback."
+            ),
             model_used="smart-router-fallback",
             token_count=TokenCount(
                 prompt_tokens=prompt_tokens,
