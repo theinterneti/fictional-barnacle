@@ -413,10 +413,10 @@ class TestRealTemplates:
         assert real_registry.has("extraction.world-changes")
 
     def test_render_narrative_generate(self, real_registry: FilePromptRegistry) -> None:
-        # v1.1.0: system-only template, no required variables
+        # v1.2.0: system-only template, no required variables
         result = real_registry.render("narrative.generate", {})
         assert result.token_estimate > 0
-        assert result.template_version == "1.1.0"
+        assert result.template_version == "1.2.0"
         # Safety preamble is prepended
         assert "NEVER" in result.text
 

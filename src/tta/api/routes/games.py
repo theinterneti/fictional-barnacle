@@ -1005,6 +1005,7 @@ async def create_game(
             "player_location_id": result.player_location_id,
             "template_key": result.template_key,
             "narrative_intro": result.narrative_intro,
+            "genesis_elements": result.genesis_elements,
         }
         await pg.execute(
             sa.text(

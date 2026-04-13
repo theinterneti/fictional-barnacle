@@ -31,7 +31,7 @@ class TestNarrativeGenerate:
     def test_renders_without_variables(self, registry: FilePromptRegistry) -> None:
         result = registry.render("narrative.generate", {})
         assert result.text
-        assert result.template_version == "1.1.0"
+        assert result.template_version == "1.2.0"
 
     def test_contains_core_instructions(self, registry: FilePromptRegistry) -> None:
         result = registry.render("narrative.generate", {})

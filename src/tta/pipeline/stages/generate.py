@@ -51,8 +51,10 @@ _DEFAULT_WORD_RANGE = (100, 200)
 _FALLBACK_NARRATIVE = (
     "A strange stillness settles over the world around you. "
     "The air shimmers briefly, as though reality itself drew a breath. "
-    "After a moment, everything steadies — "
-    "the world is still here, waiting for your next move."
+    "Somewhere nearby, a sound catches your attention — "
+    "faint and familiar, yet just beyond recognition. "
+    "After a moment, everything steadies. "
+    "The world is still here, waiting for your next move."
 )
 
 _MAX_TRANSIENT_RETRIES = 2
@@ -82,13 +84,22 @@ def _build_npc_section(npc_contexts: list[dict]) -> str:
             parts.append(f"  Disposition: {ctx['disposition']}")
         if ctx.get("occupation"):
             parts.append(f"  Occupation: {ctx['occupation']}")
+        # Knowledge boundary (S06 AC-6.9)
+        if ctx.get("knowledge_boundary"):
+            parts.append(f"  Knows about: {ctx['knowledge_boundary']}")
+        # Shared history with player (S06 AC-6.8)
+        if ctx.get("shared_history"):
+            parts.append(f"  History with player: {ctx['shared_history']}")
         # Revealed goals influence dialogue (S06 AC-6.6)
         if ctx.get("goals_short"):
             parts.append(
                 f"  {name} subtly steers conversation toward: {ctx['goals_short']}"
             )
         lines.extend(parts)
-    lines.append("Write each NPC's dialogue in their distinct voice and mannerisms.")
+    lines.append(
+        "Write each NPC's dialogue in their distinct voice and mannerisms. "
+        "NPCs must not share information outside their knowledge boundary."
+    )
     return "\n".join(lines)
 
 
@@ -125,6 +136,15 @@ def _build_generation_prompt(state: TurnState) -> str:
     summary = wc.get("session_summary")
     if summary:
         parts.append(f"\nStory so far: {summary}")
+
+    # Genesis element references for early-turn continuity (S02 AC-2.3)
+    genesis_elems = wc.get("genesis_elements")
+    if genesis_elems and isinstance(genesis_elems, list):
+        joined = "; ".join(genesis_elems[:10])
+        parts.append(
+            f"\nEstablished world elements: {joined}. "
+            "Reference at least two of these by name in your response."
+        )
 
     if state.consequence_hints:
         hints = "; ".join(state.consequence_hints)
@@ -186,6 +206,20 @@ def _build_generation_prompt(state: TurnState) -> str:
         )
 
     parts.append(f"\nAim for {word_min}-{word_max} words.")
+
+    # Exploration hook guidance (S03 AC-3.8)
+    if intent in ("examine", "move"):
+        parts.append(
+            "End with a subtle narrative hook — a detail, sound, or glimpse "
+            "that invites further exploration."
+        )
+
+    # Failure-consequence instruction (S01 AC-1.5)
+    parts.append(
+        "If the action fails or has negative outcomes, narrate the failure "
+        "as a meaningful story beat with visible consequences."
+    )
+
     parts.append("Generate a narrative response.")
     return "\n".join(parts)
 

@@ -72,6 +72,9 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     # Inject tone/genre from world seed (S03 FR-6.1)
     world_context = _inject_tone(world_context, state)
 
+    # Inject genesis elements for early-turn continuity (S02 AC-2.3, AC-2.10)
+    world_context = _inject_genesis_elements(world_context, state)
+
     # Inject existing session summary (S03 FR-3.2)
     world_context = _inject_summary(world_context, state)
 
@@ -161,6 +164,36 @@ def _inject_tone(world_context: dict, state: TurnState) -> dict:
         genre = world_seed.get("genre")
         if genre:
             world_context["genre"] = genre
+    return world_context
+
+
+# Genesis element threshold — inject elements for the first N gameplay turns
+_GENESIS_ELEMENT_TURN_THRESHOLD = 3
+
+
+def _inject_genesis_elements(world_context: dict, state: TurnState) -> dict:
+    """Inject genesis elements into early turns for continuity (S02 AC-2.3).
+
+    During the first few post-genesis turns, the generation prompt should
+    reference key world elements (NPC names, location names, notable objects)
+    established during genesis so the narrative feels continuous.
+    """
+    turn = state.turn_number
+    if turn > _GENESIS_ELEMENT_TURN_THRESHOLD:
+        return world_context
+
+    world_seed = state.game_state.get("world_seed")
+    if not isinstance(world_seed, dict):
+        return world_context
+
+    genesis = world_seed.get("genesis")
+    if not isinstance(genesis, dict):
+        return world_context
+
+    elements = genesis.get("genesis_elements")
+    if elements:
+        world_context["genesis_elements"] = elements
+
     return world_context
 
 
