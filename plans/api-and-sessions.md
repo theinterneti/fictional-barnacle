@@ -10,6 +10,31 @@
 
 ---
 
+## 0. Resolved Conflicts and Normative Decisions
+
+### 0.1 — JWT Auth Replaces Opaque Tokens (S11 vs Plan §2.1)
+
+**Decision**: v1 uses **JWT-based authentication** as specified in S11.
+
+The original plan §2.1 stated "v1 auth is anonymous handles only, no JWT." S11
+specifies JWT access+refresh token pairs with anonymous-first flow. Per SDD rules,
+specs are source of truth — S11 wins.
+
+### 0.2 — Token Lifetimes Follow Spec (FR-11.29)
+
+**Decision**: Access token TTLs follow S11 FR-11.29: **1 hour registered, 24 hours
+anonymous**. Refresh tokens: 30 days registered, 7 days anonymous.
+
+Security best practice recommends shorter access tokens (≤15 min). This is noted as a
+**v2 hardening candidate** — shorter TTLs can be adopted when the refresh flow is
+battle-tested and client retry logic is robust. No spec amendment needed; a future spec
+or plan update can tighten these values.
+
+### 0.3 — UUID vs ULID for Identifiers
+
+S11 references ULID-style identifiers. The codebase uses UUID4 throughout. Keeping
+UUID4 for consistency; ULID migration deferred to a future spec if needed.
+
 ## 1. FastAPI Application Structure
 
 ### 1.1 — Application Factory
