@@ -202,7 +202,7 @@ class Settings(BaseSettings):
         return v
 
     # JWT / Auth (S11, FR-11.29 lifetimes)
-    jwt_secret: str = "CHANGE-ME-IN-PRODUCTION"
+    jwt_secret: str = "CHANGE-ME-IN-PRODUCTION-minimum-32-bytes"
     jwt_algorithm: str = "HS256"
     access_token_ttl: int = 3_600  # 1 h registered (FR-11.29)
     anon_access_token_ttl: int = 86_400  # 24 h anonymous (FR-11.29)
