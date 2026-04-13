@@ -53,6 +53,7 @@ class PipelineDeps:
     prompt_registry: FilePromptRegistry | None = None
     llm_semaphore: LLMSemaphore | None = None
     llm_circuit_breaker: CircuitBreaker | None = None
+    db_session_factory: Any | None = None  # async_sessionmaker for direct DB access
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState

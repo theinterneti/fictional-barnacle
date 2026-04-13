@@ -276,6 +276,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         prompt_registry=app.state.prompt_registry,
         llm_semaphore=app.state.llm_semaphore,
         llm_circuit_breaker=llm_circuit_breaker,
+        db_session_factory=session_factory,
     )
 
     # Redact credentials from DSN before logging

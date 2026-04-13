@@ -293,6 +293,22 @@ LLM_SEMAPHORE_WAITING = Gauge(
 )
 
 
+# -- S12 state-drift detection (AC-12.04, EC-12.01) -----------------------
+
+STATE_DRIFT_CHECKS = Counter(
+    "tta_state_drift_checks_total",
+    "Number of Redis/SQL consistency checks performed",
+    registry=REGISTRY,
+)
+
+STATE_DRIFT_DETECTED = Counter(
+    "tta_state_drift_detected_total",
+    "Number of Redis/SQL inconsistencies detected",
+    labelnames=["kind"],
+    registry=REGISTRY,
+)
+
+
 def metrics_output() -> bytes:
     """Generate Prometheus metrics output from the registry."""
     return generate_latest(REGISTRY)
