@@ -88,7 +88,7 @@ def app(pg: AsyncMock) -> FastAPI:
     application = create_app(_settings())
     application.dependency_overrides[get_current_player] = lambda: _PLAYER
     application.dependency_overrides[get_pg] = lambda: pg
-    application.dependency_overrides[require_consent] = lambda: None
+    application.dependency_overrides[require_consent] = lambda: _PLAYER
     return application
 
 

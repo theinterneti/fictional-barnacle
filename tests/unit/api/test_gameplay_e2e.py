@@ -18,7 +18,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
-from tta.api.deps import get_current_player, get_pg, require_consent
+from tta.api.deps import (
+    get_current_player,
+    get_pg,
+    require_anonymous_game_limit,
+    require_consent,
+)
 from tta.config import Settings
 from tta.models.player import Player
 
@@ -90,7 +95,8 @@ def client(pg: AsyncMock) -> TestClient:
     app = create_app(settings)
     app.dependency_overrides[get_pg] = lambda: pg
     app.dependency_overrides[get_current_player] = lambda: _PLAYER
-    app.dependency_overrides[require_consent] = lambda: None
+    app.dependency_overrides[require_consent] = lambda: _PLAYER
+    app.dependency_overrides[require_anonymous_game_limit] = lambda: _PLAYER
     return TestClient(app, raise_server_exceptions=False)
 
 

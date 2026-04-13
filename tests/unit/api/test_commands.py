@@ -93,7 +93,7 @@ def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
 
     a.dependency_overrides[get_pg] = _pg
     a.dependency_overrides[get_current_player] = lambda: _PLAYER
-    a.dependency_overrides[require_consent] = lambda: None
+    a.dependency_overrides[require_consent] = lambda: _PLAYER
     return a
 
 
