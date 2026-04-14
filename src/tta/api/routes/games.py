@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 import sqlalchemy as sa
 import structlog
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -1950,7 +1950,7 @@ async def end_game(
     body: DeleteGameRequest | None = None,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
-) -> Response:
+) -> None:
     """Soft-delete a game (S27 FR-27.16–FR-27.19)."""
     if body is None or not body.confirm:
         raise AppError(
@@ -1986,4 +1986,4 @@ async def end_game(
     duration_s = (now - row.created_at).total_seconds()
     SESSION_DURATION.observe(duration_s)
 
-    return Response(status_code=204)
+    return None
