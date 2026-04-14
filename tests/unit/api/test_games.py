@@ -393,6 +393,72 @@ class TestGetGameState:
         assert body["turn_count"] == 5
         assert body["title"] == "Quest"
         assert body["processing_turn"] is None
+        # AC-27.4: response includes recent_turns list
+        assert "recent_turns" in body, (
+            "Missing recent_turns in GET /games/{id} response"
+        )
+        assert isinstance(body["recent_turns"], list)
+        # AC-27.4: response includes context_summary (exposed as 'summary' by GET handler)
+        assert "summary" in body, (
+            "Missing summary/context_summary in GET /games/{id} response"
+        )
+        # AC-27.4: response includes current world state (status + timestamps)
+        assert "status" in body, (
+            "Missing status (world state) in GET /games/{id} response"
+        )
+        assert "created_at" in body
+        assert "last_played_at" in body
+
+    def test_get_game_state_includes_context_summary_and_recent_turns(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.4: GET /games/{id} includes recent_turns, context_summary, world state.
+
+        Verifies all three Gherkin postconditions with a game that has a summary
+        and a completed turn.
+        """
+        turn_id = uuid4()
+        turn_dict = {
+            "id": turn_id,
+            "turn_number": 1,
+            "player_input": "explore cave",
+            "narrative_output": "You enter a dark cave.",
+            "created_at": _NOW,
+        }
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [_game_row(title="Cave Quest", summary="Deep in the cave")]
+                ),  # _get_owned_game
+                _make_result(scalar=10),  # turn count
+                _make_result([turn_dict]),  # recent turns
+                _make_result(),  # processing turn check
+            ]
+        )
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+
+        # AC-27.4: recent_turns populated
+        assert len(body["recent_turns"]) == 1, "Expected 1 recent turn"
+        t = body["recent_turns"][0]
+        assert t["turn_number"] == 1
+        assert t["player_input"] == "explore cave"
+        assert t["narrative_output"] == "You enter a dark cave."
+
+        # AC-27.4: context_summary present (GET handler exposes as 'summary')
+        # Note: resume handler uses 'context_summary'; GET handler uses 'summary'.
+        # Both satisfy AC-27.4 — the field name differs between the two endpoints.
+        assert body["summary"] == "Deep in the cave", (
+            "GET /games/{id} must include the context summary (field: 'summary')"
+        )
+
+        # AC-27.4: current world state
+        assert body["status"] == "active"
+        assert body["turn_count"] == 10
+        assert body["last_played_at"] is not None
 
     def test_returns_404_for_missing_game(
         self, client: TestClient, pg: AsyncMock
@@ -849,6 +915,106 @@ class TestResumeGame:
 
         assert resp.status_code == 200
         assert resp.json()["data"]["summary_stale"] is True
+
+    def test_resume_stale_summary_dispatches_regeneration(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """AC-27.8: when summary is stale, regen task is dispatched on resume.
+
+        The background task is the mechanism that produces a freshly generated
+        context_summary.  Verifying create_task is called (not just the flag)
+        ensures the regeneration is actually scheduled.
+        """
+        from datetime import timedelta
+
+        old_time = _NOW - timedelta(hours=48)
+        turn_dict = {
+            "id": uuid4(),
+            "turn_number": 3,
+            "player_input": "go south",
+            "narrative_output": "You head south.",
+            "created_at": _NOW,
+        }
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [
+                        _game_row(
+                            status="active",
+                            summary="Stale narrative recap",
+                            last_played_at=old_time,
+                            summary_generated_at=old_time,
+                        )
+                    ]
+                ),
+                _make_result([turn_dict]),  # recent turns (non-empty → triggers regen)
+                _make_result(scalar=3),  # turn count
+            ]
+        )
+
+        captured: list = []
+
+        def _capture_task(coro: object) -> None:
+            captured.append(coro)
+            # Close to avoid ResourceWarning
+            if hasattr(coro, "close"):
+                coro.close()  # type: ignore[union-attr]
+
+        monkeypatch.setattr("asyncio.create_task", _capture_task)
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+
+        # AC-27.8: summary_stale is flagged in the response
+        assert body["summary_stale"] is True
+
+        # AC-27.8: regeneration was dispatched (the coroutine that produces a
+        # freshly generated summary was scheduled via create_task)
+        assert len(captured) == 1, (
+            "AC-27.8: expected exactly one background regen task to be scheduled "
+            f"when summary is stale, got {len(captured)}"
+        )
+
+    def test_resume_fresh_summary_does_not_dispatch_regeneration(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """AC-27.8 negative: fresh summary must NOT trigger a regen task."""
+        recent = datetime.now(UTC)
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [
+                        _game_row(
+                            status="active",
+                            summary="Fresh summary",
+                            last_played_at=recent,
+                            summary_generated_at=recent,
+                        )
+                    ]
+                ),
+                _make_result([]),  # recent turns
+                _make_result(scalar=2),  # turn count
+            ]
+        )
+
+        captured: list = []
+        monkeypatch.setattr("asyncio.create_task", lambda coro: captured.append(coro))
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        assert resp.json()["data"]["summary_stale"] is False
+        assert len(captured) == 0, (
+            "AC-27.8: no regen task should be scheduled when summary is fresh"
+        )
 
 
 # ------------------------------------------------------------------
