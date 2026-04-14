@@ -678,3 +678,302 @@ class TestGameTermination:
         assert resp.status_code == 404
         body = resp.json()
         assert "GAME_NOT_FOUND" in str(body)
+
+
+# ── AC-26.6: Moderation flag review ─────────────────────────────
+
+
+class TestModerationFlagReview:
+    """POST /admin/moderation/flags/{flag_id}/review (AC-26.6)."""
+
+    def _build_recorder_client(
+        self,
+        settings: Settings,
+        *,
+        update_verdict_return: object = True,
+    ) -> TestClient:
+        client = _build_client(settings)
+        recorder = MagicMock()
+        recorder.update_verdict = AsyncMock(return_value=update_verdict_return)
+        recorder.query = AsyncMock(return_value=[])
+        client.app.state.moderation_recorder = recorder  # type: ignore[union-attr]
+        return client
+
+    def test_review_dismiss_returns_200_and_audit(self, settings: Settings) -> None:
+        client = self._build_recorder_client(settings, update_verdict_return=True)
+        flag_id = "flag-abc-123"
+
+        resp = client.post(
+            f"/admin/moderation/flags/{flag_id}/review",
+            json={"action": "dismiss", "notes": "False positive notes here"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["flag_id"] == flag_id
+        assert body["action"] == "dismiss"
+        assert body["new_verdict"] == "pass"
+
+        audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
+        audit_repo.create_and_append.assert_awaited_once()
+
+    def test_review_warn_maps_to_flag_verdict(self, settings: Settings) -> None:
+        client = self._build_recorder_client(settings, update_verdict_return=True)
+        flag_id = "flag-def-456"
+
+        resp = client.post(
+            f"/admin/moderation/flags/{flag_id}/review",
+            json={
+                "action": "warn",
+                "notes": "Player was warned for inappropriate content",
+            },
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["new_verdict"] == "flag"
+        assert body["action"] == "warn"
+
+    def test_review_flag_not_found_returns_404(self, settings: Settings) -> None:
+        client = self._build_recorder_client(settings, update_verdict_return=False)
+
+        resp = client.post(
+            "/admin/moderation/flags/nonexistent-flag/review",
+            json={"action": "dismiss", "notes": "This flag does not exist here"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 404
+        body = resp.json()
+        assert "FLAG_NOT_FOUND" in str(body)
+
+    def test_review_no_recorder_returns_503(self, settings: Settings) -> None:
+        client = _build_client(settings)
+        # moderation_recorder is None by default in _build_client
+
+        resp = client.post(
+            "/admin/moderation/flags/some-flag/review",
+            json={"action": "dismiss", "notes": "Notes that are long enough to pass"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 503
+        body = resp.json()
+        assert "MODERATION_NOT_CONFIGURED" in str(body)
+
+    def test_review_invalid_action_returns_422(self, settings: Settings) -> None:
+        client = self._build_recorder_client(settings)
+
+        resp = client.post(
+            "/admin/moderation/flags/some-flag/review",
+            json={"action": "approve", "notes": "This action is not allowed here"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 422
+
+    def test_review_short_notes_returns_422(self, settings: Settings) -> None:
+        client = self._build_recorder_client(settings)
+
+        resp = client.post(
+            "/admin/moderation/flags/some-flag/review",
+            json={"action": "dismiss", "notes": "short"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 422
+
+
+# ── AC-26.7: Rate-limit inspection (read paths) ──────────────────
+
+
+class TestRateLimitInspection:
+    """GET /admin/rate-limits/player/{id} and /ip/{ip} (AC-26.7 read paths)."""
+
+    def test_get_player_rate_limits_no_detector(self, settings: Settings) -> None:
+        client = _build_client(settings)
+        # abuse_detector is None by default
+
+        resp = client.get(
+            f"/admin/rate-limits/player/{uuid.uuid4()}",
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["cooldown"] is None
+
+    def test_get_player_rate_limits_with_detector(self, settings: Settings) -> None:
+        client = _build_client(settings)
+
+        # Active cooldown returned for player-id lookups (route handler).
+        cd_active = MagicMock()
+        cd_active.active = True
+        cd_active.remaining_seconds = 45
+        cd_active.pattern = "rapid_turn"
+        cd_active.violation_count = 3
+
+        # Inactive cooldown returned for IP-based lookups (middleware).
+        cd_inactive = MagicMock()
+        cd_inactive.active = False
+        cd_inactive.remaining_seconds = 0
+        cd_inactive.pattern = None
+        cd_inactive.violation_count = 0
+
+        async def _check_cooldown(key: str) -> MagicMock:
+            # Middleware calls with "ip:<addr>"; route calls with player UUID string.
+            return cd_inactive if key.startswith("ip:") else cd_active
+
+        detector = MagicMock()
+        detector.check_cooldown = _check_cooldown
+        client.app.state.abuse_detector = detector  # type: ignore[union-attr]
+
+        resp = client.get(
+            f"/admin/rate-limits/player/{uuid.uuid4()}",
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["cooldown"] is not None
+        assert body["cooldown"]["active"] is True
+        assert body["cooldown"]["remaining_seconds"] == 45
+        assert body["cooldown"]["pattern"] == "rapid_turn"
+        assert body["cooldown"]["violation_count"] == 3
+
+    def test_get_ip_rate_limits_no_detector(self, settings: Settings) -> None:
+        client = _build_client(settings)
+        # abuse_detector is None by default
+
+        resp = client.get(
+            "/admin/rate-limits/ip/192.168.1.1",
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["cooldown"] is None
+        assert body["ip"] == "192.168.1.1"
+
+    def test_get_player_rate_limits_no_activity_ec26_7(
+        self, settings: Settings
+    ) -> None:
+        """EC-26.7: zero-activity player returns 200 with zeros, not 404."""
+        client = _build_client(settings)
+        cd = MagicMock()
+        cd.active = False
+        cd.remaining_seconds = 0
+        cd.pattern = None
+        cd.violation_count = 0
+        detector = MagicMock()
+        detector.check_cooldown = AsyncMock(return_value=cd)
+        client.app.state.abuse_detector = detector  # type: ignore[union-attr]
+
+        player_id = uuid.uuid4()
+        resp = client.get(
+            f"/admin/rate-limits/player/{player_id}",
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["cooldown"]["active"] is False
+        assert body["cooldown"]["violation_count"] == 0
+        assert body["player_id"] == str(player_id)
+
+
+# ── AC-26.7: Rate-limit management (write paths) ─────────────────
+
+
+class TestRateLimitReset:
+    """POST /admin/rate-limits/player/{id}/reset and /ip/{ip}/unblock (AC-26.7 write)."""
+
+    def test_reset_player_rate_limits_clears_and_audits(
+        self, settings: Settings
+    ) -> None:
+        client = _build_client(settings)
+        detector = MagicMock()
+        detector.clear_cooldown = AsyncMock()
+        client.app.state.abuse_detector = detector  # type: ignore[union-attr]
+
+        player_id = uuid.uuid4()
+        resp = client.post(
+            f"/admin/rate-limits/player/{player_id}/reset",
+            json={"reason": "Manual admin reset for player"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "rate_limits_cleared"
+        assert body["player_id"] == str(player_id)
+
+        detector.clear_cooldown.assert_awaited_once_with(str(player_id))
+
+        audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
+        call_kwargs = audit_repo.create_and_append.call_args
+        assert call_kwargs.kwargs["action"] == "reset_player_rate_limits"
+
+    def test_reset_player_no_detector_still_audits(self, settings: Settings) -> None:
+        client = _build_client(settings)
+        # abuse_detector is None by default
+
+        player_id = uuid.uuid4()
+        resp = client.post(
+            f"/admin/rate-limits/player/{player_id}/reset",
+            json={"reason": "Resetting player with no detector configured"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "rate_limits_cleared"
+        assert body["player_id"] == str(player_id)
+
+        audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
+        audit_repo.create_and_append.assert_awaited_once()
+
+    def test_unblock_ip_clears_all_groups_and_audits(self, settings: Settings) -> None:
+        client = _build_client(settings)
+        client.app.state.rate_limiter.clear_key = AsyncMock()  # type: ignore[union-attr]
+
+        resp = client.post(
+            "/admin/rate-limits/ip/10.0.0.1/unblock",
+            json={"reason": "Unblocking IP for admin review"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "unblocked"
+        assert body["ip"] == "10.0.0.1"
+
+        rl = client.app.state.rate_limiter  # type: ignore[union-attr]
+        assert (
+            rl.clear_key.await_count == 5
+        )  # one per group: turns, game_mgmt, auth, sse, health
+
+        audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
+        call_kwargs = audit_repo.create_and_append.call_args
+        assert call_kwargs.kwargs["action"] == "unblock_ip"
+
+    def test_reset_requires_reason(self, settings: Settings) -> None:
+        client = _build_client(settings)
+
+        # Empty string fails min_length=1
+        resp = client.post(
+            f"/admin/rate-limits/player/{uuid.uuid4()}/reset",
+            json={"reason": ""},
+            headers=_auth_headers(),
+        )
+        assert resp.status_code == 422
+
+        # Missing reason field also fails
+        resp2 = client.post(
+            f"/admin/rate-limits/player/{uuid.uuid4()}/reset",
+            json={},
+            headers=_auth_headers(),
+        )
+        assert resp2.status_code == 422
