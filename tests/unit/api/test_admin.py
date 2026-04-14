@@ -585,9 +585,23 @@ class TestGameTermination:
     def test_terminate_game_success(self, settings: Settings) -> None:
         client = _build_client(settings)
         game_id = uuid.uuid4()
-        updated_row = MagicMock()
-        updated_row.id = game_id
-        client.app.state.pg = _mock_pg_with_rows([updated_row])  # type: ignore[union-attr]
+
+        # Step 1: SELECT returns a row with status="active"
+        select_result = MagicMock()
+        active_row = MagicMock()
+        active_row.status = "active"
+        select_result.first.return_value = active_row
+
+        # Step 2: UPDATE returns nothing
+        update_result = MagicMock()
+        update_result.first.return_value = None
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(side_effect=[select_result, update_result])
+        mock_session.commit = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        client.app.state.pg = MagicMock(return_value=mock_session)  # type: ignore[union-attr]
 
         resp = client.post(
             f"/admin/games/{game_id}/terminate",
@@ -602,9 +616,21 @@ class TestGameTermination:
         audit_repo.create_and_append.assert_awaited_once()
 
     def test_terminate_game_not_active_returns_error(self, settings: Settings) -> None:
-        """EC-26: UPDATE returns no rows → 404 GAME_NOT_FOUND_OR_NOT_ACTIVE."""
+        """EC-26.2: Game exists but is non-active → 409 GAME_ALREADY_TERMINATED."""
         client = _build_client(settings)
-        client.app.state.pg = _mock_pg_with_rows([])  # type: ignore[union-attr]
+
+        # SELECT returns a row with status="ended" (game found, but non-terminable)
+        select_result = MagicMock()
+        ended_row = MagicMock()
+        ended_row.status = "ended"
+        select_result.first.return_value = ended_row
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=select_result)
+        mock_session.commit = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        client.app.state.pg = MagicMock(return_value=mock_session)  # type: ignore[union-attr]
 
         resp = client.post(
             f"/admin/games/{uuid.uuid4()}/terminate",
@@ -612,9 +638,9 @@ class TestGameTermination:
             headers=_auth_headers(),
         )
 
-        assert resp.status_code == 404
+        assert resp.status_code == 409
         body = resp.json()
-        assert "GAME_NOT_FOUND_OR_NOT_ACTIVE" in str(body)
+        assert "GAME_ALREADY_TERMINATED" in str(body)
 
     def test_terminate_requires_reason_min_length(self, settings: Settings) -> None:
         """EC-26.4: TerminateRequest.reason min_length=10 → 422."""
@@ -628,17 +654,27 @@ class TestGameTermination:
 
         assert resp.status_code == 422
 
-    def test_terminate_already_completed_returns_error(
-        self, settings: Settings
-    ) -> None:
-        """Completed/ended games share the same NOT_ACTIVE code path as not-found."""
+    def test_terminate_game_not_found_returns_404(self, settings: Settings) -> None:
+        """EC-26.2: Game does not exist → 404 GAME_NOT_FOUND."""
         client = _build_client(settings)
-        client.app.state.pg = _mock_pg_with_rows([])  # type: ignore[union-attr]
+
+        # SELECT returns None (game not found)
+        select_result = MagicMock()
+        select_result.first.return_value = None
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=select_result)
+        mock_session.commit = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        client.app.state.pg = MagicMock(return_value=mock_session)  # type: ignore[union-attr]
 
         resp = client.post(
             f"/admin/games/{uuid.uuid4()}/terminate",
-            json={"reason": "Attempting to terminate already ended game"},
+            json={"reason": "Attempting to terminate a non-existent game"},
             headers=_auth_headers(),
         )
 
         assert resp.status_code == 404
+        body = resp.json()
+        assert "GAME_NOT_FOUND" in str(body)

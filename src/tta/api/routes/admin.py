@@ -417,24 +417,35 @@ async def terminate_game(
     """Force-terminate a game (FR-26.12)."""
     import sqlalchemy as sa
 
+    # Step 1: Check if game exists and get its current status
     async with request.app.state.pg() as session:
-        result = await session.execute(
-            sa.text(
-                "UPDATE game_sessions SET status = 'ended' "
-                "WHERE id = :gid AND status IN ('active', 'paused') "
-                "RETURNING id"
-            ),
+        row = await session.execute(
+            sa.text("SELECT status FROM game_sessions WHERE id = :gid"),
+            {"gid": game_id},
+        )
+        game = row.first()
+
+    if game is None:
+        raise AppError(
+            ErrorCategory.NOT_FOUND,
+            "GAME_NOT_FOUND",
+            f"Game {game_id} not found.",
+        )
+
+    if game.status not in ("active", "paused"):
+        raise AppError(
+            ErrorCategory.CONFLICT,
+            "GAME_ALREADY_TERMINATED",
+            "Game is already completed.",
+        )
+
+    # Step 2: Terminate
+    async with request.app.state.pg() as session:
+        await session.execute(
+            sa.text("UPDATE game_sessions SET status = 'ended' WHERE id = :gid"),
             {"gid": game_id},
         )
         await session.commit()
-        updated = result.first()
-
-    if updated is None:
-        raise AppError(
-            ErrorCategory.NOT_FOUND,
-            "GAME_NOT_FOUND_OR_NOT_ACTIVE",
-            f"Game {game_id} not found or not in active/paused state.",
-        )
 
     SESSIONS_ACTIVE.dec()
 
