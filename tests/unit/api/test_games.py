@@ -956,6 +956,7 @@ class TestResumeGame:
         )
 
         captured: list = []
+        regen_call_args: list = []
 
         def _capture_task(coro: object) -> None:
             captured.append(coro)
@@ -964,6 +965,17 @@ class TestResumeGame:
                 coro.close()  # type: ignore[union-attr]
 
         monkeypatch.setattr("asyncio.create_task", _capture_task)
+
+        def _mock_regen(app_state: object, game_id: object) -> object:
+            regen_call_args.append((app_state, game_id))
+            # Return a no-op coroutine so create_task receives a coroutine
+
+            async def _noop() -> None:
+                pass
+
+            return _noop()
+
+        monkeypatch.setattr("tta.api.routes.games._regen_summary_bg", _mock_regen)
 
         resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
 
@@ -978,6 +990,17 @@ class TestResumeGame:
         assert len(captured) == 1, (
             "AC-27.8: expected exactly one background regen task to be scheduled "
             f"when summary is stale, got {len(captured)}"
+        )
+
+        # AC-27.8 second postcondition: the dispatched task reflects the current
+        # state of the narrative — i.e. it was invoked with the correct game_id
+        assert len(regen_call_args) == 1, (
+            "AC-27.8: _regen_summary_bg should have been called exactly once"
+        )
+        _, dispatched_game_id = regen_call_args[0]
+        assert dispatched_game_id == _GAME_ID, (
+            f"AC-27.8: regen dispatched with wrong game_id: "
+            f"expected {_GAME_ID}, got {dispatched_game_id}"
         )
 
     def test_resume_fresh_summary_does_not_dispatch_regeneration(
