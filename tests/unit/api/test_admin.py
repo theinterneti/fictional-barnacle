@@ -9,13 +9,15 @@ Spec references:
   - AC-26.6: Flag review updates verdict and optionally suspends player
   - AC-26.7: Audit log is append-only, immutable, queryable by time/action/admin
   - AC-26.8: Health endpoint reports all subsystem statuses
+  - AC-26.4 (game): GET /admin/games/{game_id} returns full game state
+  - AC-26.5 (game): POST /admin/games/{game_id}/terminate force-ends a game
 """
 # ruff: noqa: E501
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -256,7 +258,6 @@ class TestPlayerSearch:
         handle: str = "CoolDragon42",
         status: str = "active",
     ) -> MagicMock:
-        from datetime import datetime
 
         row = MagicMock()
         row.id = uuid.uuid4()
@@ -408,7 +409,6 @@ class TestGetPlayerSuccess:
     """GET /admin/players/{id} — success path (complement to 404 test)."""
 
     def test_get_player_returns_full_profile(self, settings: Settings) -> None:
-        from datetime import datetime
 
         client = _build_client(settings)
         player_id = uuid.uuid4()
@@ -454,3 +454,191 @@ class TestGetPlayerSuccess:
         assert body["games"]["total"] == 5
         assert body["games"]["active"] == 2
         assert "rate_limit" in body
+
+
+# ── AC-26.4 (game): Game inspection ─────────────────────────────
+
+
+class TestGameInspection:
+    """GET /admin/games/{game_id} returns full game state (AC-26.4)."""
+
+    def _make_game_row(self, game_id: uuid.UUID, player_id: uuid.UUID) -> MagicMock:
+        row = MagicMock()
+        row.id = game_id
+        row.player_id = player_id
+        row.status = "active"
+        row.world_seed = "dark-castle"
+        row.title = "The Dark Castle"
+        row.summary = "A tale of adventure."
+        row.turn_count = 5
+        row.needs_recovery = False
+        row.last_played_at = None
+        row.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+        row.updated_at = None
+        return row
+
+    def _build_game_client(self, settings: Settings, game_row: MagicMock) -> TestClient:
+        client = _build_client(settings)
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.first.return_value = game_row
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        client.app.state.pg = MagicMock(return_value=mock_session)  # type: ignore[union-attr]
+        return client
+
+    def test_get_game_returns_full_state(self, settings: Settings) -> None:
+        game_id = uuid.uuid4()
+        player_id = uuid.uuid4()
+        row = self._make_game_row(game_id, player_id)
+        client = self._build_game_client(settings, row)
+
+        resp = client.get(f"/admin/games/{game_id}", headers=_auth_headers())
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["game_id"] == str(game_id)
+        assert body["player_id"] == str(player_id)
+        assert body["status"] == "active"
+        assert "moderation_flags" in body
+
+    def test_get_game_includes_moderation_flags(self, settings: Settings) -> None:
+        game_id = uuid.uuid4()
+        player_id = uuid.uuid4()
+        row = self._make_game_row(game_id, player_id)
+        client = self._build_game_client(settings, row)
+
+        recorder = MagicMock()
+        recorder.query = AsyncMock(
+            return_value=[{"moderation_id": "abc", "category": "violence"}]
+        )
+        client.app.state.moderation_recorder = recorder  # type: ignore[union-attr]
+
+        resp = client.get(f"/admin/games/{game_id}", headers=_auth_headers())
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["moderation_flags"]) > 0
+
+    def test_get_game_not_found_returns_404(self, settings: Settings) -> None:
+        client = _build_client(settings)
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        client.app.state.pg = MagicMock(return_value=mock_session)  # type: ignore[union-attr]
+
+        resp = client.get(f"/admin/games/{uuid.uuid4()}", headers=_auth_headers())
+
+        assert resp.status_code == 404
+
+    def test_get_game_turns_returns_paginated_list(self, settings: Settings) -> None:
+        client = _build_client(settings)
+
+        def _make_turn_row(n: int) -> MagicMock:
+            r = MagicMock()
+            r.id = uuid.uuid4()
+            r.session_id = uuid.uuid4()
+            r.turn_number = n
+            r.player_input = f"input {n}"
+            r.status = "completed"
+            r.narrative_output = f"narrative {n}"
+            r.model_used = "gpt-4"
+            r.latency_ms = 250
+            r.token_count = 100
+            r.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+            r.completed_at = None
+            return r
+
+        turn_rows = [_make_turn_row(1), _make_turn_row(2)]
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = turn_rows
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        client.app.state.pg = MagicMock(return_value=mock_session)  # type: ignore[union-attr]
+
+        resp = client.get(
+            f"/admin/games/{uuid.uuid4()}/turns",
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["turns"]) == 2
+        for turn in body["turns"]:
+            assert "turn_id" in turn
+            assert "turn_number" in turn
+            assert "player_input" in turn
+
+
+# ── AC-26.5 (game): Game termination ────────────────────────────
+
+
+class TestGameTermination:
+    """POST /admin/games/{game_id}/terminate force-ends a game (AC-26.5)."""
+
+    def test_terminate_game_success(self, settings: Settings) -> None:
+        client = _build_client(settings)
+        game_id = uuid.uuid4()
+        updated_row = MagicMock()
+        updated_row.id = game_id
+        client.app.state.pg = _mock_pg_with_rows([updated_row])  # type: ignore[union-attr]
+
+        resp = client.post(
+            f"/admin/games/{game_id}/terminate",
+            json={"reason": "Admin force-terminated for policy violation"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "ended"
+        audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
+        audit_repo.create_and_append.assert_awaited_once()
+
+    def test_terminate_game_not_active_returns_error(self, settings: Settings) -> None:
+        """EC-26: UPDATE returns no rows → 404 GAME_NOT_FOUND_OR_NOT_ACTIVE."""
+        client = _build_client(settings)
+        client.app.state.pg = _mock_pg_with_rows([])  # type: ignore[union-attr]
+
+        resp = client.post(
+            f"/admin/games/{uuid.uuid4()}/terminate",
+            json={"reason": "Trying to end a completed game"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 404
+        body = resp.json()
+        assert "GAME_NOT_FOUND_OR_NOT_ACTIVE" in str(body)
+
+    def test_terminate_requires_reason_min_length(self, settings: Settings) -> None:
+        """EC-26.4: TerminateRequest.reason min_length=10 → 422."""
+        client = _build_client(settings)
+
+        resp = client.post(
+            f"/admin/games/{uuid.uuid4()}/terminate",
+            json={"reason": "short"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 422
+
+    def test_terminate_already_completed_returns_error(
+        self, settings: Settings
+    ) -> None:
+        """Completed/ended games share the same NOT_ACTIVE code path as not-found."""
+        client = _build_client(settings)
+        client.app.state.pg = _mock_pg_with_rows([])  # type: ignore[union-attr]
+
+        resp = client.post(
+            f"/admin/games/{uuid.uuid4()}/terminate",
+            json={"reason": "Attempting to terminate already ended game"},
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 404
