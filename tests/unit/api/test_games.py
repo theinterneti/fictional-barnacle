@@ -124,6 +124,7 @@ class TestCreateGame:
     def test_creates_game_and_returns_201(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
+        """AC-27.1: 201 + game_id, player_id, status, turn_count present."""
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result(scalar=0),  # count active games
@@ -136,21 +137,92 @@ class TestCreateGame:
 
         assert resp.status_code == 201
         body = resp.json()["data"]
+        # AC-27.1: response includes a game_id
+        assert "game_id" in body
+        assert body["game_id"] is not None
+        assert len(body["game_id"]) > 0
+        # AC-27.1: player context
         assert body["player_id"] == str(_PLAYER_ID)
         assert body["status"] == "active"
         assert body["turn_count"] == 0
 
+    def test_creates_game_includes_narrative_intro_key(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.1: response includes opening narrative field (narrative_intro).
+
+        Genesis runs best-effort — the key must be present even when the mocked
+        genesis path returns None (no LLM wired in unit tests).
+        """
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),  # count active games
+                _make_result(),  # INSERT
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post("/api/v1/games", json={})
+
+        assert resp.status_code == 201
+        body = resp.json()["data"]
+        # AC-27.1: "opening narrative" field must exist in the envelope
+        assert "narrative_intro" in body  # present even when genesis failed/skipped
+
+    def test_created_game_id_is_unique_uuid(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.1: each POST /games returns a distinct game_id (UUID format)."""
+        import re
+
+        _UUID_RE = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),
+                _make_result(),
+                _make_result(scalar=1),
+                _make_result(),
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp1 = client.post("/api/v1/games", json={})
+        resp2 = client.post("/api/v1/games", json={})
+
+        assert resp1.status_code == 201
+        assert resp2.status_code == 201
+        id1 = resp1.json()["data"]["game_id"]
+        id2 = resp2.json()["data"]["game_id"]
+        assert _UUID_RE.match(id1), f"game_id not a UUID: {id1!r}"
+        assert _UUID_RE.match(id2), f"game_id not a UUID: {id2!r}"
+        assert id1 != id2, "Two POST /games calls returned the same game_id"
+
     def test_rejects_when_max_games_reached(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
+        """AC-27.2: 409 with machine-readable error code when limit is hit.
+
+        The Gherkin spec says code "conflict"; the implementation uses the
+        ErrorCategory.CONFLICT category (→ HTTP 409) and the specific code
+        "MAX_GAMES_REACHED" in the error envelope.  Both the status and the
+        machine-readable code are verified here.
+        """
         pg.execute = AsyncMock(
             return_value=_make_result(scalar=5)  # already at limit
         )
 
         resp = client.post("/api/v1/games", json={})
 
+        # AC-27.2: status 409
         assert resp.status_code == 409
-        assert resp.json()["error"]["code"] == "MAX_GAMES_REACHED"
+        error = resp.json()["error"]
+        # AC-27.2: error body contains a conflict-family code
+        assert error["code"] == "MAX_GAMES_REACHED"
+        # Confirm the error envelope structure is present (S23 §3.1)
+        assert "message" in error
+        assert "correlation_id" in error
 
 
 # ------------------------------------------------------------------
