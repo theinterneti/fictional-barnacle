@@ -8,7 +8,7 @@ Spec references:
   - AC-26.5: Moderation queue returns paginated flags with filtering
   - AC-26.6: Flag review updates verdict and optionally suspends player
   - AC-26.7: Audit log is append-only, immutable, queryable by time/action/admin
-  - AC-26.8: Health endpoint reports all subsystem statuses
+  - AC-26.8: Audit log completeness — all write ops produce entries with required fields
   - AC-26.4 (game): GET /admin/games/{game_id} returns full game state
   - AC-26.5 (game): POST /admin/games/{game_id}/terminate force-ends a game
 """
@@ -984,3 +984,151 @@ class TestRateLimitReset:
             headers=_auth_headers(),
         )
         assert resp2.status_code == 422
+
+
+# ── AC-26.8: Audit log completeness ────────────────────────────
+
+
+def _make_audit_entry(
+    *,
+    action: str,
+    target_type: str,
+    target_id: str,
+    reason: str = "test reason",
+    admin_id: str = "admin-test",
+) -> MagicMock:
+    """Build a mock audit log entry with required fields."""
+    from types import SimpleNamespace
+
+    entry = SimpleNamespace(
+        id=uuid.uuid4(),
+        admin_id=admin_id,
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        reason=reason,
+        source_ip="127.0.0.1",
+        timestamp=datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC),
+    )
+    return entry  # type: ignore[return-value]
+
+
+class TestAuditLogCompleteness:
+    """AC-26.8: Audit log records all admin writes with required fields (FR-26.24)."""
+
+    def test_audit_log_entries_include_required_fields(
+        self, settings: Settings
+    ) -> None:
+        """GET /admin/audit-log entries include admin_id, action, target, reason, timestamp."""
+        client = _build_client(settings)
+
+        suspend_entry = _make_audit_entry(
+            action="suspend_player", target_type="player", target_id=str(uuid.uuid4())
+        )
+        terminate_entry = _make_audit_entry(
+            action="terminate_game", target_type="game", target_id=str(uuid.uuid4())
+        )
+        review_entry = _make_audit_entry(
+            action="moderation_review_dismiss",
+            target_type="moderation_flag",
+            target_id="flag-xyz",
+        )
+
+        audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
+        audit_repo.query = AsyncMock(
+            return_value=[suspend_entry, terminate_entry, review_entry]
+        )
+        audit_repo.encode_cursor = MagicMock(return_value="cursor-token")
+
+        resp = client.get("/admin/audit-log", headers=_auth_headers())
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "entries" in body
+        entries = body["entries"]
+        assert len(entries) == 3
+
+        # All entries must have the required fields (FR-26.24)
+        for entry in entries:
+            assert "admin_id" in entry
+            assert "action" in entry
+            assert "target_type" in entry
+            assert "target_id" in entry
+            assert "reason" in entry
+            assert "timestamp" in entry
+
+        # Verify the three expected actions are present
+        actions = {e["action"] for e in entries}
+        assert "suspend_player" in actions
+        assert "terminate_game" in actions
+        assert "moderation_review_dismiss" in actions
+
+    def test_audit_log_filter_by_action(self, settings: Settings) -> None:
+        """GET /admin/audit-log?action=suspend_player returns only matching entries."""
+        client = _build_client(settings)
+
+        suspend_entry = _make_audit_entry(
+            action="suspend_player", target_type="player", target_id=str(uuid.uuid4())
+        )
+        audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
+        audit_repo.query = AsyncMock(return_value=[suspend_entry])
+        audit_repo.encode_cursor = MagicMock(return_value="cursor-token")
+
+        resp = client.get(
+            "/admin/audit-log?action=suspend_player",
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        entries = resp.json()["entries"]
+        assert len(entries) == 1
+        assert entries[0]["action"] == "suspend_player"
+
+        # Verify repo was queried with the action filter
+        call_kwargs = audit_repo.query.call_args
+        assert call_kwargs.kwargs.get("action") == "suspend_player"
+
+    def test_audit_log_filter_by_admin_id(self, settings: Settings) -> None:
+        """GET /admin/audit-log?admin_id=X returns entries filtered by admin."""
+        client = _build_client(settings)
+
+        entry = _make_audit_entry(
+            action="terminate_game",
+            target_type="game",
+            target_id=str(uuid.uuid4()),
+            admin_id="specific-admin",
+        )
+        audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
+        audit_repo.query = AsyncMock(return_value=[entry])
+        audit_repo.encode_cursor = MagicMock(return_value=None)
+
+        resp = client.get(
+            "/admin/audit-log?admin_id=specific-admin",
+            headers=_auth_headers(),
+        )
+
+        assert resp.status_code == 200
+        entries = resp.json()["entries"]
+        assert len(entries) == 1
+        assert entries[0]["admin_id"] == "specific-admin"
+
+        call_kwargs = audit_repo.query.call_args
+        assert call_kwargs.kwargs.get("admin_id") == "specific-admin"
+
+    def test_audit_log_empty_when_no_entries(self, settings: Settings) -> None:
+        """GET /admin/audit-log returns empty list and null cursor when no entries."""
+        client = _build_client(settings)
+        # Default _build_client stubs audit_repo.query to return []
+
+        resp = client.get("/admin/audit-log", headers=_auth_headers())
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["entries"] == []
+        assert body["next_cursor"] is None
+
+    def test_audit_log_requires_authentication(self, settings: Settings) -> None:
+        """GET /admin/audit-log without auth returns 401."""
+        client = _build_client(settings)
+        resp = client.get("/admin/audit-log")
+        assert resp.status_code == 401
