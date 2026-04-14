@@ -26,6 +26,7 @@ from tta.api.app import create_app
 from tta.api.deps import (
     get_current_player,
     get_pg,
+    get_redis,
     require_anonymous_game_limit,
     require_consent,
 )
@@ -377,8 +378,6 @@ class TestAC1011UnauthenticatedReturns401:
         pg_mock = AsyncMock()
         redis_mock = AsyncMock()
         a.dependency_overrides[get_pg] = lambda: pg_mock
-        from tta.api.deps import get_redis
-
         a.dependency_overrides[get_redis] = lambda: redis_mock
         return TestClient(a, raise_server_exceptions=False)
 
