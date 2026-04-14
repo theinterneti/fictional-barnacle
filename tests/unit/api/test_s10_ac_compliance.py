@@ -171,6 +171,10 @@ class TestAC1001GameplayFlow:
         This is the documented happy-path flow using only public API endpoints:
           POST /api/v1/games  →  201 with game_id
           POST /api/v1/games/{id}/turns  →  202 with stream_url
+
+        uuid4 is patched so the game_id returned by POST /games matches the
+        id in the _get_owned_game mock row — preventing a false pass where the
+        turn query would return a row with a different id than what was created.
         """
         pg.execute = AsyncMock(
             side_effect=[
@@ -186,11 +190,14 @@ class TestAC1001GameplayFlow:
         )
         pg.commit = AsyncMock()
 
-        # Step 1: create game
-        create_resp = client.post("/api/v1/games", json={})
+        # Patch uuid4 so the created game_id is deterministic and matches _GAME_ID
+        # (the id used in _game_row()), ensuring the mock DB row is consistent with
+        # the actual game_id that the turn request is targeting.
+        with patch("tta.api.routes.games.uuid4", return_value=_GAME_ID):
+            create_resp = client.post("/api/v1/games", json={})
         assert create_resp.status_code == 201
         game_id = create_resp.json()["data"]["game_id"]
-        assert game_id is not None
+        assert game_id == str(_GAME_ID)
 
         # Step 2: submit a narrative turn
         turn_resp = client.post(

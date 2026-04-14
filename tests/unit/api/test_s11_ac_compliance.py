@@ -504,14 +504,17 @@ class TestAC1112NoPasswordInResponses:
 
     _FORBIDDEN_FIELDS = {"password", "password_hash", "passwd", "pw", "pw_hash"}
 
-    def _assert_no_password_fields(self, body: dict[str, Any], endpoint: str) -> None:
+    def _assert_no_password_fields(self, body: Any, endpoint: str) -> None:
         """Recursively check that no password-like field exists in the response."""
-        for key, value in body.items():
-            assert key.lower() not in self._FORBIDDEN_FIELDS, (
-                f"AC-11.12: Response from {endpoint} contains forbidden field '{key}'"
-            )
-            if isinstance(value, dict):
+        if isinstance(body, dict):
+            for key, value in body.items():
+                assert key.lower() not in self._FORBIDDEN_FIELDS, (
+                    f"AC-11.12: Response from {endpoint} contains forbidden field '{key}'"
+                )
                 self._assert_no_password_fields(value, endpoint)
+        elif isinstance(body, (list, tuple)):
+            for item in body:
+                self._assert_no_password_fields(item, endpoint)
 
     def test_anonymous_response_has_no_password_fields(
         self, anon_client: TestClient, pg: AsyncMock
