@@ -217,12 +217,10 @@ class TestSubmitTurnRequestValidation:
         req = self._make("\u200b\u200c\u200d\u2060\ufefftest\ufffe")
         assert req.input == "test"
 
-    def test_empty_string_rejected(self) -> None:
-        """AC-23.11: empty string fails min_length=1 validation."""
-        from pydantic import ValidationError
-
-        with pytest.raises(ValidationError):
-            self._make("")
+    def test_empty_string_passes_model_validation(self) -> None:
+        """Model accepts empty string; route handler enforces non-empty (AC-23.11)."""
+        req = self._make("")
+        assert req.input == ""
 
     def test_whitespace_only_passes_through(self) -> None:
         """Whitespace-only input is valid (triggers nudge, not LLM call)."""

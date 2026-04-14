@@ -596,9 +596,8 @@ _ZERO_WIDTH_CHARS = str.maketrans(
 class SubmitTurnRequest(BaseModel):
     input: str = Field(
         ...,
-        min_length=1,
         max_length=2000,
-        description="Player's natural-language input. Must be non-empty.",
+        description="Player's natural-language input.",
     )
     idempotency_key: UUID | None = Field(
         None,

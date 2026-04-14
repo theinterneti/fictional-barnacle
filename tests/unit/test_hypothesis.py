@@ -220,12 +220,10 @@ class TestSubmitTurnRequest:
         assert req.input == text
 
     @given(text=st.just(""))
-    def test_empty_input_rejected(self, text: str) -> None:
-        """AC-23.11: empty string fails min_length=1 validation."""
-        from pydantic import ValidationError
-
-        with pytest.raises(ValidationError):
-            SubmitTurnRequest(input=text)
+    def test_empty_input_passes_model_validation(self, text: str) -> None:
+        """Model accepts empty string; route handler enforces non-empty (AC-23.11)."""
+        req = SubmitTurnRequest(input=text)
+        assert req.input == text
 
     @given(text=st.text(min_size=2001, max_size=2100))
     @settings(max_examples=10)
