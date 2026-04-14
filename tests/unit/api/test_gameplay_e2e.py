@@ -152,7 +152,7 @@ class TestGameplayFlow:
     def test_step3_empty_input_returns_400(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """Blank input is rejected by route handler → 400 EMPTY_TURN_INPUT (AC-23.11)."""
+        """Empty input → 400 EMPTY_TURN_INPUT via route handler (AC-23.11)."""
         pg.execute = AsyncMock(return_value=_make_result([_game_row()]))
         resp = client.post(
             f"/api/v1/games/{_GAME_ID}/turns",
