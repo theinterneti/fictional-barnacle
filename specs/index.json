@@ -628,7 +628,70 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-10.01",
+          "ac_status": "done",
+          "description": "Player can create account, start game, submit turn, receive stream using only documented endpoints"
+        },
+        {
+          "id": "AC-10.02",
+          "ac_status": "v2",
+          "description": "OpenAPI spec passes openapi-spec-validator (requires integration tooling)"
+        },
+        {
+          "id": "AC-10.03",
+          "ac_status": "done",
+          "description": "Every endpoint returns documented error envelope shape for all error conditions"
+        },
+        {
+          "id": "AC-10.04",
+          "ac_status": "v2",
+          "description": "SSE narrative stream begins delivering chunks within 2 s of turn submission (real-time timing, integration only)"
+        },
+        {
+          "id": "AC-10.05",
+          "ac_status": "v2",
+          "description": "Client reconnect within 30 s receives all missed events (requires Redis pub/sub infra)"
+        },
+        {
+          "id": "AC-10.06",
+          "ac_status": "v2",
+          "description": "Keep-alive heartbeats arrive at least every 15 s during idle (SSE middleware, integration only)"
+        },
+        {
+          "id": "AC-10.07",
+          "ac_status": "done",
+          "description": "Exceeding turn submission rate limit returns 429 with Retry-After header"
+        },
+        {
+          "id": "AC-10.08",
+          "ac_status": "v2",
+          "description": "Rate-limit headers present on every authenticated response (middleware-level, integration only)"
+        },
+        {
+          "id": "AC-10.09",
+          "ac_status": "done",
+          "description": "No API response ever contains stack traces, file paths, or internal details"
+        },
+        {
+          "id": "AC-10.10",
+          "ac_status": "done",
+          "description": "Every error response includes a correlation_id (request_id) traceable in server logs"
+        },
+        {
+          "id": "AC-10.11",
+          "ac_status": "done",
+          "description": "Unauthenticated requests to protected endpoints return 401, not 403 or 404"
+        },
+        {
+          "id": "AC-10.12",
+          "ac_status": "done",
+          "description": "Player cannot access another player's game — API returns 404 (not 403)"
+        }
+      ],
+      "compliance_pct": 58.3
     },
     {
       "file": "11-player-identity-and-sessions.md",
