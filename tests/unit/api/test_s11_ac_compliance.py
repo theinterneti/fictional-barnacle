@@ -322,7 +322,7 @@ class TestAC1104CreatedToActiveTransition:
         """AC-11.04 (negative): Active game does not get a redundant status UPDATE."""
         execute_calls: list[Any] = []
 
-        async def track_execute(stmt: Any, params: Any = None) -> MagicMock:
+        async def track_execute(stmt: Any, _params: Any = None) -> MagicMock:
             sql_str = str(stmt) if hasattr(stmt, "__str__") else ""
             execute_calls.append(sql_str)
             call_idx = len(execute_calls) - 1
@@ -423,7 +423,7 @@ class TestAC1110RefreshTokenReuseDetection:
         token_row = {"id": uuid4(), "used": True}
         executed_sqls: list[str] = []
 
-        async def recording_execute(stmt: Any, params: Any = None) -> MagicMock:
+        async def recording_execute(stmt: Any, _params: Any = None) -> MagicMock:
             sql_str = str(stmt) if hasattr(stmt, "__str__") else ""
             executed_sqls.append(sql_str)
             if len(executed_sqls) == 1:
