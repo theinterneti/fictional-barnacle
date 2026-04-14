@@ -238,10 +238,23 @@ async def suspend_player(
         updated = result.first()
 
     if updated is None:
+        # Disambiguate: 404 if player does not exist, 409 if already suspended
+        async with request.app.state.pg() as session:
+            check = await session.execute(
+                sa.text("SELECT status FROM players WHERE id = :pid"),
+                {"pid": player_id},
+            )
+            existing = check.first()
+        if existing is None:
+            raise AppError(
+                ErrorCategory.NOT_FOUND,
+                "PLAYER_NOT_FOUND",
+                f"Player {player_id} not found.",
+            )
         raise AppError(
             ErrorCategory.CONFLICT,
-            "PLAYER_NOT_FOUND_OR_ALREADY_SUSPENDED",
-            f"Player {player_id} not found or already suspended.",
+            "PLAYER_ALREADY_SUSPENDED",
+            f"Player {player_id} is already suspended.",
         )
 
     await _audit(
@@ -417,35 +430,38 @@ async def terminate_game(
     """Force-terminate a game (FR-26.12)."""
     import sqlalchemy as sa
 
-    # Step 1: Check if game exists and get its current status
+    # Atomic UPDATE: only matches active/paused games (EC-26.2)
     async with request.app.state.pg() as session:
-        row = await session.execute(
-            sa.text("SELECT status FROM game_sessions WHERE id = :gid"),
+        result = await session.execute(
+            sa.text(
+                "UPDATE game_sessions SET status = 'ended' "
+                "WHERE id = :gid AND status IN ('active', 'paused') "
+                "RETURNING id"
+            ),
             {"gid": game_id},
         )
-        game = row.first()
+        await session.commit()
+        updated = result.first()
 
-    if game is None:
-        raise AppError(
-            ErrorCategory.NOT_FOUND,
-            "GAME_NOT_FOUND",
-            f"Game {game_id} not found.",
-        )
-
-    if game.status not in ("active", "paused"):
+    if updated is None:
+        # Disambiguate: 404 if game does not exist, 409 if already terminated
+        async with request.app.state.pg() as session:
+            check = await session.execute(
+                sa.text("SELECT status FROM game_sessions WHERE id = :gid"),
+                {"gid": game_id},
+            )
+            existing = check.first()
+        if existing is None:
+            raise AppError(
+                ErrorCategory.NOT_FOUND,
+                "GAME_NOT_FOUND",
+                f"Game {game_id} not found.",
+            )
         raise AppError(
             ErrorCategory.CONFLICT,
             "GAME_ALREADY_TERMINATED",
             "Game is already completed.",
         )
-
-    # Step 2: Terminate
-    async with request.app.state.pg() as session:
-        await session.execute(
-            sa.text("UPDATE game_sessions SET status = 'ended' WHERE id = :gid"),
-            {"gid": game_id},
-        )
-        await session.commit()
 
     SESSIONS_ACTIVE.dec()
 

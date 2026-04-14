@@ -377,10 +377,25 @@ class TestSuspendUnsuspend:
         assert body["player_id"] == str(player_id)
 
     def test_suspend_already_suspended_returns_error(self, settings: Settings) -> None:
-        """EC-26.1: UPDATE returns no rows → error with PLAYER_NOT_FOUND_OR_ALREADY_SUSPENDED."""
+        """EC-26.1: UPDATE returns no rows, player exists → 409 PLAYER_ALREADY_SUSPENDED."""
         client = _build_client(settings)
-        # first() returns None → player not found or already suspended
-        client.app.state.pg = _mock_pg_with_rows([])  # type: ignore[union-attr]
+
+        # UPDATE RETURNING returns no rows (player already suspended)
+        no_rows = MagicMock()
+        no_rows.first.return_value = None
+
+        # Disambiguation SELECT returns the player (exists, but already suspended)
+        suspended_row = MagicMock()
+        suspended_row.status = "suspended"
+        exists_result = MagicMock()
+        exists_result.first.return_value = suspended_row
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(side_effect=[no_rows, exists_result])
+        mock_session.commit = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        client.app.state.pg = MagicMock(return_value=mock_session)  # type: ignore[union-attr]
 
         resp = client.post(
             f"/admin/players/{uuid.uuid4()}/suspend",
@@ -389,7 +404,7 @@ class TestSuspendUnsuspend:
         )
         assert resp.status_code == 409
         body = resp.json()
-        assert "PLAYER_NOT_FOUND_OR_ALREADY_SUSPENDED" in str(body)
+        assert "PLAYER_ALREADY_SUSPENDED" in str(body)
 
     def test_suspend_short_reason_returns_422(self, settings: Settings) -> None:
         """EC-26.4: SuspendRequest.reason min_length=10 → 422 validation error."""
@@ -586,18 +601,14 @@ class TestGameTermination:
         client = _build_client(settings)
         game_id = uuid.uuid4()
 
-        # Step 1: SELECT returns a row with status="active"
-        select_result = MagicMock()
-        active_row = MagicMock()
-        active_row.status = "active"
-        select_result.first.return_value = active_row
-
-        # Step 2: UPDATE returns nothing
+        # Atomic UPDATE RETURNING returns the game id (game was active → now ended)
+        updated_row = MagicMock()
+        updated_row.id = game_id
         update_result = MagicMock()
-        update_result.first.return_value = None
+        update_result.first.return_value = updated_row
 
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(side_effect=[select_result, update_result])
+        mock_session.execute = AsyncMock(return_value=update_result)
         mock_session.commit = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
@@ -619,14 +630,18 @@ class TestGameTermination:
         """EC-26.2: Game exists but is non-active → 409 GAME_ALREADY_TERMINATED."""
         client = _build_client(settings)
 
-        # SELECT returns a row with status="ended" (game found, but non-terminable)
-        select_result = MagicMock()
+        # UPDATE RETURNING returns no rows (game not in active/paused state)
+        no_rows = MagicMock()
+        no_rows.first.return_value = None
+
+        # Disambiguation SELECT returns an ended game row
         ended_row = MagicMock()
         ended_row.status = "ended"
-        select_result.first.return_value = ended_row
+        exists_result = MagicMock()
+        exists_result.first.return_value = ended_row
 
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=select_result)
+        mock_session.execute = AsyncMock(side_effect=[no_rows, exists_result])
         mock_session.commit = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
@@ -658,7 +673,7 @@ class TestGameTermination:
         """EC-26.2: Game does not exist → 404 GAME_NOT_FOUND."""
         client = _build_client(settings)
 
-        # SELECT returns None (game not found)
+        # UPDATE RETURNING returns no rows; disambiguation SELECT also returns None → 404
         select_result = MagicMock()
         select_result.first.return_value = None
 
@@ -1056,6 +1071,7 @@ class TestAuditLogCompleteness:
             assert "target_id" in entry
             assert "reason" in entry
             assert "timestamp" in entry
+            assert "source_ip" in entry  # FR-26.24 required field
 
         # Verify the three expected actions are present
         actions = {e["action"] for e in entries}
