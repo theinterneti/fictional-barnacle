@@ -274,8 +274,13 @@ class TestListGames:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["data"]) == 1
-        assert data["data"][0]["status"] == "active"
-        assert data["data"][0]["turn_count"] == 3
+        game = data["data"][0]
+        # AC-27.3: each game includes game_id
+        assert "game_id" in game
+        assert game["game_id"] == str(_GAME_ID)
+        # AC-27.3: state field (implementation calls it "status")
+        assert game["status"] == "active"
+        assert game["turn_count"] == 3
         assert data["meta"]["has_more"] is False
 
     def test_empty_list(self, client: TestClient, pg: AsyncMock) -> None:
@@ -317,6 +322,52 @@ class TestListGames:
         assert game["title"] == "Dark Forest"
         assert game["summary"] == "A tale of survival"
         assert game["last_played_at"] is not None
+
+    def test_games_ordered_by_last_played_at_descending(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.3: games are ordered by last_played_at descending (T3, T2, T1)."""
+        t1 = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
+        t2 = datetime(2025, 1, 2, 10, 0, 0, tzinfo=UTC)
+        t3 = datetime(2025, 1, 3, 10, 0, 0, tzinfo=UTC)
+
+        id1, id2, id3 = uuid4(), uuid4(), uuid4()
+
+        row1 = _game_row(game_id=id1, last_played_at=t1, title="Game 1", turn_count=1)
+        row2 = _game_row(game_id=id2, last_played_at=t2, title="Game 2", turn_count=2)
+        row3 = _game_row(game_id=id3, last_played_at=t3, title="Game 3", turn_count=3)
+
+        # The DB (mocked here) is expected to return rows already sorted DESC;
+        # the route applies ORDER BY last_played_at DESC — we verify the response
+        # preserves that order and contains all required fields per AC-27.3.
+        pg.execute = AsyncMock(
+            return_value=_make_result([row3, row2, row1]),
+        )
+
+        resp = client.get("/api/v1/games")
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 3
+
+        # AC-27.3: ordered by last_played_at descending — most recent first
+        played_at = [g["last_played_at"] for g in data]
+        assert played_at == sorted(played_at, reverse=True), (
+            f"Games not ordered by last_played_at DESC: {played_at}"
+        )
+
+        # AC-27.3: each game includes game_id, title, state (status), turn_count, summary
+        for game in data:
+            assert "game_id" in game, "Missing game_id"
+            assert "title" in game, "Missing title"
+            assert "status" in game, "Missing status (state)"
+            assert "turn_count" in game, "Missing turn_count"
+            assert "summary" in game, "Missing summary"
+
+        # Verify the specific IDs appear in expected order (T3 first, T1 last)
+        assert data[0]["game_id"] == str(id3)
+        assert data[1]["game_id"] == str(id2)
+        assert data[2]["game_id"] == str(id1)
 
 
 # ------------------------------------------------------------------
