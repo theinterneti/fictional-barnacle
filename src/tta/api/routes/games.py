@@ -1457,7 +1457,7 @@ async def submit_turn(
     if row.status not in ("active", "created"):
         raise AppError(
             ErrorCategory.CONFLICT,
-            "INVALID_STATE_TRANSITION",
+            "GAME_NOT_ACTIVE",
             f"Cannot submit turns for a game in '{row.status}' status.",
         )
 
@@ -1944,13 +1944,13 @@ async def update_game(
     }
 
 
-@router.delete("/{game_id}")
+@router.delete("/{game_id}", status_code=204, response_model=None)
 async def end_game(
     game_id: UUID,
     body: DeleteGameRequest | None = None,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
-) -> dict:
+) -> None:
     """Soft-delete a game (S27 FR-27.16–FR-27.19)."""
     if body is None or not body.confirm:
         raise AppError(
@@ -1986,11 +1986,4 @@ async def end_game(
     duration_s = (now - row.created_at).total_seconds()
     SESSION_DURATION.observe(duration_s)
 
-    return {
-        "data": GameEndedData(
-            game_id=str(row.id),
-            status="abandoned",
-            turn_count=turn_count,
-            ended_at=now,
-        ).model_dump(mode="json")
-    }
+    return None

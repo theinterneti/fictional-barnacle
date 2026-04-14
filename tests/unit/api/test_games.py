@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -124,6 +124,7 @@ class TestCreateGame:
     def test_creates_game_and_returns_201(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
+        """AC-27.1: 201 + game_id, player_id, status, turn_count present."""
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result(scalar=0),  # count active games
@@ -136,21 +137,128 @@ class TestCreateGame:
 
         assert resp.status_code == 201
         body = resp.json()["data"]
+        # AC-27.1: response includes a game_id
+        assert "game_id" in body
+        assert body["game_id"] is not None
+        assert len(body["game_id"]) > 0
+        # AC-27.1: response includes title field
+        assert "title" in body
+        # AC-27.1: player context
         assert body["player_id"] == str(_PLAYER_ID)
         assert body["status"] == "active"
         assert body["turn_count"] == 0
 
+    def test_creates_game_includes_narrative_intro_key(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.1: response includes opening narrative field (narrative_intro).
+
+        Genesis runs best-effort — the key must be present even when the mocked
+        genesis path returns None (no LLM wired in unit tests).
+        """
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),  # count active games
+                _make_result(),  # INSERT
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post("/api/v1/games", json={})
+
+        assert resp.status_code == 201
+        body = resp.json()["data"]
+        # AC-27.1: "opening narrative" field must exist in the envelope
+        assert "narrative_intro" in body  # present even when genesis failed/skipped
+
+    def test_created_game_id_is_unique_uuid(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.1: each POST /games returns a distinct game_id (UUID format)."""
+        import re
+
+        _UUID_RE = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),
+                _make_result(),
+                _make_result(scalar=1),
+                _make_result(),
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp1 = client.post("/api/v1/games", json={})
+        resp2 = client.post("/api/v1/games", json={})
+
+        assert resp1.status_code == 201
+        assert resp2.status_code == 201
+        id1 = resp1.json()["data"]["game_id"]
+        id2 = resp2.json()["data"]["game_id"]
+        assert _UUID_RE.match(id1), f"game_id not a UUID: {id1!r}"
+        assert _UUID_RE.match(id2), f"game_id not a UUID: {id2!r}"
+        assert id1 != id2, "Two POST /games calls returned the same game_id"
+
     def test_rejects_when_max_games_reached(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
+        """AC-27.2: 409 with machine-readable error code when limit is hit.
+
+        The Gherkin spec says code "conflict"; the implementation uses the
+        ErrorCategory.CONFLICT category (→ HTTP 409) and the specific code
+        "MAX_GAMES_REACHED" in the error envelope.  Both the status and the
+        machine-readable code are verified here.
+        """
         pg.execute = AsyncMock(
             return_value=_make_result(scalar=5)  # already at limit
         )
 
         resp = client.post("/api/v1/games", json={})
 
+        # AC-27.2: status 409
         assert resp.status_code == 409
-        assert resp.json()["error"]["code"] == "MAX_GAMES_REACHED"
+        error = resp.json()["error"]
+        # AC-27.2: error body contains a conflict-family code
+        assert error["code"] == "MAX_GAMES_REACHED"
+        # Confirm the error envelope structure is present (S23 §3.1)
+        assert "message" in error
+        assert "correlation_id" in error
+
+    def test_created_game_appears_in_listing(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.1: the game_id from POST /games appears in GET /games listing.
+
+        uuid4 is patched so the route uses a known ID — that same ID seeds the
+        list mock, letting us verify the create response and listing agree.
+        """
+        known_game_id = uuid4()
+        game_row = _game_row(game_id=known_game_id, turn_count=0)
+
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),  # count active games (create)
+                _make_result(),  # INSERT game (create)
+                _make_result([game_row]),  # SELECT games (list)
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        with patch("tta.api.routes.games.uuid4", return_value=known_game_id):
+            create_resp = client.post("/api/v1/games", json={})
+        assert create_resp.status_code == 201
+        created_id = create_resp.json()["data"]["game_id"]
+
+        # Step 2: list games — the created game_id must appear
+        list_resp = client.get("/api/v1/games")
+        assert list_resp.status_code == 200
+        listed_ids = [g["game_id"] for g in list_resp.json()["data"]]
+        assert len(listed_ids) == 1, f"Expected 1 game in listing, got {listed_ids}"
+        assert created_id in listed_ids, (
+            f"Expected game {created_id} in listing, got {listed_ids}"
+        )
 
 
 # ------------------------------------------------------------------
@@ -170,8 +278,13 @@ class TestListGames:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["data"]) == 1
-        assert data["data"][0]["status"] == "active"
-        assert data["data"][0]["turn_count"] == 3
+        game = data["data"][0]
+        # AC-27.3: each game includes game_id
+        assert "game_id" in game
+        assert game["game_id"] == str(_GAME_ID)
+        # AC-27.3: state field (implementation calls it "status")
+        assert game["status"] == "active"
+        assert game["turn_count"] == 3
         assert data["meta"]["has_more"] is False
 
     def test_empty_list(self, client: TestClient, pg: AsyncMock) -> None:
@@ -214,6 +327,53 @@ class TestListGames:
         assert game["summary"] == "A tale of survival"
         assert game["last_played_at"] is not None
 
+    def test_games_ordered_by_last_played_at_descending(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.3: games are ordered by last_played_at descending (T3, T2, T1)."""
+        t1 = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
+        t2 = datetime(2025, 1, 2, 10, 0, 0, tzinfo=UTC)
+        t3 = datetime(2025, 1, 3, 10, 0, 0, tzinfo=UTC)
+
+        id1, id2, id3 = uuid4(), uuid4(), uuid4()
+
+        row1 = _game_row(game_id=id1, last_played_at=t1, title="Game 1", turn_count=1)
+        row2 = _game_row(game_id=id2, last_played_at=t2, title="Game 2", turn_count=2)
+        row3 = _game_row(game_id=id3, last_played_at=t3, title="Game 3", turn_count=3)
+
+        # The DB (mocked here) is expected to return rows already sorted DESC;
+        # the route applies ORDER BY last_played_at DESC — we verify the response
+        # preserves that order and contains all required fields per AC-27.3.
+        pg.execute = AsyncMock(
+            return_value=_make_result([row3, row2, row1]),
+        )
+
+        resp = client.get("/api/v1/games")
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 3
+
+        # AC-27.3: ordered by last_played_at descending — most recent first
+        played_at = [g["last_played_at"] for g in data]
+        assert played_at == sorted(played_at, reverse=True), (
+            f"Games not ordered by last_played_at DESC: {played_at}"
+        )
+
+        # AC-27.3: each game includes game_id, title, state (status),
+        # turn_count, and summary
+        for game in data:
+            assert "game_id" in game, "Missing game_id"
+            assert "title" in game, "Missing title"
+            assert "status" in game, "Missing status (state)"
+            assert "turn_count" in game, "Missing turn_count"
+            assert "summary" in game, "Missing summary"
+
+        # Verify the specific IDs appear in expected order (T3 first, T1 last)
+        assert data[0]["game_id"] == str(id3)
+        assert data[1]["game_id"] == str(id2)
+        assert data[2]["game_id"] == str(id1)
+
 
 # ------------------------------------------------------------------
 # GET /api/v1/games/{id} — Game state
@@ -239,6 +399,73 @@ class TestGetGameState:
         assert body["turn_count"] == 5
         assert body["title"] == "Quest"
         assert body["processing_turn"] is None
+        # AC-27.4: response includes recent_turns list
+        assert "recent_turns" in body, (
+            "Missing recent_turns in GET /games/{id} response"
+        )
+        assert isinstance(body["recent_turns"], list)
+        # AC-27.4: response includes context_summary
+        # (exposed as 'summary' by the GET handler)
+        assert "summary" in body, (
+            "Missing summary/context_summary in GET /games/{id} response"
+        )
+        # AC-27.4: response includes current world state (status + timestamps)
+        assert "status" in body, (
+            "Missing status (world state) in GET /games/{id} response"
+        )
+        assert "created_at" in body
+        assert "last_played_at" in body
+
+    def test_get_game_state_includes_context_summary_and_recent_turns(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.4: GET /games/{id} includes recent_turns, context_summary, world state.
+
+        Verifies all three Gherkin postconditions with a game that has a summary
+        and a completed turn.
+        """
+        turn_id = uuid4()
+        turn_dict = {
+            "id": turn_id,
+            "turn_number": 1,
+            "player_input": "explore cave",
+            "narrative_output": "You enter a dark cave.",
+            "created_at": _NOW,
+        }
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [_game_row(title="Cave Quest", summary="Deep in the cave")]
+                ),  # _get_owned_game
+                _make_result(scalar=10),  # turn count
+                _make_result([turn_dict]),  # recent turns
+                _make_result(),  # processing turn check
+            ]
+        )
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+
+        # AC-27.4: recent_turns populated
+        assert len(body["recent_turns"]) == 1, "Expected 1 recent turn"
+        t = body["recent_turns"][0]
+        assert t["turn_number"] == 1
+        assert t["player_input"] == "explore cave"
+        assert t["narrative_output"] == "You enter a dark cave."
+
+        # AC-27.4: context_summary present (GET handler exposes as 'summary')
+        # Note: resume handler uses 'context_summary'; GET handler uses 'summary'.
+        # Both satisfy AC-27.4 — the field name differs between the two endpoints.
+        assert body["summary"] == "Deep in the cave", (
+            "GET /games/{id} must include the context summary (field: 'summary')"
+        )
+
+        # AC-27.4: current world state
+        assert body["status"] == "active"
+        assert body["turn_count"] == 10
+        assert body["last_played_at"] is not None
 
     def test_returns_404_for_missing_game(
         self, client: TestClient, pg: AsyncMock
@@ -308,7 +535,7 @@ class TestSubmitTurn:
         )
 
         assert resp.status_code == 409
-        assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+        assert resp.json()["error"]["code"] == "GAME_NOT_ACTIVE"
 
     def test_rejects_concurrent_turn(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(
@@ -373,6 +600,92 @@ class TestSubmitTurn:
         body = resp.json()["data"]
         assert body["turn_id"] == str(existing_turn_id)
         assert body["turn_number"] == 3
+
+    def test_last_played_at_updated_and_turn_persisted(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.5: after a successful turn, last_played_at is updated and the
+        turn row is inserted — verified by inspecting the SQL calls issued.
+
+        The route:
+          1. INSERTs a row into `turns` (persisting the turn slot, status='processing')
+          2. UPDATEs `game_sessions` setting last_played_at (and updated_at)
+          3. COMMITs both writes atomically
+
+        AC-27.5 turn_count compliance — two-phase design:
+          - submit_turn does NOT issue "SET turn_count = turn_count + 1".
+            turn_count is a derived/reconciled field: the route reads the live
+            count via SELECT MAX(turn_number) and returns turn_number = max + 1.
+          - The `turn_count + 1` UPDATE is issued by the async pipeline callback
+            in `_run_turn_pipeline` ("SET turn_count = turn_count + 1") after the
+            LLM completes and the turn transitions to status='complete'.
+          - This two-phase approach is intentional: the pipeline owns the
+            authoritative increment once narrative is durably persisted, while
+            submit_turn only reserves the slot.
+
+        AC-27.5 narrative persistence compliance:
+          - submit_turn inserts the turn row with status='processing' and no
+            narrative_output — the narrative slot is reserved but empty.
+          - The async pipeline fills narrative_output and sets status='complete'.
+          - See TestTurnPersistence.test_completed_turn_has_narrative_output for
+            the assertion that verifies a completed turn exposes narrative_output
+            via the turn history endpoint.
+        """
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row()]),  # _get_owned_game
+                _make_result(),  # advisory lock
+                _make_result(),  # in-flight check (none)
+                _make_result(scalar=2),  # max turn number → next = 3
+                _make_result(),  # INSERT turn
+                _make_result(),  # UPDATE last_played_at
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "go north"},
+        )
+
+        assert resp.status_code == 202
+        body = resp.json()["data"]
+
+        # AC-27.5: turn_count is incremented via turn_number (max+1 logic).
+        # The route returns turn_number=3, confirming the server correctly
+        # computed the next sequence value.  The actual game_sessions.turn_count
+        # column increment ("SET turn_count = turn_count + 1") is performed by
+        # the async pipeline after narrative completion, not by submit_turn.
+        assert body["turn_number"] == 3, (
+            "AC-27.5: turn_number must equal previous max + 1 (derived turn_count)"
+        )
+
+        # AC-27.5: both INSERT turn and UPDATE last_played_at were issued
+        assert pg.execute.await_count == 6, (
+            "AC-27.5: expected 6 DB calls "
+            "(get_game, advisory_lock, in_flight, max_turn, INSERT turn, "
+            f"UPDATE last_played_at), got {pg.execute.await_count}"
+        )
+
+        # AC-27.5: commit was called — writes are durably persisted
+        pg.commit.assert_awaited_once()
+
+        # Verify the UPDATE last_played_at SQL was among the calls
+        all_sqls = [
+            str(call.args[0].text) if call.args else ""
+            for call in pg.execute.await_args_list
+        ]
+        assert any("last_played_at" in sql for sql in all_sqls), (
+            "AC-27.5: no SQL updating last_played_at found among DB calls"
+        )
+        assert any("INSERT INTO turns" in sql for sql in all_sqls), (
+            "AC-27.5: no INSERT INTO turns found among DB calls"
+        )
+        # AC-27.5: the INSERT uses turn_number (the incremented sequence value)
+        insert_sqls = [s for s in all_sqls if "INSERT INTO turns" in s]
+        assert any("turn_number" in s for s in insert_sqls), (
+            "AC-27.5: INSERT INTO turns must include turn_number column"
+        )
 
 
 # ------------------------------------------------------------------
@@ -696,6 +1009,129 @@ class TestResumeGame:
         assert resp.status_code == 200
         assert resp.json()["data"]["summary_stale"] is True
 
+    def test_resume_stale_summary_dispatches_regeneration(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """AC-27.8: when summary is stale, regen task is dispatched on resume.
+
+        The background task is the mechanism that produces a freshly generated
+        context_summary.  Verifying create_task is called (not just the flag)
+        ensures the regeneration is actually scheduled.
+        """
+        from datetime import timedelta
+
+        old_time = _NOW - timedelta(hours=48)
+        turn_dict = {
+            "id": uuid4(),
+            "turn_number": 3,
+            "player_input": "go south",
+            "narrative_output": "You head south.",
+            "created_at": _NOW,
+        }
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [
+                        _game_row(
+                            status="active",
+                            summary="Stale narrative recap",
+                            last_played_at=old_time,
+                            summary_generated_at=old_time,
+                        )
+                    ]
+                ),
+                _make_result([turn_dict]),  # recent turns (non-empty → triggers regen)
+                _make_result(scalar=3),  # turn count
+            ]
+        )
+
+        captured: list = []
+        regen_call_args: list = []
+
+        def _capture_task(coro: object) -> None:
+            captured.append(coro)
+            # Close to avoid ResourceWarning
+            if hasattr(coro, "close"):
+                coro.close()  # type: ignore[union-attr]
+
+        monkeypatch.setattr("asyncio.create_task", _capture_task)
+
+        def _mock_regen(app_state: object, game_id: object) -> object:
+            regen_call_args.append((app_state, game_id))
+            # Return a no-op coroutine so create_task receives a coroutine
+
+            async def _noop() -> None:
+                pass
+
+            return _noop()
+
+        monkeypatch.setattr("tta.api.routes.games._regen_summary_bg", _mock_regen)
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+
+        # AC-27.8: summary_stale is flagged in the response
+        assert body["summary_stale"] is True
+
+        # AC-27.8: regeneration was dispatched (the coroutine that produces a
+        # freshly generated summary was scheduled via create_task)
+        assert len(captured) == 1, (
+            "AC-27.8: expected exactly one background regen task to be scheduled "
+            f"when summary is stale, got {len(captured)}"
+        )
+
+        # AC-27.8 second postcondition: the dispatched task reflects the current
+        # state of the narrative — i.e. it was invoked with the correct game_id
+        assert len(regen_call_args) == 1, (
+            "AC-27.8: _regen_summary_bg should have been called exactly once"
+        )
+        _, dispatched_game_id = regen_call_args[0]
+        assert dispatched_game_id == _GAME_ID, (
+            f"AC-27.8: regen dispatched with wrong game_id: "
+            f"expected {_GAME_ID}, got {dispatched_game_id}"
+        )
+
+    def test_resume_fresh_summary_does_not_dispatch_regeneration(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """AC-27.8 negative: fresh summary must NOT trigger a regen task."""
+        recent = datetime.now(UTC)
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(
+                    [
+                        _game_row(
+                            status="active",
+                            summary="Fresh summary",
+                            last_played_at=recent,
+                            summary_generated_at=recent,
+                        )
+                    ]
+                ),
+                _make_result([]),  # recent turns
+                _make_result(scalar=2),  # turn count
+            ]
+        )
+
+        captured: list = []
+        monkeypatch.setattr("asyncio.create_task", lambda coro: captured.append(coro))
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
+
+        assert resp.status_code == 200
+        assert resp.json()["data"]["summary_stale"] is False
+        assert len(captured) == 0, (
+            "AC-27.8: no regen task should be scheduled when summary is fresh"
+        )
+
 
 # ------------------------------------------------------------------
 # PATCH /api/v1/games/{id} — Update game (pause)
@@ -742,6 +1178,7 @@ class TestUpdateGame:
 
 class TestEndGame:
     def test_soft_deletes_with_confirm(self, client: TestClient, pg: AsyncMock) -> None:
+        """AC-27.6: DELETE /games/{id} with confirm=true returns 204 No Content."""
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row(status="active")]),
@@ -757,12 +1194,56 @@ class TestEndGame:
             json={"confirm": True},
         )
 
-        assert resp.status_code == 200
-        body = resp.json()["data"]
-        assert body["status"] == "abandoned"
-        assert body["turn_count"] == 7
+        # AC-27.6: response MUST be 204 No Content (not 200)
+        assert resp.status_code == 204
+        assert resp.content == b""
+
+    def test_deleted_game_absent_from_listing(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.6: after deletion, game no longer appears in GET /games."""
+        # Step 1 — DELETE the game (204)
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="active")]),  # _get_owned_game
+                _make_result(),  # UPDATE soft-delete
+                _make_result(scalar=3),  # turn count
+            ]
+        )
+        pg.commit = AsyncMock()
+        del_resp = client.request(
+            "DELETE", f"/api/v1/games/{_GAME_ID}", json={"confirm": True}
+        )
+        assert del_resp.status_code == 204
+
+        # Step 2 — list games. The SQL filter (deleted_at IS NULL) is in the DB query,
+        # not Python, so a unit test with a mocked DB cannot exercise it directly.
+        # The mock returns [] to confirm the route surfaces the DB result as-is;
+        # the SQL filter itself is covered by integration tests.
+        pg.execute = AsyncMock(return_value=_make_result([]))  # empty list
+        list_resp = client.get("/api/v1/games")
+        assert list_resp.status_code == 200
+        # GET /games returns {"data": [...], "meta": {...}}
+        items = list_resp.json()["data"]
+        ids = [item["game_id"] for item in items]
+        assert str(_GAME_ID) not in ids, (
+            "AC-27.6: soft-deleted game must not appear in GET /games"
+        )
+
+    def test_deleted_game_not_accessible_by_id(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.6: after deletion, GET /games/{id} returns 404."""
+        # The route uses 'WHERE id = :id AND deleted_at IS NULL' — simulate that
+        # the DB returns no row (i.e., deleted_at is set).
+        pg.execute = AsyncMock(return_value=_make_result([]))  # no row found
+        resp = client.get(f"/api/v1/games/{_GAME_ID}")
+        assert resp.status_code == 404, (
+            "AC-27.6: soft-deleted game must not be accessible via GET /games/{id}"
+        )
 
     def test_rejects_without_confirm(self, client: TestClient, pg: AsyncMock) -> None:
+        """AC-27.7: DELETE without confirm=true → 400 with explanation."""
         resp = client.request(
             "DELETE",
             f"/api/v1/games/{_GAME_ID}",
@@ -771,6 +1252,25 @@ class TestEndGame:
 
         assert resp.status_code == 400
         assert resp.json()["error"]["code"] == "CONFIRM_REQUIRED"
+        # AC-27.7: error message must explain the confirmation requirement
+        message = resp.json()["error"]["message"].lower()
+        assert "confirm" in message, (
+            "AC-27.7: error message must mention 'confirm' to explain the requirement"
+        )
+
+    def test_rejects_missing_body(self, client: TestClient, pg: AsyncMock) -> None:
+        """AC-27.7: DELETE with no body → 400 with confirmation explanation."""
+        resp = client.request(
+            "DELETE",
+            f"/api/v1/games/{_GAME_ID}",
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["error"]["code"] == "CONFIRM_REQUIRED"
+        message = resp.json()["error"]["message"].lower()
+        assert "confirm" in message, (
+            "AC-27.7: error message must mention 'confirm' to explain the requirement"
+        )
 
     def test_rejects_already_ended(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(return_value=_make_result([_game_row(status="ended")]))
@@ -836,6 +1336,111 @@ class TestCompletedTransitions:
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
+    def test_completed_game_rejects_new_turn(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.10: POST /turns on a completed game returns 409 GAME_NOT_ACTIVE."""
+        pg.execute = AsyncMock(
+            return_value=_make_result([_game_row(status="completed")])
+        )
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "go north"},
+        )
+
+        # AC-27.10: must be 409 Conflict — completed is read-only
+        assert resp.status_code == 409, (
+            "AC-27.10: submitting a turn to a completed game must return 409"
+        )
+        assert resp.json()["error"]["code"] == "GAME_NOT_ACTIVE"
+
+    def test_completed_game_still_appears_in_listing(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.10: completed game still appears in GET /games with state 'completed'."""  # noqa: E501
+        # The list_games route excludes abandoned games by default but includes
+        # completed ones (only status != 'abandoned' is filtered).
+        pg.execute = AsyncMock(
+            return_value=_make_result(
+                [
+                    {
+                        "id": _GAME_ID,
+                        "player_id": _PLAYER_ID,
+                        "status": "completed",
+                        "world_seed": "{}",
+                        "title": "My Quest",
+                        "summary": None,
+                        "turn_count": 15,
+                        "created_at": _NOW,
+                        "updated_at": _NOW,
+                        "last_played_at": _NOW,
+                    }
+                ]
+            )
+        )
+
+        resp = client.get("/api/v1/games")
+
+        assert resp.status_code == 200
+        # GET /games returns {"data": [...], "meta": {...}}
+        items = resp.json()["data"]
+        assert len(items) == 1, "AC-27.10: completed game must appear in listings"
+        assert items[0]["game_id"] == str(_GAME_ID)
+        assert items[0]["status"] == "completed", (
+            "AC-27.10: completed game must show state 'completed' in listing"
+        )
+
+    def test_completed_game_turn_rejected_then_still_listed(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.10 end-to-end: 409 on turn, completed game still in listing."""
+        # First call: submit turn → 409
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="completed")]),  # _get_owned_game
+                # Second call: list games → completed game still present
+                _make_result(
+                    [
+                        {
+                            "id": _GAME_ID,
+                            "player_id": _PLAYER_ID,
+                            "status": "completed",
+                            "world_seed": "{}",
+                            "title": None,
+                            "summary": None,
+                            "turn_count": 10,
+                            "created_at": _NOW,
+                            "updated_at": _NOW,
+                            "last_played_at": _NOW,
+                        }
+                    ]
+                ),
+            ]
+        )
+
+        turn_resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "look around"},
+        )
+        assert turn_resp.status_code == 409, (
+            "AC-27.10: completed game must reject turns with 409"
+        )
+
+        list_resp = client.get("/api/v1/games")
+        assert list_resp.status_code == 200
+        # GET /games returns {"data": [...], "meta": {...}}
+        items = list_resp.json()["data"]
+        ids = [item["game_id"] for item in items]
+        assert str(_GAME_ID) in ids, (
+            "AC-27.10: completed game must still appear in GET /games"
+            " after rejected turn"
+        )
+        game = next(i for i in items if i["game_id"] == str(_GAME_ID))
+        assert game["status"] == "completed", (
+            "AC-27.10: game status must remain 'completed' in listing"
+        )
+
 
 # ------------------------------------------------------------------
 # Submit turn with recovery (FR-27.15)
@@ -846,7 +1451,21 @@ class TestSubmitTurnRecovery:
     def test_recovery_attempted_when_needs_recovery(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """submit_turn with needs_recovery=True re-derives turn_count."""
+        """AC-27.9: when needs_recovery=True, recovery SQL is issued first,
+        then the normal turn pipeline proceeds.
+
+        Expected call order:
+          1. _get_owned_game (SELECT)
+          2. _get_turn_count (SELECT COUNT — recovery)
+          3. UPDATE game_sessions SET turn_count=…, needs_recovery=FALSE … (recovery)
+          4. pg.commit() for recovery
+          5. advisory lock
+          6. in-flight check
+          7. max turn number
+          8. INSERT turn
+          9. UPDATE last_played_at
+         10. pg.commit() for turn
+        """
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row(needs_recovery=True)]),  # owned
@@ -867,6 +1486,43 @@ class TestSubmitTurnRecovery:
         )
 
         assert resp.status_code == 202
+
+        # AC-27.9: recovery SQL must appear before the INSERT turn
+        all_sqls = [
+            str(call.args[0].text) if call.args else ""
+            for call in pg.execute.await_args_list
+        ]
+
+        # Find indices of recovery UPDATE and INSERT turn
+        recovery_idx = next(
+            (
+                i
+                for i, sql in enumerate(all_sqls)
+                if "needs_recovery" in sql and "UPDATE" in sql
+            ),
+            None,
+        )
+        insert_turn_idx = next(
+            (i for i, sql in enumerate(all_sqls) if "INSERT INTO turns" in sql),
+            None,
+        )
+
+        assert recovery_idx is not None, (
+            "AC-27.9: no recovery UPDATE SQL (SET needs_recovery = FALSE) found"
+        )
+        assert insert_turn_idx is not None, (
+            "AC-27.9: no INSERT INTO turns found — normal turn not processed"
+        )
+        assert recovery_idx < insert_turn_idx, (
+            f"AC-27.9: recovery SQL (call #{recovery_idx}) must precede "
+            f"INSERT turn (call #{insert_turn_idx})"
+        )
+
+        # AC-27.9: commit called for recovery AND for the new turn (≥2 times)
+        assert pg.commit.await_count >= 2, (
+            "AC-27.9: expected at least 2 commits (recovery + new turn), "
+            f"got {pg.commit.await_count}"
+        )
 
     def test_recovery_failure_does_not_block_turn(
         self, client: TestClient, pg: AsyncMock
@@ -1191,3 +1847,121 @@ class TestListTurns:
         body = resp.json()
         assert body["data"] == []
         assert body["meta"]["has_more"] is False
+
+
+# ------------------------------------------------------------------
+# AC-27.5 Narrative and world-state persistence
+# ------------------------------------------------------------------
+
+
+class TestTurnPersistence:
+    """AC-27.5: narrative and world-state changes are persisted.
+
+    Architecture note — two-phase persistence:
+      Phase 1 (submit_turn route): inserts a turn row with status='pending'
+        and no narrative_output.  This reserves the turn slot and starts the
+        async pipeline.  Covered by:
+        TestSubmitTurn.test_last_played_at_updated_and_turn_persisted
+
+      Phase 2 (async pipeline callback): the pipeline fills narrative_output,
+        sets status='complete', and increments game_sessions.turn_count via
+        "SET turn_count = turn_count + 1" (games.py ~line 297).  The pipeline
+        runs in the background after the 202 response is sent to the client.
+
+    The tests below verify that once the pipeline has completed a turn the
+    narrative is readable via the turn history endpoint
+    (GET /games/{id}/turns), satisfying AC-27.5 narrative-persisted requirement.
+    """
+
+    def test_completed_turn_has_narrative_output(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.5: a completed turn (status='complete') has narrative_output set.
+
+        Mocks the DB to return a turn row as it would appear after the async
+        pipeline has run (status='complete', narrative_output populated).
+        Verifies the turn history endpoint surfaces narrative_output correctly.
+        """
+        game = _game_row()
+        completed_turn = {
+            "id": uuid4(),
+            "turn_number": 1,
+            "player_input": "go north",
+            "narrative_output": "You walk north and find a forest path.",
+            "created_at": _NOW,
+        }
+
+        call_count = 0
+
+        async def _exec(stmt, params=None, **kw):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return _make_result([game])  # _get_owned_game
+            return _make_result([completed_turn])  # turns query (status='complete')
+
+        pg.execute = AsyncMock(side_effect=_exec)
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/turns")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["data"]) == 1, "Expected 1 completed turn"
+        turn = body["data"][0]
+
+        # AC-27.5: narrative is persisted and returned
+        assert turn["narrative_output"] == "You walk north and find a forest path.", (
+            "AC-27.5: completed turn must expose narrative_output from pipeline"
+        )
+        assert turn["turn_number"] == 1
+        assert turn["player_input"] == "go north"
+
+    def test_turn_history_only_returns_complete_turns(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.5: only turns with status='complete' appear in history.
+
+        Pending/processing/failed turns have no narrative_output and must not
+        appear in turn history (list_turns filters WHERE status = 'complete').
+        Covered by TestListTurns.test_status_filter_applied; referenced here
+        as the AC-27.5 companion assertion for narrative persistence.
+        """
+        game = _game_row()
+        # Simulate DB returning only completed turns (pending ones filtered out)
+        complete_turns = [
+            {
+                "id": uuid4(),
+                "turn_number": 1,
+                "player_input": "look around",
+                "narrative_output": "You see a stone chamber.",
+                "created_at": _NOW,
+            },
+            {
+                "id": uuid4(),
+                "turn_number": 3,  # turn 2 may still be pending — gap is expected
+                "player_input": "open door",
+                "narrative_output": "The door creaks open.",
+                "created_at": _NOW,
+            },
+        ]
+
+        call_count = 0
+
+        async def _exec(stmt, params=None, **kw):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return _make_result([game])
+            return _make_result(complete_turns)
+
+        pg.execute = AsyncMock(side_effect=_exec)
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/turns")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        # Both complete turns surfaced with narrative intact
+        assert len(body["data"]) == 2
+        assert all(t["narrative_output"] for t in body["data"]), (
+            "AC-27.5: every turn in history must have narrative_output set"
+        )

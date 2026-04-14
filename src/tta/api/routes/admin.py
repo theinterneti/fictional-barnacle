@@ -238,10 +238,23 @@ async def suspend_player(
         updated = result.first()
 
     if updated is None:
+        # Disambiguate: 404 if player does not exist, 409 if already suspended
+        async with request.app.state.pg() as session:
+            check = await session.execute(
+                sa.text("SELECT status FROM players WHERE id = :pid"),
+                {"pid": player_id},
+            )
+            existing = check.first()
+        if existing is None:
+            raise AppError(
+                ErrorCategory.NOT_FOUND,
+                "PLAYER_NOT_FOUND",
+                f"Player {player_id} not found.",
+            )
         raise AppError(
-            ErrorCategory.NOT_FOUND,
-            "PLAYER_NOT_FOUND_OR_ALREADY_SUSPENDED",
-            f"Player {player_id} not found or already suspended.",
+            ErrorCategory.CONFLICT,
+            "PLAYER_ALREADY_SUSPENDED",
+            f"Player {player_id} is already suspended.",
         )
 
     await _audit(
@@ -417,6 +430,7 @@ async def terminate_game(
     """Force-terminate a game (FR-26.12)."""
     import sqlalchemy as sa
 
+    # Atomic UPDATE: only matches active/paused games (EC-26.2)
     async with request.app.state.pg() as session:
         result = await session.execute(
             sa.text(
@@ -430,10 +444,23 @@ async def terminate_game(
         updated = result.first()
 
     if updated is None:
+        # Disambiguate: 404 if game does not exist, 409 if already terminated
+        async with request.app.state.pg() as session:
+            check = await session.execute(
+                sa.text("SELECT status FROM game_sessions WHERE id = :gid"),
+                {"gid": game_id},
+            )
+            existing = check.first()
+        if existing is None:
+            raise AppError(
+                ErrorCategory.NOT_FOUND,
+                "GAME_NOT_FOUND",
+                f"Game {game_id} not found.",
+            )
         raise AppError(
-            ErrorCategory.NOT_FOUND,
-            "GAME_NOT_FOUND_OR_NOT_ACTIVE",
-            f"Game {game_id} not found or not in active/paused state.",
+            ErrorCategory.CONFLICT,
+            "GAME_ALREADY_TERMINATED",
+            "Game is already completed.",
         )
 
     SESSIONS_ACTIVE.dec()
