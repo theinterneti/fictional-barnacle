@@ -715,8 +715,15 @@ class TestModerationFlagReview:
         assert body["action"] == "dismiss"
         assert body["new_verdict"] == "pass"
 
+        # AC-26.6: flag verdict updated to "pass" (the reviewed/dismissed state)
+        recorder = client.app.state.moderation_recorder  # type: ignore[union-attr]
+        recorder.update_verdict.assert_awaited_once_with(flag_id, "pass")
+
+        # AC-26.6: audit entry created with action "moderation_review_dismiss"
         audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
         audit_repo.create_and_append.assert_awaited_once()
+        call_kwargs = audit_repo.create_and_append.call_args
+        assert call_kwargs.kwargs["action"] == "moderation_review_dismiss"
 
     def test_review_warn_maps_to_flag_verdict(self, settings: Settings) -> None:
         client = self._build_recorder_client(settings, update_verdict_return=True)
