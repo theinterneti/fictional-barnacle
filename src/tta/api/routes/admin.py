@@ -239,7 +239,7 @@ async def suspend_player(
 
     if updated is None:
         raise AppError(
-            ErrorCategory.NOT_FOUND,
+            ErrorCategory.CONFLICT,
             "PLAYER_NOT_FOUND_OR_ALREADY_SUSPENDED",
             f"Player {player_id} not found or already suspended.",
         )

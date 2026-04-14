@@ -279,6 +279,8 @@ class TestPlayerSearch:
         assert "players" in body
         assert len(body["players"]) == 1
         assert body["players"][0]["handle"] == "CoolDragon42"
+        assert body["players"][0]["player_id"] is not None
+        assert body["players"][0]["status"] == "active"
 
     def test_empty_search_returns_all_players(self, settings: Settings) -> None:
         client = _build_client(settings)
@@ -384,7 +386,7 @@ class TestSuspendUnsuspend:
             json={"reason": "Repeated TOS violations"},
             headers=_auth_headers(),
         )
-        assert resp.status_code in (400, 404, 409)
+        assert resp.status_code == 409
         body = resp.json()
         assert "PLAYER_NOT_FOUND_OR_ALREADY_SUSPENDED" in str(body)
 
