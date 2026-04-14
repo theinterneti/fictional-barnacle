@@ -331,6 +331,21 @@ class TestRedisRetry:
         assert await with_redis_retry(redis_op) == "ok"
         assert call_count == 2
 
+    async def test_with_redis_retry_passes_args(self) -> None:
+        async def add(a: int, b: int) -> int:
+            return a + b
+
+        assert await with_redis_retry(add, 3, 4) == 7
+
+    async def test_with_redis_retry_raises_app_error_after_exhaustion(self) -> None:
+        async def always_fails() -> str:
+            raise ConnectionError("redis gone")
+
+        with pytest.raises(AppError) as exc_info:
+            await with_redis_retry(always_fails)
+
+        assert exc_info.value.category == ErrorCategory.SERVICE_UNAVAILABLE
+
     async def test_redis_retry_non_retryable_propagates(self) -> None:
         """Non-retryable exceptions are not caught."""
         call_count = 0

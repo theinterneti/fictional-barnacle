@@ -180,7 +180,7 @@ async def with_db_retry(fn: Callable[..., Any], /, *args: Any, **kwargs: Any) ->
 
         result = await with_db_retry(session.execute, stmt)
     """
-    return await with_retry(DB_CONNECTION)(fn)(*args, **kwargs)
+    return await db_retry(fn)(*args, **kwargs)
 
 
 async def with_redis_retry(fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
@@ -190,4 +190,4 @@ async def with_redis_retry(fn: Callable[..., Any], /, *args: Any, **kwargs: Any)
 
         await with_redis_retry(redis.ping)
     """
-    return await with_retry(REDIS_CONNECTION)(fn)(*args, **kwargs)
+    return await redis_retry(fn)(*args, **kwargs)
