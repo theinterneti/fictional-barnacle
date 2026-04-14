@@ -1209,8 +1209,10 @@ class TestEndGame:
         )
         assert del_resp.status_code == 204
 
-        # Step 2 — list games; the route filters deleted_at IS NULL AND status !=
-        # 'abandoned', so the deleted game must not be in results.
+        # Step 2 — list games. The SQL filter (deleted_at IS NULL) is in the DB query,
+        # not Python, so a unit test with a mocked DB cannot exercise it directly.
+        # The mock returns [] to confirm the route surfaces the DB result as-is;
+        # the SQL filter itself is covered by integration tests.
         pg.execute = AsyncMock(return_value=_make_result([]))  # empty list
         list_resp = client.get("/api/v1/games")
         assert list_resp.status_code == 200
@@ -1340,9 +1342,9 @@ class TestCompletedTransitions:
             json={"input": "go north"},
         )
 
-        # AC-27.8: must be 409 Conflict — completed is read-only
+        # AC-27.10: must be 409 Conflict — completed is read-only
         assert resp.status_code == 409, (
-            "AC-27.8: submitting a turn to a completed game must return 409"
+            "AC-27.10: submitting a turn to a completed game must return 409"
         )
         assert resp.json()["error"]["code"] == "GAME_NOT_ACTIVE"
 
@@ -1385,7 +1387,7 @@ class TestCompletedTransitions:
     def test_completed_game_turn_rejected_then_still_listed(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """AC-27.8/AC-27.9 end-to-end: 409 on turn submission, game still in listing."""
+        """AC-27.10 end-to-end: 409 on turn submission, completed game still in listing."""
         # First call: submit turn → 409
         pg.execute = AsyncMock(
             side_effect=[
