@@ -245,7 +245,6 @@ class TestCreateGame:
         # Step 1: create the game
         create_resp = client.post("/api/v1/games", json={})
         assert create_resp.status_code == 201
-        game_id_str = create_resp.json()["data"]["game_id"]
 
         # Step 2: list games — the seeded game_id must appear in the listing
         list_resp = client.get("/api/v1/games")
