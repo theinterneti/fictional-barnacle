@@ -38,7 +38,17 @@ _datetimes = st.datetimes(
     timezones=st.just(UTC),
 )
 _handles = st.from_regex(r"^[a-zA-Z0-9 _\-\.]{1,50}$", fullmatch=True)
-_player_input = st.text(min_size=1, max_size=200).filter(lambda s: s.strip())
+# Exclude zero-width chars that SubmitTurnRequest.strip_zero_width_chars removes,
+# so req.input == text holds in the round-trip assertion.
+_ZW_CHARS = "\u200b\u200c\u200d\u2060\ufeff\ufffe"
+_player_input = st.text(
+    alphabet=st.characters(
+        blacklist_characters=_ZW_CHARS,
+        blacklist_categories=("Cs",),  # exclude surrogates (not JSON-serializable)
+    ),
+    min_size=1,
+    max_size=200,
+).filter(lambda s: s.strip())
 
 
 # ---------------------------------------------------------------------------

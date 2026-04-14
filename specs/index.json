@@ -7,8 +7,8 @@
       "file": "00-project-charter.md",
       "number": "S00",
       "title": "Project Charter",
-      "status": "\ud83d\udcdd Draft",
-      "level": "0 \u2014 Foundation",
+      "status": "📝 Draft",
+      "level": "0 — Foundation",
       "dependencies": [
         "None (this is the root)"
       ],
@@ -48,8 +48,8 @@
       "file": "01-gameplay-loop.md",
       "number": "S01",
       "title": "Gameplay Loop & Progression",
-      "status": "\ud83d\udcdd Draft",
-      "level": "1 \u2014 Core Game Experience",
+      "status": "📝 Draft",
+      "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -82,7 +82,7 @@
         {
           "id": "AC-1.1",
           "ac_status": "done",
-          "description": "Player submits action \u2192 narrative advances"
+          "description": "Player submits action → narrative advances"
         },
         {
           "id": "AC-1.2",
@@ -92,22 +92,22 @@
         {
           "id": "AC-1.3",
           "ac_status": "done",
-          "description": "Choice selection \u2192 narrative consequence"
+          "description": "Choice selection → narrative consequence"
         },
         {
           "id": "AC-1.4",
           "ac_status": "done",
-          "description": "Invalid command \u2192 helpful in-character guidance"
+          "description": "Invalid command → helpful in-character guidance"
         },
         {
           "id": "AC-1.5",
           "ac_status": "done",
-          "description": "Character failure \u2192 narrative consequence (prompt hardened wave-29)"
+          "description": "Character failure → narrative consequence (prompt hardened wave-29)"
         },
         {
           "id": "AC-1.6",
           "ac_status": "done",
-          "description": "Story completion \u2192 epilogue + archive (LLM epilogue wave-29)"
+          "description": "Story completion → epilogue + archive (LLM epilogue wave-29)"
         },
         {
           "id": "AC-1.7",
@@ -127,7 +127,7 @@
         {
           "id": "AC-1.10",
           "ac_status": "v2",
-          "description": "10+ turn session \u2192 narrative coherence (needs coherence detector)"
+          "description": "10+ turn session → narrative coherence (needs coherence detector)"
         }
       ],
       "compliance_pct": 80
@@ -136,8 +136,8 @@
       "file": "02-genesis-onboarding.md",
       "number": "S02",
       "title": "Genesis Onboarding",
-      "status": "\ud83d\udcdd Draft",
-      "level": "1 \u2014 Core Game Experience",
+      "status": "📝 Draft",
+      "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -169,22 +169,22 @@
         {
           "id": "AC-2.1",
           "ac_status": "done",
-          "description": "Player greeting \u2192 Genesis prompt"
+          "description": "Player greeting → Genesis prompt"
         },
         {
           "id": "AC-2.2",
           "ac_status": "done",
-          "description": "Complete Genesis \u2192 playable world"
+          "description": "Complete Genesis → playable world"
         },
         {
           "id": "AC-2.3",
           "ac_status": "done",
-          "description": "Post-Genesis references \u22652 established elements (wave-29)"
+          "description": "Post-Genesis references ≥2 established elements (wave-29)"
         },
         {
           "id": "AC-2.4",
           "ac_status": "done",
-          "description": "Genre selection \u2192 appropriate world"
+          "description": "Genre selection → appropriate world"
         },
         {
           "id": "AC-2.5",
@@ -194,7 +194,7 @@
         {
           "id": "AC-2.6",
           "ac_status": "done",
-          "description": "Repeat Genesis \u2192 different phrasing (wave-29)"
+          "description": "Repeat Genesis → different phrasing (wave-29)"
         },
         {
           "id": "AC-2.7",
@@ -204,7 +204,7 @@
         {
           "id": "AC-2.8",
           "ac_status": "done",
-          "description": "Terse responses \u2192 valid world (wave-29)"
+          "description": "Terse responses → valid world (wave-29)"
         },
         {
           "id": "AC-2.9",
@@ -214,7 +214,7 @@
         {
           "id": "AC-2.10",
           "ac_status": "done",
-          "description": "Seamless Genesis\u2192gameplay transition (wave-29)"
+          "description": "Seamless Genesis→gameplay transition (wave-29)"
         }
       ],
       "compliance_pct": 90
@@ -223,8 +223,8 @@
       "file": "03-narrative-engine.md",
       "number": "S03",
       "title": "Narrative Engine",
-      "status": "\ud83d\udcdd Draft",
-      "level": "1 \u2014 Core Game Experience",
+      "status": "📝 Draft",
+      "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -276,27 +276,27 @@
         {
           "id": "AC-3.5",
           "ac_status": "done",
-          "description": "LLM failure \u2192 atmospheric in-world fallback (wave-29)"
+          "description": "LLM failure → atmospheric in-world fallback (wave-29)"
         },
         {
           "id": "AC-3.6",
           "ac_status": "done",
-          "description": "Turn 100+ context \u2264500ms (timing added wave-29)"
+          "description": "Turn 100+ context ≤500ms (timing added wave-29)"
         },
         {
           "id": "AC-3.7",
           "ac_status": "v2",
-          "description": "Coherence violation \u2192 self-correction (needs detector)"
+          "description": "Coherence violation → self-correction (needs detector)"
         },
         {
           "id": "AC-3.8",
           "ac_status": "done",
-          "description": "Exploration \u2192 150-300 words + hooks (wave-29)"
+          "description": "Exploration → 150-300 words + hooks (wave-29)"
         },
         {
           "id": "AC-3.9",
           "ac_status": "v2",
-          "description": "Streaming pause \u2192 suspense (needs streaming infra)"
+          "description": "Streaming pause → suspense (needs streaming infra)"
         }
       ],
       "compliance_pct": 67
@@ -305,8 +305,8 @@
       "file": "04-world-model.md",
       "number": "S04",
       "title": "World Model",
-      "status": "\ud83d\udcdd Draft",
-      "level": "1 \u2014 Core Game Experience",
+      "status": "📝 Draft",
+      "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -339,8 +339,8 @@
       "file": "05-choice-and-consequence.md",
       "number": "S05",
       "title": "Choice & Consequence",
-      "status": "\ud83d\udcdd Draft",
-      "level": "1 \u2014 Core Game Experience",
+      "status": "📝 Draft",
+      "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -373,8 +373,8 @@
       "file": "06-character-system.md",
       "number": "S06",
       "title": "Character System",
-      "status": "\ud83d\udcdd Draft",
-      "level": "1 \u2014 Core Game Experience",
+      "status": "📝 Draft",
+      "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
       ],
@@ -421,7 +421,7 @@
         {
           "id": "AC-6.4",
           "ac_status": "done",
-          "description": "Help NPC \u2192 relationship increases (wave-29)"
+          "description": "Help NPC → relationship increases (wave-29)"
         },
         {
           "id": "AC-6.5",
@@ -436,22 +436,22 @@
         {
           "id": "AC-6.7",
           "ac_status": "v2",
-          "description": "Companion NPCs \u2192 inject relevant scenes"
+          "description": "Companion NPCs → inject relevant scenes"
         },
         {
           "id": "AC-6.8",
           "ac_status": "done",
-          "description": "Return after break \u2192 NPC references history (wave-29)"
+          "description": "Return after break → NPC references history (wave-29)"
         },
         {
           "id": "AC-6.9",
           "ac_status": "done",
-          "description": "NPC beyond knowledge \u2192 authentic response (wave-29)"
+          "description": "NPC beyond knowledge → authentic response (wave-29)"
         },
         {
           "id": "AC-6.10",
           "ac_status": "v2",
-          "description": "NPC death \u2192 emotional cascade (needs motivation graph)"
+          "description": "NPC death → emotional cascade (needs motivation graph)"
         }
       ],
       "compliance_pct": 60
@@ -460,31 +460,31 @@
       "file": "07-llm-integration.md",
       "number": "S07",
       "title": "LLM Integration",
-      "status": "\ud83d\udcdd Draft",
-      "level": "2 \u2014 AI & Content",
+      "status": "📝 Draft",
+      "level": "2 — AI & Content",
       "dependencies": [
         "S01 (Core Game Loop)",
         "S03 (Narrative Engine)"
       ],
       "last_updated": "2026-04-07",
       "sections": [
-        "\u2014 Purpose",
-        "\u2014 User Stories",
-        "\u2014 Model Abstraction Layer",
-        "\u2014 Fallback Tiers",
-        "\u2014 Context Window Management",
-        "\u2014 Token Budgeting and Cost Management",
-        "\u2014 Streaming",
-        "\u2014 Structured Output",
-        "\u2014 Generation Parameters",
-        "\u2014 Error Handling",
-        "\u2014 Observability",
-        "\u2014 Testing",
-        "\u2014 Edge Cases",
-        "\u2014 Acceptance Criteria",
-        "\u2014 Out of Scope",
-        "\u2014 Open Questions",
-        "Appendix A \u2014 Glossary"
+        "— Purpose",
+        "— User Stories",
+        "— Model Abstraction Layer",
+        "— Fallback Tiers",
+        "— Context Window Management",
+        "— Token Budgeting and Cost Management",
+        "— Streaming",
+        "— Structured Output",
+        "— Generation Parameters",
+        "— Error Handling",
+        "— Observability",
+        "— Testing",
+        "— Edge Cases",
+        "— Acceptance Criteria",
+        "— Out of Scope",
+        "— Open Questions",
+        "Appendix A — Glossary"
       ],
       "word_count": 3991,
       "has_acceptance_criteria": true,
@@ -502,8 +502,8 @@
       "file": "08-turn-processing-pipeline.md",
       "number": "S08",
       "title": "Turn Processing Pipeline",
-      "status": "\ud83d\udcdd Draft",
-      "level": "2 \u2014 AI & Content",
+      "status": "📝 Draft",
+      "level": "2 — AI & Content",
       "dependencies": [
         "S01 (Core Game Loop)",
         "S03 (Narrative Engine)",
@@ -511,24 +511,24 @@
       ],
       "last_updated": "2026-04-07",
       "sections": [
-        "\u2014 Purpose",
-        "\u2014 User Stories",
-        "\u2014 Pipeline Overview",
-        "\u2014 Stage 1: Input Understanding",
-        "\u2014 Stage 2: Context Assembly",
-        "\u2014 Stage 3: Narrative Generation",
-        "\u2014 Stage 4: Delivery",
-        "\u2014 Inter-Stage Contracts",
-        "\u2014 Latency Budget",
-        "\u2014 Concurrency",
-        "\u2014 Error Handling Summary",
-        "\u2014 Pipeline Observability",
-        "\u2014 Edge Cases",
-        "\u2014 Acceptance Criteria",
-        "\u2014 Out of Scope",
-        "\u2014 Open Questions",
-        "Appendix A \u2014 Glossary",
-        "Appendix B \u2014 Intent Categories"
+        "— Purpose",
+        "— User Stories",
+        "— Pipeline Overview",
+        "— Stage 1: Input Understanding",
+        "— Stage 2: Context Assembly",
+        "— Stage 3: Narrative Generation",
+        "— Stage 4: Delivery",
+        "— Inter-Stage Contracts",
+        "— Latency Budget",
+        "— Concurrency",
+        "— Error Handling Summary",
+        "— Pipeline Observability",
+        "— Edge Cases",
+        "— Acceptance Criteria",
+        "— Out of Scope",
+        "— Open Questions",
+        "Appendix A — Glossary",
+        "Appendix B — Intent Categories"
       ],
       "word_count": 5958,
       "has_acceptance_criteria": true,
@@ -546,35 +546,35 @@
       "file": "09-prompt-and-content.md",
       "number": "S09",
       "title": "Prompt & Content Management",
-      "status": "\ud83d\udcdd Draft",
-      "level": "2 \u2014 AI & Content",
+      "status": "📝 Draft",
+      "level": "2 — AI & Content",
       "dependencies": [
         "S07 (LLM Integration)",
         "S08 (Turn Processing Pipeline)"
       ],
       "last_updated": "2026-04-07",
       "sections": [
-        "\u2014 Purpose",
-        "\u2014 User Stories",
-        "\u2014 Prompt as Code",
+        "— Purpose",
+        "— User Stories",
+        "— Prompt as Code",
         "World Context",
         "Player's Action",
         "Your Task",
-        "\u2014 Prompt Registry",
-        "\u2014 Prompt Versioning",
-        "\u2014 Template Variables",
-        "\u2014 Prompt Composition",
-        "\u2014 Content Assets",
-        "\u2014 Prompt Testing",
-        "\u2014 Prompt Observability",
-        "\u2014 Prompt Authoring Workflow",
-        "\u2014 Guardrails",
-        "\u2014 Edge Cases",
-        "\u2014 Acceptance Criteria",
-        "\u2014 Out of Scope",
-        "\u2014 Open Questions",
-        "Appendix A \u2014 Glossary",
-        "Appendix B \u2014 Prompt Template Syntax Quick Reference"
+        "— Prompt Registry",
+        "— Prompt Versioning",
+        "— Template Variables",
+        "— Prompt Composition",
+        "— Content Assets",
+        "— Prompt Testing",
+        "— Prompt Observability",
+        "— Prompt Authoring Workflow",
+        "— Guardrails",
+        "— Edge Cases",
+        "— Acceptance Criteria",
+        "— Out of Scope",
+        "— Open Questions",
+        "Appendix A — Glossary",
+        "Appendix B — Prompt Template Syntax Quick Reference"
       ],
       "word_count": 5436,
       "has_acceptance_criteria": true,
@@ -592,8 +592,8 @@
       "file": "10-api-and-streaming.md",
       "number": "S10",
       "title": "API & Streaming",
-      "status": "\ud83d\udcdd Draft",
-      "level": "3 \u2014 Platform",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
       "dependencies": [
         "S04 (World Model)",
         "S11 (Player Identity & Sessions)",
@@ -634,8 +634,8 @@
       "file": "11-player-identity-and-sessions.md",
       "number": "S11",
       "title": "Player Identity & Sessions",
-      "status": "\ud83d\udcdd Draft",
-      "level": "3 \u2014 Platform",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
       "dependencies": [
         "S12 (Persistence Strategy)"
       ],
@@ -668,14 +668,14 @@
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
       "warnings": [],
-      "implementation_notes": " Wave 27: Fixed GameStatus bug \u2014 DB insert now uses created (not active), matching spec lifecycle."
+      "implementation_notes": " Wave 27: Fixed GameStatus bug — DB insert now uses created (not active), matching spec lifecycle."
     },
     {
       "file": "12-persistence-strategy.md",
       "number": "S12",
       "title": "Persistence Strategy",
-      "status": "\ud83d\udfe1 Partial",
-      "level": "3 \u2014 Platform",
+      "status": "🟡 Partial",
+      "level": "3 — Platform",
       "dependencies": [
         "S04 (World Model)",
         "S13 (World Graph Schema)"
@@ -724,8 +724,8 @@
       "file": "13-world-graph-schema.md",
       "number": "S13",
       "title": "World Graph Schema",
-      "status": "\ud83d\udcdd Draft",
-      "level": "3 \u2014 Platform",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
       "dependencies": [
         "S04 (World Model)"
       ],
@@ -734,7 +734,7 @@
         "Purpose",
         "Design Philosophy",
         "User Stories",
-        "Co-Design Mapping: S04 \u2192 S13",
+        "Co-Design Mapping: S04 → S13",
         "Node Types",
         "Relationship Types",
         "Index Strategy",
@@ -765,8 +765,8 @@
       "file": "14-deployment.md",
       "number": "S14",
       "title": "Deployment & Infrastructure",
-      "status": "\ud83d\udcdd Draft",
-      "level": "4 \u2014 Operations",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
       "dependencies": [
         "S01 (Gameplay Loop)",
         "S08 (Turn Pipeline)",
@@ -806,8 +806,8 @@
       "file": "15-observability.md",
       "number": "S15",
       "title": "Observability",
-      "status": "\ud83d\udcdd Draft",
-      "level": "4 \u2014 Operations",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
       "dependencies": [
         "S08 (Turn Pipeline)",
         "S14 (Deployment)"
@@ -845,8 +845,8 @@
       "file": "16-testing-infrastructure.md",
       "number": "S16",
       "title": "Testing Infrastructure",
-      "status": "\ud83d\udcdd Draft",
-      "level": "4 \u2014 Operations",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
       "dependencies": [
         "S00 (Testing Charter)",
         "S01 (Gameplay Loop)",
@@ -890,8 +890,8 @@
       "file": "17-data-privacy.md",
       "number": "S17",
       "title": "Data Privacy",
-      "status": "\ud83d\udcdd Draft",
-      "level": "4 \u2014 Operations",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
       "dependencies": [
         "S01 (Gameplay Loop)",
         "S05 (Choice & Consequence)",
@@ -987,8 +987,8 @@
       "file": "future/18-therapeutic-framework.md",
       "number": "S18",
       "title": "Therapeutic Framework",
-      "status": "\ud83d\udcdd Stub (Future)",
-      "level": "5 \u2014 Future Vision",
+      "status": "📝 Stub (Future)",
+      "level": "5 — Future Vision",
       "dependencies": [
         "S03",
         "S08",
@@ -1023,8 +1023,8 @@
       "file": "future/19-crisis-and-content-safety.md",
       "number": "S19",
       "title": "Crisis & Content Safety",
-      "status": "\ud83d\udcdd Stub (Future)",
-      "level": "5 \u2014 Future Vision",
+      "status": "📝 Stub (Future)",
+      "level": "5 — Future Vision",
       "dependencies": [
         "S08",
         "S10",
@@ -1060,8 +1060,8 @@
       "file": "future/20-story-sharing.md",
       "number": "S20",
       "title": "Story Sharing",
-      "status": "\ud83d\udcdd Stub (Future)",
-      "level": "5 \u2014 Future Vision",
+      "status": "📝 Stub (Future)",
+      "level": "5 — Future Vision",
       "dependencies": [
         "S01",
         "S03",
@@ -1097,8 +1097,8 @@
       "file": "future/21-collaborative-writing.md",
       "number": "S21",
       "title": "Collaborative Writing",
-      "status": "\ud83d\udcdd Stub (Future)",
-      "level": "5 \u2014 Future Vision",
+      "status": "📝 Stub (Future)",
+      "level": "5 — Future Vision",
       "dependencies": [
         "S01",
         "S04",
@@ -1136,8 +1136,8 @@
       "file": "future/22-community.md",
       "number": "S22",
       "title": "Community",
-      "status": "\ud83d\udcdd Stub (Future)",
-      "level": "5 \u2014 Future Vision",
+      "status": "📝 Stub (Future)",
+      "level": "5 — Future Vision",
       "dependencies": [
         "S04",
         "S09",
@@ -1172,8 +1172,8 @@
       "file": "23-error-handling-and-resilience.md",
       "number": "S23",
       "title": "Error Handling & Resilience",
-      "status": "\ud83d\udcdd Draft",
-      "level": "3 \u2014 Platform",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
       "dependencies": [
         "S07 (LLM Integration)",
         "S08 (Turn Pipeline)",
@@ -1273,13 +1273,13 @@
       "file": "24-content-moderation-v1.md",
       "number": "S24",
       "title": "Content Moderation v1",
-      "status": "\ud83d\udcdd Draft",
-      "level": "2 \u2014 AI & Content",
+      "status": "📝 Draft",
+      "level": "2 — AI & Content",
       "dependencies": [
         "S07 (LLM Integration)",
         "S08 (Turn Pipeline)",
         "S09 (Prompts)",
-        "S19 (Crisis & Content Safety \u2014 future stub)"
+        "S19 (Crisis & Content Safety — future stub)"
       ],
       "last_updated": "2026-04-09",
       "sections": [
@@ -1364,8 +1364,8 @@
       "file": "25-rate-limiting-and-anti-abuse.md",
       "number": "S25",
       "title": "Rate Limiting & Anti-Abuse",
-      "status": "\ud83d\udcdd Draft",
-      "level": "3 \u2014 Platform",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
       "dependencies": [
         "S10 (API & Streaming)",
         "S11 (Player Identity & Sessions)",
@@ -1445,8 +1445,8 @@
       "file": "26-admin-and-operator-tooling.md",
       "number": "S26",
       "title": "Admin & Operator Tooling",
-      "status": "\ud83d\udcdd Draft",
-      "level": "4 \u2014 Operations",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
       "dependencies": [
         "S10 (API)",
         "S11 (Identity)",
@@ -1478,14 +1478,57 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 8,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-26.1",
+          "ac_status": "done",
+          "description": "Admin endpoints require valid API key (Bearer token)"
+        },
+        {
+          "id": "AC-26.2",
+          "ac_status": "done",
+          "description": "Player search by handle returns matching results"
+        },
+        {
+          "id": "AC-26.3",
+          "ac_status": "done",
+          "description": "Player lookup returns profile, suspension status, game count"
+        },
+        {
+          "id": "AC-26.4",
+          "ac_status": "done",
+          "description": "GET /admin/games/{id} returns full game state with turns and flags"
+        },
+        {
+          "id": "AC-26.5",
+          "ac_status": "done",
+          "description": "POST /admin/games/{id}/terminate force-ends active/paused game; 409 if already terminated"
+        },
+        {
+          "id": "AC-26.6",
+          "ac_status": "done",
+          "description": "POST /admin/moderation/flags/{id}/review marks flag and optionally suspends player"
+        },
+        {
+          "id": "AC-26.7",
+          "ac_status": "done",
+          "description": "Rate-limit reset clears player counters and IP blocks with audit trail"
+        },
+        {
+          "id": "AC-26.8",
+          "ac_status": "done",
+          "description": "GET /admin/audit-log returns all write actions with admin_id, action, target, reason, timestamp"
+        }
+      ],
+      "compliance_pct": 100.0
     },
     {
       "file": "27-save-load-and-game-management.md",
       "number": "S27",
       "title": "Save/Load & Game Management",
-      "status": "\ud83d\udcdd Draft",
-      "level": "1 \u2014 Core Game Experience",
+      "status": "📝 Draft",
+      "level": "1 — Core Game Experience",
       "dependencies": [
         "S01 (Gameplay Loop)",
         "S04 (World Model)",
@@ -1517,14 +1560,67 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 10,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-27.1",
+          "ac_status": "done",
+          "description": "Game creation with genesis pipeline"
+        },
+        {
+          "id": "AC-27.2",
+          "ac_status": "done",
+          "description": "Maximum active game limit enforcement"
+        },
+        {
+          "id": "AC-27.3",
+          "ac_status": "done",
+          "description": "Game listing with proper sorting and fields"
+        },
+        {
+          "id": "AC-27.4",
+          "ac_status": "done",
+          "description": "Game resume with context summary"
+        },
+        {
+          "id": "AC-27.5",
+          "ac_status": "done",
+          "description": "Automatic persistence after each turn"
+        },
+        {
+          "id": "AC-27.6",
+          "ac_status": "done",
+          "description": "Soft deletion with confirmation"
+        },
+        {
+          "id": "AC-27.7",
+          "ac_status": "done",
+          "description": "Delete confirmation requirement"
+        },
+        {
+          "id": "AC-27.8",
+          "ac_status": "done",
+          "description": "Context summary regeneration after absence"
+        },
+        {
+          "id": "AC-27.9",
+          "ac_status": "done",
+          "description": "Failed persistence recovery"
+        },
+        {
+          "id": "AC-27.10",
+          "ac_status": "done",
+          "description": "Completed game is read-only"
+        }
+      ],
+      "compliance_pct": 100.0
     },
     {
       "file": "28-performance-and-scaling.md",
       "number": "S28",
       "title": "Performance & Scaling",
-      "status": "\ud83d\udcdd Draft",
-      "level": "4 \u2014 Operations",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
       "dependencies": [
         "S07 (LLM Integration)",
         "S10 (API)",
