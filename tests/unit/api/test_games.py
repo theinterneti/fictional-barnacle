@@ -528,7 +528,7 @@ class TestSubmitTurn:
         )
 
         assert resp.status_code == 409
-        assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+        assert resp.json()["error"]["code"] == "GAME_NOT_ACTIVE"
 
     def test_rejects_concurrent_turn(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(
@@ -1330,7 +1330,7 @@ class TestCompletedTransitions:
     def test_completed_game_rejects_new_turn(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """AC-27.10: POST /turns on a completed game returns 409."""
+        """AC-27.8: POST /turns on a completed game returns 409 GAME_NOT_ACTIVE."""
         pg.execute = AsyncMock(
             return_value=_make_result([_game_row(status="completed")])
         )
@@ -1340,16 +1340,16 @@ class TestCompletedTransitions:
             json={"input": "go north"},
         )
 
-        # AC-27.10: must be 409 Conflict — completed is read-only
+        # AC-27.8: must be 409 Conflict — completed is read-only
         assert resp.status_code == 409, (
-            "AC-27.10: submitting a turn to a completed game must return 409"
+            "AC-27.8: submitting a turn to a completed game must return 409"
         )
-        assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+        assert resp.json()["error"]["code"] == "GAME_NOT_ACTIVE"
 
     def test_completed_game_still_appears_in_listing(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """AC-27.10: completed game still appears in GET /games with state 'completed'."""  # noqa: E501
+        """AC-27.9: completed game still appears in GET /games with state 'completed'."""  # noqa: E501
         # The list_games route excludes abandoned games by default but includes
         # completed ones (only status != 'abandoned' is filtered).
         pg.execute = AsyncMock(
@@ -1376,16 +1376,16 @@ class TestCompletedTransitions:
         assert resp.status_code == 200
         # GET /games returns {"data": [...], "meta": {...}}
         items = resp.json()["data"]
-        assert len(items) == 1, "AC-27.10: completed game must appear in listings"
+        assert len(items) == 1, "AC-27.9: completed game must appear in listings"
         assert items[0]["game_id"] == str(_GAME_ID)
         assert items[0]["status"] == "completed", (
-            "AC-27.10: completed game must show state 'completed' in listing"
+            "AC-27.9: completed game must show state 'completed' in listing"
         )
 
     def test_completed_game_turn_rejected_then_still_listed(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """AC-27.10 end-to-end: 409 on turn submission, game still in listing."""
+        """AC-27.8/AC-27.9 end-to-end: 409 on turn submission, game still in listing."""
         # First call: submit turn → 409
         pg.execute = AsyncMock(
             side_effect=[

@@ -1457,7 +1457,7 @@ async def submit_turn(
     if row.status not in ("active", "created"):
         raise AppError(
             ErrorCategory.CONFLICT,
-            "INVALID_STATE_TRANSITION",
+            "GAME_NOT_ACTIVE",
             f"Cannot submit turns for a game in '{row.status}' status.",
         )
 
