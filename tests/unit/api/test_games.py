@@ -141,6 +141,8 @@ class TestCreateGame:
         assert "game_id" in body
         assert body["game_id"] is not None
         assert len(body["game_id"]) > 0
+        # AC-27.1: response includes title field
+        assert "title" in body
         # AC-27.1: player context
         assert body["player_id"] == str(_PLAYER_ID)
         assert body["status"] == "active"
@@ -223,6 +225,36 @@ class TestCreateGame:
         # Confirm the error envelope structure is present (S23 §3.1)
         assert "message" in error
         assert "correlation_id" in error
+
+    def test_created_game_appears_in_listing(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.1: the created game appears in the player's game listing."""
+        created_game_id = uuid4()
+        game_row = _game_row(game_id=created_game_id, turn_count=0)
+
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),  # count active games (create)
+                _make_result(),  # INSERT game (create)
+                _make_result([game_row]),  # SELECT games (list)
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        # Step 1: create the game
+        create_resp = client.post("/api/v1/games", json={})
+        assert create_resp.status_code == 201
+        game_id_str = create_resp.json()["data"]["game_id"]
+
+        # Step 2: list games — the seeded game_id must appear in the listing
+        list_resp = client.get("/api/v1/games")
+        assert list_resp.status_code == 200
+        listed_ids = [g["game_id"] for g in list_resp.json()["data"]]
+        assert len(listed_ids) == 1, f"Expected 1 game in listing, got {listed_ids}"
+        assert str(created_game_id) in listed_ids, (
+            f"Expected game {created_game_id} in listing, got {listed_ids}"
+        )
 
 
 # ------------------------------------------------------------------
