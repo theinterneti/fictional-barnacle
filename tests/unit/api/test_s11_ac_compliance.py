@@ -509,7 +509,7 @@ class TestAC1112NoPasswordInResponses:
         if isinstance(body, dict):
             for key, value in body.items():
                 assert key.lower() not in self._FORBIDDEN_FIELDS, (
-                    f"AC-11.12: Response from {endpoint} contains forbidden field '{key}'"
+                    f"AC-11.12: {endpoint} response contains forbidden field '{key}'"
                 )
                 self._assert_no_password_fields(value, endpoint)
         elif isinstance(body, (list, tuple)):
