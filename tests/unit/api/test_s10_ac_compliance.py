@@ -313,7 +313,8 @@ class TestAC1009NoInternalDetails:
         assert resp.status_code == 409
         body_text = resp.text
         assert "Traceback" not in body_text
-        assert "File " not in body_text or ".py" not in body_text
+        assert "File " not in body_text
+        assert ".py" not in body_text
 
 
 # ---------------------------------------------------------------------------
