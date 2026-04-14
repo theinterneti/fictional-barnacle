@@ -111,8 +111,11 @@ def _setup_active_game(pg: AsyncMock) -> None:
 
 
 class TestEmptyTurnInputValidation:
-    def test_empty_string_returns_400(self, client: TestClient, pg: AsyncMock) -> None:
-        """True empty string is rejected at Pydantic level (min_length=1) → 422."""
+    def test_empty_string_returns_422(self, client: TestClient) -> None:
+        """True empty string is rejected at Pydantic level (min_length=1) → 422.
+
+        No game setup needed — Pydantic validates before the route handler runs.
+        """
         resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": ""})
         # min_length=1 triggers Pydantic validation → 422
         assert resp.status_code == 422
