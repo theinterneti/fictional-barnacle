@@ -360,7 +360,8 @@ class TestListGames:
             f"Games not ordered by last_played_at DESC: {played_at}"
         )
 
-        # AC-27.3: each game includes game_id, title, state (status), turn_count, summary
+        # AC-27.3: each game includes game_id, title, state (status),
+        # turn_count, and summary
         for game in data:
             assert "game_id" in game, "Missing game_id"
             assert "title" in game, "Missing title"
@@ -403,7 +404,8 @@ class TestGetGameState:
             "Missing recent_turns in GET /games/{id} response"
         )
         assert isinstance(body["recent_turns"], list)
-        # AC-27.4: response includes context_summary (exposed as 'summary' by GET handler)
+        # AC-27.4: response includes context_summary
+        # (exposed as 'summary' by the GET handler)
         assert "summary" in body, (
             "Missing summary/context_summary in GET /games/{id} response"
         )
@@ -1392,7 +1394,7 @@ class TestCompletedTransitions:
     def test_completed_game_turn_rejected_then_still_listed(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """AC-27.10 end-to-end: 409 on turn submission, completed game still in listing."""
+        """AC-27.10 end-to-end: 409 on turn, completed game still in listing."""
         # First call: submit turn → 409
         pg.execute = AsyncMock(
             side_effect=[
