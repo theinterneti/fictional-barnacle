@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-import random
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -598,7 +597,7 @@ class SubmitTurnRequest(BaseModel):
     input: str = Field(
         ...,
         max_length=2000,
-        description="Player's natural-language input. Empty string triggers a nudge.",
+        description="Player's natural-language input.",
     )
     idempotency_key: UUID | None = Field(
         None,
@@ -648,20 +647,7 @@ class DeleteGameRequest(BaseModel):
     )
 
 
-# --- Command router & nudge phrases (S01 AC-1.2, AC-1.10) ---
-
-_NUDGE_PHRASES = (
-    "The world waits for your next move\u2026",
-    "A gentle breeze stirs. What do you do?",
-    "Silence stretches around you, full of possibility.",
-    "The moment hangs, expectant. What catches your attention?",
-    "You pause, taking in your surroundings. What draws you forward?",
-    "Time seems to slow. The world is yours to explore.",
-    "Something shifts in the air. Where do you turn your attention?",
-    "The path ahead is yours to choose. What will it be?",
-    "A quiet opening appears before you. How do you step into it?",
-    "The scene invites a choice. What feels right to do next?",
-)
+# --- Command router (S01 AC-1.10) ---
 
 _KNOWN_COMMANDS = frozenset(
     {
@@ -1475,19 +1461,15 @@ async def submit_turn(
             f"Cannot submit turns for a game in '{row.status}' status.",
         )
 
-    # --- Pre-pipeline routing: commands and nudges (S01 AC-1.2, AC-1.10) ---
+    # --- Pre-pipeline routing: commands (S01 AC-1.10), validation (S23 AC-23.11) ---
     normalized = body.input.strip()
 
-    # Empty input → atmospheric nudge (no DB row, no turn_count change)
+    # Empty / whitespace-only input → 400 input_invalid (AC-23.11)
     if not normalized:
-        return JSONResponse(
-            content={
-                "data": {
-                    "type": "nudge",
-                    "message": random.choice(_NUDGE_PHRASES),
-                }
-            },
-            status_code=200,
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "EMPTY_TURN_INPUT",
+            "Turn text cannot be empty.",
         )
 
     # Slash commands → instant response (no DB row, no pipeline)

@@ -220,7 +220,8 @@ class TestSubmitTurnRequest:
         assert req.input == text
 
     @given(text=st.just(""))
-    def test_empty_input_accepted(self, text: str) -> None:
+    def test_empty_input_passes_model_validation(self, text: str) -> None:
+        """Model accepts empty string; route handler enforces non-empty (AC-23.11)."""
         req = SubmitTurnRequest(input=text)
         assert req.input == text
 

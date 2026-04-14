@@ -338,19 +338,18 @@ class TestErrorHandling:
         )
         assert resp.status_code == 404
 
-    async def test_empty_input_returns_nudge(
+    async def test_empty_input_returns_400(
         self,
         auth_client: httpx.AsyncClient,
         auth_headers: dict[str, str],
     ) -> None:
-        """Submitting blank input returns a narrative nudge (S01 AC-1.2)."""
+        """Blank input returns 400 EMPTY_TURN_INPUT (AC-23.11 supersedes AC-1.2)."""
         game_id = await _create_game(auth_client, auth_headers)
         resp = await auth_client.post(
             f"/api/v1/games/{game_id}/turns",
             json={"input": "   "},
             headers=auth_headers,
         )
-        assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert data["type"] == "nudge"
-        assert isinstance(data["message"], str)
+        assert resp.status_code == 400
+        error = resp.json()["error"]
+        assert error["code"] == "EMPTY_TURN_INPUT"

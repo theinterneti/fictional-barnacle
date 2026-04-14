@@ -149,21 +149,18 @@ class TestGameplayFlow:
         assert "stream_url" in data
         assert f"/games/{_GAME_ID}/stream" in data["stream_url"]
 
-    def test_step3_empty_input_returns_nudge(
+    def test_step3_empty_input_returns_400(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """Blank input returns a 200 nudge — no DB write, no pipeline."""
-        pg.execute = AsyncMock(return_value=_make_result([_game_row(turn_count=2)]))
-
+        """Empty input → 400 EMPTY_TURN_INPUT via route handler (AC-23.11)."""
+        pg.execute = AsyncMock(return_value=_make_result([_game_row()]))
         resp = client.post(
             f"/api/v1/games/{_GAME_ID}/turns",
             json={"input": ""},
         )
 
-        assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert data["type"] == "nudge"
-        assert len(data["message"]) > 0
+        assert resp.status_code == 400
+        assert resp.json()["error"]["code"] == "EMPTY_TURN_INPUT"
 
     def test_step4_help_command(self, client: TestClient, pg: AsyncMock) -> None:
         """/help returns command listing — no pipeline, no DB turn."""

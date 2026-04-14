@@ -171,3 +171,192 @@ class TestWithRetry:
             return a + b + extra
 
         assert await add(1, 2, extra=3) == 6
+
+
+# --- AC-23.4: db_retry / redis_retry convenience helpers ---
+
+
+from tta.resilience.retry import (  # noqa: E402
+    db_retry,
+    redis_retry,
+    with_db_retry,
+    with_redis_retry,
+)
+
+
+class TestDbRetry:
+    """AC-23.4: db_retry decorator and with_db_retry helper."""
+
+    async def test_db_retry_succeeds_on_first_attempt(self) -> None:
+        call_count = 0
+
+        @db_retry
+        async def fetch() -> str:
+            nonlocal call_count
+            call_count += 1
+            return "row"
+
+        assert await fetch() == "row"
+        assert call_count == 1
+
+    async def test_db_retry_retries_on_connection_error(self) -> None:
+        call_count = 0
+
+        @db_retry
+        async def flaky_query() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise ConnectionError("transient db error")
+            return "ok"
+
+        result = await flaky_query()
+        assert result == "ok"
+        assert call_count == 3
+
+    async def test_db_retry_retries_on_oserror(self) -> None:
+        """OSError (connection lost) is also retryable per FR-23.09."""
+        call_count = 0
+
+        @db_retry
+        async def flaky_os() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise OSError("connection reset by peer")
+            return "recovered"
+
+        assert await flaky_os() == "recovered"
+        assert call_count == 2
+
+    async def test_db_retry_raises_app_error_after_exhaustion(self) -> None:
+        """FR-23.11: SERVICE_UNAVAILABLE after all DB retries exhausted."""
+
+        @db_retry
+        async def always_fails() -> str:
+            raise ConnectionError("pg down")
+
+        with pytest.raises(AppError) as exc_info:
+            await always_fails()
+
+        err = exc_info.value
+        assert err.category == ErrorCategory.SERVICE_UNAVAILABLE
+        assert err.code == "POSTGRESQL_UNAVAILABLE"
+
+    async def test_with_db_retry_helper_retries(self) -> None:
+        """with_db_retry functional helper retries correctly."""
+        call_count = 0
+
+        async def db_call() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionError("transient")
+            return "result"
+
+        result = await with_db_retry(db_call)
+        assert result == "result"
+        assert call_count == 2
+
+    async def test_with_db_retry_passes_args(self) -> None:
+        async def add(a: int, b: int) -> int:
+            return a + b
+
+        assert await with_db_retry(add, 3, 4) == 7
+
+    async def test_with_db_retry_raises_app_error_after_exhaustion(self) -> None:
+        async def always_fails() -> str:
+            raise ConnectionError("pg gone")
+
+        with pytest.raises(AppError) as exc_info:
+            await with_db_retry(always_fails)
+
+        assert exc_info.value.category == ErrorCategory.SERVICE_UNAVAILABLE
+
+
+class TestRedisRetry:
+    """AC-23.4: redis_retry decorator and with_redis_retry helper."""
+
+    async def test_redis_retry_succeeds_on_first_attempt(self) -> None:
+        call_count = 0
+
+        @redis_retry
+        async def ping() -> str:
+            nonlocal call_count
+            call_count += 1
+            return "PONG"
+
+        assert await ping() == "PONG"
+        assert call_count == 1
+
+    async def test_redis_retry_retries_on_connection_error(self) -> None:
+        call_count = 0
+
+        @redis_retry
+        async def flaky_get() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise ConnectionError("redis transient")
+            return "value"
+
+        result = await flaky_get()
+        assert result == "value"
+        assert call_count == 3
+
+    async def test_redis_retry_raises_app_error_after_exhaustion(self) -> None:
+        """FR-23.11: SERVICE_UNAVAILABLE after all Redis retries exhausted."""
+
+        @redis_retry
+        async def always_fails() -> str:
+            raise ConnectionError("redis down")
+
+        with pytest.raises(AppError) as exc_info:
+            await always_fails()
+
+        err = exc_info.value
+        assert err.category == ErrorCategory.SERVICE_UNAVAILABLE
+        assert err.code == "REDIS_UNAVAILABLE"
+
+    async def test_with_redis_retry_helper_retries(self) -> None:
+        call_count = 0
+
+        async def redis_op() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionError("transient redis")
+            return "ok"
+
+        assert await with_redis_retry(redis_op) == "ok"
+        assert call_count == 2
+
+    async def test_with_redis_retry_passes_args(self) -> None:
+        async def add(a: int, b: int) -> int:
+            return a + b
+
+        assert await with_redis_retry(add, 3, 4) == 7
+
+    async def test_with_redis_retry_raises_app_error_after_exhaustion(self) -> None:
+        async def always_fails() -> str:
+            raise ConnectionError("redis gone")
+
+        with pytest.raises(AppError) as exc_info:
+            await with_redis_retry(always_fails)
+
+        assert exc_info.value.category == ErrorCategory.SERVICE_UNAVAILABLE
+
+    async def test_redis_retry_non_retryable_propagates(self) -> None:
+        """Non-retryable exceptions are not caught."""
+        call_count = 0
+
+        @redis_retry
+        async def bad_call() -> str:
+            nonlocal call_count
+            call_count += 1
+            raise ValueError("bad key")
+
+        with pytest.raises(ValueError, match="bad key"):
+            await bad_call()
+
+        assert call_count == 1

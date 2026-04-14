@@ -1205,7 +1205,69 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 12,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-23.1",
+          "ac_status": "done",
+          "description": "All error responses use standard envelope shape"
+        },
+        {
+          "id": "AC-23.2",
+          "ac_status": "done",
+          "description": "Correlation IDs flow from request to response to logs"
+        },
+        {
+          "id": "AC-23.3",
+          "ac_status": "done",
+          "description": "LLM total failure produces friendly player message (502)"
+        },
+        {
+          "id": "AC-23.4",
+          "ac_status": "done",
+          "description": "Database retries with exponential backoff (wave-30)"
+        },
+        {
+          "id": "AC-23.5",
+          "ac_status": "done",
+          "description": "Circuit breaker opens after threshold failures"
+        },
+        {
+          "id": "AC-23.6",
+          "ac_status": "done",
+          "description": "Failed turns don't corrupt game state (turn atomicity)"
+        },
+        {
+          "id": "AC-23.7",
+          "ac_status": "done",
+          "description": "Concurrent turns for same game rejected with 409"
+        },
+        {
+          "id": "AC-23.8",
+          "ac_status": "v2",
+          "description": "SSE stream delivers error events (needs token-level streaming)"
+        },
+        {
+          "id": "AC-23.9",
+          "ac_status": "done",
+          "description": "Health endpoint reports degraded when non-critical service is down"
+        },
+        {
+          "id": "AC-23.10",
+          "ac_status": "done",
+          "description": "No stack traces or module paths in production error responses"
+        },
+        {
+          "id": "AC-23.11",
+          "ac_status": "done",
+          "description": "Empty turn input returns 400 input_invalid (wave-30)"
+        },
+        {
+          "id": "AC-23.12",
+          "ac_status": "done",
+          "description": "Health endpoint reports unhealthy when Postgres is down"
+        }
+      ]
     },
     {
       "file": "24-content-moderation-v1.md",
@@ -1244,7 +1306,59 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 10,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-24.1",
+          "ac_status": "done",
+          "description": "Safe content passes moderation without delay"
+        },
+        {
+          "id": "AC-24.2",
+          "ac_status": "done",
+          "description": "Harmful content blocked with gentle redirect"
+        },
+        {
+          "id": "AC-24.3",
+          "ac_status": "v2",
+          "description": "Streaming output interrupted within 2 tokens (needs token-level streaming)"
+        },
+        {
+          "id": "AC-24.4",
+          "ac_status": "done",
+          "description": "Complete audit trail for all moderation actions"
+        },
+        {
+          "id": "AC-24.5",
+          "ac_status": "done",
+          "description": "System continues serving when moderation is down (fail-open)"
+        },
+        {
+          "id": "AC-24.6",
+          "ac_status": "done",
+          "description": "Player never sees moderation internals"
+        },
+        {
+          "id": "AC-24.7",
+          "ac_status": "done",
+          "description": "Prompt injection detected and blocked"
+        },
+        {
+          "id": "AC-24.8",
+          "ac_status": "done",
+          "description": "Repeated blocks trigger session escalation"
+        },
+        {
+          "id": "AC-24.9",
+          "ac_status": "done",
+          "description": "Fantasy violence not false-positive blocked"
+        },
+        {
+          "id": "AC-24.10",
+          "ac_status": "done",
+          "description": "Fail-closed mode blocks all turns when moderation is down"
+        }
+      ]
     },
     {
       "file": "25-rate-limiting-and-anti-abuse.md",
@@ -1283,7 +1397,49 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 8,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-25.1",
+          "ac_status": "done",
+          "description": "Normal gameplay unaffected by rate limits"
+        },
+        {
+          "id": "AC-25.2",
+          "ac_status": "done",
+          "description": "429 response with proper headers when limit exceeded"
+        },
+        {
+          "id": "AC-25.3",
+          "ac_status": "done",
+          "description": "Rate limit headers present on all responses"
+        },
+        {
+          "id": "AC-25.4",
+          "ac_status": "done",
+          "description": "Concurrent turn submission prevented with 409"
+        },
+        {
+          "id": "AC-25.5",
+          "ac_status": "done",
+          "description": "Credential stuffing detected and blocked for 15 minutes"
+        },
+        {
+          "id": "AC-25.6",
+          "ac_status": "done",
+          "description": "In-memory fallback when Redis is down"
+        },
+        {
+          "id": "AC-25.7",
+          "ac_status": "v2",
+          "description": "Active SSE streams not interrupted by rate limiting (needs stream-aware middleware)"
+        },
+        {
+          "id": "AC-25.8",
+          "ac_status": "done",
+          "description": "Escalating cooldowns for repeated violations"
+        }
+      ]
     },
     {
       "file": "26-admin-and-operator-tooling.md",

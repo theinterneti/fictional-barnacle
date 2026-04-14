@@ -217,7 +217,8 @@ class TestSubmitTurnRequestValidation:
         req = self._make("\u200b\u200c\u200d\u2060\ufefftest\ufffe")
         assert req.input == "test"
 
-    def test_empty_string_allowed(self) -> None:
+    def test_empty_string_passes_model_validation(self) -> None:
+        """Model accepts empty string; route handler enforces non-empty (AC-23.11)."""
         req = self._make("")
         assert req.input == ""
 

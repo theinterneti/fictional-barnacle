@@ -160,3 +160,34 @@ def _make_retry_filter(
     from tenacity import retry_if_exception_type
 
     return retry_if_exception_type(exceptions)
+
+
+# --- Convenience helpers (AC-23.4) ---
+
+db_retry = with_retry(DB_CONNECTION)
+"""Pre-configured decorator for DB connection retries (AC-23.4)."""
+
+redis_retry = with_retry(REDIS_CONNECTION)
+"""Pre-configured decorator for Redis connection retries (AC-23.4)."""
+
+
+async def with_db_retry(fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
+    """Run an async DB callable with DB_CONNECTION retry (AC-23.4).
+
+    Convenience wrapper for call-sites that cannot use the decorator form.
+
+    Example::
+
+        result = await with_db_retry(session.execute, stmt)
+    """
+    return await db_retry(fn)(*args, **kwargs)
+
+
+async def with_redis_retry(fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
+    """Run an async Redis callable with REDIS_CONNECTION retry (AC-23.4).
+
+    Example::
+
+        await with_redis_retry(redis.ping)
+    """
+    return await redis_retry(fn)(*args, **kwargs)
