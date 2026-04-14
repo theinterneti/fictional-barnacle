@@ -731,7 +731,24 @@
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
       "warnings": [],
-      "implementation_notes": " Wave 27: Fixed GameStatus bug — DB insert now uses created (not active), matching spec lifecycle."
+      "implementation_notes": " Wave 27: Fixed GameStatus bug — DB insert now uses created (not active), matching spec lifecycle.",
+      "acceptance_criteria": [
+        {"id": "AC-11.01", "ac_status": "done", "description": "Anonymous auth returns 201 with player_id, access_token, is_anonymous=true"},
+        {"id": "AC-11.02", "ac_status": "done", "description": "Upgrade preserves anonymous player_id in token response"},
+        {"id": "AC-11.03", "ac_status": "v2", "description": "Multi-device login: same game list from two browsers"},
+        {"id": "AC-11.04", "ac_status": "done", "description": "First turn submission transitions game created→active"},
+        {"id": "AC-11.05", "ac_status": "v2", "description": "Paused game resumable within 30-day window (29 days)"},
+        {"id": "AC-11.06", "ac_status": "v2", "description": "Game paused for 31 days found in expired state"},
+        {"id": "AC-11.07", "ac_status": "v2", "description": "Expired game can be resumed with welcome-back narrative"},
+        {"id": "AC-11.08", "ac_status": "v2", "description": "Created game abandoned after 25 hours with no turns"},
+        {"id": "AC-11.09", "ac_status": "v2", "description": "Login locked after 5 failed attempts → 429"},
+        {"id": "AC-11.10", "ac_status": "done", "description": "Reused refresh token invalidates entire session family"},
+        {"id": "AC-11.11", "ac_status": "v2", "description": "Deleted player credentials rejected at login"},
+        {"id": "AC-11.12", "ac_status": "done", "description": "No API response contains password or password_hash field"},
+        {"id": "AC-11.13", "ac_status": "v2", "description": "Player data not retrievable via API within 72h of deletion"},
+        {"id": "AC-11.14", "ac_status": "v2", "description": "Deleted player_id cannot be reassigned to new player"}
+      ],
+      "compliance_pct": 35.7
     },
     {
       "file": "12-persistence-strategy.md",
