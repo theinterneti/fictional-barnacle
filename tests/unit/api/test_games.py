@@ -1171,6 +1171,7 @@ class TestUpdateGame:
 
 class TestEndGame:
     def test_soft_deletes_with_confirm(self, client: TestClient, pg: AsyncMock) -> None:
+        """AC-27.6: DELETE /games/{id} with confirm=true returns 204 No Content."""
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row(status="active")]),
@@ -1186,12 +1187,54 @@ class TestEndGame:
             json={"confirm": True},
         )
 
-        assert resp.status_code == 200
-        body = resp.json()["data"]
-        assert body["status"] == "abandoned"
-        assert body["turn_count"] == 7
+        # AC-27.6: response MUST be 204 No Content (not 200)
+        assert resp.status_code == 204
+        assert resp.content == b""
+
+    def test_deleted_game_absent_from_listing(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.6: after deletion, game no longer appears in GET /games."""
+        # Step 1 — DELETE the game (204)
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="active")]),  # _get_owned_game
+                _make_result(),  # UPDATE soft-delete
+                _make_result(scalar=3),  # turn count
+            ]
+        )
+        pg.commit = AsyncMock()
+        del_resp = client.request(
+            "DELETE", f"/api/v1/games/{_GAME_ID}", json={"confirm": True}
+        )
+        assert del_resp.status_code == 204
+
+        # Step 2 — list games; the route filters deleted_at IS NULL AND status !=
+        # 'abandoned', so the deleted game must not be in results.
+        pg.execute = AsyncMock(return_value=_make_result([]))  # empty list
+        list_resp = client.get("/api/v1/games")
+        assert list_resp.status_code == 200
+        # GET /games returns {"data": [...], "meta": {...}}
+        items = list_resp.json()["data"]
+        ids = [item["game_id"] for item in items]
+        assert str(_GAME_ID) not in ids, (
+            "AC-27.6: soft-deleted game must not appear in GET /games"
+        )
+
+    def test_deleted_game_not_accessible_by_id(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.6: after deletion, GET /games/{id} returns 404."""
+        # The route uses 'WHERE id = :id AND deleted_at IS NULL' — simulate that
+        # the DB returns no row (i.e., deleted_at is set).
+        pg.execute = AsyncMock(return_value=_make_result([]))  # no row found
+        resp = client.get(f"/api/v1/games/{_GAME_ID}")
+        assert resp.status_code == 404, (
+            "AC-27.6: soft-deleted game must not be accessible via GET /games/{id}"
+        )
 
     def test_rejects_without_confirm(self, client: TestClient, pg: AsyncMock) -> None:
+        """AC-27.7: DELETE without confirm=true → 400 with explanation."""
         resp = client.request(
             "DELETE",
             f"/api/v1/games/{_GAME_ID}",
@@ -1200,6 +1243,25 @@ class TestEndGame:
 
         assert resp.status_code == 400
         assert resp.json()["error"]["code"] == "CONFIRM_REQUIRED"
+        # AC-27.7: error message must explain the confirmation requirement
+        message = resp.json()["error"]["message"].lower()
+        assert "confirm" in message, (
+            "AC-27.7: error message must mention 'confirm' to explain the requirement"
+        )
+
+    def test_rejects_missing_body(self, client: TestClient, pg: AsyncMock) -> None:
+        """AC-27.7: DELETE with no body → 400 with confirmation explanation."""
+        resp = client.request(
+            "DELETE",
+            f"/api/v1/games/{_GAME_ID}",
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["error"]["code"] == "CONFIRM_REQUIRED"
+        message = resp.json()["error"]["message"].lower()
+        assert "confirm" in message, (
+            "AC-27.7: error message must mention 'confirm' to explain the requirement"
+        )
 
     def test_rejects_already_ended(self, client: TestClient, pg: AsyncMock) -> None:
         pg.execute = AsyncMock(return_value=_make_result([_game_row(status="ended")]))
@@ -1264,6 +1326,111 @@ class TestCompletedTransitions:
 
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+    def test_completed_game_rejects_new_turn(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.10: POST /turns on a completed game returns 409."""
+        pg.execute = AsyncMock(
+            return_value=_make_result([_game_row(status="completed")])
+        )
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "go north"},
+        )
+
+        # AC-27.10: must be 409 Conflict — completed is read-only
+        assert resp.status_code == 409, (
+            "AC-27.10: submitting a turn to a completed game must return 409"
+        )
+        assert resp.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+    def test_completed_game_still_appears_in_listing(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.10: completed game still appears in GET /games with state 'completed'."""  # noqa: E501
+        # The list_games route excludes abandoned games by default but includes
+        # completed ones (only status != 'abandoned' is filtered).
+        pg.execute = AsyncMock(
+            return_value=_make_result(
+                [
+                    {
+                        "id": _GAME_ID,
+                        "player_id": _PLAYER_ID,
+                        "status": "completed",
+                        "world_seed": "{}",
+                        "title": "My Quest",
+                        "summary": None,
+                        "turn_count": 15,
+                        "created_at": _NOW,
+                        "updated_at": _NOW,
+                        "last_played_at": _NOW,
+                    }
+                ]
+            )
+        )
+
+        resp = client.get("/api/v1/games")
+
+        assert resp.status_code == 200
+        # GET /games returns {"data": [...], "meta": {...}}
+        items = resp.json()["data"]
+        assert len(items) == 1, "AC-27.10: completed game must appear in listings"
+        assert items[0]["game_id"] == str(_GAME_ID)
+        assert items[0]["status"] == "completed", (
+            "AC-27.10: completed game must show state 'completed' in listing"
+        )
+
+    def test_completed_game_turn_rejected_then_still_listed(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.10 end-to-end: 409 on turn submission, game still in listing."""
+        # First call: submit turn → 409
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row(status="completed")]),  # _get_owned_game
+                # Second call: list games → completed game still present
+                _make_result(
+                    [
+                        {
+                            "id": _GAME_ID,
+                            "player_id": _PLAYER_ID,
+                            "status": "completed",
+                            "world_seed": "{}",
+                            "title": None,
+                            "summary": None,
+                            "turn_count": 10,
+                            "created_at": _NOW,
+                            "updated_at": _NOW,
+                            "last_played_at": _NOW,
+                        }
+                    ]
+                ),
+            ]
+        )
+
+        turn_resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "look around"},
+        )
+        assert turn_resp.status_code == 409, (
+            "AC-27.10: completed game must reject turns with 409"
+        )
+
+        list_resp = client.get("/api/v1/games")
+        assert list_resp.status_code == 200
+        # GET /games returns {"data": [...], "meta": {...}}
+        items = list_resp.json()["data"]
+        ids = [item["game_id"] for item in items]
+        assert str(_GAME_ID) in ids, (
+            "AC-27.10: completed game must still appear in GET /games"
+            " after rejected turn"
+        )
+        game = next(i for i in items if i["game_id"] == str(_GAME_ID))
+        assert game["status"] == "completed", (
+            "AC-27.10: game status must remain 'completed' in listing"
+        )
 
 
 # ------------------------------------------------------------------
