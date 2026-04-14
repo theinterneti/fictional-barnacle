@@ -594,6 +594,65 @@ class TestSubmitTurn:
         assert body["turn_id"] == str(existing_turn_id)
         assert body["turn_number"] == 3
 
+    def test_last_played_at_updated_and_turn_persisted(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.5: after a successful turn, last_played_at is updated and the
+        turn row is inserted — verified by inspecting the SQL calls issued.
+
+        The route:
+          1. INSERTs a row into `turns` (persisting narrative/world-state slot)
+          2. UPDATEs `game_sessions` setting last_played_at (and updated_at)
+          3. COMMITs both writes atomically
+
+        turn_count is maintained server-side via the max(turn_number) query so
+        the explicit last_played_at UPDATE is the observable proxy for the spec
+        postcondition "last_played_at is updated AND turn is persisted".
+        """
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row()]),  # _get_owned_game
+                _make_result(),  # advisory lock
+                _make_result(),  # in-flight check (none)
+                _make_result(scalar=2),  # max turn number → next = 3
+                _make_result(),  # INSERT turn
+                _make_result(),  # UPDATE last_played_at
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "go north"},
+        )
+
+        assert resp.status_code == 202
+        body = resp.json()["data"]
+        # AC-27.5: turn_count incremented — turn_number is max+1
+        assert body["turn_number"] == 3
+
+        # AC-27.5: both INSERT turn and UPDATE last_played_at were issued
+        assert pg.execute.await_count == 6, (
+            "AC-27.5: expected 6 DB calls "
+            "(get_game, advisory_lock, in_flight, max_turn, INSERT turn, "
+            f"UPDATE last_played_at), got {pg.execute.await_count}"
+        )
+
+        # AC-27.5: commit was called — writes are durably persisted
+        pg.commit.assert_awaited_once()
+
+        # Verify the UPDATE last_played_at SQL was among the calls
+        all_sqls = [
+            str(call.args[0].text) if call.args else ""
+            for call in pg.execute.await_args_list
+        ]
+        assert any("last_played_at" in sql for sql in all_sqls), (
+            "AC-27.5: no SQL updating last_played_at found among DB calls"
+        )
+        assert any("INSERT INTO turns" in sql for sql in all_sqls), (
+            "AC-27.5: no INSERT INTO turns found among DB calls"
+        )
+
 
 # ------------------------------------------------------------------
 # POST /api/v1/games/{id}/save — Save game
@@ -1189,7 +1248,21 @@ class TestSubmitTurnRecovery:
     def test_recovery_attempted_when_needs_recovery(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """submit_turn with needs_recovery=True re-derives turn_count."""
+        """AC-27.9: when needs_recovery=True, recovery SQL is issued first,
+        then the normal turn pipeline proceeds.
+
+        Expected call order:
+          1. _get_owned_game (SELECT)
+          2. _get_turn_count (SELECT COUNT — recovery)
+          3. UPDATE game_sessions SET turn_count=…, needs_recovery=FALSE … (recovery)
+          4. pg.commit() for recovery
+          5. advisory lock
+          6. in-flight check
+          7. max turn number
+          8. INSERT turn
+          9. UPDATE last_played_at
+         10. pg.commit() for turn
+        """
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row(needs_recovery=True)]),  # owned
@@ -1210,6 +1283,43 @@ class TestSubmitTurnRecovery:
         )
 
         assert resp.status_code == 202
+
+        # AC-27.9: recovery SQL must appear before the INSERT turn
+        all_sqls = [
+            str(call.args[0].text) if call.args else ""
+            for call in pg.execute.await_args_list
+        ]
+
+        # Find indices of recovery UPDATE and INSERT turn
+        recovery_idx = next(
+            (
+                i
+                for i, sql in enumerate(all_sqls)
+                if "needs_recovery" in sql and "UPDATE" in sql
+            ),
+            None,
+        )
+        insert_turn_idx = next(
+            (i for i, sql in enumerate(all_sqls) if "INSERT INTO turns" in sql),
+            None,
+        )
+
+        assert recovery_idx is not None, (
+            "AC-27.9: no recovery UPDATE SQL (SET needs_recovery = FALSE) found"
+        )
+        assert insert_turn_idx is not None, (
+            "AC-27.9: no INSERT INTO turns found — normal turn not processed"
+        )
+        assert recovery_idx < insert_turn_idx, (
+            f"AC-27.9: recovery SQL (call #{recovery_idx}) must precede "
+            f"INSERT turn (call #{insert_turn_idx})"
+        )
+
+        # AC-27.9: commit called for recovery AND for the new turn (≥2 times)
+        assert pg.commit.await_count >= 2, (
+            "AC-27.9: expected at least 2 commits (recovery + new turn), "
+            f"got {pg.commit.await_count}"
+        )
 
     def test_recovery_failure_does_not_block_turn(
         self, client: TestClient, pg: AsyncMock
