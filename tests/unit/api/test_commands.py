@@ -107,34 +107,38 @@ def _setup_active_game(pg: AsyncMock) -> None:
     pg.execute.return_value = _make_result([_game_row()])
 
 
-# --- Nudge tests (AC-1.2: empty input → atmospheric nudge) ---
+# --- Empty/whitespace input validation (S23 AC-23.11) ---
 
 
-class TestNudge:
-    def test_empty_input_returns_nudge(self, client: TestClient, pg: AsyncMock) -> None:
-        _setup_active_game(pg)
+class TestEmptyTurnInputValidation:
+    def test_empty_string_returns_400(self, client: TestClient, pg: AsyncMock) -> None:
+        """True empty string is rejected at Pydantic level (min_length=1) → 422."""
         resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": ""})
-        assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert data["type"] == "nudge"
-        assert len(data["message"]) > 0
+        # min_length=1 triggers Pydantic validation → 422
+        assert resp.status_code == 422
 
-    def test_whitespace_only_returns_nudge(
+    def test_whitespace_only_returns_400_input_invalid(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
+        """Whitespace-only input passes Pydantic but is caught in the route → 400."""
         _setup_active_game(pg)
         resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": "   "})
-        assert resp.status_code == 200
-        assert resp.json()["data"]["type"] == "nudge"
+        assert resp.status_code == 400
+        error = resp.json()["error"]
+        assert error["code"] == "EMPTY_TURN_INPUT"
+        assert "empty" in error["message"].lower()
 
-    def test_nudge_message_varies(self, client: TestClient, pg: AsyncMock) -> None:
-        """Multiple nudge requests should produce different messages."""
-        messages = set()
-        for _ in range(20):
-            _setup_active_game(pg)
-            resp = client.post(f"/api/v1/games/{_GAME_ID}/turns", json={"input": ""})
-            messages.add(resp.json()["data"]["message"])
-        assert len(messages) > 1, "Nudge phrases should vary"
+    def test_valid_input_not_blocked(self, client: TestClient, pg: AsyncMock) -> None:
+        """A non-empty string proceeds past validation (may fail later in pipeline)."""
+        _setup_active_game(pg)
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns", json={"input": "look around"}
+        )
+        # Should not be a 400 input_invalid — any other outcome is fine here
+        assert (
+            resp.status_code != 400
+            or resp.json().get("error", {}).get("code") != "EMPTY_TURN_INPUT"
+        )
 
 
 # --- Command tests (AC-1.10: slash commands) ---

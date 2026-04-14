@@ -327,7 +327,10 @@ class TestSubmitTurn:
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "TURN_IN_PROGRESS"
 
-    def test_blank_input_returns_nudge(self, client: TestClient, pg: AsyncMock) -> None:
+    def test_whitespace_only_returns_400(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """Whitespace-only input is rejected with 400 input_invalid (AC-23.11)."""
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row()]),  # _get_owned_game
@@ -337,10 +340,9 @@ class TestSubmitTurn:
             f"/api/v1/games/{_GAME_ID}/turns",
             json={"input": "   "},
         )
-        assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert data["type"] == "nudge"
-        assert len(data["message"]) > 0
+        assert resp.status_code == 400
+        error = resp.json()["error"]
+        assert error["code"] == "EMPTY_TURN_INPUT"
 
     def test_idempotency_returns_existing_turn(
         self, client: TestClient, pg: AsyncMock

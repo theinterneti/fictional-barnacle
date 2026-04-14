@@ -149,21 +149,16 @@ class TestGameplayFlow:
         assert "stream_url" in data
         assert f"/games/{_GAME_ID}/stream" in data["stream_url"]
 
-    def test_step3_empty_input_returns_nudge(
+    def test_step3_empty_input_returns_422(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """Blank input returns a 200 nudge — no DB write, no pipeline."""
-        pg.execute = AsyncMock(return_value=_make_result([_game_row(turn_count=2)]))
-
+        """Blank input is rejected by Pydantic min_length=1 (AC-23.11)."""
         resp = client.post(
             f"/api/v1/games/{_GAME_ID}/turns",
             json={"input": ""},
         )
 
-        assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert data["type"] == "nudge"
-        assert len(data["message"]) > 0
+        assert resp.status_code == 422
 
     def test_step4_help_command(self, client: TestClient, pg: AsyncMock) -> None:
         """/help returns command listing — no pipeline, no DB turn."""
