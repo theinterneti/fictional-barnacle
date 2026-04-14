@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -229,9 +229,13 @@ class TestCreateGame:
     def test_created_game_appears_in_listing(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """AC-27.1: the created game appears in the player's game listing."""
-        created_game_id = uuid4()
-        game_row = _game_row(game_id=created_game_id, turn_count=0)
+        """AC-27.1: the game_id from POST /games appears in GET /games listing.
+
+        uuid4 is patched so the route uses a known ID — that same ID seeds the
+        list mock, letting us verify the create response and listing agree.
+        """
+        known_game_id = uuid4()
+        game_row = _game_row(game_id=known_game_id, turn_count=0)
 
         pg.execute = AsyncMock(
             side_effect=[
@@ -242,17 +246,18 @@ class TestCreateGame:
         )
         pg.commit = AsyncMock()
 
-        # Step 1: create the game
-        create_resp = client.post("/api/v1/games", json={})
+        with patch("tta.api.routes.games.uuid4", return_value=known_game_id):
+            create_resp = client.post("/api/v1/games", json={})
         assert create_resp.status_code == 201
+        created_id = create_resp.json()["data"]["game_id"]
 
-        # Step 2: list games — the seeded game_id must appear in the listing
+        # Step 2: list games — the created game_id must appear
         list_resp = client.get("/api/v1/games")
         assert list_resp.status_code == 200
         listed_ids = [g["game_id"] for g in list_resp.json()["data"]]
         assert len(listed_ids) == 1, f"Expected 1 game in listing, got {listed_ids}"
-        assert str(created_game_id) in listed_ids, (
-            f"Expected game {created_game_id} in listing, got {listed_ids}"
+        assert created_id in listed_ids, (
+            f"Expected game {created_id} in listing, got {listed_ids}"
         )
 
 
@@ -601,7 +606,7 @@ class TestSubmitTurn:
         turn row is inserted — verified by inspecting the SQL calls issued.
 
         The route:
-          1. INSERTs a row into `turns` (persisting the turn slot, status='pending')
+          1. INSERTs a row into `turns` (persisting the turn slot, status='processing')
           2. UPDATEs `game_sessions` setting last_played_at (and updated_at)
           3. COMMITs both writes atomically
 
@@ -610,14 +615,14 @@ class TestSubmitTurn:
             turn_count is a derived/reconciled field: the route reads the live
             count via SELECT MAX(turn_number) and returns turn_number = max + 1.
           - The `turn_count + 1` UPDATE is issued by the async pipeline callback
-            (games.py ~line 297, "SET turn_count = turn_count + 1") after the
+            in `_run_turn_pipeline` ("SET turn_count = turn_count + 1") after the
             LLM completes and the turn transitions to status='complete'.
           - This two-phase approach is intentional: the pipeline owns the
             authoritative increment once narrative is durably persisted, while
             submit_turn only reserves the slot.
 
         AC-27.5 narrative persistence compliance:
-          - submit_turn inserts the turn row with status='pending' and no
+          - submit_turn inserts the turn row with status='processing' and no
             narrative_output — the narrative slot is reserved but empty.
           - The async pipeline fills narrative_output and sets status='complete'.
           - See TestTurnPersistence.test_completed_turn_has_narrative_output for

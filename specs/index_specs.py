@@ -376,7 +376,7 @@ def format_json(specs: list[SpecMeta]) -> str:
         "total_acceptance_criteria": sum(s.acceptance_criteria_count for s in specs),
         "specs": [asdict(s) for s in specs],
     }
-    return json.dumps(data, indent=2)
+    return json.dumps(data, indent=2, ensure_ascii=False)
 
 
 def format_validation(specs: list[SpecMeta]) -> str:
