@@ -662,7 +662,55 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 1,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-09.1",
+          "ac_status": "done",
+          "description": "Prompts stored as versioned files; each has unique ID, version, declared variables; system refuses to start if required prompt missing"
+        },
+        {
+          "id": "AC-09.2",
+          "ac_status": "v2",
+          "description": "Registry resolves IDs to active versions; runtime activation/rollback without deploy; events audited"
+        },
+        {
+          "id": "AC-09.3",
+          "ac_status": "done",
+          "description": "Variables injected correctly; missing required variables raise clear error; sandboxed environment prevents injection"
+        },
+        {
+          "id": "AC-09.4",
+          "ac_status": "done",
+          "description": "Prompts include shared fragments by reference; circular references detected and rejected"
+        },
+        {
+          "id": "AC-09.5",
+          "ac_status": "done",
+          "description": "Golden tests detect unintended output changes; scenario tests validate behavioral assertions; deterministic rendering"
+        },
+        {
+          "id": "AC-09.6",
+          "ac_status": "v2",
+          "description": "Genre packs loadable and versioned; include tone, archetypes, location moods, fallback responses"
+        },
+        {
+          "id": "AC-09.7",
+          "ac_status": "v2",
+          "description": "Langfuse generation includes prompt template ID, version, fragment versions; per-version metrics tracked"
+        },
+        {
+          "id": "AC-09.8",
+          "ac_status": "done",
+          "description": "Every player-facing prompt includes safety preamble; preamble cannot be removed; injection logged observe-only"
+        },
+        {
+          "id": "AC-09.9",
+          "ac_status": "v2",
+          "description": "Authors can preview output; shadow mode processes real inputs without serving players; registration validates syntax"
+        }
+      ],
+      "compliance_pct": 55.6
     },
     {
       "file": "10-api-and-streaming.md",
