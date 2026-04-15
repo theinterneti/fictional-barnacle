@@ -496,7 +496,45 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-07.1",
+          "ac_status": "done",
+          "description": "All LLM calls go through unified interface; response envelope includes model, content, usage, latency_ms, cost_usd, and finish_reason"
+        },
+        {
+          "id": "AC-07.2",
+          "ac_status": "done",
+          "description": "Primary failure triggers fallback; all tiers fail raises AllTiersFailedError; fallback tier recorded in response"
+        },
+        {
+          "id": "AC-07.3",
+          "ac_status": "done",
+          "description": "Excessive context completes without error; P0 content never truncated; budget computed correctly"
+        },
+        {
+          "id": "AC-07.4",
+          "ac_status": "done",
+          "description": "Stream buffers token-by-token content; mid-stream error raises cleanly; done event includes total token count"
+        },
+        {
+          "id": "AC-07.5",
+          "ac_status": "done",
+          "description": "Per-turn costs tracked in response and queryable; session cost cap raises BudgetExceededError to prevent runaway spending"
+        },
+        {
+          "id": "AC-07.6",
+          "ac_status": "v2",
+          "description": "Every LLM call appears in Langfuse with full data; all calls within a turn grouped under one trace (requires live Langfuse integration infra)"
+        },
+        {
+          "id": "AC-07.7",
+          "ac_status": "done",
+          "description": "Full test suite runs without live LLM calls; mock mode exercises complete call path except HTTP request"
+        }
+      ],
+      "compliance_pct": 85.7
     },
     {
       "file": "08-turn-processing-pipeline.md",
@@ -540,7 +578,45 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 24,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-08.1",
+          "ac_status": "done",
+          "description": "End-to-end turn processing: player submits turn → all four pipeline stages execute → narrative streams via SSE; world-state side effects available atomically after generation"
+        },
+        {
+          "id": "AC-08.2",
+          "ac_status": "done",
+          "description": "Input understanding: intent classified correctly; gibberish → 'other' with low confidence; meta-commands routed separately; LLM failure falls back to keyword detection then 'other'"
+        },
+        {
+          "id": "AC-08.3",
+          "ac_status": "done",
+          "description": "Context assembly: relevant world state assembled (location, intent, game state); DB unavailability → partial context flag; pipeline still continues with minimal context"
+        },
+        {
+          "id": "AC-08.4",
+          "ac_status": "done",
+          "description": "Generation quality: narrative produced from assembled context; world-state updates extracted via LLM; suggested actions populated when extraction returns them"
+        },
+        {
+          "id": "AC-08.5",
+          "ac_status": "done",
+          "description": "Delivery: ThinkingEvent and TurnCompleteEvent SSE types defined with required metadata; deliver_stage marks turn complete; turn persisted to repository"
+        },
+        {
+          "id": "AC-08.6",
+          "ac_status": "done",
+          "description": "Error resilience: understanding LLM failure → keyword fallback; DB unavailable → minimal context; all LLM tiers fail → in-world fallback narrative; duplicate turns/idempotency keys rejected"
+        },
+        {
+          "id": "AC-08.7",
+          "ac_status": "v2",
+          "description": "Observability: Langfuse per-stage spans with full Understanding and Context objects as attributes (requires live Langfuse integration infra)"
+        }
+      ],
+      "compliance_pct": 85.7
     },
     {
       "file": "09-prompt-and-content.md",
@@ -586,7 +662,55 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 1,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-09.1",
+          "ac_status": "done",
+          "description": "Prompts stored as versioned files; each has unique ID, version, declared variables; system refuses to start if required prompt missing"
+        },
+        {
+          "id": "AC-09.2",
+          "ac_status": "v2",
+          "description": "Registry resolves IDs to active versions; runtime activation/rollback without deploy; events audited"
+        },
+        {
+          "id": "AC-09.3",
+          "ac_status": "done",
+          "description": "Variables injected correctly; missing required variables raise clear error; sandboxed environment prevents injection"
+        },
+        {
+          "id": "AC-09.4",
+          "ac_status": "done",
+          "description": "Prompts include shared fragments by reference; circular references detected and rejected"
+        },
+        {
+          "id": "AC-09.5",
+          "ac_status": "done",
+          "description": "Golden tests detect unintended output changes; scenario tests validate behavioral assertions; deterministic rendering"
+        },
+        {
+          "id": "AC-09.6",
+          "ac_status": "v2",
+          "description": "Genre packs loadable and versioned; include tone, archetypes, location moods, fallback responses"
+        },
+        {
+          "id": "AC-09.7",
+          "ac_status": "v2",
+          "description": "Langfuse generation includes prompt template ID, version, fragment versions; per-version metrics tracked"
+        },
+        {
+          "id": "AC-09.8",
+          "ac_status": "done",
+          "description": "Every player-facing prompt includes safety preamble; preamble cannot be removed; injection logged observe-only"
+        },
+        {
+          "id": "AC-09.9",
+          "ac_status": "v2",
+          "description": "Authors can preview output; shadow mode processes real inputs without serving players; registration validates syntax"
+        }
+      ],
+      "compliance_pct": 55.6
     },
     {
       "file": "10-api-and-streaming.md",
@@ -733,20 +857,76 @@
       "warnings": [],
       "implementation_notes": " Wave 27: Fixed GameStatus bug — DB insert now uses created (not active), matching spec lifecycle.",
       "acceptance_criteria": [
-        {"id": "AC-11.01", "ac_status": "done", "description": "Anonymous auth returns 201 with player_id, access_token, is_anonymous=true"},
-        {"id": "AC-11.02", "ac_status": "done", "description": "Upgrade preserves anonymous player_id in token response"},
-        {"id": "AC-11.03", "ac_status": "v2", "description": "Multi-device login: same game list from two browsers"},
-        {"id": "AC-11.04", "ac_status": "done", "description": "First turn submission transitions game created→active"},
-        {"id": "AC-11.05", "ac_status": "v2", "description": "Paused game resumable within 30-day window (29 days)"},
-        {"id": "AC-11.06", "ac_status": "v2", "description": "Game paused for 31 days found in expired state"},
-        {"id": "AC-11.07", "ac_status": "v2", "description": "Expired game can be resumed with welcome-back narrative"},
-        {"id": "AC-11.08", "ac_status": "v2", "description": "Created game abandoned after 25 hours with no turns"},
-        {"id": "AC-11.09", "ac_status": "v2", "description": "Login locked after 5 failed attempts → 429"},
-        {"id": "AC-11.10", "ac_status": "done", "description": "Reused refresh token invalidates entire session family"},
-        {"id": "AC-11.11", "ac_status": "v2", "description": "Deleted player credentials rejected at login"},
-        {"id": "AC-11.12", "ac_status": "done", "description": "No API response contains password or password_hash field"},
-        {"id": "AC-11.13", "ac_status": "v2", "description": "Player data not retrievable via API within 72h of deletion"},
-        {"id": "AC-11.14", "ac_status": "v2", "description": "Deleted player_id cannot be reassigned to new player"}
+        {
+          "id": "AC-11.01",
+          "ac_status": "done",
+          "description": "Anonymous auth returns 201 with player_id, access_token, is_anonymous=true"
+        },
+        {
+          "id": "AC-11.02",
+          "ac_status": "done",
+          "description": "Upgrade preserves anonymous player_id in token response"
+        },
+        {
+          "id": "AC-11.03",
+          "ac_status": "v2",
+          "description": "Multi-device login: same game list from two browsers"
+        },
+        {
+          "id": "AC-11.04",
+          "ac_status": "done",
+          "description": "First turn submission transitions game created→active"
+        },
+        {
+          "id": "AC-11.05",
+          "ac_status": "v2",
+          "description": "Paused game resumable within 30-day window (29 days)"
+        },
+        {
+          "id": "AC-11.06",
+          "ac_status": "v2",
+          "description": "Game paused for 31 days found in expired state"
+        },
+        {
+          "id": "AC-11.07",
+          "ac_status": "v2",
+          "description": "Expired game can be resumed with welcome-back narrative"
+        },
+        {
+          "id": "AC-11.08",
+          "ac_status": "v2",
+          "description": "Created game abandoned after 25 hours with no turns"
+        },
+        {
+          "id": "AC-11.09",
+          "ac_status": "v2",
+          "description": "Login locked after 5 failed attempts → 429"
+        },
+        {
+          "id": "AC-11.10",
+          "ac_status": "done",
+          "description": "Reused refresh token invalidates entire session family"
+        },
+        {
+          "id": "AC-11.11",
+          "ac_status": "v2",
+          "description": "Deleted player credentials rejected at login"
+        },
+        {
+          "id": "AC-11.12",
+          "ac_status": "done",
+          "description": "No API response contains password or password_hash field"
+        },
+        {
+          "id": "AC-11.13",
+          "ac_status": "v2",
+          "description": "Player data not retrievable via API within 72h of deletion"
+        },
+        {
+          "id": "AC-11.14",
+          "ac_status": "v2",
+          "description": "Deleted player_id cannot be reassigned to new player"
+        }
       ],
       "compliance_pct": 35.7
     },
@@ -798,7 +978,70 @@
         "AC-12.07",
         "AC-12.11",
         "AC-12.12"
-      ]
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-12.01",
+          "ac_status": "done",
+          "description": "Turn submitted is retrievable from turn history after a server restart"
+        },
+        {
+          "id": "AC-12.02",
+          "ac_status": "done",
+          "description": "After Redis restart, next turn completes successfully (cache reconstruction transparent)"
+        },
+        {
+          "id": "AC-12.03",
+          "ac_status": "v2",
+          "description": "GDPR deletion request removes all PII from SQL within 72 hours (requires async background job + direct DB query)"
+        },
+        {
+          "id": "AC-12.04",
+          "ac_status": "done",
+          "description": "Game state after 100 turns matches accumulated effect of all snapshots (no state drift)"
+        },
+        {
+          "id": "AC-12.05",
+          "ac_status": "v2",
+          "description": "Game state read from Redis cache completes in under 5ms p95 (requires real Redis + timing harness)"
+        },
+        {
+          "id": "AC-12.06",
+          "ac_status": "v2",
+          "description": "Cache miss reconstruction from SQL + Neo4j completes in under 500ms p95 (requires real infra)"
+        },
+        {
+          "id": "AC-12.07",
+          "ac_status": "v2",
+          "description": "Turn processing (all storage ops, excluding AI) completes in under 200ms p95 (requires real infra)"
+        },
+        {
+          "id": "AC-12.08",
+          "ac_status": "v2",
+          "description": "World graph traversal (2-hop) completes in under 200ms p95 (requires real Neo4j)"
+        },
+        {
+          "id": "AC-12.09",
+          "ac_status": "done",
+          "description": "SQL migration applies without manual intervention beyond running the migration command"
+        },
+        {
+          "id": "AC-12.10",
+          "ac_status": "v2",
+          "description": "Neo4j migration script is idempotent (no Neo4j unit-test infra available)"
+        },
+        {
+          "id": "AC-12.11",
+          "ac_status": "v2",
+          "description": "Operator can restore SQL from backup and have service functional within 1 hour (operational procedure)"
+        },
+        {
+          "id": "AC-12.12",
+          "ac_status": "done",
+          "description": "All Redis keys have a TTL set (no unbounded memory growth)"
+        }
+      ],
+      "compliance_pct": 41.7
     },
     {
       "file": "13-world-graph-schema.md",
