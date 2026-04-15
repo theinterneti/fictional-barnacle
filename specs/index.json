@@ -333,7 +333,50 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-4.1",
+          "ac_status": "done",
+          "description": "WorldContext provides location, entities, events on query"
+        },
+        {
+          "id": "AC-4.2",
+          "ac_status": "v2",
+          "description": "Cascading state changes propagate to nearby entities (needs world-tick engine)"
+        },
+        {
+          "id": "AC-4.3",
+          "ac_status": "done",
+          "description": "Diff query returns state changes since last visit"
+        },
+        {
+          "id": "AC-4.4",
+          "ac_status": "v2",
+          "description": "Lazy region generation within 3s (needs on-demand generation)"
+        },
+        {
+          "id": "AC-4.5",
+          "ac_status": "v2",
+          "description": "NPC schedules advance with time (needs world-tick scheduler)"
+        },
+        {
+          "id": "AC-4.6",
+          "ac_status": "done",
+          "description": "Each region has distinct identity (archetype, atmosphere)"
+        },
+        {
+          "id": "AC-4.7",
+          "ac_status": "v2",
+          "description": "Nearby query < 200ms at 5000 entities (needs Neo4j backend)"
+        },
+        {
+          "id": "AC-4.8",
+          "ac_status": "done",
+          "description": "World state restored to last completed turn after crash"
+        }
+      ],
+      "compliance_pct": 50.0
     },
     {
       "file": "05-choice-and-consequence.md",
