@@ -214,14 +214,15 @@ class TestAC401WorldContextAssembly:
 class TestAC403StateDiffOnReturn:
     """AC-4.3: Returning to a location yields a diff of changes since absence.
 
-    v1 implements this as an event log maintained by apply_world_changes().
-    get_recent_events() returns that log — serving as the diff mechanism.
-    The test verifies that each applied WorldChange is reflected in the log
-    and that events from different sessions are isolated.
+    v1 implements this via apply_world_changes() mutating world state in place.
+    get_world_state() after applying changes reflects all mutations — serving
+    as the round-trip diff contract. Tests verify that applied changes are
+    visible in subsequent reads and that changes from different sessions are
+    fully isolated.
     """
 
     @pytest.mark.asyncio
-    async def test_applied_changes_appear_in_event_log(self) -> None:
+    async def test_applied_changes_visible_in_subsequent_world_state(self) -> None:
         """AC-4.3: Changes applied via apply_world_changes are retrievable."""
         svc = InMemoryWorldService()
         sid = uuid4()
@@ -304,10 +305,10 @@ class TestAC403StateDiffOnReturn:
             ],
         )
 
-        # Session B's NPC should be unaffected.
+        # Session B's NPC must remain at its initial value ("neutral").
         ctx_b = await svc.get_world_state(sid_b)
-        assert ctx_b.npcs_present[0].disposition != "hostile", (
-            "Session isolation: changes in session A must not bleed into B"
+        assert ctx_b.npcs_present[0].disposition == "neutral", (
+            "Session isolation: B's NPC disposition must remain at its initial value"
         )
 
 
