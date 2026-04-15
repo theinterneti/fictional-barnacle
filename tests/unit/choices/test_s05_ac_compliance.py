@@ -169,7 +169,11 @@ class TestAC503RefusalTracked:
     Two validations:
     1. Refusal-phrased inputs are classified as ChoiceType.REFUSAL.
     2. A consequence chain with trigger "NPC request ignored" can be created
-       and retrieved — demonstrating the service tracks refusals.
+       and retrieved — demonstrating the service tracks refusals as chains.
+
+    Note: these tests validate classification and chain storage only. The NPC
+    disposition consequence described in AC-5.3 is not yet implemented (v2);
+    see specs/index.json AC-5.3 status.
     """
 
     def test_do_nothing_classifies_as_refusal(self) -> None:
@@ -210,7 +214,8 @@ class TestAC504PermanentReversibility:
 
     Validates the data model layer: PERMANENT reversibility can be stored
     on a ConsequenceChain and is distinguishable from less severe values.
-    The narrative signal itself is tested in test_s05_choice_consequence.py.
+    This unit test covers the data-model aspect only; narrative signaling is
+    validated separately from this compliance-focused model test.
     """
 
     @pytest.mark.asyncio
@@ -441,7 +446,7 @@ class TestAC508DormantPruning:
             turn=5,
         )
         # 60 - 5 = 55 turns elapsed → dormant, closure generated
-        _pruned_ids, closures = await svc.prune_chains(session_id, 60)
+        _, closures = await svc.prune_chains(session_id, 60)
 
         assert "The lost oath" in closures
 

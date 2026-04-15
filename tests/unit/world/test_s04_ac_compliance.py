@@ -116,14 +116,15 @@ def _make_seed(
 
 
 class TestAC401WorldContextAssembly:
-    """AC-4.1: "Look around" returns a fully populated WorldContext.
+    """AC-4.1 (partial v1): "Look around" populates the available WorldContext fields.
 
-    The spec requires: current location, entities present (NPCs + items),
-    environmental conditions, time-of-day, and active events — within 200ms.
+    The full spec requires: location, entities, environmental conditions,
+    time-of-day, and active events. v1 WorldContext covers location, NPCs,
+    items, nearby locations, and light_level. Time-of-day and active-events
+    fields are not yet implemented — those sub-requirements are v2.
 
-    The 200ms timing is infrastructure-dependent (v2). Here we verify that all
-    structural fields are populated after seeding a location with NPCs, items,
-    and connections. `get_world_state()` is the v1 "look around" equivalent.
+    These tests validate the v1-available fields only and do not imply
+    full AC-4.1 compliance.
     """
 
     @pytest.mark.asyncio
@@ -214,11 +215,11 @@ class TestAC401WorldContextAssembly:
 class TestAC403StateDiffOnReturn:
     """AC-4.3: Returning to a location yields a diff of changes since absence.
 
-    v1 implements this via apply_world_changes() mutating world state in place.
-    get_world_state() after applying changes reflects all mutations — serving
-    as the round-trip diff contract. Tests verify that applied changes are
-    visible in subsequent reads and that changes from different sessions are
-    fully isolated.
+    v1 does not expose a diff query API. These tests verify that applied
+    mutations are visible in subsequent get_world_state() snapshots and that
+    changes from different sessions are fully isolated — which is the
+    precondition a true diff implementation would build upon. The diff query
+    itself is deferred to v2 (see specs/index.json AC-4.3 status: v2).
     """
 
     @pytest.mark.asyncio
