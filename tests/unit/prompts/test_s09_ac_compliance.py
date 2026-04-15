@@ -370,7 +370,7 @@ class TestAC098Guardrails:
 
     @staticmethod
     def _preamble_text() -> str | None:
-        """Read the safety preamble from disk (public filesystem, not registry internals)."""
+        """Read the safety preamble from disk, not registry internals."""
         preamble_path = FRAGMENTS_DIR / "safety-preamble.fragment.md"
         if not preamble_path.is_file():
             return None
