@@ -410,7 +410,20 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {"id": "AC-5.1", "ac_status": "done", "description": "Delayed consequence manifests after SHORT_TERM turns"},
+        {"id": "AC-5.2", "ac_status": "done", "description": "Choice classifier produces 3+ distinct types; refusal/moral/dialogue recognized"},
+        {"id": "AC-5.3", "ac_status": "done", "description": "Refusal inputs classified as ChoiceType.REFUSAL; tracked in consequence service"},
+        {"id": "AC-5.4", "ac_status": "done", "description": "PERMANENT reversibility stored and distinguishable from lesser categories"},
+        {"id": "AC-5.5", "ac_status": "v2", "description": "Subtle foreshadowing over 5+ turns (needs live narrative + hidden chain)"},
+        {"id": "AC-5.6", "ac_status": "done", "description": "30 chains evaluated within 300ms"},
+        {"id": "AC-5.7", "ac_status": "done", "description": "Consequence chains are session-isolated (no cross-contamination)"},
+        {"id": "AC-5.8", "ac_status": "done", "description": "Dormant chains pruned to PRUNED status after 50+ turns"},
+        {"id": "AC-5.9", "ac_status": "done", "description": "3 branching chains stored independently and resolve independently"},
+        {"id": "AC-5.10", "ac_status": "done", "description": "DivergenceScore.needs_steering true at score >= 0.7"}
+      ],
+      "compliance_pct": 90.0
     },
     {
       "file": "06-character-system.md",
