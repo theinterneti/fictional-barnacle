@@ -578,7 +578,45 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 24,
-      "warnings": []
+      "warnings": [],
+      "acceptance_criteria": [
+        {
+          "id": "AC-08.1",
+          "ac_status": "done",
+          "description": "End-to-end turn processing: player submits turn → all four pipeline stages execute → narrative streams via SSE; world-state side effects available atomically after generation"
+        },
+        {
+          "id": "AC-08.2",
+          "ac_status": "done",
+          "description": "Input understanding: intent classified correctly; gibberish → 'other' with low confidence; meta-commands routed separately; LLM failure falls back to keyword detection then 'other'"
+        },
+        {
+          "id": "AC-08.3",
+          "ac_status": "done",
+          "description": "Context assembly: relevant world state assembled (location, intent, game state); DB unavailability → partial context flag; pipeline still continues with minimal context"
+        },
+        {
+          "id": "AC-08.4",
+          "ac_status": "done",
+          "description": "Generation quality: narrative produced from assembled context; world-state updates extracted via LLM; suggested actions populated when extraction returns them"
+        },
+        {
+          "id": "AC-08.5",
+          "ac_status": "done",
+          "description": "Delivery: ThinkingEvent and TurnCompleteEvent SSE types defined with required metadata; deliver_stage marks turn complete; turn persisted to repository"
+        },
+        {
+          "id": "AC-08.6",
+          "ac_status": "done",
+          "description": "Error resilience: understanding LLM failure → keyword fallback; DB unavailable → minimal context; all LLM tiers fail → in-world fallback narrative; duplicate turns/idempotency keys rejected"
+        },
+        {
+          "id": "AC-08.7",
+          "ac_status": "v2",
+          "description": "Observability: Langfuse per-stage spans with full Understanding and Context objects as attributes (requires live Langfuse integration infra)"
+        }
+      ],
+      "compliance_pct": 85.7
     },
     {
       "file": "09-prompt-and-content.md",
