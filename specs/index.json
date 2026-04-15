@@ -978,7 +978,70 @@
         "AC-12.07",
         "AC-12.11",
         "AC-12.12"
-      ]
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-12.01",
+          "ac_status": "done",
+          "description": "Turn submitted is retrievable from turn history after a server restart"
+        },
+        {
+          "id": "AC-12.02",
+          "ac_status": "done",
+          "description": "After Redis restart, next turn completes successfully (cache reconstruction transparent)"
+        },
+        {
+          "id": "AC-12.03",
+          "ac_status": "v2",
+          "description": "GDPR deletion request removes all PII from SQL within 72 hours (requires async background job + direct DB query)"
+        },
+        {
+          "id": "AC-12.04",
+          "ac_status": "done",
+          "description": "Game state after 100 turns matches accumulated effect of all snapshots (no state drift)"
+        },
+        {
+          "id": "AC-12.05",
+          "ac_status": "v2",
+          "description": "Game state read from Redis cache completes in under 5ms p95 (requires real Redis + timing harness)"
+        },
+        {
+          "id": "AC-12.06",
+          "ac_status": "v2",
+          "description": "Cache miss reconstruction from SQL + Neo4j completes in under 500ms p95 (requires real infra)"
+        },
+        {
+          "id": "AC-12.07",
+          "ac_status": "v2",
+          "description": "Turn processing (all storage ops, excluding AI) completes in under 200ms p95 (requires real infra)"
+        },
+        {
+          "id": "AC-12.08",
+          "ac_status": "v2",
+          "description": "World graph traversal (2-hop) completes in under 200ms p95 (requires real Neo4j)"
+        },
+        {
+          "id": "AC-12.09",
+          "ac_status": "done",
+          "description": "SQL migration applies without manual intervention beyond running the migration command"
+        },
+        {
+          "id": "AC-12.10",
+          "ac_status": "v2",
+          "description": "Neo4j migration script is idempotent (no Neo4j unit-test infra available)"
+        },
+        {
+          "id": "AC-12.11",
+          "ac_status": "v2",
+          "description": "Operator can restore SQL from backup and have service functional within 1 hour (operational procedure)"
+        },
+        {
+          "id": "AC-12.12",
+          "ac_status": "done",
+          "description": "All Redis keys have a TTL set (no unbounded memory growth)"
+        }
+      ],
+      "compliance_pct": 41.7
     },
     {
       "file": "13-world-graph-schema.md",
