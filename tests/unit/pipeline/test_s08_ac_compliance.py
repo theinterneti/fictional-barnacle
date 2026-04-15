@@ -519,12 +519,9 @@ class TestAC086ErrorResilience:
 
         result = await run_pipeline(state, deps)
 
-        # Understanding may degrade to 'other' but pipeline still completes
-        assert result.narrative_output is not None
-        assert result.status in (TurnStatus.complete, TurnStatus.failed) or True
-        # At minimum: understand stage didn't crash the whole pipeline
-        # (this is the core of AC-08.6 scenario 1)
-        assert result is not None
+        # understand_stage falls back to intent='other' — pipeline still completes
+        assert result.status == TurnStatus.complete
+        assert result.delivered is True
 
     @pytest.mark.asyncio
     async def test_db_unavailable_pipeline_proceeds_with_minimal_context(

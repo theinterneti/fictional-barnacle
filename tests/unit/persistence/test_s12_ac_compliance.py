@@ -115,9 +115,9 @@ class TestAC1202CacheReconstruction:
         mock_redis.get = AsyncMock(return_value=None)  # simulate Redis restart
         mock_redis.set = AsyncMock()
 
-        state = GameState(session_id=uuid4(), turn_number=3)
-        loader = AsyncMock(return_value=state)
         session_id = uuid4()
+        state = GameState(session_id=session_id, turn_number=3)
+        loader = AsyncMock(return_value=state)
 
         with patch("tta.persistence.redis_session.CACHE_RECONSTRUCTION_TOTAL"):
             result = await get_or_reconstruct_session(
@@ -125,7 +125,7 @@ class TestAC1202CacheReconstruction:
             )
 
         assert result is not None, "Reconstruction must return the rebuilt state"
-        assert result.session_id == state.session_id
+        assert result.session_id == session_id
         loader.assert_awaited_once_with(session_id)
         # Cache should be re-warmed so the next access is a hit
         mock_redis.set.assert_awaited_once()

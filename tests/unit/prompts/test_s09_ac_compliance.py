@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from jinja2.sandbox import SecurityError
+from jinja2.exceptions import SecurityError
 
 from tta.prompts.loader import (
     REQUIRED_TEMPLATES,
@@ -368,35 +368,46 @@ class TestAC098Guardrails:
     cannot be removed; player input always in user message, never system;
     suspected injection logged (does not block turn)."""
 
+    @staticmethod
+    def _preamble_text() -> str | None:
+        """Read the safety preamble from disk (public filesystem, not registry internals)."""
+        preamble_path = FRAGMENTS_DIR / "safety-preamble.fragment.md"
+        if not preamble_path.is_file():
+            return None
+        return preamble_path.read_text().strip()
+
     def test_generation_role_gets_safety_preamble(
         self, real_registry: FilePromptRegistry
     ) -> None:
         """generation-role templates receive the safety preamble."""
+        preamble = self._preamble_text()
         tpl = real_registry.get("narrative.generate")
         assert tpl.role == "generation"
         result = real_registry.render("narrative.generate", {})
-        if real_registry._safety_preamble:
-            assert result.text.startswith(real_registry._safety_preamble.strip())
+        if preamble:
+            assert result.text.startswith(preamble)
 
     def test_classification_role_gets_safety_preamble(
         self, real_registry: FilePromptRegistry
     ) -> None:
         """classification-role templates receive the safety preamble."""
+        preamble = self._preamble_text()
         tpl = real_registry.get("classification.intent")
         assert tpl.role == "classification"
         result = real_registry.render("classification.intent", {})
-        if real_registry._safety_preamble:
-            assert result.text.startswith(real_registry._safety_preamble.strip())
+        if preamble:
+            assert result.text.startswith(preamble)
 
     def test_extraction_role_does_not_get_preamble(
         self, real_registry: FilePromptRegistry
     ) -> None:
         """extraction-role templates do NOT get the safety preamble."""
+        preamble = self._preamble_text()
         tpl = real_registry.get("extraction.world-changes")
         assert tpl.role == "extraction"
         result = real_registry.render("extraction.world-changes", {})
-        if real_registry._safety_preamble:
-            assert not result.text.startswith(real_registry._safety_preamble.strip())
+        if preamble:
+            assert not result.text.startswith(preamble)
 
     def test_safety_preamble_file_exists(self) -> None:
         """The safety-preamble fragment is present on disk."""
