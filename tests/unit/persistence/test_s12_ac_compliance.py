@@ -115,7 +115,7 @@ class TestAC1202CacheReconstruction:
         mock_redis.get = AsyncMock(return_value=None)  # simulate Redis restart
         mock_redis.set = AsyncMock()
 
-        state = GameState(session_id=str(uuid4()), turn_number=3)
+        state = GameState(session_id=uuid4(), turn_number=3)
         loader = AsyncMock(return_value=state)
         session_id = uuid4()
 
@@ -137,7 +137,7 @@ class TestAC1202CacheReconstruction:
         mock_redis.get = AsyncMock(return_value=None)
         mock_redis.set = AsyncMock()
 
-        state = GameState(session_id=str(uuid4()), turn_number=1)
+        state = GameState(session_id=uuid4(), turn_number=1)
         loader = AsyncMock(return_value=state)
 
         with patch("tta.persistence.redis_session.CACHE_RECONSTRUCTION_TOTAL"):
@@ -362,7 +362,7 @@ class TestAC1212RedisTtlCompliance:
         mock_redis = AsyncMock()
         mock_redis.set = AsyncMock()
 
-        state = GameState(session_id=str(uuid4()), turn_number=0)
+        state = GameState(session_id=uuid4(), turn_number=0)
         await set_active_session(mock_redis, uuid4(), state)
 
         mock_redis.set.assert_awaited_once()
@@ -378,7 +378,7 @@ class TestAC1212RedisTtlCompliance:
         mock_redis = AsyncMock()
         mock_redis.set = AsyncMock()
 
-        state = GameState(session_id=str(uuid4()), turn_number=0)
+        state = GameState(session_id=uuid4(), turn_number=0)
         await set_active_session(mock_redis, uuid4(), state, ttl=7200)
 
         _, kwargs = mock_redis.set.call_args
@@ -390,7 +390,7 @@ class TestAC1212RedisTtlCompliance:
         mock_redis = AsyncMock()
         mock_redis.set = AsyncMock()
 
-        state = GameState(session_id=str(uuid4()), turn_number=0)
+        state = GameState(session_id=uuid4(), turn_number=0)
         await set_active_session(mock_redis, uuid4(), state)
 
         _, kwargs = mock_redis.set.call_args
