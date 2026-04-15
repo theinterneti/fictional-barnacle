@@ -120,7 +120,7 @@ class TestAC071ModelAbstraction:
     @patch(_COST, return_value=0.002)
     @patch(_ACOMPLETION)
     async def test_response_envelope_has_required_fields(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.1: LLMResponse envelope contains all required fields."""
         mock_ac.return_value = _mock_response(prompt_tokens=20, completion_tokens=10)
@@ -147,7 +147,7 @@ class TestAC071ModelAbstraction:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_caller_uses_role_not_model_name(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.1 / FR-07.03: Callers reference roles, not provider model names."""
         mock_ac.return_value = _mock_response()
@@ -163,7 +163,7 @@ class TestAC071ModelAbstraction:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_model_resolved_from_config_not_hardcoded(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.1: Changing role config changes model without code change."""
         mock_ac.return_value = _mock_response()
@@ -187,7 +187,7 @@ class TestAC072FallbackBehavior:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_primary_failure_triggers_fallback(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.2: When primary fails, fallback model is used automatically."""
         mock_ac.side_effect = [
@@ -223,7 +223,7 @@ class TestAC072FallbackBehavior:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_fallback_tier_recorded_in_response(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.2 / FR-07.09: fallback tier_used is recorded in the response."""
         mock_ac.side_effect = [
@@ -339,7 +339,7 @@ class TestAC074Streaming:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_stream_yields_content_tokens(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.4: stream() buffers and returns content from streamed tokens."""
         chunks = _mock_stream_chunks(
@@ -359,7 +359,7 @@ class TestAC074Streaming:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_done_event_includes_token_count(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.4 / FR-07.24: done event (LLMResponse) includes total_tokens."""
         chunks = _mock_stream_chunks(
@@ -404,7 +404,7 @@ class TestAC074Streaming:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_stream_with_no_usage_defaults_to_zero(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.4: When provider omits usage in stream, token counts default to 0
         (not crash)."""
@@ -429,7 +429,7 @@ class TestAC075CostManagement:
     @patch(_COST, return_value=0.0025)
     @patch(_ACOMPLETION)
     async def test_per_turn_cost_tracked_in_response(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.5 / FR-07.17: cost_usd is populated in every LLMResponse."""
         mock_ac.return_value = _mock_response(prompt_tokens=50, completion_tokens=25)
@@ -499,14 +499,14 @@ class TestAC075CostManagement:
             await guarded_llm_call(
                 deps=deps,
                 role=ModelRole.GENERATION,
-                messages=[{"role": "user", "content": "test"}],
+                messages=MESSAGES,
             )
 
     @pytest.mark.asyncio
     @patch(_COST, side_effect=Exception("pricing unknown"))
     @patch(_ACOMPLETION)
     async def test_cost_defaults_to_zero_when_pricing_unavailable(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.5: When cost calculation fails, defaults to 0.0 (not crash)."""
         mock_ac.return_value = _mock_response()
@@ -528,7 +528,7 @@ class TestAC077MockModeTesting:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_mock_intercepts_acompletion_not_real_call(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.7 / FR-07.41: The mock fixture intercepts litellm.acompletion,
         confirming no real HTTP call is made during tests."""
@@ -545,7 +545,7 @@ class TestAC077MockModeTesting:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_full_call_path_exercised_in_mock_mode(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.7 / FR-07.43: Mock mode exercises context assembly, token counting,
         and response parsing — not just the HTTP stub."""
@@ -572,7 +572,7 @@ class TestAC077MockModeTesting:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_mock_mode_configurable_per_role(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.7 / FR-07.42: Mock responses are configurable per model role,
         allowing tests to set up specific classification or narrative outputs."""
@@ -602,7 +602,7 @@ class TestAC077MockModeTesting:
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
     async def test_litellm_acompletion_is_patched_not_called_directly(
-        self, mock_ac: AsyncMock, mock_cost: MagicMock
+        self, mock_ac: AsyncMock, _mock_cost: MagicMock
     ) -> None:
         """AC-07.7: The abstraction (LiteLLMClient) is the only call site for
         litellm.acompletion — tests confirm mock intercepts at the right layer."""
