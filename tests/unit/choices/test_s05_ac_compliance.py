@@ -33,10 +33,12 @@ from tta.models.consequence import (
 class TestAC501DelayedConsequences:
     """AC-5.1: Consequential choice produces delayed consequence after 10+ turns.
 
-    The SHORT_TERM timescale activates in the 1–10 turn window. We verify that
-    an entry created at turn 0 does NOT activate on turn 0, but DOES activate
-    by turn 5 (within SHORT_TERM window), demonstrating that delayed consequences
-    eventually manifest as required by the AC.
+    AC-5.1 requires that at least one delayed consequence manifests after 10+
+    turns. `test_long_term_entry_manifests_after_ten_turns` directly validates
+    this: a LONG_TERM entry is inactive at turn 5 and active at turn 15.
+
+    The SHORT_TERM tests verify FR-3.1 timescale mechanics (1–10 turn window)
+    and the boundary condition that no consequence fires on the creation turn.
     """
 
     @pytest.mark.asyncio
@@ -149,9 +151,13 @@ class TestAC502DistinctChoiceTypes:
         assert ChoiceType.DIALOGUE in result.types
 
     def test_intent_map_covers_multiple_distinct_types(self) -> None:
-        """INTENT_CHOICE_MAP produces at least 3 distinct ChoiceType values."""
+        """INTENT_CHOICE_MAP produces ACTION, DIALOGUE, and MOVEMENT types."""
         produced_types = set(INTENT_CHOICE_MAP.values())
-        assert len(produced_types) >= 3
+        assert produced_types == {
+            ChoiceType.ACTION,
+            ChoiceType.DIALOGUE,
+            ChoiceType.MOVEMENT,
+        }
 
 
 # ── AC-5.3: Refusal is tracked as a choice ───────────────────────────────────
@@ -296,7 +302,12 @@ class TestAC506PerformanceBudget:
         result = await svc.evaluate(session_id, 5, "continue")
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        assert elapsed_ms < 300, f"evaluate() took {elapsed_ms:.1f}ms — must be < 300ms"
+        # NFR-5.1: 300ms budget. In-memory evaluation of 30 chains is orders
+        # of magnitude below this threshold; the assertion catches regressions
+        # that add accidental O(N²) complexity or blocking I/O.
+        assert elapsed_ms < 300, (
+            f"evaluate() took {elapsed_ms:.1f}ms — must be < 300ms (NFR-5.1)"
+        )
         assert len(result.world_changes) == 30
 
 
@@ -383,10 +394,9 @@ class TestAC508DormantPruning:
             session_id,
             "Ancient obligation",
             entries=[entry],
-            turn=0,
+            turn=5,
         )
-        # Simulate 55 turns of inactivity
-        chain.last_active_turn = 0
+        # 55 - 5 = 50 turns elapsed → hits the dormancy threshold
         await svc.prune_chains(session_id, 55)
 
         assert chain.is_dormant is True
@@ -406,9 +416,9 @@ class TestAC508DormantPruning:
             session_id,
             "Lost promise",
             entries=[entry],
-            turn=0,
+            turn=5,
         )
-        chain.last_active_turn = 0
+        # 55 - 5 = 50 turns elapsed → hits the dormancy threshold
         await svc.prune_chains(session_id, 55)
 
         assert all(e.status == ConsequenceStatus.DORMANT for e in chain.entries)
@@ -424,13 +434,13 @@ class TestAC508DormantPruning:
             effect="e",
             timescale=ConsequenceTimescale.SHORT_TERM,
         )
-        chain = await svc.create_chain(
+        await svc.create_chain(
             session_id,
             "The lost oath",
             entries=[entry],
-            turn=0,
+            turn=5,
         )
-        chain.last_active_turn = 0
+        # 60 - 5 = 55 turns elapsed → dormant, closure generated
         _pruned_ids, closures = await svc.prune_chains(session_id, 60)
 
         assert "The lost oath" in closures
@@ -450,9 +460,9 @@ class TestAC508DormantPruning:
             session_id,
             "Recent event",
             entries=[entry],
-            turn=0,
+            turn=5,
         )
-        chain.last_active_turn = 0
+        # 30 - 5 = 25 turns elapsed → below the 50-turn dormancy threshold
         await svc.prune_chains(session_id, 30)
 
         assert chain.is_dormant is False
