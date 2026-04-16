@@ -189,6 +189,7 @@ class Settings(BaseSettings):
 
     # SSE heartbeat (FR-10.39)
     sse_heartbeat_interval: float = 15.0
+    sse_retry_ms: int = 3000
 
     @field_validator("sse_heartbeat_interval")
     @classmethod
@@ -198,6 +199,14 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         if v > 15.0:
             msg = "sse_heartbeat_interval must be <= 15s (FR-10.38)"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("sse_retry_ms")
+    @classmethod
+    def _validate_sse_retry_ms(cls, v: int) -> int:
+        if v <= 0:
+            msg = "sse_retry_ms must be positive"
             raise ValueError(msg)
         return v
 

@@ -1636,6 +1636,10 @@ async def stream_turn(
     # TODO: decompose into _wait_for_result() and _emit_turn_events()
     # helpers once the streaming contract stabilises.
     async def event_stream():  # noqa: C901
+        settings: Settings = request.app.state.settings
+        # Suggest client reconnect delay per SSE contract (FR-10.43).
+        yield f"retry: {settings.sse_retry_ms}\n\n"
+
         if proc_row is None:
             yield ErrorEvent(
                 code="NO_TURN_FOUND",
@@ -1659,7 +1663,6 @@ async def stream_turn(
 
         # FR-23.22: keepalive loop while waiting for pipeline result
         store = request.app.state.turn_result_store
-        settings: Settings = request.app.state.settings
         keepalive_interval = settings.sse_heartbeat_interval
         total_timeout = settings.pipeline_timeout_seconds
         deadline = time.monotonic() + total_timeout

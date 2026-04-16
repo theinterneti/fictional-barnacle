@@ -388,6 +388,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="Therapeutic Text Adventure",
         version=__version__,
+        docs_url="/api/v1/docs",
+        openapi_url="/api/v1/openapi.json",
         lifespan=_lifespan,
     )
     app.state.settings = settings
@@ -409,6 +411,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=[
             "Authorization",
             "Content-Type",
+            "Accept",
+            "Last-Event-ID",
             "X-Request-ID",
             "X-Admin-Token",
         ],
