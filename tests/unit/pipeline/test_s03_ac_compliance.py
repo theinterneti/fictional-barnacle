@@ -73,11 +73,9 @@ def _make_context_deps(
     """Return a minimal PipelineDeps mock suitable for context_stage tests."""
     deps = MagicMock()
 
-    async def _get_full(*_args, **_kwargs):
-        return world_context or {}
-
     # Make get_player_location, get_location_context, get_recent_events all
     # raise so context_stage uses the fallback path (simpler and no external svc).
+    _ = world_context  # referenced by side_effect below if needed
     deps.world.get_player_location = AsyncMock(side_effect=RuntimeError("no world"))
     deps.world.get_recent_events = AsyncMock(return_value=[])
     deps.consequence_service = None
@@ -579,7 +577,9 @@ class TestAC310ContextDeterminism:
         r2 = await context_stage(state, deps)
 
         # Strip session_id (stable) and compare deterministic keys
+        wc1 = r1.world_context or {}
+        wc2 = r2.world_context or {}
         for key in ("tone", "genre", "session_summary", "intent", "turn_number"):
-            assert r1.world_context.get(key) == r2.world_context.get(key), (
+            assert wc1.get(key) == wc2.get(key), (
                 f"world_context['{key}'] differs between two calls with the same input"
             )
