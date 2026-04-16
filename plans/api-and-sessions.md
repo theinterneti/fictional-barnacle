@@ -35,6 +35,19 @@ or plan update can tighten these values.
 S11 references ULID-style identifiers. The codebase uses UUID4 throughout. Keeping
 UUID4 for consistency; ULID migration deferred to a future spec if needed.
 
+### 0.4 — S10/S23/S27 Contract Reconciliation (Issue #128)
+
+**Decision**: Canonical API contracts are reconciled as follows:
+
+- `POST /games/{id}/turns` whitespace-only input uses `400 input_invalid` (S23 taxonomy).
+- `DELETE /games/{id}` is a soft-delete to `abandoned` with confirmation semantics (S27).
+- Health/readiness public routes are `/api/v1/health` and `/api/v1/health/ready`.
+- Error envelope trace field is `correlation_id` (sourced from request correlation context).
+
+**Migration note**: Implementations or clients using legacy `request_id` naming in error
+payloads should migrate to `correlation_id`; internal request state naming may remain
+`request_id` as an implementation detail.
+
 ## 1. FastAPI Application Structure
 
 ### 1.1 — Application Factory
@@ -454,7 +467,8 @@ class TurnAccepted(BaseModel):
 8. Return 202 immediately (within 500ms — FR-10.05).
 
 - Rate limit: 10 per minute per session (FR-10.61).
-- Empty/whitespace input → 422 (FR-10.08). Over 2000 chars → 422 (FR-10.09).
+- Empty/whitespace input → 400 `input_invalid` (FR-10.08 / S23 FR-23.01).
+  Over 2000 chars → 422 (FR-10.09).
 
 ### 2.8 — Game SSE Stream (`GET /api/v1/games/{game_id}/stream`)
 
@@ -501,41 +515,33 @@ class UpdateGameRequest(BaseModel):
 
 - `active` → `paused` is the only valid explicit transition via this endpoint.
 - `paused` → `active` goes through `POST .../resume`.
-- `active` → `ended` goes through `DELETE .../`.
+- `active` → `abandoned` goes through `DELETE .../`.
 - Invalid transitions return 422 `INVALID_STATE_TRANSITION` (FR-11.39).
 
-### 2.12 — End Game (`DELETE /api/v1/games/{game_id}`)
+### 2.12 — Delete Game (`DELETE /api/v1/games/{game_id}`)
 
-**Response (200 OK):**
+**Response (204 No Content):**
 
-```python
-class GameEndedResponse(BaseModel):
-    data: GameEndedData
-
-class GameEndedData(BaseModel):
-    game_id: str
-    status: str         # "ended"
-    turn_count: int
-    ended_at: datetime
-```
-
-Soft delete: transitions status to `ended`, clears Redis cache. Game data is retained
-(FR-10.19). An ended game rejects new turns (FR-10.20).
+- Requires `confirm=true` in request body.
+- Soft delete transitions status to `abandoned` and records `deleted_at` (S27 FR-27.16).
+- Requests without confirmation return 400 `CONFIRM_REQUIRED` (S27 FR-27.18).
 
 ### 2.13 — Health Endpoints
 
-**`GET /api/v1/health`** — Liveness. Returns `200 {"status": "ok"}`. No auth, no
-dependency checks (FR-10.23/24).
+**`GET /api/v1/health`** — Health contract from S23 FR-23.23/24. Returns tri-state
+status (`healthy`/`degraded`/`unhealthy`) with per-service checks and version metadata.
+No auth.
 
-**`GET /api/v1/health/ready`** — Readiness. Pings Postgres, Redis, Neo4j. Returns 200 or 503.
+**`GET /api/v1/health/ready`** — Readiness contract from S23 FR-23.25. Returns 200 only
+when required services are available; otherwise 503.
 
 ```python
 class ReadyResponse(BaseModel):
-    status: str                         # "ready" or "degraded"
-    checks: dict[str, str]              # {"database": "ok", "cache": "ok", "graph": "ok"}
+    status: str                    # "ready" or "not_ready"
+    checks: dict[str, str]         # {"postgres": "ok", "redis": "ok", "neo4j": "ok"}
 ```
 
-If any check fails → 503 with the failing check identified (FR-10.26).
+If any required check fails → 503 with the failing check identified (S23 FR-23.25).
 
 ### 2.14 — Endpoint Summary Table
 
@@ -552,8 +558,8 @@ If any check fails → 503 with the failing check identified (FR-10.26).
 | `POST` | `/api/v1/games/{id}/save` | Yes | 10/hr | 200 | Save game |
 | `POST` | `/api/v1/games/{id}/resume` | Yes | 10/hr | 200 / 422 | Resume game |
 | `PATCH` | `/api/v1/games/{id}` | Yes | 10/hr | 200 / 422 | Pause game |
-| `DELETE` | `/api/v1/games/{id}` | Yes | 10/hr | 200 / 404 | End game |
-| `GET` | `/api/v1/health` | No | None | 200 | Liveness |
+| `DELETE` | `/api/v1/games/{id}` | Yes | 10/hr | 204 / 400 / 404 / 409 | Soft-delete game |
+| `GET` | `/api/v1/health` | No | None | 200 / 503 | Health |
 | `GET` | `/api/v1/health/ready` | No | None | 200 / 503 | Readiness |
 
 ---
@@ -1461,7 +1467,7 @@ Every error response uses a consistent envelope:
     "code": "TURN_IN_PROGRESS",
     "message": "A turn is already being processed for this game.",
     "details": {},
-    "request_id": "a1b2c3d4-..."
+    "correlation_id": "a1b2c3d4-..."
   }
 }
 ```
@@ -1489,7 +1495,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
                 "code": exc.code,
                 "message": exc.message,
                 "details": exc.details,
-                "request_id": request.state.request_id,
+                "correlation_id": request.state.request_id,
             }
         },
     )
@@ -1504,7 +1510,7 @@ async def validation_error_handler(
                 "code": "VALIDATION_ERROR",
                 "message": "Request validation failed.",
                 "details": {"errors": exc.errors()},
-                "request_id": request.state.request_id,
+                "correlation_id": request.state.request_id,
             }
         },
     )
@@ -1518,7 +1524,7 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
                 "code": "INTERNAL_ERROR",
                 "message": "An unexpected error occurred.",
                 "details": {},
-                "request_id": request.state.request_id,
+                "correlation_id": request.state.request_id,
             }
         },
     )

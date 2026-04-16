@@ -138,7 +138,8 @@ pipeline and streams narrative back.
   accepted.
 - FR-10.07: If a turn is already in progress for this game, the server MUST return
   `409 Conflict` with a message indicating the active turn.
-- FR-10.08: Empty or whitespace-only input MUST be rejected with `422 Unprocessable Entity`.
+- FR-10.08: Empty or whitespace-only input MUST be rejected with `400 Bad Request`
+  and error category `input_invalid` (per S23 FR-23.01).
 - FR-10.09: Input exceeding 2000 characters MUST be rejected with `422`.
 
 ### 5.2 Session / Game Management
@@ -203,8 +204,8 @@ End and archive a game.
 
 **Behavior:**
 - FR-10.19: This is a soft delete. Game data is retained for the player's history but the
-  game transitions to "ended" status.
-- FR-10.20: An ended game MUST NOT accept new turns.
+  game transitions to "abandoned" status (per S27 FR-27.16).
+- FR-10.20: An abandoned game MUST NOT accept new turns.
 
 ### 5.3 Player Profile
 
@@ -229,25 +230,22 @@ Update profile or preferences.
 
 ### 5.4 Health & Operations
 
-#### `GET /health`
+#### `GET /api/v1/health`
 
-Liveness probe. Returns `200 OK` if the process is running.
-
-**Response:** `{"status": "ok"}`
+Health probe. Canonical response semantics are defined in S23 FR-23.23/24.
 
 **Behavior:**
-- FR-10.23: This endpoint MUST NOT check downstream dependencies.
+- FR-10.23: This endpoint contract (status model, checks, and dependency semantics) is
+  defined by S23 FR-23.23/FR-23.24.
 - FR-10.24: This endpoint MUST NOT require authentication.
 
-#### `GET /ready`
+#### `GET /api/v1/health/ready`
 
-Readiness probe. Returns `200 OK` if the service can accept traffic.
-
-**Response:** `{"status": "ready", "checks": {"database": "ok", "cache": "ok", "graph": "ok"}}`
+Readiness probe. Canonical response semantics are defined in S23 FR-23.25.
 
 **Behavior:**
-- FR-10.25: This endpoint MUST verify connectivity to all required backends (SQL, Redis,
-  Neo4j).
+- FR-10.25: This endpoint contract (readiness gating and required services) is defined
+  by S23 FR-23.25.
 - FR-10.26: If any backend is unreachable, return `503 Service Unavailable` with the
   failing check identified.
 - FR-10.27: This endpoint MUST NOT require authentication.
@@ -386,7 +384,7 @@ followed by a single `narrative_end` event.
     "code": "TURN_IN_PROGRESS",
     "message": "A turn is already being processed for this game.",
     "details": { ... },     // optional, context-specific
-    "request_id": "..."     // trace identifier
+    "correlation_id": "..." // trace identifier
   }
 }
 ```
@@ -394,7 +392,8 @@ followed by a single `narrative_end` event.
 - FR-10.51: All error responses MUST use the `error` wrapper.
 - FR-10.52: The `code` field MUST be a stable, machine-readable string (UPPER_SNAKE_CASE).
 - FR-10.53: The `message` field MUST be a human-readable explanation safe to display.
-- FR-10.54: Every error response MUST include a `request_id` for tracing.
+- FR-10.54: Every error response MUST include a `correlation_id` for tracing (matching
+  the request correlation ID semantics in S23 FR-23.03).
 
 ### 8.2 HTTP Status Code Usage
 
@@ -403,7 +402,7 @@ followed by a single `narrative_end` event.
 | `200` | Successful retrieval or update |
 | `201` | Resource created |
 | `202` | Turn accepted, processing asynchronously |
-| `400` | Malformed request (bad JSON, missing fields) |
+| `400` | Malformed request or `input_invalid` category errors |
 | `401` | Missing or invalid authentication |
 | `403` | Authenticated but not authorized for this resource |
 | `404` | Resource not found (or not owned by this player) |
@@ -425,7 +424,8 @@ followed by a single `narrative_end` event.
 Authentication is defined in S11. This section specifies how auth tokens flow through
 the API.
 
-- FR-10.57: All endpoints except `/health`, `/ready`, and `/api/v1/auth/*` MUST require
+- FR-10.57: All endpoints except `/api/v1/health`, `/api/v1/health/ready`, and
+  `/api/v1/auth/*` MUST require
   a valid `Authorization: Bearer <token>` header.
 - FR-10.58: SSE connections MUST validate the token at connection time. If the token
   expires during an active SSE connection, the connection MAY remain open until the next
@@ -577,7 +577,10 @@ the API.
 
 - **AC-10.09**: No API response ever contains stack traces, file paths, or internal
   implementation details.
-- **AC-10.10**: Every error response includes a `request_id` that can be found in server logs.
+- **AC-10.10**: Every error response includes a `correlation_id` that can be found in
+  server logs.
+- **AC-10.13**: Submitting a turn with empty or whitespace-only input returns `400` with
+  error category `input_invalid`.
 
 ### Security
 
@@ -611,3 +614,17 @@ the API.
   within the stream? Needs playtesting data.
 - OQ-10.04: Should admin endpoints live under `/api/v1/admin/` or use the same paths
   with role-based visibility? Leaning toward separate prefix for clarity.
+
+---
+
+## 17. Migration Notes (Issue #128)
+
+- **Input validation status alignment**: `FR-10.08` now requires `400 input_invalid`
+  (instead of `422`) to align with S23's canonical error taxonomy.
+- **Lifecycle alignment**: `DELETE /api/v1/games/{game_id}` now normatively maps to
+  `abandoned` (soft-delete) per S27, rather than `ended`.
+- **Health/readiness path + ownership alignment**: S10 now defines canonical public paths
+  (`/api/v1/health`, `/api/v1/health/ready`) and delegates behavior semantics to S23.
+- **Error envelope identifier alignment**: `correlation_id` is canonical in the error
+  envelope. Implementations MAY continue to source it from `request.state.request_id`
+  internally, but response field naming is `correlation_id`.

@@ -112,10 +112,9 @@ see the first token within 2 seconds under normal conditions.
 **FR-1.3** — The system MUST NOT accept new player input while a response is still
 streaming. The input prompt appears only after streaming completes.
 
-**FR-1.4** — If the player submits empty or whitespace-only input, the system responds
-with an in-world prompt: a gentle narrative nudge, not an error message.
-Example: *"You stand still for a moment, the sounds of the marketplace washing over
-you. What draws your attention?"*
+**FR-1.4** — If the player submits empty or whitespace-only input, the API boundary
+returns `400 input_invalid` (per S10/S23). Client UX MAY render a gentle narrative nudge
+copy as presentation behavior.
 
 ### FR-2: Turn Types
 

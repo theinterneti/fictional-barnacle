@@ -193,7 +193,7 @@ text) in a separate, access-controlled store. General logs SHALL reference the
 down or moderation model fails to load), the system SHALL:
 1. Continue processing turns WITHOUT moderation (fail-open for v1)
 2. Log every unmoderated turn at WARN level
-3. Expose the moderation service status in `/health` (per S23 FR-23.23)
+3. Expose the moderation service status in `/api/v1/health` (per S23 FR-23.23)
 4. Alert the operator immediately
 
 **FR-24.16**: The decision to fail-open vs. fail-closed SHALL be configurable
@@ -292,7 +292,7 @@ audit trail. No moderation decision SHALL be unlogged.
 - **Trigger**: Moderation model fails to load at startup.
 - **Steps**:
   1. Application starts with `TTA_MODERATION_FAIL_MODE=open`.
-  2. Moderation health check fails. `/health` reports moderation as degraded.
+  2. Moderation health check fails. `/api/v1/health` reports moderation as degraded.
   3. Operator alert fires.
   4. Players continue playing. All turns logged as unmoderated (WARN level).
   5. Operator restarts the moderation service. Next moderation check succeeds.
