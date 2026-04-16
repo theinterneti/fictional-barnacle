@@ -333,21 +333,23 @@ This spec describes behavior: what a developer or operator does, and what the sy
 - Redis is reachable.
 - At least one LLM provider is configured (key present, not necessarily reachable).
 
-**FR-14.35**: The readiness check SHALL return a JSON body listing each dependency and its status:
+**FR-14.35**: The readiness check SHALL return a JSON body listing each dependency and
+its status:
 
 ```json
 {
-  "status": "degraded",
+  "status": "not_ready",
   "checks": {
-    "postgres": {"status": "ok", "latency_ms": 2},
-    "neo4j": {"status": "ok", "latency_ms": 15},
-    "redis": {"status": "fail", "error": "connection refused"},
-    "llm_config": {"status": "ok"}
+    "postgres": "ok",
+    "neo4j": "ok",
+    "redis": "unavailable",
+    "llm": "ok"
   }
 }
 ```
 
-**FR-14.36**: The overall status SHALL be `ok` if all checks pass, `degraded` if non-critical checks fail, and `fail` if any critical check fails. PostgreSQL and Neo4j are critical. Redis is critical for gameplay but not for health. LLM config is informational.
+**FR-14.36**: The readiness status SHALL be `ready` when all required checks are
+available. Otherwise it SHALL be `not_ready` and the endpoint SHALL return HTTP 503.
 
 ### 9.2 Acceptance Criteria
 

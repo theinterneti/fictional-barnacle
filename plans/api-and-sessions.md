@@ -522,9 +522,10 @@ class UpdateGameRequest(BaseModel):
 
 **Response (204 No Content):**
 
-- Requires `confirm=true` in request body.
+- Requires `confirm=true` as a query parameter.
 - Soft delete transitions status to `abandoned` and records `deleted_at` (S27 FR-27.16).
 - Requests without confirmation return 400 `CONFIRM_REQUIRED` (S27 FR-27.18).
+- A `204` response never includes a response body.
 
 ### 2.13 — Health Endpoints
 
@@ -558,7 +559,7 @@ If any required check fails → 503 with the failing check identified (S23 FR-23
 | `POST` | `/api/v1/games/{id}/save` | Yes | 10/hr | 200 | Save game |
 | `POST` | `/api/v1/games/{id}/resume` | Yes | 10/hr | 200 / 422 | Resume game |
 | `PATCH` | `/api/v1/games/{id}` | Yes | 10/hr | 200 / 422 | Pause game |
-| `DELETE` | `/api/v1/games/{id}` | Yes | 10/hr | 204 / 400 / 404 / 409 | Soft-delete game |
+| `DELETE` | `/api/v1/games/{id}?confirm=true` | Yes | 10/hr | 204 / 400 / 404 / 409 | Soft-delete game |
 | `GET` | `/api/v1/health` | No | None | 200 / 503 | Health |
 | `GET` | `/api/v1/health/ready` | No | None | 200 / 503 | Readiness |
 
@@ -1516,7 +1517,10 @@ async def validation_error_handler(
     )
 
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    structlog.get_logger().exception("unhandled_error", request_id=request.state.request_id)
+    structlog.get_logger().exception(
+        "unhandled_error",
+        correlation_id=request.state.request_id,
+    )
     return JSONResponse(
         status_code=500,
         content={
