@@ -23,7 +23,7 @@ class TestFormatSSE:
         assert "event: connected\n" in result
         assert result.endswith("\n\n")
         # Parse the data line
-        data_line = [line for line in result.split("\n") if line.startswith("data:")][0]
+        data_line = next(line for line in result.split("\n") if line.startswith("data:"))
         payload = json.loads(data_line[len("data: ") :])
         assert payload == {"game_id": "abc"}
 

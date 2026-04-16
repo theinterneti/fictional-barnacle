@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -19,8 +19,10 @@ from tta.models.turn import (
 )
 from tta.pipeline.stages.generate import generate_stage
 from tta.pipeline.types import PipelineDeps
-from tta.prompts.loader import FilePromptRegistry
 from tta.safety.hooks import SafetyResult
+
+if TYPE_CHECKING:
+    from tta.prompts.loader import FilePromptRegistry
 
 
 def _make_state(**overrides: object) -> TurnState:
@@ -96,7 +98,7 @@ def _make_deps(
         pre_gen.pre_generation_check = AsyncMock(return_value=safe)
     if safety_post_gen is None:
         post_gen.post_generation_check = AsyncMock(return_value=safe)
-    deps = PipelineDeps(
+    return PipelineDeps(
         llm=llm or MockLLMClient(),
         world=AsyncMock(),
         session_repo=AsyncMock(),
@@ -109,7 +111,6 @@ def _make_deps(
             prompt_registry or _default_registry(),
         ),
     )
-    return deps
 
 
 # --- happy path ---

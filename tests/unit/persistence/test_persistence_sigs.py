@@ -80,7 +80,7 @@ _NOW = datetime.now()
 
 
 @pytest.mark.parametrize(
-    "fn, kwargs",
+    ("fn", "kwargs"),
     [
         (postgres.create_player, {"handle": "alice"}),
         (postgres.get_player, {"player_id": _PLAYER_ID}),

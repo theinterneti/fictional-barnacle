@@ -99,7 +99,7 @@ def _derive_status(checks: dict[str, str]) -> str:
     for svc, status in checks.items():
         if status == "unavailable" and svc in CRITICAL_SERVICES:
             return "unhealthy"
-    for _svc, status in checks.items():
+    for status in checks.values():
         if status == "unavailable":
             return "degraded"
     return "healthy"

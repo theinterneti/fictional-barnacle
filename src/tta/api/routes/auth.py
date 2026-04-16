@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Annotated
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
@@ -17,8 +18,6 @@ import structlog
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from redis.asyncio import Redis
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.api.errors import AppError
@@ -37,7 +36,12 @@ from tta.config import (
     get_settings,
 )
 from tta.errors import ErrorCategory
-from tta.models.player import Player
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    from tta.models.player import Player
 
 log = structlog.get_logger()
 
@@ -199,7 +203,7 @@ def _set_auth_cookie(response: JSONResponse, access_token: str, ttl: int) -> Non
 
 @router.post("/anonymous", status_code=201)
 async def create_anonymous(
-    pg: AsyncSession = Depends(get_pg),
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> JSONResponse:
     """Create an anonymous player and issue JWT token pair."""
     player_id = uuid4()
@@ -239,8 +243,8 @@ async def create_anonymous(
 @router.post("/refresh")
 async def refresh_tokens(
     body: RefreshRequest,
-    pg: AsyncSession = Depends(get_pg),
-    redis: Redis = Depends(get_redis),
+    pg: Annotated[AsyncSession, Depends(get_pg)],
+    redis: Annotated[Redis, Depends(get_redis)],
 ) -> JSONResponse:
     """Exchange a refresh token for a new token pair (rotation)."""
     # Decode refresh token
@@ -422,8 +426,8 @@ async def refresh_tokens(
 @router.post("/logout", status_code=204)
 async def logout(
     request: Request,
-    pg: AsyncSession = Depends(get_pg),
-    redis: Redis = Depends(get_redis),
+    pg: Annotated[AsyncSession, Depends(get_pg)],
+    redis: Annotated[Redis, Depends(get_redis)],
 ) -> Response:
     """Invalidate the current access token and associated session."""
     # Extract and decode access token
@@ -477,9 +481,9 @@ async def logout(
 async def upgrade_anonymous(
     body: UpgradeRequest,
     request: Request,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
-    redis: Redis = Depends(get_redis),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
+    redis: Annotated[Redis, Depends(get_redis)],
 ) -> JSONResponse:
     """Convert an anonymous player to a registered account."""
     # Must be anonymous to upgrade

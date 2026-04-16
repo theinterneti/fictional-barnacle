@@ -9,12 +9,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pytest_bdd import given, parsers, then
 
@@ -22,6 +21,9 @@ from tta.api.app import create_app
 from tta.api.deps import get_current_player, get_pg
 from tta.config import Settings
 from tta.models.player import Player
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 _NOW = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
 _PLAYER_ID = uuid4()
@@ -83,12 +85,12 @@ def _game_row(
 # ----- fixtures -----
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def bdd_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     settings = _settings()
     monkeypatch.setattr("tta.api.routes.games.get_settings", lambda: settings)
@@ -96,7 +98,7 @@ def bdd_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     return settings
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(pg: AsyncMock, bdd_settings: Settings) -> FastAPI:
     a = create_app(settings=bdd_settings)
 
@@ -108,7 +110,7 @@ def app(pg: AsyncMock, bdd_settings: Settings) -> FastAPI:
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def unauth_app(pg: AsyncMock, bdd_settings: Settings) -> FastAPI:
     """App without the get_current_player override — will hit real auth."""
     a = create_app(settings=bdd_settings)
@@ -120,17 +122,17 @@ def unauth_app(pg: AsyncMock, bdd_settings: Settings) -> FastAPI:
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
 
-@pytest.fixture()
+@pytest.fixture
 def unauth_client(unauth_app: FastAPI) -> TestClient:
     return TestClient(unauth_app)
 
 
-@pytest.fixture()
+@pytest.fixture
 def ctx() -> dict:
     """Shared mutable state container passed between BDD steps."""
     return {}

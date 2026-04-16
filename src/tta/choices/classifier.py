@@ -84,12 +84,10 @@ def classify_choice(
     types.append(primary)
 
     # 2. Enrichment: detect moral/strategic/refusal overtones
-    if _REFUSAL_PATTERNS.search(player_input):
-        if ChoiceType.REFUSAL not in types:
-            types.append(ChoiceType.REFUSAL)
-    if _MORAL_PATTERNS.search(player_input):
-        if ChoiceType.MORAL not in types:
-            types.append(ChoiceType.MORAL)
+    if _REFUSAL_PATTERNS.search(player_input) and ChoiceType.REFUSAL not in types:
+        types.append(ChoiceType.REFUSAL)
+    if _MORAL_PATTERNS.search(player_input) and ChoiceType.MORAL not in types:
+        types.append(ChoiceType.MORAL)
     if _STRATEGIC_PATTERNS.search(player_input):
         if ChoiceType.STRATEGIC not in types:
             types.append(ChoiceType.STRATEGIC)

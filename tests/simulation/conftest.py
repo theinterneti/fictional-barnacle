@@ -26,13 +26,13 @@ from tta.world.template_registry import TemplateRegistry
 
 # Intent patterns mirrored from understand.py for classification routing
 _INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("meta", re.compile(r"\b(help|save|quit|exit|menu|inventory|status)\b", re.I)),
-    ("move", re.compile(r"\b(go|walk|move|run|head|travel|enter|leave)\b", re.I)),
-    ("examine", re.compile(r"\b(look|examine|inspect|search|check|observe)\b", re.I)),
-    ("talk", re.compile(r"\b(talk|say|ask|tell|speak|greet|whisper)\b", re.I)),
+    ("meta", re.compile(r"\b(help|save|quit|exit|menu|inventory|status)\b", re.IGNORECASE)),
+    ("move", re.compile(r"\b(go|walk|move|run|head|travel|enter|leave)\b", re.IGNORECASE)),
+    ("examine", re.compile(r"\b(look|examine|inspect|search|check|observe)\b", re.IGNORECASE)),
+    ("talk", re.compile(r"\b(talk|say|ask|tell|speak|greet|whisper)\b", re.IGNORECASE)),
     (
         "use",
-        re.compile(r"\b(use|take|grab|pick|drop|put|open|close|push|pull)\b", re.I),
+        re.compile(r"\b(use|take|grab|pick|drop|put|open|close|push|pull)\b", re.IGNORECASE),
     ),
 ]
 

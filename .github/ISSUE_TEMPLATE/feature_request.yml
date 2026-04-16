@@ -1,0 +1,68 @@
+name: Feature Implementation
+description: New feature implementation aligned with TTA specs
+title: "[S??] "
+labels: ["feat"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for implementing a feature defined in a TTA specification.
+        Read the relevant spec **and** the component plan before filling this out.
+
+  - type: input
+    id: spec_id
+    attributes:
+      label: Spec ID(s)
+      description: Which spec(s) does this issue implement? (e.g. S11, S12)
+      placeholder: "S11"
+    validations:
+      required: true
+
+  - type: input
+    id: wave
+    attributes:
+      label: Wave
+      description: Implementation wave number
+      placeholder: "29"
+
+  - type: textarea
+    id: overview
+    attributes:
+      label: Overview
+      description: What does this issue implement? One paragraph summary.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: |
+        List the spec ACs being implemented. Use checkbox format.
+        Example:
+        - [ ] AC-11.01 — Anonymous player can register without providing any PII
+      placeholder: |
+        - [ ] AC-XX.YY — …
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation_notes
+    attributes:
+      label: Implementation Notes
+      description: |
+        Technical context: plan references, architecture decisions, known constraints.
+        Link to the relevant plan section (e.g. `plans/api-and-sessions.md §2.3`).
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope
+      description: What is explicitly NOT being done in this issue?
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Depends On
+      description: Issues or PRs that must be merged before this can start.
+      placeholder: "Blocked by #123"

@@ -20,7 +20,6 @@ from tta.world.template_registry import TemplateRegistry
 async def run_simulation_with_smart_router():
     """Run 10-turn simulation using smart router."""
 
-    print("=== Smart Router Simulation Test ===\n")
 
     # Setup
     session_id = uuid4()
@@ -44,7 +43,6 @@ async def run_simulation_with_smart_router():
     )
 
     # Genesis
-    print("1. Running genesis...")
     template = template_registry.get("quiet_village")
     seed = WorldSeed(
         template=template,
@@ -63,7 +61,6 @@ async def run_simulation_with_smart_router():
         llm=llm,
         world_service=world_service,
     )
-    print("   Genesis complete!\n")
 
     # Run 10 turns
     inputs = [
@@ -81,7 +78,6 @@ async def run_simulation_with_smart_router():
 
     results = []
     for i, input_text in enumerate(inputs, 1):
-        print(f"Turn {i}: {input_text}")
 
         state = TurnState(
             session_id=session_id,
@@ -93,20 +89,14 @@ async def run_simulation_with_smart_router():
         result = await run_pipeline(state, pipeline_deps)
         results.append(result)
 
-        status_str = "✓" if result.status == TurnStatus.complete else "✗"
-        print(f"   {status_str} {result.status}")
 
         if result.narrative_output:
-            print(f"   Narrative: {result.narrative_output[:80]}...")
-        print()
+            pass
 
     # Summary
-    completed = sum(1 for r in results if r.status == TurnStatus.complete)
-    print("=== Summary ===")
-    print(f"Completed: {completed}/10")
+    sum(1 for r in results if r.status == TurnStatus.complete)
 
     # Show LLM call count
-    print(f"LLM calls: {len(llm.call_history)}")
 
     return results
 

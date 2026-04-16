@@ -19,7 +19,6 @@ from tta.world.template_registry import TemplateRegistry
 async def test_with_smart_router():
     """Run a simple turn through the pipeline using smart router."""
 
-    print("=== Testing Smart Router with TTA Simulation ===\n")
 
     # Setup
     session_id = uuid4()
@@ -47,7 +46,6 @@ async def test_with_smart_router():
     )
 
     # Genesis
-    print("1. Running genesis...")
     template = template_registry.get("quiet_village")
     seed = WorldSeed(
         template=template,
@@ -66,10 +64,8 @@ async def test_with_smart_router():
         llm=llm,
         world_service=world_service,
     )
-    print("   Genesis complete!")
 
     # Turn 1: simple
-    print("\n2. Running turn 1 (simple)...")
     state1 = TurnState(
         session_id=session_id,
         turn_number=1,
@@ -77,12 +73,9 @@ async def test_with_smart_router():
         game_state={"active": True, "turn": 1},
     )
     result1 = await run_pipeline(state1, pipeline_deps)
-    print(f"   Status: {result1.status}")
-    narr1 = result1.narrative_output[:100] if result1.narrative_output else "none"
-    print(f"   Narrative: {narr1}...")
+    result1.narrative_output[:100] if result1.narrative_output else "none"
 
     # Turn 2: coding task
-    print("\n3. Running turn 2 (coding task)...")
     llm_coding = SmartRouterLLMClient(task_type="coding")
     pipeline_deps_coding = PipelineDeps(
         llm=llm_coding,
@@ -102,11 +95,8 @@ async def test_with_smart_router():
         game_state={"active": True, "turn": 2},
     )
     result2 = await run_pipeline(state2, pipeline_deps_coding)
-    print(f"   Status: {result2.status}")
-    narr2 = result2.narrative_output[:100] if result2.narrative_output else "none"
-    print(f"   Narrative: {narr2}...")
+    result2.narrative_output[:100] if result2.narrative_output else "none"
 
-    print("\n=== Test Complete ===")
 
 
 if __name__ == "__main__":

@@ -41,7 +41,7 @@ class TestAlembicConfig:
 # ── AC-2 / AC-4: Initial migration structure ─────────────────────
 
 
-@pytest.fixture()
+@pytest.fixture
 def migration_module() -> types.ModuleType:
     """Import the initial migration as a Python module."""
     spec = importlib.util.spec_from_file_location(
@@ -75,7 +75,7 @@ class TestMigrationModule:
 # ── AC-2 / AC-3: Table & constraint definitions ──────────────────
 
 
-@pytest.fixture()
+@pytest.fixture
 def migration_source() -> str:
     """Raw source of the initial migration for structural checks."""
     path = ROOT / "migrations" / "postgres" / "versions" / "001_initial_schema.py"

@@ -4,18 +4,20 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
 from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.config import Settings
 from tta.models.player import Player
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 _NOW = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
 _PID = uuid4()
@@ -70,17 +72,17 @@ def _make_result(
     return result
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def redis() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(pg: AsyncMock, redis: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     settings = _settings()
     monkeypatch.setattr("tta.api.routes.auth.get_settings", lambda: settings)
@@ -96,7 +98,7 @@ def app(pg: AsyncMock, redis: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> Fas
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
@@ -314,7 +316,7 @@ class TestLogout:
 
 
 class TestUpgradeAnonymous:
-    @pytest.fixture()
+    @pytest.fixture
     def anon_app(
         self,
         pg: AsyncMock,
@@ -336,7 +338,7 @@ class TestUpgradeAnonymous:
         a.dependency_overrides[get_current_player] = lambda: _ANON_PLAYER
         return a
 
-    @pytest.fixture()
+    @pytest.fixture
     def anon_client(self, anon_app: FastAPI) -> TestClient:
         return TestClient(anon_app)
 

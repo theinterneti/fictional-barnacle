@@ -24,12 +24,12 @@ from tta.world.relationship_service import InMemoryRelationshipService
 # -- Fixtures --
 
 
-@pytest.fixture()
+@pytest.fixture
 def session_id():
     return uuid4()
 
 
-@pytest.fixture()
+@pytest.fixture
 def player_id():
     return "player"
 

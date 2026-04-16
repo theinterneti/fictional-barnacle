@@ -19,7 +19,7 @@ TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "prompts" / "templates"
 FRAGMENTS_DIR = Path(__file__).resolve().parents[3] / "prompts" / "fragments"
 
 
-@pytest.fixture()
+@pytest.fixture
 def registry() -> FilePromptRegistry:
     return FilePromptRegistry(
         templates_dir=TEMPLATES_DIR,

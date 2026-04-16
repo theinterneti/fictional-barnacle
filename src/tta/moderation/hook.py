@@ -13,11 +13,10 @@ blocks and flags sessions that exceed the threshold (FR-24.11).
 from __future__ import annotations
 
 import hashlib
+from typing import TYPE_CHECKING
 
 import structlog
 
-from tta.models.turn import TurnState
-from tta.moderation.flagging import SessionFlagTracker
 from tta.moderation.models import (
     ContentCategory,
     ModerationContext,
@@ -25,10 +24,14 @@ from tta.moderation.models import (
     ModerationResult,
     ModerationVerdict,
 )
-from tta.moderation.recorder import ModerationRecorder
-from tta.moderation.service import ModerationService
 from tta.observability.metrics import TURN_SAFETY_FLAGS
 from tta.safety.hooks import SafetyResult
+
+if TYPE_CHECKING:
+    from tta.models.turn import TurnState
+    from tta.moderation.flagging import SessionFlagTracker
+    from tta.moderation.recorder import ModerationRecorder
+    from tta.moderation.service import ModerationService
 
 log = structlog.get_logger()
 
@@ -181,7 +184,7 @@ class ModerationHook:
 
     async def _checked_call(
         self,
-        fn,  # noqa: ANN001 — callable with known signature
+        fn,
         content: str,
         ctx: ModerationContext,
     ) -> ModerationResult:

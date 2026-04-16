@@ -40,7 +40,7 @@ async def main() -> None:
         if r.scalar() is None:
             # DDL doesn't support parameterised passwords; values come from env
             await conn.execute(
-                sa.text(f"CREATE USER {_TTA_USER} WITH PASSWORD '{_TTA_PASS}'")  # noqa: S608
+                sa.text(f"CREATE USER {_TTA_USER} WITH PASSWORD '{_TTA_PASS}'")
             )
             print(f"Created user '{_TTA_USER}'")
         else:
@@ -53,7 +53,7 @@ async def main() -> None:
         )
         if r.scalar() is None:
             await conn.execute(
-                sa.text(f"CREATE DATABASE {_TTA_USER} OWNER {_TTA_USER}")  # noqa: S608
+                sa.text(f"CREATE DATABASE {_TTA_USER} OWNER {_TTA_USER}")
             )
             print(f"Created database '{_TTA_USER}'")
         else:
@@ -61,7 +61,7 @@ async def main() -> None:
 
         # Grant privileges
         await conn.execute(
-            sa.text(f"GRANT ALL PRIVILEGES ON DATABASE {_TTA_USER} TO {_TTA_USER}")  # noqa: S608
+            sa.text(f"GRANT ALL PRIVILEGES ON DATABASE {_TTA_USER} TO {_TTA_USER}")
         )
         print(f"Granted privileges to '{_TTA_USER}'")
 

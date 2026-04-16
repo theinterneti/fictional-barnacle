@@ -80,7 +80,7 @@ def _game_row(**overrides: Any) -> dict[str, Any]:
     return base
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg() -> AsyncMock:
     conn = AsyncMock()
     conn.begin = MagicMock(return_value=AsyncMock())
@@ -89,7 +89,7 @@ def pg() -> AsyncMock:
     return conn
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(pg: AsyncMock) -> TestClient:
     settings = _settings()
     app = create_app(settings)

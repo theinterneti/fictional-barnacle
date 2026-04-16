@@ -17,7 +17,7 @@ TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "prompts" / "templates"
 FRAGMENTS_DIR = Path(__file__).resolve().parents[3] / "prompts" / "fragments"
 
 
-@pytest.fixture()
+@pytest.fixture
 def registry() -> FilePromptRegistry:
     return FilePromptRegistry(
         templates_dir=TEMPLATES_DIR,
@@ -38,7 +38,8 @@ class TestNarrativeGenerate:
         text = result.text.lower()
         assert "second-person" in text
         assert "present-tense" in text or "present tense" in text
-        assert "100" in result.text and "200" in result.text  # word range
+        assert "100" in result.text
+        assert "200" in result.text
 
     def test_tone_variable_renders(self, registry: FilePromptRegistry) -> None:
         result = registry.render("narrative.generate", {"tone": "melancholic"})

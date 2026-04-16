@@ -221,7 +221,7 @@ class TestDormantFixAndClosure:
         )
         # Simulate chain being inactive for 50+ turns
         chain.last_active_turn = 0
-        pruned_ids, closures = await svc.prune_chains(SID, 60)
+        _pruned_ids, closures = await svc.prune_chains(SID, 60)
         assert "forgotten promise" in closures
 
     @pytest.mark.asyncio

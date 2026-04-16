@@ -7,14 +7,16 @@ configurable timeout to prevent resource exhaustion.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import structlog
 
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
 from tta.observability.metrics import LLM_SEMAPHORE_ACTIVE, LLM_SEMAPHORE_WAITING
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 log = structlog.get_logger()
 

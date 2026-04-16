@@ -87,7 +87,7 @@ async def run_pipeline(
                             async with asyncio.timeout(stage_config.timeout_seconds):
                                 state = await stage_fn(state, deps)
                         except TimeoutError:
-                            log.error(
+                            log.exception(
                                 "stage_timeout",
                                 stage=stage_name,
                                 timeout=stage_config.timeout_seconds,
@@ -143,7 +143,7 @@ async def run_pipeline(
                         return state
 
         except TimeoutError:
-            log.error(
+            log.exception(
                 "pipeline_overall_timeout",
                 timeout=config.overall_timeout_seconds,
             )

@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 import structlog
-from redis.asyncio import Redis
 
 from tta.observability.metrics import REDIS_KEYS_WITHOUT_TTL
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 log = structlog.get_logger()
 

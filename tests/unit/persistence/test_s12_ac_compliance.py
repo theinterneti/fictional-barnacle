@@ -146,7 +146,8 @@ class TestAC1202CacheReconstruction:
         # Verify the set call used an expiry (TTL), not an unbounded write
         _, kwargs = mock_redis.set.call_args
         assert "ex" in kwargs, "Reconstructed cache entry must have a TTL (ex=)"
-        assert isinstance(kwargs["ex"], int) and kwargs["ex"] > 0
+        assert isinstance(kwargs["ex"], int)
+        assert kwargs["ex"] > 0
 
     @pytest.mark.asyncio
     async def test_missing_sql_row_returns_none_not_error(self) -> None:

@@ -18,19 +18,21 @@ Endpoint inventory (Appendix A):
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
-from redis.asyncio import Redis
 
 from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
 from tta.observability.metrics import REGISTRY, SESSIONS_ACTIVE, generate_latest
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger()
@@ -97,7 +99,7 @@ async def _audit(
 async def get_player(
     player_id: UUID,
     request: Request,
-    _admin: AdminIdentity = Depends(require_admin),
+    _admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Player profile + game counts + rate-limit state (FR-26.05)."""
     import sqlalchemy as sa
@@ -120,7 +122,7 @@ async def get_player(
         )
 
     # Game counts
-    import sqlalchemy as sa  # noqa: F811
+    import sqlalchemy as sa
 
     async with request.app.state.pg() as session:
         gc = await session.execute(
@@ -165,9 +167,9 @@ async def get_player(
 @router.get("/players")
 async def search_players(
     request: Request,
-    search: str = Query("", min_length=0),
-    cursor: UUID | None = Query(None),
-    limit: int = Query(20, ge=1, le=100),
+    search: Annotated[str, Query(min_length=0)] = "",
+    cursor: Annotated[UUID | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     _admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
     """Search by handle prefix or exact player_id (FR-26.06)."""
@@ -219,7 +221,7 @@ async def suspend_player(
     player_id: UUID,
     body: SuspendRequest,
     request: Request,
-    admin: AdminIdentity = Depends(require_admin),
+    admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Suspend a player account (FR-26.07)."""
     import sqlalchemy as sa
@@ -273,7 +275,7 @@ async def suspend_player(
 async def unsuspend_player(
     player_id: UUID,
     request: Request,
-    admin: AdminIdentity = Depends(require_admin),
+    admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Remove suspension from a player (FR-26.08)."""
     import sqlalchemy as sa
@@ -318,7 +320,7 @@ async def unsuspend_player(
 async def get_game(
     game_id: UUID,
     request: Request,
-    _admin: AdminIdentity = Depends(require_admin),
+    _admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Full game state with moderation flags (FR-26.10)."""
     import sqlalchemy as sa
@@ -372,8 +374,8 @@ async def get_game(
 async def get_game_turns(
     game_id: UUID,
     request: Request,
-    cursor: int | None = Query(None),
-    limit: int = Query(20, ge=1, le=100),
+    cursor: Annotated[int | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     _admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
     """Paginated turns with LLM metadata (FR-26.11)."""
@@ -425,7 +427,7 @@ async def terminate_game(
     game_id: UUID,
     body: TerminateRequest,
     request: Request,
-    admin: AdminIdentity = Depends(require_admin),
+    admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Force-terminate a game (FR-26.12)."""
     import sqlalchemy as sa
@@ -485,7 +487,7 @@ async def terminate_game(
 @router.get("/health")
 async def admin_health(
     request: Request,
-    _admin: AdminIdentity = Depends(require_admin),
+    _admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Comprehensive subsystem health (FR-26.14)."""
     from tta.api.health import _derive_status, _run_checks
@@ -516,7 +518,7 @@ async def admin_health(
 
 @router.get("/metrics")
 async def admin_metrics(
-    _admin: AdminIdentity = Depends(require_admin),
+    _admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> Response:
     """Prometheus-format metrics (FR-26.16)."""
     return Response(
@@ -540,7 +542,7 @@ class _LogLevelBody(BaseModel):
 async def set_log_level(
     body: _LogLevelBody,
     request: Request,
-    _admin: AdminIdentity = Depends(require_admin),
+    _admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> dict[str, Any]:
     """Change runtime log level (S15 FR-15.4)."""
     root = logging.getLogger()
@@ -568,8 +570,8 @@ async def set_log_level(
 @router.post("/purge")
 async def trigger_purge(
     request: Request,
-    _admin: AdminIdentity = Depends(require_admin),
-    dry_run: bool = Query(False, description="Preview without deleting"),
+    _admin: Annotated[AdminIdentity, Depends(require_admin)],
+    dry_run: Annotated[bool, Query(description="Preview without deleting")] = False,
 ) -> dict[str, Any]:
     """Manual data purge trigger (S17 FR-17.15)."""
     from tta.privacy.purge import run_purge
@@ -619,12 +621,12 @@ def _serialize_flags(
 @router.get("/moderation/flags")
 async def list_moderation_flags(
     request: Request,
-    status: str | None = Query(None),
-    category: str | None = Query(None),
-    game_id: str | None = Query(None),
-    player_id: str | None = Query(None),
-    cursor: str | None = Query(None),
-    limit: int = Query(20, ge=1, le=100),
+    status: Annotated[str | None, Query()] = None,
+    category: Annotated[str | None, Query()] = None,
+    game_id: Annotated[str | None, Query()] = None,
+    player_id: Annotated[str | None, Query()] = None,
+    cursor: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     _admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
     """Paginated moderation flags (FR-26.17)."""
@@ -651,7 +653,7 @@ async def review_moderation_flag(
     flag_id: str,
     body: ReviewRequest,
     request: Request,
-    admin: AdminIdentity = Depends(require_admin),
+    admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Review a moderation flag (FR-26.18)."""
     recorder = getattr(request.app.state, "moderation_recorder", None)
@@ -734,7 +736,7 @@ async def review_moderation_flag(
 async def get_player_rate_limits(
     player_id: UUID,
     request: Request,
-    _admin: AdminIdentity = Depends(require_admin),
+    _admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Current rate-limit/cooldown state for a player (FR-26.20)."""
     result: dict[str, object] = {"player_id": str(player_id)}
@@ -759,7 +761,7 @@ async def reset_player_rate_limits(
     player_id: UUID,
     body: ReasonRequest,
     request: Request,
-    admin: AdminIdentity = Depends(require_admin),
+    admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Clear rate limits + cooldowns for a player (FR-26.21)."""
     detector = getattr(request.app.state, "abuse_detector", None)
@@ -787,7 +789,7 @@ async def reset_player_rate_limits(
 async def get_ip_rate_limits(
     ip_address: str,
     request: Request,
-    _admin: AdminIdentity = Depends(require_admin),
+    _admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Current rate-limit state for an IP (FR-26.22)."""
     result: dict[str, object] = {"ip": ip_address}
@@ -812,7 +814,7 @@ async def unblock_ip(
     ip_address: str,
     body: ReasonRequest,
     request: Request,
-    admin: AdminIdentity = Depends(require_admin),
+    admin: Annotated[AdminIdentity, Depends(require_admin)],
 ) -> JSONResponse:
     """Remove IP blocks / rate limits (FR-26.23)."""
     detector = getattr(request.app.state, "abuse_detector", None)
@@ -844,14 +846,14 @@ async def unblock_ip(
 @router.get("/audit-log")
 async def query_audit_log(
     request: Request,
-    admin_id: str | None = Query(None),
-    action: str | None = Query(None),
-    target_type: str | None = Query(None),
-    target_id: str | None = Query(None),
-    since: str | None = Query(None, description="ISO 8601 start timestamp"),
-    until: str | None = Query(None, description="ISO 8601 end timestamp"),
-    cursor: str | None = Query(None),
-    limit: int = Query(50, ge=1, le=1000),
+    admin_id: Annotated[str | None, Query()] = None,
+    action: Annotated[str | None, Query()] = None,
+    target_type: Annotated[str | None, Query()] = None,
+    target_id: Annotated[str | None, Query()] = None,
+    since: Annotated[str | None, Query(description="ISO 8601 start timestamp")] = None,
+    until: Annotated[str | None, Query(description="ISO 8601 end timestamp")] = None,
+    cursor: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 50,
     _admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
     """Paginated, filterable audit log (FR-26.25)."""
@@ -895,7 +897,7 @@ async def query_audit_log(
 @router.post("/consistency-check")
 async def run_consistency_check(
     request: Request,
-    sample_limit: int = Query(100, ge=1, le=1000),
+    sample_limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     _admin: AdminIdentity = Depends(require_admin),
 ) -> JSONResponse:
     """Audit Redis/SQL cache consistency (AC-12.04, EC-12.01).

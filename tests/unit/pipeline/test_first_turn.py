@@ -130,7 +130,7 @@ class TestIntentClassification:
     """Rules-first classification resolves common input patterns."""
 
     @pytest.mark.parametrize(
-        "player_input, expected_intent",
+        ("player_input", "expected_intent"),
         [
             ("go north", "move"),
             ("walk to the cave", "move"),

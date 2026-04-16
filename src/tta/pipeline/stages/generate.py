@@ -8,6 +8,7 @@ hooks, calls the LLM for narrative, then extracts world changes.
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -24,8 +25,10 @@ from tta.llm.roles import ModelRole
 from tta.models.choice import Reversibility
 from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
-from tta.pipeline.types import PipelineDeps
 from tta.prompts.loader import log_injection_signals
+
+if TYPE_CHECKING:
+    from tta.pipeline.types import PipelineDeps
 
 log = structlog.get_logger()
 
@@ -341,7 +344,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             "narrative_output": narrative,
             "model_used": response.model_used if response else "fallback",
             "token_count": response.token_count if response else None,
-            "world_state_updates": merged if merged else [],
+            "world_state_updates": merged or [],
             "suggested_actions": suggestions or None,
         }
     )

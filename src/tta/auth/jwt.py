@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import secrets
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 import jwt
 import structlog
-from redis.asyncio import Redis
 
 from tta.config import Environment, get_settings
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from redis.asyncio import Redis
 
 log = structlog.get_logger()
 

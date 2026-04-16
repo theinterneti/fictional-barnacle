@@ -14,7 +14,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, Self
 
 import structlog
 
@@ -105,7 +105,7 @@ class CircuitBreaker:
     def state(self) -> CircuitState:
         return self._state
 
-    async def __aenter__(self) -> CircuitBreaker:
+    async def __aenter__(self) -> Self:
         async with self._lock:
             if self._state == CircuitState.OPEN:
                 if self._cooldown_elapsed():
@@ -137,19 +137,16 @@ class CircuitBreaker:
 
             if exc_val is not None and self._is_counted(exc_val):
                 self._record_failure()
-                if self._state == CircuitState.HALF_OPEN:
-                    self._trip()
-                elif (
+                if self._state == CircuitState.HALF_OPEN or (
                     self._state == CircuitState.CLOSED
                     and self._window_failures() >= self.config.failure_threshold
                 ):
                     self._trip()
-            else:
-                if self._state == CircuitState.HALF_OPEN:
-                    self._transition(CircuitState.CLOSED)
-                    self._failures.clear()
-                    self._consecutive_trips = 0
-                    self._current_cooldown = self.config.cooldown_seconds
+            elif self._state == CircuitState.HALF_OPEN:
+                self._transition(CircuitState.CLOSED)
+                self._failures.clear()
+                self._consecutive_trips = 0
+                self._current_cooldown = self.config.cooldown_seconds
 
         # Never suppress the exception
         return False

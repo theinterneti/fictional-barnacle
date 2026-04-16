@@ -141,5 +141,7 @@ class TestInMemoryTurnResultStore:
         got_a = await store.wait_for_result(id_a, timeout=1.0)
         got_b = await store.wait_for_result(id_b, timeout=1.0)
 
-        assert got_a is not None and got_a.narrative_output == "A"
-        assert got_b is not None and got_b.narrative_output == "B"
+        assert got_a is not None
+        assert got_a.narrative_output == "A"
+        assert got_b is not None
+        assert got_b.narrative_output == "B"

@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
 from tta.api.security_headers import SECURITY_HEADERS
 from tta.config import Settings
 
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
-@pytest.fixture()
+
+@pytest.fixture
 def _settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
@@ -19,12 +23,12 @@ def _settings() -> Settings:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(_settings: Settings) -> FastAPI:
     return create_app(settings=_settings)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 

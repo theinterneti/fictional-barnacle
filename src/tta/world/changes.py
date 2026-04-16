@@ -7,12 +7,16 @@ WorldService.
 
 from __future__ import annotations
 
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 import structlog
 
 from tta.models.world import WorldChange, WorldChangeType
-from tta.world.service import WorldService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from tta.world.service import WorldService
 
 log = structlog.get_logger()
 

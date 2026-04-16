@@ -7,8 +7,7 @@ five-axis dimensions (S06 FR-5).
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Protocol, runtime_checkable
-from uuid import UUID
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 import structlog
 
@@ -17,6 +16,9 @@ from tta.models.world import (
     RelationshipChange,
     apply_relationship_change,
 )
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 logger = structlog.get_logger(__name__)
 

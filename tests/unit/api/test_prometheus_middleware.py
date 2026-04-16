@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
@@ -12,8 +13,11 @@ from tta.observability.metrics import (
     REGISTRY,
 )
 
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
-@pytest.fixture()
+
+@pytest.fixture
 def _settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
@@ -21,12 +25,12 @@ def _settings() -> Settings:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(_settings: Settings) -> FastAPI:
     return create_app(settings=_settings)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
@@ -60,7 +64,8 @@ class TestPrometheusMiddleware:
             "tta_http_requests_total",
             {"method": "GET", "status": "200"},
         )
-        assert val is not None and val >= 1.0
+        assert val is not None
+        assert val >= 1.0
 
     def test_records_request_duration(self, client: TestClient) -> None:
         """Middleware records tta_http_request_duration_seconds."""
@@ -97,4 +102,5 @@ class TestRoutePatternExtraction:
             "tta_http_requests_total",
             {"method": "GET", "route": "/api/v1/health"},
         )
-        assert val is not None and val >= 1.0
+        assert val is not None
+        assert val >= 1.0

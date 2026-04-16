@@ -520,7 +520,6 @@ def main() -> None:
     else:
         plans_dir = Path(__file__).resolve().parent
     if not plans_dir.is_dir():
-        print(f"Error: {plans_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
 
     specs_dir = Path(args.specs_dir).resolve() if args.specs_dir else None
@@ -528,7 +527,6 @@ def main() -> None:
     plans = discover_plans(plans_dir)
 
     if not plans:
-        print("No plan files found.", file=sys.stderr)
         sys.exit(1)
 
     if args.validate:
@@ -542,22 +540,18 @@ def main() -> None:
         if args.json:
             out_path = Path(f"{args.out}.json")
             out_path.write_text(output, encoding="utf-8")
-            print(f"Wrote {out_path}")
         elif args.validate:
             out_path = Path(f"{args.out}-validation.md")
             out_path.write_text(output, encoding="utf-8")
-            print(f"Wrote {out_path}")
         else:
             md_path = Path(f"{args.out}.md")
             md_path.write_text(output, encoding="utf-8")
-            print(f"Wrote {md_path}")
 
             json_output = format_json(plans)
             json_path = Path(f"{args.out}.json")
             json_path.write_text(json_output, encoding="utf-8")
-            print(f"Wrote {json_path}")
     else:
-        print(output)
+        pass
 
 
 if __name__ == "__main__":

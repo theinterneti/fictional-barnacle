@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
-from tta.models.world import WorldTemplate
+if TYPE_CHECKING:
+    from tta.models.world import WorldTemplate
 
 # ── Exception hierarchy ──────────────────────────────────────────
 
@@ -83,17 +85,15 @@ def _rule_location_refs(template: WorldTemplate) -> None:
             msg = f"NPC '{npc.key}' references unknown location '{npc.location_key}'"
             raise DanglingReferenceError(msg)
     for item in template.items:
-        if item.location_key is not None:
-            if item.location_key not in loc_keys:
-                msg = (
-                    f"Item '{item.key}' references "
-                    f"unknown location '{item.location_key}'"
-                )
-                raise DanglingReferenceError(msg)
-        if item.npc_key is not None:
-            if item.npc_key not in npc_keys:
-                msg = f"Item '{item.key}' references unknown NPC '{item.npc_key}'"
-                raise DanglingReferenceError(msg)
+        if item.location_key is not None and item.location_key not in loc_keys:
+            msg = (
+                f"Item '{item.key}' references "
+                f"unknown location '{item.location_key}'"
+            )
+            raise DanglingReferenceError(msg)
+        if item.npc_key is not None and item.npc_key not in npc_keys:
+            msg = f"Item '{item.key}' references unknown NPC '{item.npc_key}'"
+            raise DanglingReferenceError(msg)
 
 
 def _rule_npc_knowledge_refs(template: WorldTemplate) -> None:

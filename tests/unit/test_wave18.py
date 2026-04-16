@@ -300,11 +300,11 @@ def _game_row(
 class TestResumeRecap:
     """FR-5.4: Resume provides contextual recap."""
 
-    @pytest.fixture()
+    @pytest.fixture
     def pg(self) -> AsyncMock:
         return AsyncMock()
 
-    @pytest.fixture()
+    @pytest.fixture
     def app(self, pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> Any:
 
         from tta.api.app import create_app
@@ -324,7 +324,7 @@ class TestResumeRecap:
         a.dependency_overrides[get_current_player] = lambda: player
         return a
 
-    @pytest.fixture()
+    @pytest.fixture
     def client(self, app: Any) -> Any:
         from fastapi.testclient import TestClient
 

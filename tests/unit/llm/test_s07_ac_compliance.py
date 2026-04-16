@@ -130,15 +130,20 @@ class TestAC071ModelAbstraction:
 
         # Required fields per FR-07.02 and AC-07.1
         assert isinstance(resp, LLMResponse)
-        assert isinstance(resp.content, str) and resp.content  # completion text
+        assert isinstance(resp.content, str)
+        assert resp.content
         assert (
-            isinstance(resp.model_used, str) and resp.model_used
-        )  # model actually used
+            isinstance(resp.model_used, str)
+        )
+        assert (
+            resp.model_used
+        )
         assert isinstance(resp.token_count, TokenCount)  # usage (token counts)
         assert resp.token_count.prompt_tokens > 0
         assert resp.token_count.completion_tokens > 0
         assert resp.token_count.total_tokens > 0
-        assert isinstance(resp.latency_ms, float) and resp.latency_ms > 0  # latency
+        assert isinstance(resp.latency_ms, float)
+        assert resp.latency_ms > 0
         assert isinstance(resp.cost_usd, float)  # cost_usd
         assert resp.cost_usd == 0.002
         assert resp.tier_used in ("primary", "fallback")  # finish_reason / tier

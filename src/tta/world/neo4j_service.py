@@ -677,7 +677,7 @@ def _node_to_item(node: dict) -> Item:  # type: ignore[type-arg]
 
 
 async def _dispatch_change(
-    tx,  # noqa: ANN001
+    tx,
     sid: str,
     change: WorldChange,
     log: structlog.stdlib.BoundLogger,

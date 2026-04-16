@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
 import sqlalchemy as sa
@@ -12,8 +13,6 @@ import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from redis.asyncio import Redis
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.api.errors import AppError
@@ -24,8 +23,13 @@ from tta.config import (
     get_settings,
 )
 from tta.errors import ErrorCategory
-from tta.models.player import Player
 from tta.persistence.redis_session import delete_active_session
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    from tta.models.player import Player
 
 log = structlog.get_logger()
 
@@ -108,7 +112,7 @@ class UpdatePlayerRequest(BaseModel):
 async def register_player(
     body: CreatePlayerRequest,
     request: Request,
-    pg: AsyncSession = Depends(get_pg),
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> JSONResponse:
     """Register a new anonymous player with a unique handle."""
     # Age gate (S17 FR-17.36)
@@ -210,7 +214,7 @@ async def register_player(
 
 @router.get("/me")
 async def get_profile(
-    player: Player = Depends(get_current_player),
+    player: Annotated[Player, Depends(get_current_player)],
 ) -> dict:
     """Return the authenticated player's profile."""
     return {
@@ -225,8 +229,8 @@ async def get_profile(
 @router.patch("/me")
 async def update_profile(
     body: UpdatePlayerRequest,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> dict:
     """Update the authenticated player's handle."""
     if body.handle is None:
@@ -278,7 +282,7 @@ class ConsentState(BaseModel):
 
 @router.get("/me/consent")
 async def get_consent(
-    player: Player = Depends(get_current_player),
+    player: Annotated[Player, Depends(get_current_player)],
 ) -> dict:
     """Return the authenticated player's current consent state."""
     cats = None
@@ -302,8 +306,8 @@ async def get_consent(
 async def update_consent(
     body: UpdateConsentRequest,
     request: Request,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> dict:
     """Update consent categories (atomic JSONB merge).
 
@@ -411,7 +415,7 @@ class AccountDeletionResponse(BaseModel):
 
 @router.get("/me/data-export", status_code=202)
 async def request_data_export(
-    player: Player = Depends(get_current_player),
+    player: Annotated[Player, Depends(get_current_player)],
 ) -> dict:
     """Request an export of all player data (GDPR Art. 20).
 
@@ -425,9 +429,9 @@ async def request_data_export(
 @router.delete("/me", status_code=202)
 async def request_account_deletion(
     request: Request,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
-    redis: Redis = Depends(get_redis),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
+    redis: Annotated[Redis, Depends(get_redis)],
 ) -> dict:
     """Erase account and all personal data (GDPR Art. 17, S17 FR-17.10).
 

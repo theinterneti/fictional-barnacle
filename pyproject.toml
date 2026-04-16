@@ -46,6 +46,7 @@ dev = [
     "ruff>=0.8",
     "pyright>=1.1",
 ]
+audit = ["pip-audit"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tta"]
@@ -56,10 +57,91 @@ packages = ["src/tta"]
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+src = ["src"]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "C4", "UP"]
-ignore = ["B008"]  # Depends() in defaults is idiomatic FastAPI
+select = ["ALL"]
+ignore = [
+    # Formatter conflicts
+    "COM812",   # missing trailing comma (ruff format handles this)
+    "ISC001",   # implicit string concat (ruff format handles this)
+
+    # Docstrings — enable progressively as docs are added
+    "D",
+
+    # Type annotation strictness — pyright at standard mode handles this
+    "ANN",
+
+    # FastAPI / SQLModel idioms
+    "B008",     # Depends() in function defaults — idiomatic FastAPI
+    "RUF012",   # mutable ClassVar — SQLModel field() pattern
+
+    # Exception message style
+    "EM101",    # exception msg from string literal
+    "EM102",    # exception msg from f-string
+    "TRY003",   # long messages outside exception class
+
+    # Boolean flags — common in settings / config classes
+    "FBT001",   # boolean positional arg
+    "FBT002",   # boolean default arg
+    "FBT003",   # boolean positional value in call
+
+    # TODO / FIXME tracking — handled in GitHub issues, not inline
+    "FIX002",
+    "TD002",
+    "TD003",
+    "ERA001",   # commented-out code — sometimes intentional during dev
+
+    # Conditional imports — common with TYPE_CHECKING and lazy loading
+    "PLC0415",
+
+    # Unused arguments — FastAPI dependency injection creates many stubs
+    "ARG001",   # unused function argument
+    "ARG002",   # unused method argument
+
+    # Blind exception catching — intentional in resilience / error boundary code
+    "BLE001",
+
+    # Complexity metrics — tech debt to address separately, not blocking
+    "C901",     # too complex
+    "PLR0912",  # too many branches
+    "PLR0913",  # too many function arguments
+    "PLR0915",  # too many statements
+
+    # Logging — structlog uses structured calls, not %-format
+    "G201",     # logging-warn (structlog API differs)
+    "G004",     # logging f-string — fine with structlog bind()
+
+    # Possible hardcoded password — false positives on "Bearer", "PASS", "TOKEN" constants
+    "S105",
+
+    # Ambiguous unicode — en-dashes and similar are intentional in strings/comments
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",     # assert — standard pytest pattern
+    "S105",     # hardcoded password — test fixture defaults
+    "S106",     # hardcoded password in argument — test fixture defaults
+    "PLR2004",  # magic values — OK in test assertions
+    "SLF001",   # private member access — OK in unit tests
+    "PT019",    # fixture without return injected as param — _setup-style fixtures
+]
+"migrations/**/*.py" = ["ALL"]
+"scripts/**/*.py" = ["T201", "INP001", "PLR2004", "S101"]
+"plans/**/*.py" = ["ALL"]
+"specs/**/*.py" = ["ALL"]
+"prompts/**/*.py" = ["ALL"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tta"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
 
 # ---------------------------------------------------------------------------
 # Pyright — type checking

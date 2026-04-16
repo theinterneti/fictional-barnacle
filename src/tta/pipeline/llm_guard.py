@@ -14,13 +14,12 @@ Queue-full/timeout from semaphore does NOT trip the breaker.
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 import structlog
 from opentelemetry import trace
 
-from tta.llm.client import LLMResponse, Message
 from tta.llm.errors import BudgetExceededError
-from tta.llm.roles import ModelRole
 from tta.observability.daily_cost import record_daily_cost
 from tta.observability.langfuse import record_llm_generation
 from tta.observability.metrics import (
@@ -28,8 +27,12 @@ from tta.observability.metrics import (
     SESSION_COST_EXCEEDED,
 )
 from tta.observability.tracing import current_trace_id
-from tta.pipeline.types import PipelineDeps
 from tta.privacy.cost import get_cost_tracker, load_pricing_yaml
+
+if TYPE_CHECKING:
+    from tta.llm.client import LLMResponse, Message
+    from tta.llm.roles import ModelRole
+    from tta.pipeline.types import PipelineDeps
 
 _log = structlog.get_logger(__name__)
 

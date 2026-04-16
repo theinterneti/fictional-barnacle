@@ -7,10 +7,14 @@ World state updates are applied by the caller/orchestrator.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import structlog
 
 from tta.models.turn import TurnState, TurnStatus
-from tta.pipeline.types import PipelineDeps
+
+if TYPE_CHECKING:
+    from tta.pipeline.types import PipelineDeps
 
 log = structlog.get_logger()
 

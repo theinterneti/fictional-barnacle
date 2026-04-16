@@ -122,7 +122,7 @@ class TestShutdownTracing:
     """Clean shutdown of TracerProvider."""
 
     def test_shutdown_with_provider(self) -> None:
-        provider, _ = _make_in_memory_provider()
+        _provider, _ = _make_in_memory_provider()
         shutdown_tracing()
         # After shutdown, new spans should be no-ops
         tracer = get_tracer()

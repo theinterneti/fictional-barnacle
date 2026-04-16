@@ -6,15 +6,18 @@ Shared given/then steps live in tests/bdd/conftest.py.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
-from fastapi.testclient import TestClient
 from pytest_bdd import given, parsers, scenario, then, when
 
 from tests.bdd.conftest import (
     _PLAYER_ID,
     _make_result,
 )
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 FEATURE = "../features/player_identity.feature"
 

@@ -70,7 +70,7 @@ def _write_fragment(
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def template_dirs(tmp_path: Path) -> tuple[Path, Path]:
     """Return (templates_dir, fragments_dir) under tmp_path."""
     templates = tmp_path / "templates"
@@ -398,7 +398,7 @@ Body.
 class TestRealTemplates:
     """Smoke-test the actual prompt template files shipped with TTA."""
 
-    @pytest.fixture()
+    @pytest.fixture
     def real_registry(self) -> FilePromptRegistry:
         repo_root = Path(__file__).resolve().parents[3]
         templates_dir = repo_root / "prompts" / "templates"

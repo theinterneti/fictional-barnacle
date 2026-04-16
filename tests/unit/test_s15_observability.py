@@ -11,10 +11,10 @@ Tests for:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import textwrap
-from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -32,6 +32,9 @@ from tta.privacy.cost import (
     clear_pricing_cache,
     load_pricing_yaml,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture(autouse=True)
@@ -161,10 +164,8 @@ async def test_daily_cost_summary_loop_emits_log():
         task = asyncio.create_task(daily_cost_summary_loop())
         await asyncio.sleep(0.05)
         task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
     # After the loop fired, costs and turns should be reset
     assert get_daily_costs() == {}
@@ -415,7 +416,7 @@ async def test_guarded_llm_call_creates_otel_span():
         def __enter__(self):
             return self
 
-        def __exit__(self, *args: Any):
+        def __exit__(self, *args: object):
             pass
 
     fake_span = FakeSpan()
@@ -480,7 +481,7 @@ async def test_guarded_llm_call_passes_otel_trace_to_langfuse():
         def __enter__(self):
             return self
 
-        def __exit__(self, *args: Any):
+        def __exit__(self, *args: object):
             pass
 
     class FakeTracer:

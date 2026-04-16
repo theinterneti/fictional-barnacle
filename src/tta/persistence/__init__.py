@@ -17,19 +17,19 @@ from tta.persistence.postgres import (
 )
 
 __all__ = [
-    # Engine
-    "build_engine",
-    "build_session_factory",
-    # Postgres repositories
-    "PostgresGameRepository",
-    "PostgresPlayerRepository",
-    "PostgresSessionRepository",
-    "PostgresTurnRepository",
-    "PostgresWorldEventRepository",
     # In-memory repositories
     "InMemoryGameRepository",
     "InMemoryPlayerRepository",
     "InMemorySessionRepository",
     "InMemoryTurnRepository",
     "InMemoryWorldEventRepository",
+    # Postgres repositories
+    "PostgresGameRepository",
+    "PostgresPlayerRepository",
+    "PostgresSessionRepository",
+    "PostgresTurnRepository",
+    "PostgresWorldEventRepository",
+    # Engine
+    "build_engine",
+    "build_session_factory",
 ]

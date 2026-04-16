@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
 from tta.lifecycle.cleanup import run_lifecycle_pass
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 def _make_pg(
@@ -33,7 +36,7 @@ def _make_pg(
     return pg
 
 
-def _make_factory(pg: AsyncMock):  # noqa: ANN201
+def _make_factory(pg: AsyncMock):
     """Wrap a mock PG session in an async context-manager factory."""
 
     @asynccontextmanager

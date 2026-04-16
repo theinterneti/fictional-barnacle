@@ -11,10 +11,13 @@ Issue #55 acceptance criteria:
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
 import asyncpg
-import httpx
 import pytest
+
+if TYPE_CHECKING:
+    import httpx
 
 # ---------------------------------------------------------------------------
 # Helpers

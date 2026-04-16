@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
-from uuid import UUID
 
 import structlog
 
-from tta.models.world import (
-    Location,
-    LocationContext,
-    WorldChange,
-    WorldContext,
-    WorldEvent,
-    WorldSeed,
-)
-
 if TYPE_CHECKING:
+    from uuid import UUID
+
+    from tta.models.world import (
+        Location,
+        LocationContext,
+        WorldChange,
+        WorldContext,
+        WorldEvent,
+        WorldSeed,
+    )
     from tta.persistence.repositories import WorldEventRepository
 
 log = structlog.get_logger()

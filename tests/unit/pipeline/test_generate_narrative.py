@@ -85,7 +85,7 @@ class TestAdaptiveWordCounts:
     """_build_generation_prompt includes intent-specific word guidance."""
 
     @pytest.mark.parametrize(
-        "intent,expected_range",
+        ("intent", "expected_range"),
         list(INTENT_WORD_RANGES.items()),
     )
     def test_word_range_injected_per_intent(

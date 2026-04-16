@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import re
 import traceback
+from typing import TYPE_CHECKING
 
 import structlog
-from fastapi import Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from tta.config import Environment, get_settings
 from tta.errors import CATEGORY_STATUS, ErrorCategory
+
+if TYPE_CHECKING:
+    from fastapi import Request
+    from fastapi.exceptions import RequestValidationError
 
 
 def _request_context(request: Request) -> dict[str, str]:

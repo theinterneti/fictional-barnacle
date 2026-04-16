@@ -7,7 +7,7 @@ import base64
 import json
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
@@ -15,7 +15,6 @@ import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.deps import (
     get_current_player,
@@ -38,7 +37,6 @@ from tta.models.events import (
     TurnStartEvent,
 )
 from tta.models.game import GameStatus
-from tta.models.player import Player
 from tta.models.turn import TurnState, TurnStatus
 from tta.models.world import (
     RelationshipChange,
@@ -54,6 +52,11 @@ from tta.observability.metrics import (
 )
 from tta.pipeline.orchestrator import run_pipeline
 from tta.privacy.cost import get_cost_tracker, reset_cost_tracker
+
+if TYPE_CHECKING:
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    from tta.models.player import Player
 
 log = structlog.get_logger()
 
@@ -105,10 +108,7 @@ def _build_typed_payload(change_type: WorldChangeType, item: dict) -> dict:
         base.setdefault("state", nv if nv is not None else "")
     elif ct == WorldChangeType.NPC_MOVED:
         base.setdefault("to_location_id", nv if nv is not None else "")
-    elif ct == WorldChangeType.CONNECTION_LOCKED:
-        base.setdefault("from_id", item.get("old_value", ""))
-        base.setdefault("to_id", str(item.get("entity", "")))
-    elif ct == WorldChangeType.CONNECTION_UNLOCKED:
+    elif ct in (WorldChangeType.CONNECTION_LOCKED, WorldChangeType.CONNECTION_UNLOCKED):
         base.setdefault("from_id", item.get("old_value", ""))
         base.setdefault("to_id", str(item.get("entity", "")))
     elif ct == WorldChangeType.QUEST_STATUS_CHANGED:
@@ -1072,8 +1072,8 @@ async def _get_max_turn_number(pg: AsyncSession, game_id: UUID) -> int:
 async def create_game(
     body: CreateGameRequest,
     request: Request,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> dict:
     """Create a new game session, optionally running world genesis."""
     settings: Settings = request.app.state.settings
@@ -1197,11 +1197,11 @@ async def create_game(
 
 @router.get("")
 async def list_games(
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
-    status: str | None = Query(None),
-    cursor: datetime | None = Query(None),
-    limit: int | None = Query(None, ge=1, le=50),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
+    status: Annotated[str | None, Query()] = None,
+    cursor: Annotated[datetime | None, Query()] = None,
+    limit: Annotated[int | None, Query(ge=1, le=50)] = None,
 ) -> dict:
     """List the authenticated player's games (S27 FR-27.08–FR-27.11)."""
     settings: Settings = get_settings()
@@ -1282,8 +1282,8 @@ async def list_games(
 @router.get("/{game_id}")
 async def get_game_state(
     game_id: UUID,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> dict:
     """Get full game state for a session."""
     row = await _get_owned_game(pg, game_id, player)
@@ -1344,10 +1344,10 @@ async def get_game_state(
 async def list_turns(
     game_id: UUID,
     request: Request,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
-    limit: int = Query(default=20, ge=1, le=100),
-    cursor: str | None = Query(default=None),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    cursor: Annotated[str | None, Query()] = None,
 ) -> dict:
     """Paginated turn history for a game (FR-10.13)."""
     await _get_owned_game(pg, game_id, player)
@@ -1424,8 +1424,8 @@ async def submit_turn(
     game_id: UUID,
     body: SubmitTurnRequest,
     request: Request,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> dict | JSONResponse:
     """Submit a player turn for processing."""
     row = await _get_owned_game(pg, game_id, player)
@@ -1584,7 +1584,7 @@ async def submit_turn(
     )
 
     # Dispatch pipeline as background task
-    game_state = row.world_seed if row.world_seed else {}
+    game_state = row.world_seed or {}
     if isinstance(game_state, str):
         game_state = json.loads(game_state)
     asyncio.create_task(
@@ -1612,8 +1612,8 @@ async def submit_turn(
 async def stream_turn(
     game_id: UUID,
     request: Request,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> StreamingResponse:
     """SSE endpoint — streams turn processing events to the client."""
     await _get_owned_game(pg, game_id, player)  # ownership check
@@ -1635,7 +1635,7 @@ async def stream_turn(
     # requires a single async function yielding formatted events.
     # TODO: decompose into _wait_for_result() and _emit_turn_events()
     # helpers once the streaming contract stabilises.
-    async def event_stream():  # noqa: C901
+    async def event_stream():
         settings: Settings = request.app.state.settings
         # Suggest client reconnect delay per SSE contract (FR-10.43).
         yield f"retry: {settings.sse_retry_ms}\n\n"
@@ -1739,8 +1739,8 @@ async def stream_turn(
 @router.post("/{game_id}/save")
 async def save_game(
     game_id: UUID,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> dict:
     """Explicit save — resets inactivity timers."""
     row = await _get_owned_game(pg, game_id, player)
@@ -1767,8 +1767,8 @@ async def save_game(
 async def resume_game(
     game_id: UUID,
     request: Request,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> dict:
     """Resume a game — loads recent turns, context summary, handles recovery.
 
@@ -1906,8 +1906,8 @@ async def resume_game(
 async def update_game(
     game_id: UUID,
     body: UpdateGameRequest,
-    player: Player = Depends(get_current_player),
-    pg: AsyncSession = Depends(get_pg),
+    player: Annotated[Player, Depends(get_current_player)],
+    pg: Annotated[AsyncSession, Depends(get_pg)],
 ) -> dict:
     """Update game status (v1: pause only)."""
     row = await _get_owned_game(pg, game_id, player)
@@ -1989,4 +1989,3 @@ async def end_game(
     duration_s = (now - row.created_at).total_seconds()
     SESSION_DURATION.observe(duration_s)
 
-    return None

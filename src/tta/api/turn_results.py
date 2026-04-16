@@ -17,12 +17,14 @@ result.
 from __future__ import annotations
 
 import asyncio
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import structlog
-from redis.asyncio import Redis
 
 from tta.models.turn import TurnState
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 log = structlog.get_logger()
 

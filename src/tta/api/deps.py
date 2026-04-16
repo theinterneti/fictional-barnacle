@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 import sqlalchemy as sa
 from fastapi import Depends, Request
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.api.errors import AppError
 from tta.auth.jwt import TokenError, decode_token, is_token_denied
@@ -21,7 +19,10 @@ from tta.errors import ErrorCategory
 from tta.models.player import Player
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from redis.asyncio import Redis
+    from sqlmodel.ext.asyncio.session import AsyncSession
 
 
 async def get_pg(request: Request) -> AsyncIterator[AsyncSession]:

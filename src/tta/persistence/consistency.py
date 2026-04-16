@@ -8,11 +8,10 @@ safe SQL reconstruction (get_or_reconstruct_session).
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import structlog
-from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from tta.models.game import GameState
 from tta.observability.metrics import (
@@ -24,6 +23,10 @@ from tta.persistence.redis_session import (
     _key,
     delete_active_session,
 )
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 log = structlog.get_logger()
 

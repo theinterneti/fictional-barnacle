@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
@@ -17,6 +16,9 @@ from tta.api.deps import get_current_player, get_pg
 from tta.api.errors import AppError
 from tta.config import CURRENT_CONSENT_VERSION, Settings
 from tta.models.player import Player
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 _NOW = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
 _PLAYER_ID = uuid4()
@@ -75,12 +77,12 @@ def _make_result(
     return result
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     settings = _settings()
     monkeypatch.setattr("tta.api.routes.players.get_settings", lambda: settings)
@@ -96,7 +98,7 @@ def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def consented_app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     """App where the authenticated player has valid consent."""
     settings = _settings()
@@ -113,12 +115,12 @@ def consented_app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
 
-@pytest.fixture()
+@pytest.fixture
 def consented_client(consented_app: FastAPI) -> TestClient:
     return TestClient(consented_app)
 

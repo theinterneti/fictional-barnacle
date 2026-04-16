@@ -24,13 +24,13 @@ h_settings.register_profile(
 h_settings.load_profile("default")
 
 
-@pytest.fixture()
+@pytest.fixture
 def anyio_backend() -> str:
     """Force asyncio as the async backend for anyio-based tests."""
     return "asyncio"
 
 
-@pytest.fixture()
+@pytest.fixture
 def settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     """Return a ``Settings`` instance wired to test-safe defaults.
 
@@ -52,7 +52,7 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     return Settings()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_llm_client() -> MockLLMClient:
     """Provide a deterministic ``MockLLMClient`` with a canned response."""
     return MockLLMClient()

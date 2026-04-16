@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import time
 from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import structlog
-from redis.asyncio import Redis
 
 from tta.models.game import GameState
 from tta.observability.db_metrics import observe_redis_read, observe_redis_write
@@ -19,6 +19,9 @@ from tta.observability.metrics import (
     CACHE_RECONSTRUCTION_DURATION,
     CACHE_RECONSTRUCTION_TOTAL,
 )
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 log = structlog.get_logger()
 

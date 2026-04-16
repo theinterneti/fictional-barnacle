@@ -7,8 +7,7 @@ nodes with dimension properties.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, LiteralString, cast
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, LiteralString, cast
 
 import structlog
 from neo4j import AsyncDriver, Query
@@ -23,6 +22,9 @@ from tta.world.relationship_service import (
     COMPANION_AFFINITY_THRESHOLD,
     COMPANION_TRUST_THRESHOLD,
 )
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 logger = structlog.get_logger(__name__)
 
@@ -64,7 +66,7 @@ class Neo4jRelationshipService:
             result = await session.run(
                 Query(
                     cast(
-                        LiteralString,
+                        "LiteralString",
                         f"MATCH {a_pat}-[r:RELATES_TO]->{b_pat} "
                         "RETURN r.trust AS trust, r.affinity AS affinity, "
                         "r.respect AS respect, r.fear AS fear, "
@@ -90,7 +92,7 @@ class Neo4jRelationshipService:
             result = await session.run(
                 Query(
                     cast(
-                        LiteralString,
+                        "LiteralString",
                         f"MATCH {a_pat}-[r:RELATES_TO]->(b {{session_id: $sid}}) "
                         "RETURN CASE WHEN b:PlayerSession THEN 'player' "
                         "ELSE b.id END AS target_id, "
@@ -195,7 +197,7 @@ class Neo4jRelationshipService:
             await session.run(
                 Query(
                     cast(
-                        LiteralString,
+                        "LiteralString",
                         f"MATCH {a_pat} MATCH {b_pat} "
                         "MERGE (a)-[r:RELATES_TO]->(b) "
                         "SET r.trust = $trust, r.affinity = $affinity, "

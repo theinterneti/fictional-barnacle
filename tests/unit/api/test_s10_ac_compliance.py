@@ -89,7 +89,7 @@ def _game_row(**overrides: Any) -> dict[str, Any]:
     return base
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg() -> AsyncMock:
     conn = AsyncMock()
     conn.begin = MagicMock(return_value=AsyncMock())
@@ -98,7 +98,7 @@ def pg() -> AsyncMock:
     return conn
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(pg: AsyncMock) -> FastAPI:
     settings = _settings()
     a = create_app(settings)
@@ -109,7 +109,7 @@ def app(pg: AsyncMock) -> FastAPI:
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app, raise_server_exceptions=False)
 
@@ -119,7 +119,7 @@ def client(app: FastAPI) -> TestClient:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def err_app() -> FastAPI:
     """Minimal FastAPI with error handlers for AC-10.09/AC-10.10 checks."""
     a = FastAPI()
@@ -150,7 +150,7 @@ def err_app() -> FastAPI:
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def err_client(err_app: FastAPI) -> TestClient:
     return TestClient(err_app, raise_server_exceptions=False)
 

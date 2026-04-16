@@ -5,7 +5,7 @@ All tests mock the Neo4j driver — no running Neo4j instance required.
 
 from __future__ import annotations
 
-import pathlib
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,6 +18,9 @@ from tta.world.migrate import (
     get_current_version,
     run_migrations,
 )
+
+if TYPE_CHECKING:
+    import pathlib
 
 # ---------------------------------------------------------------------------
 # Helpers

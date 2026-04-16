@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -23,8 +23,11 @@ from tta.api.errors import (
 from tta.config import Environment
 from tta.errors import ErrorCategory
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
-@pytest.fixture()
+
+@pytest.fixture
 def app() -> FastAPI:
     """Minimal app with error handlers wired up."""
     app = FastAPI()
@@ -81,14 +84,14 @@ def app() -> FastAPI:
     return app
 
 
-@pytest.fixture()
+@pytest.fixture
 def capture_logs() -> Generator[list[dict[str, object]], None, None]:
     """Capture structlog output for assertion."""
     with structlog.testing.capture_logs() as logs:
         yield logs
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 

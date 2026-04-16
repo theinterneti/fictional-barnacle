@@ -7,11 +7,11 @@ with graceful fallback to a basic context dict from game_state.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import structlog
 
-from tta.models.turn import TurnState
 from tta.models.world import NPC
-from tta.pipeline.types import PipelineDeps
 from tta.world.dialogue import build_dialogue_contexts_for_location
 from tta.world.relationship_service import (
     COMPANION_AFFINITY_THRESHOLD,
@@ -19,6 +19,10 @@ from tta.world.relationship_service import (
     RelationshipService,
 )
 from tta.world.state import get_full_context
+
+if TYPE_CHECKING:
+    from tta.models.turn import TurnState
+    from tta.pipeline.types import PipelineDeps
 
 log = structlog.get_logger()
 
@@ -284,7 +288,7 @@ async def _inject_shared_history(
         if not narrative:
             continue
         narrative_lower = narrative.lower()
-        for name_lower, _display_name in npc_names.items():
+        for name_lower in npc_names:
             if (
                 name_lower in narrative_lower
                 and len(mentions[name_lower]) < _SHARED_HISTORY_MAX_MENTIONS
@@ -303,7 +307,7 @@ async def _inject_shared_history(
     # Inject into dialogue contexts
     for ctx in dialogue_contexts:
         name_lower = (ctx.get("npc_name") or "").lower()
-        if name_lower in mentions and mentions[name_lower]:
+        if mentions.get(name_lower):
             ctx["shared_history"] = "; ".join(mentions[name_lower])
 
     return dialogue_contexts

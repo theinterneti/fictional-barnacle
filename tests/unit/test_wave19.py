@@ -348,9 +348,8 @@ class TestRedisInstrumentation:
         from tta.observability.db_metrics import count_redis_op
 
         before = _sample_value("tta_redis_operations_total", {"operation": "get"})
-        with pytest.raises(RuntimeError):
-            with count_redis_op("get"):
-                raise RuntimeError("simulated failure")
+        with pytest.raises(RuntimeError), count_redis_op("get"):
+            raise RuntimeError("simulated failure")
         after = _sample_value("tta_redis_operations_total", {"operation": "get"})
         assert after == before + 1.0
 

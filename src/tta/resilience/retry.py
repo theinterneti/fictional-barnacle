@@ -7,10 +7,9 @@ FR-23.11: after exhaustion → raise AppError with appropriate category.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
 import structlog
 from tenacity import (
@@ -21,6 +20,9 @@ from tenacity import (
 )
 
 from tta.errors import ErrorCategory
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 P = ParamSpec("P")
 T = TypeVar("T")

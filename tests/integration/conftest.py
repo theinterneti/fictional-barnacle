@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import AsyncIterator, Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import sqlalchemy as sa
@@ -17,6 +16,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from tta.config import Settings
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterator
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +125,7 @@ def _run_migrations(
             f"STDERR: {result.stderr}\n"
             f"TTA_DATABASE_URL: {env.get('TTA_DATABASE_URL', 'NOT SET')}"
         )
-    yield
+    return
     # No downgrade — test DB is disposable (docker-compose.test.yml tmpfs)
 
 
@@ -150,7 +152,7 @@ async def _clean_tables(integration_settings: Settings) -> AsyncIterator[None]:
         await conn.close()
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg_dsn(integration_settings: Settings) -> str:
     """Raw asyncpg-compatible DSN for direct DB access in tests."""
     return integration_settings.database_url.replace(
@@ -161,7 +163,7 @@ def pg_dsn(integration_settings: Settings) -> str:
 # ---------------------------------------------------------------------------
 # Neo4j (kept for future use, skips when unavailable)
 # ---------------------------------------------------------------------------
-@pytest.fixture()
+@pytest.fixture
 async def neo4j_driver(
     integration_settings: Settings,
 ) -> AsyncIterator[Any]:
@@ -198,7 +200,7 @@ async def neo4j_driver(
 # ---------------------------------------------------------------------------
 # Redis
 # ---------------------------------------------------------------------------
-@pytest.fixture()
+@pytest.fixture
 async def redis_client(
     integration_settings: Settings,
 ) -> AsyncIterator[Any]:
@@ -226,7 +228,7 @@ async def redis_client(
 # ---------------------------------------------------------------------------
 # FastAPI app + httpx AsyncClient
 # ---------------------------------------------------------------------------
-@pytest.fixture()
+@pytest.fixture
 async def app(integration_settings: Settings) -> AsyncIterator[Any]:
     """Create a fresh FastAPI app with the integration settings.
 
@@ -275,7 +277,7 @@ async def app(integration_settings: Settings) -> AsyncIterator[Any]:
         pass
 
 
-@pytest.fixture()
+@pytest.fixture
 async def client(app: Any) -> AsyncIterator[AsyncClient]:
     """httpx AsyncClient wired to the app via ASGI transport."""
     transport = ASGITransport(app=app)
@@ -289,7 +291,7 @@ async def client(app: Any) -> AsyncIterator[AsyncClient]:
 # ---------------------------------------------------------------------------
 # Auth helpers
 # ---------------------------------------------------------------------------
-@pytest.fixture()
+@pytest.fixture
 async def registered_player(
     client: AsyncClient,
 ) -> dict[str, str]:
@@ -313,13 +315,13 @@ async def registered_player(
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 async def auth_headers(registered_player: dict[str, str]) -> dict[str, str]:
     """Authorization headers for the registered player."""
     return {"Authorization": f"Bearer {registered_player['session_token']}"}
 
 
-@pytest.fixture()
+@pytest.fixture
 async def auth_client(
     app: Any,
     registered_player: dict[str, str],

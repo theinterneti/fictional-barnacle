@@ -6,7 +6,7 @@ with sensible defaults while overriding individual fields.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
@@ -15,8 +15,11 @@ from tta.models.game import GameSession, GameStatus
 from tta.models.player import Player
 from tta.models.turn import TurnState, TurnStatus
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
-@pytest.fixture()
+
+@pytest.fixture
 def create_player() -> Callable[..., Player]:
     """Factory that builds ``Player`` instances with sensible defaults."""
 
@@ -30,7 +33,7 @@ def create_player() -> Callable[..., Player]:
     return _factory
 
 
-@pytest.fixture()
+@pytest.fixture
 def create_game_session() -> Callable[..., GameSession]:
     """Factory that builds ``GameSession`` instances with sensible defaults."""
 
@@ -51,7 +54,7 @@ def create_game_session() -> Callable[..., GameSession]:
     return _factory
 
 
-@pytest.fixture()
+@pytest.fixture
 def create_turn_state() -> Callable[..., TurnState]:
     """Factory that builds ``TurnState`` instances with sensible defaults."""
 

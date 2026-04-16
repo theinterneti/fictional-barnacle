@@ -39,7 +39,7 @@ def _before_cursor_execute(
     statement,
     parameters,
     context,
-    executemany,  # noqa: ANN001
+    executemany,
 ) -> None:
     conn.info[_TIMING_KEY] = time.perf_counter()
 
@@ -50,7 +50,7 @@ def _after_cursor_execute(
     statement,
     parameters,
     context,
-    executemany,  # noqa: ANN001
+    executemany,
 ) -> None:
     start = conn.info.pop(_TIMING_KEY, None)
     if start is not None:
@@ -59,7 +59,7 @@ def _after_cursor_execute(
         DB_QUERY_DURATION.labels(database="postgresql", operation=op).observe(duration)
 
 
-def _handle_error(exception_context) -> None:  # noqa: ANN001
+def _handle_error(exception_context) -> None:
     """Observe duration for failed queries so the timing stack stays clean."""
     conn = exception_context.connection
     if conn is not None:

@@ -204,7 +204,7 @@ class TestInMemoryAbuseDetector:
 
         # Manually expire the cooldown by backdating
         key = "ip:x"
-        expires_at, pattern, count = tiny._cooldowns[key]
+        _expires_at, pattern, count = tiny._cooldowns[key]
         tiny._cooldowns[key] = (time.time() - 1, pattern, count)
 
         status = await tiny.check_cooldown("ip:x")

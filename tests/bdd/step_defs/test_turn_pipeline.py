@@ -6,9 +6,9 @@ Shared given/then steps live in tests/bdd/conftest.py.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
-from fastapi.testclient import TestClient
 from pytest_bdd import parsers, scenario, then, when
 
 from tests.bdd.conftest import (
@@ -16,6 +16,9 @@ from tests.bdd.conftest import (
     _game_row,
     _make_result,
 )
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 FEATURE = "../features/turn_pipeline.feature"
 

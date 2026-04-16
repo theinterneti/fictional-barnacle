@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
 from tta.config import Settings
 
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
-@pytest.fixture()
+
+@pytest.fixture
 def _settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
@@ -18,12 +22,12 @@ def _settings() -> Settings:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(_settings: Settings) -> FastAPI:
     return create_app(settings=_settings)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
@@ -47,4 +51,4 @@ class TestMetricsEndpoint:
 
     def test_not_under_api_prefix(self, client: TestClient) -> None:
         resp = client.get("/api/v1/metrics")
-        assert resp.status_code == 404 or resp.status_code == 405
+        assert resp.status_code in {404, 405}

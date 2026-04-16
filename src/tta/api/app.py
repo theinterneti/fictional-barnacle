@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -36,6 +35,8 @@ from tta.api.security_headers import SecurityHeadersMiddleware
 from tta.logging import configure_logging
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from tta.config import Settings
     from tta.moderation.recorder import ModerationRecorder
 
@@ -335,30 +336,20 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # --- Shutdown ---
     if ttl_monitor_task is not None:
         ttl_monitor_task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await ttl_monitor_task
-        except asyncio.CancelledError:
-            pass
     daily_cost_task.cancel()
-    try:
+    with suppress(asyncio.CancelledError):
         await daily_cost_task
-    except asyncio.CancelledError:
-        pass
     metrics_task.cancel()
-    try:
+    with suppress(asyncio.CancelledError):
         await metrics_task
-    except asyncio.CancelledError:
-        pass
     lifecycle_task.cancel()
-    try:
+    with suppress(asyncio.CancelledError):
         await lifecycle_task
-    except asyncio.CancelledError:
-        pass
     purge_task.cancel()
-    try:
+    with suppress(asyncio.CancelledError):
         await purge_task
-    except asyncio.CancelledError:
-        pass
     shutdown_langfuse()
     shutdown_tracing()
     if app.state.neo4j_driver is not None:

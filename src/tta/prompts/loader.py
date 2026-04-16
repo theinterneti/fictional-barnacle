@@ -16,8 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 import yaml
@@ -30,6 +29,9 @@ from jinja2 import (
 from jinja2.sandbox import SandboxedEnvironment
 
 from tta.prompts.registry import PromptTemplate, RenderedPrompt
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 log = structlog.get_logger(__name__)
 
@@ -346,7 +348,7 @@ class FilePromptRegistry:
             if node in visited:
                 return
             if node in path:
-                cycle = " → ".join(path[path.index(node) :] + [node])
+                cycle = " → ".join([*path[path.index(node):], node])
                 raise ValueError(
                     f"Circular include detected in prompt templates: {cycle}"
                 )

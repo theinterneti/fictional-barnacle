@@ -253,7 +253,7 @@ class TestPruneChains:
             entry = ConsequenceEntry(chain_id=uuid4(), trigger=f"t{i}", effect=f"e{i}")
             await svc.create_chain(session_id, f"active_{i}", entries=[entry], turn=0)
         # 3 active + 1 resolved. Prune to max 2 active.
-        pruned_ids, closures = await svc.prune_chains(session_id, 10, max_chains=2)
+        pruned_ids, _closures = await svc.prune_chains(session_id, 10, max_chains=2)
         assert len(pruned_ids) == 1
 
     @pytest.mark.asyncio

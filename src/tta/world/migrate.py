@@ -71,7 +71,7 @@ def apply_migration(
     with driver.session() as session:
         for stmt in statements:
             # Migrations are loaded from files — cast is safe here
-            session.run(cast(LiteralString, stmt))
+            session.run(cast("LiteralString", stmt))
 
         session.run(
             """

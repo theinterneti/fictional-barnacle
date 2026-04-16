@@ -7,12 +7,16 @@ table.  Raw content lives exclusively here — general logs reference
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import sqlalchemy as sa
 import structlog
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlmodel.ext.asyncio.session import AsyncSession
 
-from tta.moderation.models import ModerationRecord
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    from tta.moderation.models import ModerationRecord
 
 log = structlog.get_logger()
 

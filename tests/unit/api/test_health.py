@@ -15,7 +15,7 @@ from tta.api.app import create_app
 from tta.config import Settings
 
 
-@pytest.fixture()
+@pytest.fixture
 def _settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
@@ -74,7 +74,7 @@ def _build_client(
     return TestClient(app)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(_settings: Settings, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """Default client with all checks healthy."""
     return _build_client(monkeypatch, _settings)

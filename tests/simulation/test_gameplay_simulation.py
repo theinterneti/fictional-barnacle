@@ -16,6 +16,7 @@ Scenarios:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 import pytest
@@ -24,11 +25,13 @@ from tta.genesis.genesis_lite import run_genesis_lite
 from tta.models.turn import TurnState, TurnStatus
 from tta.models.world import WorldSeed
 from tta.pipeline.orchestrator import run_pipeline
-from tta.pipeline.types import PipelineDeps
-from tta.world.memory_service import InMemoryWorldService
-from tta.world.template_registry import TemplateRegistry
 
-from .conftest import SimulationLLMClient
+if TYPE_CHECKING:
+    from tta.pipeline.types import PipelineDeps
+    from tta.world.memory_service import InMemoryWorldService
+    from tta.world.template_registry import TemplateRegistry
+
+    from .conftest import SimulationLLMClient
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -777,7 +780,6 @@ async def test_full_simulation_report(
 ╚══════════════════════════════════════════════════════╝"""
 
     # Print to test output (visible with pytest -s)
-    print(report)
 
     # Assertions for the capstone
     assert sr >= 0.9, f"Overall success rate too low: {sr:.0%}"

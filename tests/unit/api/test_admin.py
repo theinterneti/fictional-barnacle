@@ -29,7 +29,7 @@ from tta.config import Settings
 ADMIN_KEY = "test-admin-key-for-testing"
 
 
-@pytest.fixture()
+@pytest.fixture
 def settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
@@ -1015,7 +1015,7 @@ def _make_audit_entry(
     """Build a mock audit log entry with required fields."""
     from types import SimpleNamespace
 
-    entry = SimpleNamespace(
+    return SimpleNamespace(
         id=uuid.uuid4(),
         admin_id=admin_id,
         action=action,
@@ -1025,7 +1025,6 @@ def _make_audit_entry(
         source_ip="127.0.0.1",
         timestamp=datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC),
     )
-    return entry  # type: ignore[return-value]
 
 
 class TestAuditLogCompleteness:

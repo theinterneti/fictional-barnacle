@@ -18,12 +18,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
@@ -36,6 +35,9 @@ from tta.api.deps import (
 )
 from tta.config import Settings
 from tta.models.player import Player
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 _NOW = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
 _PLAYER_ID = uuid4()
@@ -105,7 +107,7 @@ def _game_row(**overrides: Any) -> dict[str, Any]:
     return base
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg() -> AsyncMock:
     conn = AsyncMock()
     conn.begin = MagicMock(return_value=AsyncMock())
@@ -114,12 +116,12 @@ def pg() -> AsyncMock:
     return conn
 
 
-@pytest.fixture()
+@pytest.fixture
 def redis() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     """App with authenticated player (for upgrade, games endpoints)."""
     settings = _patch_settings(monkeypatch)
@@ -128,16 +130,16 @@ def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     a.dependency_overrides[get_current_player] = lambda: _ANON_PLAYER
     a.dependency_overrides[require_consent] = lambda: _ANON_PLAYER
     a.dependency_overrides[require_anonymous_game_limit] = lambda: _ANON_PLAYER
-    a.dependency_overrides[get_redis] = lambda: AsyncMock()
+    a.dependency_overrides[get_redis] = AsyncMock
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app, raise_server_exceptions=False)
 
 
-@pytest.fixture()
+@pytest.fixture
 def anon_app(
     pg: AsyncMock, redis: AsyncMock, monkeypatch: pytest.MonkeyPatch
 ) -> FastAPI:
@@ -149,7 +151,7 @@ def anon_app(
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def anon_client(anon_app: FastAPI) -> TestClient:
     return TestClient(anon_app, raise_server_exceptions=False)
 

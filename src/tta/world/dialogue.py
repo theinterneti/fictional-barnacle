@@ -7,7 +7,7 @@ and trust-gated knowledge reveal.
 
 from __future__ import annotations
 
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -17,7 +17,11 @@ from tta.models.world import (
     NPCTier,
     trust_to_label,
 )
-from tta.world.relationship_service import RelationshipService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from tta.world.relationship_service import RelationshipService
 
 logger = structlog.get_logger(__name__)
 

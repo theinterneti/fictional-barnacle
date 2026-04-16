@@ -19,7 +19,7 @@ class DataCategory(StrEnum):
 class FieldClassification:
     """A single field's classification metadata."""
 
-    __slots__ = ("name", "category", "storage", "retention_days", "erasable")
+    __slots__ = ("category", "erasable", "name", "retention_days", "storage")
 
     def __init__(
         self,

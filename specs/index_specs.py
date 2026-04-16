@@ -285,7 +285,7 @@ def check_circular_deps(specs: list[SpecMeta]) -> list[str]:
         path.append(node)
         for dep in graph.get(node, set()):
             if color.get(dep, WHITE) == GRAY:
-                cycle = path[path.index(dep) :] + [dep]
+                cycle = [*path[path.index(dep):], dep]
                 issues.append(f"Circular dependency: {' → '.join(cycle)}")
             elif color.get(dep, WHITE) == WHITE:
                 dfs(dep)
@@ -484,13 +484,11 @@ def main() -> None:
     else:
         specs_dir = Path(__file__).resolve().parent
     if not specs_dir.is_dir():
-        print(f"Error: {specs_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
 
     specs = discover_specs(specs_dir)
 
     if not specs:
-        print("No spec files found.", file=sys.stderr)
         sys.exit(1)
 
     if args.validate:
@@ -504,23 +502,19 @@ def main() -> None:
         if args.json:
             out_path = Path(f"{args.out}.json")
             out_path.write_text(output, encoding="utf-8")
-            print(f"Wrote {out_path}")
         elif args.validate:
             out_path = Path(f"{args.out}-validation.md")
             out_path.write_text(output, encoding="utf-8")
-            print(f"Wrote {out_path}")
         else:
             # Write both markdown and JSON
             md_path = Path(f"{args.out}.md")
             md_path.write_text(output, encoding="utf-8")
-            print(f"Wrote {md_path}")
 
             json_output = format_json(specs)
             json_path = Path(f"{args.out}.json")
             json_path.write_text(json_output, encoding="utf-8")
-            print(f"Wrote {json_path}")
     else:
-        print(output)
+        pass
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ Runs safety_pre_input hook before classification.
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -17,8 +18,10 @@ from tta.llm.client import Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.models.turn import ParsedIntent, TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
-from tta.pipeline.types import PipelineDeps
 from tta.prompts.loader import log_injection_signals
+
+if TYPE_CHECKING:
+    from tta.pipeline.types import PipelineDeps
 
 log = structlog.get_logger()
 
@@ -188,9 +191,8 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     classified_state = await _evaluate_consequences(classified_state, deps)
 
     # 6. Prune dormant/excess chains (S05 AC-5.8)
-    classified_state = await _prune_consequence_chains(classified_state, deps)
+    return await _prune_consequence_chains(classified_state, deps)
 
-    return classified_state
 
 
 async def _evaluate_consequences(state: TurnState, deps: PipelineDeps) -> TurnState:

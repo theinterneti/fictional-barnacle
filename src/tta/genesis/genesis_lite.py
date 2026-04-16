@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 import structlog
 from pydantic import BaseModel, Field
@@ -18,8 +18,12 @@ from tta.genesis.prompts import (
 )
 from tta.llm.client import LLMClient, Message, MessageRole
 from tta.llm.roles import ModelRole
-from tta.models.world import WorldSeed, WorldTemplate
-from tta.world.service import WorldService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from tta.models.world import WorldSeed, WorldTemplate
+    from tta.world.service import WorldService
 
 log = structlog.get_logger(__name__)
 
@@ -247,7 +251,7 @@ async def enrich_template(
     first_error_msg: str | None = None
     try:
         return _parse_enrichment(response.content)
-    except Exception as first_err:  # noqa: BLE001
+    except Exception as first_err:
         first_error_msg = str(first_err)
         log.warning(
             "enrichment_parse_failed",
@@ -277,7 +281,7 @@ async def enrich_template(
     )
     try:
         return _parse_enrichment(response.content)
-    except Exception as second_err:  # noqa: BLE001
+    except Exception as second_err:
         log.warning(
             "enrichment_fallback",
             error=str(second_err),

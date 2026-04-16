@@ -11,12 +11,15 @@ v1 uses a shared admin API key. Every admin request must include
 from __future__ import annotations
 
 import secrets
+from typing import TYPE_CHECKING
 
 import structlog
-from fastapi import Request
 
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
+
+if TYPE_CHECKING:
+    from fastapi import Request
 
 log = structlog.get_logger()
 

@@ -303,7 +303,7 @@ def _genesis_result_mock() -> MagicMock:
     return result
 
 
-@pytest.fixture()
+@pytest.fixture
 def _app_for_genesis(monkeypatch: pytest.MonkeyPatch) -> Any:
     """Create a test app with genesis dependencies mocked."""
     from fastapi.testclient import TestClient

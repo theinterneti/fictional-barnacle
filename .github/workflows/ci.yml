@@ -10,6 +10,8 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -19,13 +21,16 @@ jobs:
           enable-cache: true
 
       - run: uv python install 3.12
-      - run: uv sync --dev --frozen
+      - run: uv sync --group dev --group audit --frozen
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run pyright
+      - run: uv run pip-audit .
 
   unit-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -47,6 +52,8 @@ jobs:
   integration-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -69,6 +76,8 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [quality, unit-test]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
@@ -18,8 +18,11 @@ from tta.privacy.purge import (
     run_purge,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
-def _make_factory(pg: AsyncMock):  # noqa: ANN201
+
+def _make_factory(pg: AsyncMock):
     @asynccontextmanager
     async def factory() -> AsyncIterator[AsyncMock]:
         yield pg
@@ -58,7 +61,7 @@ class TestCollectSessionIds:
     @pytest.mark.anyio
     async def test_soft_delete_query_filters_deleted_at(self) -> None:
         pg = AsyncMock()
-        empty = SimpleNamespace(fetchall=lambda: [])
+        empty = SimpleNamespace(fetchall=list)
         pg.execute = AsyncMock(side_effect=[empty, empty])
 
         now = datetime.now(UTC)
@@ -71,7 +74,7 @@ class TestCollectSessionIds:
     @pytest.mark.anyio
     async def test_completed_query_filters_status_and_updated(self) -> None:
         pg = AsyncMock()
-        empty = SimpleNamespace(fetchall=lambda: [])
+        empty = SimpleNamespace(fetchall=list)
         pg.execute = AsyncMock(side_effect=[empty, empty])
 
         now = datetime.now(UTC)
@@ -85,7 +88,7 @@ class TestCollectSessionIds:
     @pytest.mark.anyio
     async def test_empty_results(self) -> None:
         pg = AsyncMock()
-        empty = SimpleNamespace(fetchall=lambda: [])
+        empty = SimpleNamespace(fetchall=list)
         pg.execute = AsyncMock(side_effect=[empty, empty])
 
         now = datetime.now(UTC)
@@ -126,7 +129,7 @@ class TestRunPurge:
     @pytest.mark.anyio
     async def test_noop_when_no_sessions(self) -> None:
         pg = AsyncMock()
-        empty = SimpleNamespace(fetchall=lambda: [])
+        empty = SimpleNamespace(fetchall=list)
         pg.execute = AsyncMock(side_effect=[empty, empty])
 
         factory = _make_factory(pg)
@@ -141,7 +144,7 @@ class TestRunPurge:
     async def test_dry_run_counts_without_deleting(self) -> None:
         pg = AsyncMock()
         soft_rows = SimpleNamespace(fetchall=lambda: [("s1",)])
-        completed_rows = SimpleNamespace(fetchall=lambda: [])
+        completed_rows = SimpleNamespace(fetchall=list)
         we_count = SimpleNamespace(scalar=lambda: 3)
         turn_count = SimpleNamespace(scalar=lambda: 7)
         pg.execute = AsyncMock(
@@ -190,7 +193,7 @@ class TestRunPurge:
     @pytest.mark.anyio
     async def test_cutoffs_use_correct_retention(self) -> None:
         pg = AsyncMock()
-        empty = SimpleNamespace(fetchall=lambda: [])
+        empty = SimpleNamespace(fetchall=list)
         pg.execute = AsyncMock(side_effect=[empty, empty])
 
         factory = _make_factory(pg)

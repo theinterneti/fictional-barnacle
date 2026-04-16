@@ -34,12 +34,12 @@ def _load_template(name: str) -> WorldTemplate:
     return WorldTemplate.model_validate(raw)
 
 
-@pytest.fixture()
+@pytest.fixture
 def quiet_village() -> WorldTemplate:
     return _load_template("quiet_village")
 
 
-@pytest.fixture()
+@pytest.fixture
 def haunted_manor() -> WorldTemplate:
     return _load_template("haunted_manor")
 

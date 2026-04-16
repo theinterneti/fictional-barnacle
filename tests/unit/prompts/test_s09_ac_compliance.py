@@ -65,7 +65,7 @@ def _write(dir_: Path, rel: str, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-@pytest.fixture()
+@pytest.fixture
 def tmp_registry(tmp_path: Path) -> FilePromptRegistry:
     """Minimal in-memory registry backed by tmp_path."""
     tpl_dir = tmp_path / "templates"
@@ -77,7 +77,7 @@ def tmp_registry(tmp_path: Path) -> FilePromptRegistry:
     return FilePromptRegistry(tpl_dir, frg_dir)
 
 
-@pytest.fixture()
+@pytest.fixture
 def real_registry() -> FilePromptRegistry:
     """Registry backed by the real shipped prompt templates."""
     return FilePromptRegistry(

@@ -1,0 +1,51 @@
+name: Chore / Maintenance
+description: Technical debt, tooling, infra, CI, or non-feature work
+title: "[Chore] "
+labels: ["chore"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for maintenance, infrastructure, tooling, and technical-debt work
+        that does not add user-visible features.
+
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      description: Which area does this chore affect?
+      placeholder: "CI, deps, testing, observability, docs…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What needs to be done and why?
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this solve or what risk does it reduce?
+    validations:
+      required: true
+
+  - type: textarea
+    id: done_when
+    attributes:
+      label: Done When
+      description: How do we know this chore is complete?
+      placeholder: |
+        - [ ] …
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Depends On
+      description: Issues or PRs that must be completed first.

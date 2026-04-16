@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
@@ -21,6 +20,9 @@ from tta.api.deps import (
 )
 from tta.config import Settings
 from tta.models.player import Player
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 _NOW = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
 _PLAYER_ID = uuid4()
@@ -89,12 +91,12 @@ def _game_row(
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     settings = _settings()
     monkeypatch.setattr("tta.api.routes.games.get_settings", lambda: settings)
@@ -110,7 +112,7 @@ def app(pg: AsyncMock, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     return a
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
@@ -1122,7 +1124,7 @@ class TestResumeGame:
         )
 
         captured: list = []
-        monkeypatch.setattr("asyncio.create_task", lambda coro: captured.append(coro))
+        monkeypatch.setattr("asyncio.create_task", captured.append)
 
         resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
 
@@ -1618,7 +1620,7 @@ class TestGenerateTitleBg:
         mock_svc = AsyncMock()
         mock_svc.generate_title = AsyncMock(return_value="")
 
-        sf, mock_sess = _mock_session_factory()
+        sf, _mock_sess = _mock_session_factory()
         app_state = SimpleNamespace(
             summary_service=mock_svc,
             pipeline_deps=SimpleNamespace(turn_repo=SimpleNamespace(_sf=sf)),

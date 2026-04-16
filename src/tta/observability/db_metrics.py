@@ -15,8 +15,8 @@ Usage::
 from __future__ import annotations
 
 import time
-from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
+from typing import TYPE_CHECKING
 
 from tta.observability.metrics import (
     DB_QUERY_DURATION,
@@ -24,6 +24,9 @@ from tta.observability.metrics import (
     REDIS_CACHE_WRITE_DURATION,
     REDIS_OPERATIONS,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterator
 
 
 @asynccontextmanager

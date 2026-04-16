@@ -4,6 +4,7 @@ These exercise every protocol method without a database.
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
@@ -19,30 +20,39 @@ from tta.persistence.memory import (
     InMemoryWorldEventRepository,
 )
 
+if TYPE_CHECKING:
+    from tta.persistence.repositories import (
+        GameRepository,
+        PlayerRepository,
+        SessionRepository,
+        TurnRepository,
+        WorldEventRepository,
+    )
+
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
-@pytest.fixture()
+@pytest.fixture
 def player_repo() -> InMemoryPlayerRepository:
     return InMemoryPlayerRepository()
 
 
-@pytest.fixture()
+@pytest.fixture
 def session_repo() -> InMemorySessionRepository:
     return InMemorySessionRepository()
 
 
-@pytest.fixture()
+@pytest.fixture
 def game_repo() -> InMemoryGameRepository:
     return InMemoryGameRepository()
 
 
-@pytest.fixture()
+@pytest.fixture
 def turn_repo() -> InMemoryTurnRepository:
     return InMemoryTurnRepository()
 
 
-@pytest.fixture()
+@pytest.fixture
 def event_repo() -> InMemoryWorldEventRepository:
     return InMemoryWorldEventRepository()
 
@@ -505,7 +515,6 @@ class TestProtocolCompliance:
     """Verify in-memory repos satisfy protocol structural typing."""
 
     def test_player_repo_satisfies_protocol(self) -> None:
-        from tta.persistence.repositories import PlayerRepository
 
         repo: PlayerRepository = InMemoryPlayerRepository()
         assert hasattr(repo, "create_player")
@@ -513,7 +522,6 @@ class TestProtocolCompliance:
         assert hasattr(repo, "get_player_by_handle")
 
     def test_session_repo_satisfies_protocol(self) -> None:
-        from tta.persistence.repositories import SessionRepository
 
         repo: SessionRepository = InMemorySessionRepository()
         assert hasattr(repo, "create_session")
@@ -521,7 +529,6 @@ class TestProtocolCompliance:
         assert hasattr(repo, "delete_session")
 
     def test_game_repo_satisfies_protocol(self) -> None:
-        from tta.persistence.repositories import GameRepository
 
         repo: GameRepository = InMemoryGameRepository()
         assert hasattr(repo, "create_game")
@@ -530,7 +537,6 @@ class TestProtocolCompliance:
         assert hasattr(repo, "list_player_games")
 
     def test_turn_repo_satisfies_protocol(self) -> None:
-        from tta.persistence.repositories import TurnRepository
 
         repo: TurnRepository = InMemoryTurnRepository()
         assert hasattr(repo, "create_turn")
@@ -542,9 +548,6 @@ class TestProtocolCompliance:
         assert hasattr(repo, "fail_turn")
 
     def test_world_event_repo_satisfies_protocol(self) -> None:
-        from tta.persistence.repositories import (
-            WorldEventRepository,
-        )
 
         repo: WorldEventRepository = InMemoryWorldEventRepository()
         assert hasattr(repo, "create_world_event")

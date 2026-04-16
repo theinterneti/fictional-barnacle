@@ -39,7 +39,7 @@ class EvaluateResult:
     from a single turn's consequence evaluation.
     """
 
-    __slots__ = ("chain_updates", "world_changes", "hints")
+    __slots__ = ("chain_updates", "hints", "world_changes")
 
     def __init__(
         self,

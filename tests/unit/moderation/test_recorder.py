@@ -13,7 +13,7 @@ from tta.moderation.models import (
 from tta.moderation.recorder import ModerationRecorder
 
 
-def _make_record(**overrides) -> ModerationRecord:  # noqa: ANN003
+def _make_record(**overrides) -> ModerationRecord:
     defaults = {
         "turn_id": "t1",
         "game_id": "g1",

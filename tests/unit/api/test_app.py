@@ -10,7 +10,7 @@ from tta.api.app import create_app
 from tta.config import Settings
 
 
-@pytest.fixture()
+@pytest.fixture
 def _settings() -> Settings:
     return Settings(
         database_url="postgresql://test@localhost/test",
@@ -19,12 +19,12 @@ def _settings() -> Settings:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(_settings: Settings) -> FastAPI:
     return create_app(settings=_settings)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 

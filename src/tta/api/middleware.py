@@ -11,13 +11,13 @@ import hashlib
 import math
 import time
 import uuid
+from typing import TYPE_CHECKING
 
 import structlog
 from starlette.datastructures import State
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Match
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from tta.logging import bind_context, bind_correlation_id, clear_contextvars
 from tta.observability.metrics import RATE_LIMIT_ENFORCED
@@ -29,6 +29,9 @@ from tta.resilience.rate_limiter import (
     RateLimiter,
     RateLimitResult,
 )
+
+if TYPE_CHECKING:
+    from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 log = structlog.get_logger()
 
@@ -124,7 +127,7 @@ def _classify_endpoint(path: str, method: str) -> EndpointGroup | None:
     """
     if method == "OPTIONS":
         return None  # CORS preflights are always exempt
-    if path.startswith(_HEALTH_PREFIX) or path.startswith(_METRICS_PREFIX):
+    if path.startswith((_HEALTH_PREFIX, _METRICS_PREFIX)):
         return None  # exempt
     if method == "POST" and path.endswith(_TURN_SUFFIX):
         return EndpointGroup.TURNS
@@ -461,7 +464,7 @@ class LatencyBudgetMiddleware:
         except TimeoutError:
             elapsed_ms = (time.monotonic() - start) * 1000
             if not headers_sent:
-                log.error(
+                log.exception(
                     "latency_budget_abort",
                     path=path,
                     elapsed_ms=round(elapsed_ms, 1),

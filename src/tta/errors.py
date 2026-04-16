@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-__all__ = ["ErrorCategory", "CATEGORY_STATUS"]
+__all__ = ["CATEGORY_STATUS", "ErrorCategory"]
 
 
 class ErrorCategory(StrEnum):

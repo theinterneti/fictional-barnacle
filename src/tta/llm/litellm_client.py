@@ -183,7 +183,7 @@ class LiteLLMClient:
         msg_dicts: list[dict[str, str]] = [
             {"role": m.role.value, "content": m.content} for m in messages
         ]
-        stop = params.stop if params.stop else None
+        stop = params.stop or None
         start = time.monotonic()
 
         try:

@@ -10,4 +10,4 @@ async def log_turn(turn_state: TurnState) -> None:
     layer).  This is a placeholder that will be wired to
     persistence in Wave 2.
     """
-    pass  # Will be implemented when persistence is connected
+    # Will be implemented when persistence is connected

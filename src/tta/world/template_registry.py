@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import random
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -13,6 +13,9 @@ from tta.world.template_validator import (
     TemplateValidationError,
     validate_template,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = structlog.get_logger(__name__)
 

@@ -25,7 +25,7 @@ def _settings() -> Settings:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg_mock() -> AsyncMock:
     mock = AsyncMock()
     # SQLAlchemy Result.fetchall() is synchronous even in async mode.
@@ -36,17 +36,17 @@ def pg_mock() -> AsyncMock:
     return mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def redis_mock() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def world_service_mock() -> AsyncMock:
     return AsyncMock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def authed_client(
     pg_mock: AsyncMock,
     redis_mock: AsyncMock,
@@ -60,11 +60,11 @@ def authed_client(
     return TestClient(app, raise_server_exceptions=False)
 
 
-@pytest.fixture()
+@pytest.fixture
 def anon_client() -> TestClient:
     app = create_app(_settings())
-    app.dependency_overrides[get_pg] = lambda: AsyncMock()
-    app.dependency_overrides[get_redis] = lambda: AsyncMock()
+    app.dependency_overrides[get_pg] = AsyncMock
+    app.dependency_overrides[get_redis] = AsyncMock
     return TestClient(app, raise_server_exceptions=False)
 
 

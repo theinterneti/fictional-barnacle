@@ -22,7 +22,7 @@ def _clean_tta_env(monkeypatch: pytest.MonkeyPatch) -> None:
             monkeypatch.delenv(key, raising=False)
 
 
-@pytest.fixture()
+@pytest.fixture
 def _set_required_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set the minimum required env vars."""
     for key, val in REQUIRED_ENV.items():

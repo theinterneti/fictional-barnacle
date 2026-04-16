@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
@@ -17,6 +16,9 @@ from tta.api.deps import get_current_player, get_pg, require_consent
 from tta.config import Settings
 from tta.models.events import ErrorEvent
 from tta.models.player import Player
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 _NOW = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
 _PLAYER_ID = uuid4()
@@ -76,14 +78,14 @@ def _game_row(
 # ── Fixtures ──
 
 
-@pytest.fixture()
+@pytest.fixture
 def pg() -> AsyncMock:
     mock = AsyncMock()
     mock.commit = AsyncMock()
     return mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(pg: AsyncMock) -> FastAPI:
     application = create_app(_settings())
     application.dependency_overrides[get_current_player] = lambda: _PLAYER
@@ -92,7 +94,7 @@ def app(pg: AsyncMock) -> FastAPI:
     return application
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app: FastAPI) -> TestClient:
     return TestClient(app, raise_server_exceptions=False)
 

@@ -8,12 +8,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from tta.models.choice import ChoiceClassification
-from tta.models.consequence import ConsequenceChain
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from tta.models.choice import ChoiceClassification
+    from tta.models.consequence import ConsequenceChain
 
 
 class TurnStatus(StrEnum):
