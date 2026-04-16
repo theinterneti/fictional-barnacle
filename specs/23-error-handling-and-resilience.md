@@ -242,7 +242,7 @@ reconnect.
 
 ### 3.7 — Health and Readiness
 
-**FR-23.23**: The system SHALL expose a `/health` endpoint that returns:
+**FR-23.23**: The system SHALL expose a `/api/v1/health` endpoint that returns:
 - `status`: "healthy", "degraded", or "unhealthy"
 - `checks`: object with per-service health (postgres, redis, neo4j, llm)
 - `version`: application version string
@@ -251,9 +251,9 @@ reconnect.
 Neo4j) is unavailable but the core game loop can still function (with reduced features).
 "Unhealthy" SHALL be returned only when PostgreSQL is unreachable.
 
-**FR-23.25**: The system SHALL expose a `/ready` endpoint that returns 200 only when all
-required services are connected and the application is ready to accept player requests.
-Orchestrators SHALL use this for traffic routing.
+**FR-23.25**: The system SHALL expose a `/api/v1/health/ready` endpoint that returns
+200 only when all required services are connected and the application is ready to accept
+player requests. Orchestrators SHALL use this for traffic routing.
 
 ---
 
@@ -320,7 +320,8 @@ player-visible error to the operator-visible details.
   7. PostgreSQL recovers. Half-open probe succeeds. Circuit closes.
   8. Player retries — turn processes normally.
 - **Happy path**: Database recovers quickly, circuit closes, player resumes.
-- **Alternative path**: Extended outage. `/health` reports "unhealthy." Operator is alerted.
+- **Alternative path**: Extended outage. `/api/v1/health` reports "unhealthy."
+  Operator is alerted.
 
 ### Journey 3: Player submits malformed input
 
@@ -350,7 +351,7 @@ player-visible error to the operator-visible details.
 |---|----------|-------------------|
 | EC-23.1 | Error occurs during error handling (logging fails) | System uses fallback stderr logging. Player still sees standard error response. |
 | EC-23.2 | Client disconnects before error response is sent | Error is logged. Turn state is updated. No player notification possible — client reconnect will show current state. |
-| EC-23.3 | Multiple services fail simultaneously | Circuit breakers open independently. `/health` reports each service's status. Player sees most relevant error (database > LLM > Redis). |
+| EC-23.3 | Multiple services fail simultaneously | Circuit breakers open independently. `/api/v1/health` reports each service's status. Player sees most relevant error (database > LLM > Redis). |
 | EC-23.4 | Error response body exceeds reasonable size | Error responses are capped at the standard envelope (FR-23.02). No unbounded data in error responses. |
 | EC-23.5 | Retry succeeds but response is too slow | Player-facing timeout (60s per NFR-23.2) applies to the entire operation including retries. After 60s, return `service_unavailable`. |
 | EC-23.6 | Circuit breaker flaps (service repeatedly fails and recovers) | Exponential cooldown: each consecutive open→close→open cycle doubles the cooldown period, up to a maximum of 5 minutes. |
@@ -431,7 +432,7 @@ Feature: Error Handling & Resilience
   Scenario: AC-23.9 — Health endpoint reports degraded
     Given Redis is unreachable
     And PostgreSQL is healthy
-    When GET /health is called
+    When GET /api/v1/health is called
     Then the response contains status "degraded"
     And the "checks.redis" field indicates unhealthy
     And the "checks.postgres" field indicates healthy
@@ -452,7 +453,7 @@ Feature: Error Handling & Resilience
 
   Scenario: AC-23.12 — Health endpoint reports unhealthy
     Given PostgreSQL is unreachable
-    When GET /health is called
+    When GET /api/v1/health is called
     Then the response status is 503
     And the response contains status "unhealthy"
 ```
@@ -479,7 +480,7 @@ Feature: Error Handling & Resilience
 |------|-------------|----------|
 | S07 (LLM Integration) | Extends | S07 defines LLM-specific fallback tiers. S23 wraps LLM failures in the standard error taxonomy and adds circuit-breaking. S23 does not override S07 tier behavior — it standardizes the error surface after all tiers are exhausted. |
 | S08 (Turn Pipeline) | Extends | S08 defines pipeline stages. S23 defines what happens when any stage fails: turn atomicity (FR-23.16–23.18), error propagation, and player notification. |
-| S10 (API & Streaming) | Extends | S10 defines HTTP error shapes. S23 consolidates them into a single taxonomy (FR-23.01) and adds SSE error events (FR-23.20). S10's error codes MUST map to S23's categories. |
+| S10 (API & Streaming) | Extends | S10 defines HTTP routing/auth integration. S23 is canonical for error taxonomy/envelope and health semantics. S10's error/status contracts and health paths MUST map to S23 FR-23.01-03 and FR-23.23-25. |
 | S12 (Persistence) | Requires | S23 requires transactional semantics for turn atomicity. S12 must support atomic writes and rollback for turn state. |
 | S15 (Observability) | Cooperates | S23 defines error log structure (FR-23.06–23.08). S15 defines the logging infrastructure and dashboards. Error metrics from S23 are exposed via S15's metric pipeline. |
 | S17 (Data Privacy) | Constrains | S23's error logging must NOT include PII (FR-23.08). Error context references IDs, not data values. |
@@ -507,6 +508,18 @@ Feature: Error Handling & Resilience
 - **Error rate-based auto-scaling** — Scaling is handled in S28. — Handled in S28.
 - **User-facing error telemetry** — Client-side error tracking (Sentry for frontend) is not in v1 scope. — Deferred.
 - **LLM fallback tier design** — Tier structure and model selection are S07's responsibility. S23 handles what happens after all tiers are exhausted. — Handled in S07.
+
+---
+
+## 11. Migration Notes (Issue #128)
+
+- Public health/readiness paths are canonicalized as `/api/v1/health` and
+  `/api/v1/health/ready`.
+- `correlation_id` remains the canonical envelope field for traceability.
+  `request_id` naming is non-normative legacy terminology and should not appear in
+  response schemas.
+- Input validation category `input_invalid` remains canonical at HTTP 400 (including
+  whitespace-only turn input).
 
 ---
 

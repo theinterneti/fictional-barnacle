@@ -80,7 +80,7 @@ load (defined as ≤ 80% of capacity):
 | Turn processing (total) | 10 seconds | Understand: ≤500ms, Enrich: ≤1s, Generate (LLM): ≤7s, Persist: ≤1s, Overhead: ≤500ms |
 | First SSE token | 2 seconds | From turn submission to first narrative_token event |
 | `DELETE /games/{id}` | 500ms | Soft delete: ≤200ms, cleanup: ≤300ms |
-| Health check (`/health`) | 100ms | Subsystem checks: ≤80ms, aggregation: ≤20ms |
+| Health check (`/api/v1/health`) | 100ms | Subsystem checks: ≤80ms, aggregation: ≤20ms |
 
 **FR-28.02**: When a turn's LLM generation exceeds 7 seconds (p95 target), the system
 SHALL NOT add additional latency beyond the specified non-LLM budgets. The LLM is the

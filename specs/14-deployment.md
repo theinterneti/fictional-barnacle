@@ -83,7 +83,7 @@ This spec describes behavior: what a developer or operator does, and what the sy
 
 | Container | Health Check |
 |-----------|-------------|
-| `tta-api` | `GET /health` returns 200 |
+| `tta-api` | `GET /api/v1/health` returns 200 or 503 per S23 health semantics |
 | `tta-worker` | Process is alive and task queue is reachable |
 | `tta-neo4j` | Cypher query `RETURN 1` succeeds |
 | `tta-redis` | `PING` returns `PONG` |
@@ -324,8 +324,8 @@ This spec describes behavior: what a developer or operator does, and what the sy
 
 | Endpoint | Purpose | Response |
 |----------|---------|----------|
-| `GET /health` | Shallow liveness check | `200 {"status": "ok"}` |
-| `GET /health/ready` | Deep readiness check (all dependencies) | `200` or `503` with details |
+| `GET /api/v1/health` | Health check (tri-state) | `200` or `503` with status/checks/version (per S23 FR-23.23/24) |
+| `GET /api/v1/health/ready` | Deep readiness check (all dependencies) | `200` or `503` with details |
 
 **FR-14.34**: The readiness check SHALL verify:
 - PostgreSQL is reachable and schema is current.
@@ -333,27 +333,29 @@ This spec describes behavior: what a developer or operator does, and what the sy
 - Redis is reachable.
 - At least one LLM provider is configured (key present, not necessarily reachable).
 
-**FR-14.35**: The readiness check SHALL return a JSON body listing each dependency and its status:
+**FR-14.35**: The readiness check SHALL return a JSON body listing each dependency and
+its status:
 
 ```json
 {
-  "status": "degraded",
+  "status": "not_ready",
   "checks": {
-    "postgres": {"status": "ok", "latency_ms": 2},
-    "neo4j": {"status": "ok", "latency_ms": 15},
-    "redis": {"status": "fail", "error": "connection refused"},
-    "llm_config": {"status": "ok"}
+    "postgres": "ok",
+    "neo4j": "ok",
+    "redis": "unavailable",
+    "llm": "ok"
   }
 }
 ```
 
-**FR-14.36**: The overall status SHALL be `ok` if all checks pass, `degraded` if non-critical checks fail, and `fail` if any critical check fails. PostgreSQL and Neo4j are critical. Redis is critical for gameplay but not for health. LLM config is informational.
+**FR-14.36**: The readiness status SHALL be `ready` when all required checks are
+available. Otherwise it SHALL be `not_ready` and the endpoint SHALL return HTTP 503.
 
 ### 9.2 Acceptance Criteria
 
-- [ ] `GET /health` returns 200 even when Neo4j is temporarily slow.
-- [ ] `GET /health/ready` returns 503 when PostgreSQL is down.
-- [ ] `GET /health/ready` returns `degraded` when Redis is down but PostgreSQL and Neo4j are up.
+- [ ] `GET /api/v1/health` returns 200 with status `degraded` when Neo4j is temporarily slow.
+- [ ] `GET /api/v1/health/ready` returns 503 when PostgreSQL is down.
+- [ ] `GET /api/v1/health/ready` returns 503 with status `not_ready` when Redis is down but PostgreSQL and Neo4j are up.
 - [ ] Health check response includes latency for each dependency.
 
 ---
@@ -391,7 +393,7 @@ Scenario: Fresh stack starts from clone
   And the developer runs "cp .env.example .env"
   When the developer runs "docker compose up -d"
   Then all 5 containers reach "healthy" status within 120 seconds
-  And "GET /health" returns 200 with status "ok"
+  And "GET /api/v1/health" returns 200 with status "healthy"
 
 Scenario: Stack restart preserves data
   Given the full stack is running with player data in PostgreSQL and Neo4j
@@ -409,8 +411,8 @@ Scenario: Missing required env var fails fast
 Scenario: Health readiness degrades when Redis is down
   Given the full stack is running and healthy
   When Redis becomes unreachable
-  Then "GET /health" still returns 200
-  And "GET /health/ready" returns 503 with status "degraded"
+  Then "GET /api/v1/health" still returns 200 with status "degraded"
+  And "GET /api/v1/health/ready" returns 503 with status "not_ready"
   And the response body shows redis status as "fail"
   And postgres and neo4j statuses remain "ok"
 ```

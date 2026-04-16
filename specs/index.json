@@ -858,7 +858,7 @@
         {
           "id": "AC-10.10",
           "ac_status": "done",
-          "description": "Every error response includes a correlation_id (request_id) traceable in server logs"
+          "description": "Every error response includes a correlation_id traceable in server logs"
         },
         {
           "id": "AC-10.11",

@@ -15,7 +15,7 @@ This plan implements S23, S24, and S25 subject to system.md overrides:
 
 | Conflict | Resolution |
 |----------|------------|
-| S23 defines health check endpoint at `/health` | **Aligned with existing implementation.** Health checks are already at `/api/v1/health` per ops.md. S23's readiness endpoint maps to `/api/v1/health/ready`. |
+| S23 health paths previously referenced `/health`/`/ready` | **Canonicalized.** Public health endpoints are `/api/v1/health` and `/api/v1/health/ready` across S10, S23, plans, and implementation. |
 | S24 requires stream interruption within 2 tokens | **v1 uses buffer-then-stream** (system.md §2.4). Content moderation inspects the complete buffer before streaming begins, so stream interruption means cancelling the buffer-to-SSE delivery — not interrupting the LLM stream. |
 | S25 defines Redis-backed rate limiting | **Aligned.** Redis is already a required service. Rate limit counters use the same Redis instance with a `ratelimit:` key prefix. |
 

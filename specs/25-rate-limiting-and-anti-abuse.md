@@ -235,7 +235,7 @@ tier) and `tta_abuse_detected_total` (counter, labels: pattern_type).
   1. Rate limit middleware detects Redis unavailability.
   2. Falls back to in-memory rate limiting (per-instance, not globally consistent).
   3. Logs warning: "Rate limiting degraded: using in-memory fallback."
-  4. `/health` reports Redis as degraded (per S23).
+  4. `/api/v1/health` reports Redis as degraded (per S23).
   5. When Redis recovers, rate limiting returns to normal.
 - **Outcome**: Rate limiting continues with reduced accuracy. System stays available.
 

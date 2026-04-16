@@ -110,7 +110,8 @@ Transform raw player text into structured understanding of player intent. This i
 
 **FR-08.06**: The system SHALL validate input length. Inputs exceeding the maximum length (configurable, default: 2000 characters) SHALL be truncated with a player-facing note.
 
-**FR-08.07**: Empty or whitespace-only input SHALL be handled gracefully — the system responds with a gentle narrative prompt (e.g. "You pause, considering your options…") without treating it as an error.
+**FR-08.07**: Empty or whitespace-only input SHALL be rejected at the API boundary with
+`400 input_invalid` (per S10/S23). The turn pipeline stage is not invoked for this case.
 
 ### 4.5 — LLM usage in this stage
 
@@ -497,10 +498,11 @@ Scenario: Gibberish input produces a graceful response
   Then the intent is classified as "other" with confidence below 0.5
   And the system produces an in-character narrative response, not an error
 
-Scenario: Empty input produces a narrative prompt
+Scenario: Empty input is rejected at API boundary
   Given a player is in an active session
   When the player submits an empty string or whitespace
-  Then the system responds with a gentle narrative prompt (e.g. "You pause, considering your options…")
+  Then the API returns 400 with error category "input_invalid"
+  And the turn does not enter the pipeline stages
 
 Scenario: Meta-command is detected and routed separately
   Given a player is in an active session
