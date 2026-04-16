@@ -135,10 +135,11 @@ class TestAC301SensoryGuidance:
         assert "End with a subtle narrative hook" not in prompt
 
     def test_failure_narrated_as_meaningful_beat(self) -> None:
-        """AC-3.1: Prompt always instructs failure narration as a story beat.
+        """S01 AC-1.5 (surfaced here): Prompt instructs failure narration as a story beat.
 
-        This prevents terse error-like outputs and keeps sensory continuity
-        even on failed actions.
+        Source: generate.py comment at line 217 — "Failure-consequence instruction (S01 AC-1.5)".
+        Included here because it directly affects narrative quality continuity (AC-3.1).
+        This prevents terse error-like outputs and keeps sensory continuity on failed actions.
         """
         state = _make_state()
         prompt = _build_generation_prompt(state)
@@ -217,16 +218,27 @@ class TestAC304FantasyGenreTone:
     here we test the full chain.)
     """
 
-    def test_fantasy_tone_injected_from_world_seed(self) -> None:
-        """AC-3.4: _inject_tone extracts 'fantasy' tone from world_seed dict."""
+    def test_fantasy_tone_and_genre_both_injected_together(self) -> None:
+        """AC-3.4: _inject_tone extracts both tone AND genre simultaneously from world_seed.
+
+        test_context_narrative.py tests tone-only and genre-only in isolation.
+        This verifies the combined fantasy case: both keys must coexist in the
+        resulting context dict so the generation prompt can render a complete
+        'Narrative style' section.
+        """
         state = _make_state(
-            game_state={"world_seed": {"tone": "epic fantasy", "genre": "fantasy"}},
+            game_state={
+                "world_seed": {"tone": "epic fantasy", "genre": "high fantasy"}
+            },
         )
         ctx: dict = {}
         result = _inject_tone(ctx, state)
 
         assert result["tone"] == "epic fantasy"
-        assert result["genre"] == "fantasy"
+        assert result["genre"] == "high fantasy"
+        assert set(result.keys()) >= {"tone", "genre"}, (
+            "Both tone and genre must be present for a complete Narrative style section"
+        )
 
     def test_fantasy_genre_surfaces_in_generation_prompt(self) -> None:
         """AC-3.4: Genre string appears in the generation prompt under 'Narrative style'."""
