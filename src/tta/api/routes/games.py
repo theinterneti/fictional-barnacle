@@ -129,12 +129,12 @@ def _split_narrative(text: str) -> list[str]:
     """Split narrative text into sentence-aligned chunks (S10 §6.4 FR-10.34).
 
     Splits on sentence boundaries (`. `, `! `, `? `), keeping the terminal
-    punctuation with its sentence. Returns a list with at least one element.
-    Empty or whitespace-only text returns a single empty-string chunk.
+    punctuation with its sentence. Empty or whitespace-only input returns ``[]``;
+    narrative emission is also skipped upstream (see ``event_stream``).
     """
     stripped = text.strip()
     if not stripped:
-        return [""]
+        return []
     parts = _SENTENCE_SPLIT_RE.split(stripped)
     return [p.strip() for p in parts if p.strip()] or [stripped]
 
@@ -1681,7 +1681,8 @@ async def stream_turn(
             if result is not None:
                 break
             if time.monotonic() < deadline:
-                # S10 §6.5: heartbeat every 15s on idle connections
+                # S10 §6.5: heartbeat at the configured interval on idle connections,
+                # bounded by the remaining pipeline timeout.
                 yield HeartbeatEvent().format_sse(counter.next_id())
 
         if result is None:
@@ -1695,8 +1696,8 @@ async def stream_turn(
             return
 
         if result.status == TurnStatus.failed:
-            # FR-10.36: emit error but do not close stream permanently;
-            # return here ends only this turn's emission, not the SSE connection.
+            # FR-10.36: emit the pipeline failure event, then end this response
+            # stream by returning from the async generator.
             yield ErrorEvent(
                 code="PIPELINE_FAILED",
                 message="Turn processing failed.",
@@ -1746,7 +1747,6 @@ async def stream_turn(
                 yield StateUpdateEvent(
                     changes=world_changes,
                 ).format_sse(counter.next_id())
-
 
     return StreamingResponse(
         event_stream(),

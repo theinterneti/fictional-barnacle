@@ -232,7 +232,7 @@ class TestSSEStreaming:
         auth_headers: dict[str, str],
         pg_dsn: str,
     ) -> None:
-        """SSE stream delivers turn_start → narrative_block → turn_complete."""
+        """SSE stream delivers narrative → narrative_end."""
         game_id = await _create_game(auth_client, auth_headers)
         turn_data = await _submit_turn(auth_client, game_id, auth_headers)
 
@@ -253,12 +253,11 @@ class TestSSEStreaming:
         events = _parse_sse_events(resp.text)
         event_types = [e.get("event") for e in events]
 
-        assert "turn_start" in event_types
-        assert "narrative_block" in event_types
-        assert "turn_complete" in event_types
+        assert "narrative" in event_types
+        assert "narrative_end" in event_types
 
-        # Verify narrative_block has content
-        narrative_events = [e for e in events if e.get("event") == "narrative_block"]
+        # Verify narrative chunks have content
+        narrative_events = [e for e in events if e.get("event") == "narrative"]
         assert len(narrative_events) >= 1
 
     async def test_sse_no_turn_returns_error(

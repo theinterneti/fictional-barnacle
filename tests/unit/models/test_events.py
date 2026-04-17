@@ -3,12 +3,20 @@
 import json
 from datetime import datetime
 
+import pytest
+from pydantic import ValidationError
+
 from tta.models.events import (
     ErrorEvent,
     EventType,
+    HeartbeatEvent,
     KeepaliveEvent,
+    LocationChangeEvent,
     NarrativeBlockEvent,
+    NarrativeEndEvent,
+    NarrativeEvent,
     NarrativeTokenEvent,
+    StateUpdateEvent,
     TurnCompleteEvent,
     TurnStartEvent,
     WorldUpdateEvent,
@@ -189,3 +197,155 @@ class TestFormatSSE:
         parsed = json.loads(data_line)
         assert len(parsed["changes"]) == 1
         assert parsed["changes"][0]["entity_id"] == "npc-7"
+
+
+# ---------------------------------------------------------------------------
+# S10 §6.2 canonical event types
+# ---------------------------------------------------------------------------
+
+
+class TestNarrativeEvent:
+    """NarrativeEvent streams a sentence-aligned chunk with sequence counter."""
+
+    def test_instantiation(self) -> None:
+        evt = NarrativeEvent(text="The forest is dark.", turn_id="t-1", sequence=0)
+        assert evt.event_type == EventType.NARRATIVE
+        assert evt.text == "The forest is dark."
+        assert evt.turn_id == "t-1"
+        assert evt.sequence == 0
+
+    def test_sequence_must_be_non_negative(self) -> None:
+        with pytest.raises(ValidationError):
+            NarrativeEvent(text="x", turn_id="t-1", sequence=-1)
+
+    def test_format_sse_wire_name(self) -> None:
+        evt = NarrativeEvent(text="Hello.", turn_id="t-1", sequence=0)
+        sse = evt.format_sse(1)
+        assert sse.startswith("id: 1\nevent: narrative\n")
+
+    def test_format_sse_data_excludes_event_type(self) -> None:
+        evt = NarrativeEvent(text="Hello.", turn_id="t-1", sequence=0)
+        sse = evt.format_sse()
+        data_line = sse.split("data: ", 1)[1].rstrip("\n")
+        parsed = json.loads(data_line)
+        assert parsed["text"] == "Hello."
+        assert parsed["turn_id"] == "t-1"
+        assert parsed["sequence"] == 0
+        assert "event_type" not in parsed
+
+
+class TestNarrativeEndEvent:
+    """NarrativeEndEvent signals all narrative chunks for a turn were sent."""
+
+    def test_instantiation(self) -> None:
+        evt = NarrativeEndEvent(turn_id="t-1", total_chunks=3)
+        assert evt.event_type == EventType.NARRATIVE_END
+        assert evt.turn_id == "t-1"
+        assert evt.total_chunks == 3
+
+    def test_zero_chunks_on_empty_narrative(self) -> None:
+        evt = NarrativeEndEvent(turn_id="t-1", total_chunks=0)
+        assert evt.total_chunks == 0
+
+    def test_format_sse_wire_name(self) -> None:
+        evt = NarrativeEndEvent(turn_id="t-1", total_chunks=0)
+        sse = evt.format_sse()
+        assert sse.startswith("event: narrative_end\n")
+
+    def test_format_sse_data_excludes_event_type(self) -> None:
+        evt = NarrativeEndEvent(turn_id="t-1", total_chunks=2)
+        sse = evt.format_sse()
+        data_line = sse.split("data: ", 1)[1].rstrip("\n")
+        parsed = json.loads(data_line)
+        assert parsed["turn_id"] == "t-1"
+        assert parsed["total_chunks"] == 2
+        assert "event_type" not in parsed
+
+
+class TestStateUpdateEvent:
+    """StateUpdateEvent is a spec-compliant rename of WorldUpdateEvent."""
+
+    def test_event_type_is_state_update(self) -> None:
+        evt = StateUpdateEvent(changes=[])
+        assert evt.event_type == EventType.STATE_UPDATE
+
+    def test_inherits_changes_field(self) -> None:
+        changes = [WorldChange(type=WorldChangeType.PLAYER_MOVED, entity_id="loc-2")]
+        evt = StateUpdateEvent(changes=changes)
+        assert len(evt.changes) == 1
+        assert evt.changes[0].entity_id == "loc-2"
+
+    def test_format_sse_wire_name_and_excludes_event_type(self) -> None:
+        evt = StateUpdateEvent(changes=[])
+        sse = evt.format_sse()
+        assert sse.startswith("event: state_update\n")
+        data_line = sse.split("data: ", 1)[1].rstrip("\n")
+        parsed = json.loads(data_line)
+        assert parsed["changes"] == []
+        assert "event_type" not in parsed
+
+
+class TestLocationChangeEvent:
+    """LocationChangeEvent carries the full destination location payload."""
+
+    def test_instantiation(self) -> None:
+        evt = LocationChangeEvent(
+            location_id="loc-5",
+            name="Dark Cave",
+            description="A dark cave.",
+            exits=["north", "south"],
+        )
+        assert evt.event_type == EventType.LOCATION_CHANGE
+        assert evt.location_id == "loc-5"
+        assert evt.name == "Dark Cave"
+        assert evt.exits == ["north", "south"]
+
+    def test_format_sse_wire_name(self) -> None:
+        evt = LocationChangeEvent(
+            location_id="loc-5",
+            name="Cave",
+            description="dark.",
+            exits=[],
+        )
+        sse = evt.format_sse()
+        assert sse.startswith("event: location_change\n")
+
+    def test_format_sse_data_excludes_event_type(self) -> None:
+        evt = LocationChangeEvent(
+            location_id="loc-5",
+            name="Cave",
+            description="dark.",
+            exits=["east"],
+        )
+        sse = evt.format_sse()
+        data_line = sse.split("data: ", 1)[1].rstrip("\n")
+        parsed = json.loads(data_line)
+        assert parsed["location_id"] == "loc-5"
+        assert parsed["exits"] == ["east"]
+        assert "event_type" not in parsed
+
+
+class TestHeartbeatEvent:
+    """HeartbeatEvent keeps idle SSE connections alive (S10 §6.2, FR-10.38)."""
+
+    def test_event_type(self) -> None:
+        evt = HeartbeatEvent()
+        assert evt.event_type == EventType.HEARTBEAT
+
+    def test_auto_timestamp_is_utc_aware(self) -> None:
+        evt = HeartbeatEvent()
+        assert isinstance(evt.timestamp, datetime)
+        assert evt.timestamp.tzinfo is not None
+
+    def test_format_sse_wire_name(self) -> None:
+        evt = HeartbeatEvent()
+        sse = evt.format_sse()
+        assert sse.startswith("event: heartbeat\n")
+
+    def test_format_sse_data_excludes_event_type(self) -> None:
+        evt = HeartbeatEvent()
+        sse = evt.format_sse()
+        data_line = sse.split("data: ", 1)[1].rstrip("\n")
+        parsed = json.loads(data_line)
+        assert "timestamp" in parsed
+        assert "event_type" not in parsed
