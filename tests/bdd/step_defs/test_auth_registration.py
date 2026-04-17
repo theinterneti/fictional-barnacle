@@ -87,4 +87,4 @@ def check_unique_ids(ctx: dict) -> None:
 def check_no_credentials(ctx: dict) -> None:
     body_str = ctx["response"].text.lower()
     for forbidden in ("password", "hash", "secret", "credential"):
-        assert forbidden not in body_str, f"Forbidden field found in response: {forbidden}"
+        assert forbidden not in body_str, f"Forbidden field in response: {forbidden}"
