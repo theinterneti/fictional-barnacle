@@ -20,20 +20,29 @@ class TestEventTypeEnum:
     """EventType enum coverage."""
 
     def test_has_all_ten_values(self) -> None:
-        assert len(EventType) == 10
+        # 10 legacy + 5 S10 §6.2 canonical = 15 total
+        assert len(EventType) == 15
 
     def test_values(self) -> None:
         expected = {
+            # Legacy (plans-based, kept for backwards compat)
             "turn_start",
             "narrative_token",
             "narrative_block",
             "world_update",
             "turn_complete",
-            "error",
             "keepalive",
             "thinking",
             "still_thinking",
             "moderation",
+            # S10 §6.2 canonical
+            "narrative",
+            "narrative_end",
+            "state_update",
+            "location_change",
+            "heartbeat",
+            # Shared
+            "error",
         }
         assert {e.value for e in EventType} == expected
 

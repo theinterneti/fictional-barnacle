@@ -1,6 +1,11 @@
 """S10 API & Streaming — Acceptance Criteria compliance tests.
 
 Covers AC-10.01, AC-10.03, AC-10.07, AC-10.09, AC-10.10, AC-10.11, AC-10.12.
+Also covers S10 §6.2/§6.4/§6.5 canonical event taxonomy:
+  FR-10.34 — narrative events with 0-indexed sequence per chunk
+  FR-10.35 — narrative_end.total_chunks == number of narrative events
+  FR-10.36 — error event on failure includes turn_id; stream continues (returns)
+  FR-10.38 — heartbeat event (not keepalive) used for idle connections
 
 v2 ACs (deferred, require integration infra):
   AC-10.02 — OpenAPI spec validation (openapi-spec-validator tooling)
@@ -33,7 +38,11 @@ from tta.api.deps import (
 from tta.api.errors import AppError, app_error_handler, unhandled_error_handler
 from tta.config import Environment, Settings
 from tta.errors import ErrorCategory
+from tta.models.events import (
+    HeartbeatEvent,
+)
 from tta.models.player import Player
+from tta.models.turn import TurnState, TurnStatus
 
 _NOW = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
 _PLAYER_ID = uuid4()
@@ -475,3 +484,355 @@ class TestAC1012PlayerIsolation:
             "AC-10.12: 403 leaks that the game exists; must be 404"
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared by SSE taxonomy tests
+# ---------------------------------------------------------------------------
+
+
+def _make_stream_app(turn_state: TurnState, pg_mock: AsyncMock) -> FastAPI:
+    """Build a test app wired to a deterministic turn result store."""
+
+    class _FakeStore:
+        def __init__(self, state: TurnState) -> None:
+            self._state = state
+
+        async def wait_for_result(
+            self, turn_id: str, timeout: float = 30.0
+        ) -> TurnState:
+            return self._state
+
+        async def publish(self, turn_id: str, result: object) -> None:
+            pass
+
+    application = create_app(_settings())
+    application.dependency_overrides[get_current_player] = lambda: _PLAYER
+    application.dependency_overrides[get_pg] = lambda: pg_mock
+    application.state.turn_result_store = _FakeStore(turn_state)
+    return application
+
+
+def _game_row_stream(**overrides: Any) -> dict[str, Any]:
+    """Minimal game row for stream-endpoint mocks."""
+    base: dict[str, Any] = {
+        "id": _GAME_ID,
+        "player_id": _PLAYER_ID,
+        "status": "active",
+        "world_seed": "{}",
+        "title": None,
+        "summary": None,
+        "turn_count": 1,
+        "needs_recovery": False,
+        "summary_generated_at": None,
+        "created_at": _NOW,
+        "updated_at": _NOW,
+        "last_played_at": _NOW,
+        "deleted_at": None,
+        "template_id": "enchanted-forest",
+    }
+    base.update(overrides)
+    return base
+
+
+# ---------------------------------------------------------------------------
+# S10 §6.2 / FR-10.34 — narrative event uses type "narrative" (not "narrative_block")
+# ---------------------------------------------------------------------------
+
+
+class TestS10Section62NarrativeEventType:
+    """S10 §6.2: Stream emits 'narrative' events, not legacy 'narrative_block'."""
+
+    def test_stream_emits_narrative_not_narrative_block(self) -> None:
+        """FR-10.34: event type is 'narrative', not the legacy 'narrative_block'."""
+        turn_id = uuid4()
+        state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="look around",
+            game_state={},
+            status=TurnStatus.complete,
+            narrative_output="You see a forest.",
+        )
+
+        pg = AsyncMock()
+        pg.commit = AsyncMock()
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row_stream()]),
+                _make_result([{"id": turn_id, "turn_number": 1}]),
+            ]
+        )
+
+        app = _make_stream_app(state, pg)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
+        assert resp.status_code == 200
+        body = resp.text
+        assert "event: narrative\n" in body
+        assert "event: narrative_block" not in body
+
+    def test_stream_emits_narrative_end_after_chunks(self) -> None:
+        """S10 §6.2: 'narrative_end' event follows all narrative chunks."""
+        turn_id = uuid4()
+        state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="look around",
+            game_state={},
+            status=TurnStatus.complete,
+            narrative_output="You see a forest.",
+        )
+
+        pg = AsyncMock()
+        pg.commit = AsyncMock()
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row_stream()]),
+                _make_result([{"id": turn_id, "turn_number": 1}]),
+            ]
+        )
+
+        app = _make_stream_app(state, pg)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
+        body = resp.text
+        narr_pos = body.index("event: narrative\n")
+        end_pos = body.index("event: narrative_end\n")
+        assert narr_pos < end_pos, "narrative_end must follow narrative chunks"
+
+
+# ---------------------------------------------------------------------------
+# S10 §6.4 / FR-10.34 — sequence starts at 0 and increments per chunk
+# ---------------------------------------------------------------------------
+
+
+class TestS10FR1034SequenceNumbering:
+    """FR-10.34: sequence field starts at 0 and increments by 1 per chunk."""
+
+    def test_multi_chunk_sequence_starts_at_zero(self) -> None:
+        """Three sentence narrative → sequence values 0, 1, 2."""
+        turn_id = uuid4()
+        state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="look around",
+            game_state={},
+            status=TurnStatus.complete,
+            narrative_output="First sentence. Second sentence. Third sentence.",
+        )
+
+        pg = AsyncMock()
+        pg.commit = AsyncMock()
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row_stream()]),
+                _make_result([{"id": turn_id, "turn_number": 1}]),
+            ]
+        )
+
+        app = _make_stream_app(state, pg)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
+        assert resp.status_code == 200
+        body = resp.text
+
+        import json as _json
+
+        sequences = []
+        for block in body.split("\n\n"):
+            if "event: narrative\n" in block:
+                for line in block.split("\n"):
+                    if line.startswith("data:"):
+                        payload = _json.loads(line[len("data: ") :])
+                        sequences.append(payload["sequence"])
+
+        assert sequences == [0, 1, 2], f"Expected sequences [0, 1, 2], got {sequences}"
+
+
+# ---------------------------------------------------------------------------
+# S10 §6.4 / FR-10.35 — total_chunks in narrative_end == narrative event count
+# ---------------------------------------------------------------------------
+
+
+class TestS10FR1035TotalChunks:
+    """FR-10.35: narrative_end.total_chunks matches the number of narrative events."""
+
+    def test_total_chunks_matches_narrative_count(self) -> None:
+        """narrative_end.total_chunks == count of 'narrative' events in stream."""
+        turn_id = uuid4()
+        state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="look around",
+            game_state={},
+            status=TurnStatus.complete,
+            narrative_output="First sentence. Second sentence. Third sentence.",
+        )
+
+        pg = AsyncMock()
+        pg.commit = AsyncMock()
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row_stream()]),
+                _make_result([{"id": turn_id, "turn_number": 1}]),
+            ]
+        )
+
+        app = _make_stream_app(state, pg)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
+        body = resp.text
+
+        import json as _json
+
+        narrative_count = body.count("event: narrative\n")
+        total_chunks: int | None = None
+        for block in body.split("\n\n"):
+            if "event: narrative_end\n" in block:
+                for line in block.split("\n"):
+                    if line.startswith("data:"):
+                        payload = _json.loads(line[len("data: ") :])
+                        total_chunks = payload["total_chunks"]
+
+        assert total_chunks is not None, "narrative_end event not found in stream"
+        assert total_chunks == narrative_count, (
+            f"total_chunks={total_chunks} != narrative event count={narrative_count}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# S10 §6.4 / FR-10.36 — error event on failure includes turn_id
+# ---------------------------------------------------------------------------
+
+
+class TestS10FR1036ErrorEventTurnId:
+    """FR-10.36: error event on pipeline failure includes turn_id field."""
+
+    def test_failed_turn_error_event_has_turn_id(self) -> None:
+        """When result.status == failed, ErrorEvent in stream has turn_id set."""
+        turn_id = uuid4()
+        state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="look around",
+            game_state={},
+            status=TurnStatus.failed,
+        )
+
+        pg = AsyncMock()
+        pg.commit = AsyncMock()
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row_stream()]),
+                _make_result([{"id": turn_id, "turn_number": 1}]),
+            ]
+        )
+
+        app = _make_stream_app(state, pg)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
+        assert resp.status_code == 200
+        body = resp.text
+
+        assert "event: error\n" in body
+
+        import json as _json
+
+        turn_id_in_event: str | None = None
+        for block in body.split("\n\n"):
+            if "event: error\n" in block:
+                for line in block.split("\n"):
+                    if line.startswith("data:"):
+                        payload = _json.loads(line[len("data: ") :])
+                        turn_id_in_event = payload.get("turn_id")
+
+        assert turn_id_in_event is not None, (
+            "ErrorEvent.turn_id must be set on pipeline failure"
+        )
+        assert turn_id_in_event == str(turn_id)
+
+
+# ---------------------------------------------------------------------------
+# S10 §6.5 / FR-10.38 — heartbeat event (not keepalive) on idle connections
+# ---------------------------------------------------------------------------
+
+
+class TestS10FR1038HeartbeatEvent:
+    """FR-10.38: SSE stream uses 'heartbeat' event type (not legacy 'keepalive')."""
+
+    def test_heartbeat_event_model_type(self) -> None:
+        """HeartbeatEvent serialises with event_type 'heartbeat'."""
+        evt = HeartbeatEvent()
+        assert evt.event_type == "heartbeat"
+
+    def test_heartbeat_sse_wire_format(self) -> None:
+        """HeartbeatEvent.format_sse() produces 'event: heartbeat' line."""
+        evt = HeartbeatEvent()
+        sse = evt.format_sse(event_id=1)
+        assert "event: heartbeat\n" in sse
+        assert "event: keepalive" not in sse
+
+    def test_heartbeat_not_keepalive_in_stream_on_timeout(self) -> None:
+        """Stream emits 'heartbeat' (not 'keepalive') when pipeline result is delayed.
+
+        We simulate a wait timeout by returning None from wait_for_result on the
+        first call, then the real result on the second, triggering one heartbeat.
+        """
+        turn_id = uuid4()
+        result_state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="look around",
+            game_state={},
+            status=TurnStatus.complete,
+            narrative_output="You see a forest.",
+        )
+
+        call_count = 0
+
+        class _DelayedStore:
+            async def wait_for_result(
+                self, _turn_id: str, timeout: float = 30.0
+            ) -> TurnState | None:
+                nonlocal call_count
+                call_count += 1
+                # First call: return None to trigger a heartbeat
+                if call_count == 1:
+                    return None
+                return result_state
+
+            async def publish(self, turn_id: str, result: object) -> None:
+                pass
+
+        pg = AsyncMock()
+        pg.commit = AsyncMock()
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row_stream()]),
+                _make_result([{"id": turn_id, "turn_number": 1}]),
+            ]
+        )
+
+        application = create_app(_settings())
+        application.dependency_overrides[get_current_player] = lambda: _PLAYER
+        application.dependency_overrides[get_pg] = lambda: pg
+        application.state.turn_result_store = _DelayedStore()
+
+        client = TestClient(application, raise_server_exceptions=False)
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
+        body = resp.text
+
+        assert "event: heartbeat\n" in body
+        assert "event: keepalive" not in body
