@@ -1733,7 +1733,13 @@ async def stream_turn(
         else:
             chunks = []
 
-        # S10 §6.2: emit state_update for world changes before narrative_end
+        # S10 §6.4 / FR-10.35: narrative_end with total_chunks count
+        yield NarrativeEndEvent(
+            turn_id=current_turn_id,
+            total_chunks=len(chunks),
+        ).format_sse(counter.next_id())
+
+        # S10 §6.2: state_update for world changes follows narrative_end
         if result.world_state_updates:
             world_changes = _translate_world_updates(result.world_state_updates)
             if world_changes:
@@ -1741,11 +1747,6 @@ async def stream_turn(
                     changes=world_changes,
                 ).format_sse(counter.next_id())
 
-        # S10 §6.2 / FR-10.35: narrative_end with total_chunks count
-        yield NarrativeEndEvent(
-            turn_id=current_turn_id,
-            total_chunks=len(chunks),
-        ).format_sse(counter.next_id())
 
     return StreamingResponse(
         event_stream(),
