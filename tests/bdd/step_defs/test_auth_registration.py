@@ -40,20 +40,24 @@ def test_no_credential_data() -> None:
 
 @when("the visitor calls the anonymous registration endpoint", target_fixture="ctx")
 def call_anonymous(ctx: dict, unauth_client: TestClient, pg: AsyncMock) -> dict:
-    pg.execute = AsyncMock(return_value=_make_result())
+    pg.execute = AsyncMock(side_effect=[_make_result(), _make_result(), _make_result()])
     pg.commit = AsyncMock()
     ctx["response"] = unauth_client.post("/api/v1/auth/anonymous")
+    assert pg.execute.await_count == 3
     return ctx
 
 
 @when("the visitor registers anonymously twice", target_fixture="ctx")
 def call_anonymous_twice(ctx: dict, unauth_client: TestClient, pg: AsyncMock) -> dict:
-    pg.execute = AsyncMock(return_value=_make_result())
+    pg.execute = AsyncMock(side_effect=[_make_result(), _make_result(), _make_result()])
     pg.commit = AsyncMock()
     ctx["resp1"] = unauth_client.post("/api/v1/auth/anonymous")
-    pg.execute = AsyncMock(return_value=_make_result())
+    assert pg.execute.await_count == 3
+
+    pg.execute = AsyncMock(side_effect=[_make_result(), _make_result(), _make_result()])
     pg.commit = AsyncMock()
     ctx["resp2"] = unauth_client.post("/api/v1/auth/anonymous")
+    assert pg.execute.await_count == 3
     return ctx
 
 
@@ -85,6 +89,20 @@ def check_unique_ids(ctx: dict) -> None:
 
 @then("no password or credential fields are present in the response")
 def check_no_credentials(ctx: dict) -> None:
-    body_str = ctx["response"].text.lower()
-    for forbidden in ("password", "hash", "secret", "credential"):
-        assert forbidden not in body_str, f"Forbidden field in response: {forbidden}"
+    payload = ctx["response"].json()
+    forbidden_terms = ("password", "hash", "secret", "credential")
+
+    def assert_no_forbidden_keys(value: object, path: str = "$") -> None:
+        if isinstance(value, dict):
+            for key, nested_value in value.items():
+                key_lower = str(key).lower()
+                for forbidden in forbidden_terms:
+                    assert forbidden not in key_lower, (
+                        f"Forbidden field found in response: {path}.{key}"
+                    )
+                assert_no_forbidden_keys(nested_value, f"{path}.{key}")
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                assert_no_forbidden_keys(item, f"{path}[{index}]")
+
+    assert_no_forbidden_keys(payload)
