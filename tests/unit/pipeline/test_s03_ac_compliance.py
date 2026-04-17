@@ -1,6 +1,6 @@
 """S03 Narrative Engine — Acceptance Criteria compliance tests.
 
-Covers AC-3.1, AC-3.2, AC-3.4, AC-3.5, AC-3.6, AC-3.8, AC-3.9, AC-3.10.
+Covers AC-3.1, AC-3.2, AC-3.4, AC-3.5, AC-3.6, AC-3.8, AC-3.10.
 
 Already covered by existing tests (DO NOT duplicate):
   AC-3.5 (retry cascade) — test_generate_narrative.py::TestGracefulFallback
@@ -454,7 +454,7 @@ class TestAC308IntentWordRanges:
 # DEFERRED (v1 unit scope): deliver_stage does not stream tokens; it is a
 # finalise-and-mark step.  Token-by-token SSE streaming is handled by the
 # FastAPI route layer (see plans/api-and-sessions.md §3, and the SSE endpoint
-# in src/tta/api/routes/game.py).  The 2-second inter-token pause guarantee
+# in src/tta/api/routes/games.py).  The 2-second inter-token pause guarantee
 # is an integration/load-test concern, not a pipeline unit test.
 #
 # The tests below verify the deliver_stage contract that IS unit-testable:
@@ -465,8 +465,8 @@ class TestAC309DeliverStageContract:
     """AC-3.9 (v1 proxy): deliver_stage marks turns correctly; streaming is v2.
 
     Streaming rate (no pauses >2s) requires an integration environment with
-    a real SSE stream. deliver_stage itself is synchronous — it finalises
-    state and hands the narrative to the route layer for streaming.
+    a real SSE stream. deliver_stage is a non-streaming finalise-and-mark step
+    that hands the narrative to the route layer for SSE streaming.
     """
 
     @pytest.mark.asyncio

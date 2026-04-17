@@ -1,6 +1,7 @@
 """S06 Character System — Acceptance Criteria compliance tests.
 
-Covers AC-6.2, AC-6.4, AC-6.8, AC-6.9, AC-6.10.
+Covers AC-6.4, AC-6.8, AC-6.9.
+Deferred (documented rationale only): AC-6.2, AC-6.10.
 
 Already covered by existing tests (DO NOT duplicate):
   AC-6.1 — /character display with WorldSeed fields:
@@ -198,7 +199,8 @@ class TestAC604RelationshipHelp:
         await svc.update_relationship(session_id, "player", "npc_healer", change)
         rel = await svc.update_relationship(session_id, "player", "npc_healer", change)
 
-        # 3 × trust=5 = 15 (within normal clamp of 15), familiarity = 3×3 = 9
+        # 3 × trust=5 = 15; each +5 delta is within the per-interaction ±15 clamp,
+        # and the accumulated trust value remains well below the overall ±100 bound.
         assert rel.dimensions.trust == 15
         assert rel.dimensions.familiarity == 9
 
