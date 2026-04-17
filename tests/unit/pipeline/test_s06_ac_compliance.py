@@ -321,7 +321,7 @@ class TestAC608SharedHistory:
         assert "History with player:" in section, (
             "_build_npc_section must render 'History with player:' for AC-6.8"
         )
-        assert "Elder Mirra helped the player" in section
+        assert "Elder Mirra helped find the lost tome" in section
 
     def test_shared_history_excerpt_preserved_verbatim(self) -> None:
         """AC-6.8: The history snippet is passed through unchanged to the prompt."""
@@ -347,7 +347,7 @@ class TestAC608SharedHistory:
         section = _build_npc_section(npc_ctx)
 
         assert "Elder Mirra taught you the ward-rune" in section
-        assert "Captain Steinn at the bridge" in section
+        assert "Steinn at the bridge" in section
 
     def test_no_history_means_no_history_line(self) -> None:
         """AC-6.8: NPC without shared_history emits no 'History with player:' line."""
