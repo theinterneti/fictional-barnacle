@@ -140,7 +140,7 @@ class NarrativeEvent(SSEEvent):
     event_type: EventType = EventType.NARRATIVE
     text: str
     turn_id: str
-    sequence: int
+    sequence: int = Field(ge=0)
 
 
 class NarrativeEndEvent(SSEEvent):
@@ -151,11 +151,15 @@ class NarrativeEndEvent(SSEEvent):
     total_chunks: int
 
 
-class StateUpdateEvent(SSEEvent):
-    """World-state mutations applied this turn, spec-compliant name (S10 §6.2)."""
+class StateUpdateEvent(WorldUpdateEvent):
+    """S10 §6.2 spec-compliant alias for WorldUpdateEvent (state_update event name).
+
+    Inherits all fields from WorldUpdateEvent; only overrides the event_type so
+    SSE wire output carries ``event: state_update`` instead of ``event: world_update``.
+    WorldUpdateEvent is kept for backwards compatibility until Task 2 migrates games.py.
+    """
 
     event_type: EventType = EventType.STATE_UPDATE
-    changes: list[WorldChange]
 
 
 class LocationChangeEvent(SSEEvent):
