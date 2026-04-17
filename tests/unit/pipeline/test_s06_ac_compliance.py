@@ -167,7 +167,7 @@ class TestAC604RelationshipHelp:
 
     @pytest.mark.asyncio
     async def test_helping_npc_increases_trust_round_trip(self) -> None:
-        """AC-6.4: After helping event, trust and familiarity are higher than baseline."""
+        """AC-6.4: After helping event, trust and familiarity exceed baseline."""
         from uuid import uuid4
 
         svc = _fresh_svc()
@@ -239,7 +239,7 @@ class TestAC604RelationshipHelp:
 
     @pytest.mark.asyncio
     async def test_companion_eligible_after_sustained_help(self) -> None:
-        """AC-6.4: Sufficient trust + affinity unlocks companion eligibility (S06 FR-5.4).
+        """AC-6.4: Sufficient trust + affinity unlocks companion eligibility (FR-5.4).
 
         The companion thresholds are trust > 30 (strictly) and affinity > 20.
         Normal changes are clamped to ±15 (RELATIONSHIP_CLAMP_NORMAL) and
@@ -309,11 +309,11 @@ class TestAC608SharedHistory:
     """
 
     def test_shared_history_appears_in_npc_section(self) -> None:
-        """AC-6.8: NPC section includes 'History with player:' when shared_history is set."""
+        """AC-6.8: NPC section has 'History with player:' when shared_history is set."""
         npc_ctx = [
             {
                 "npc_name": "Elder Mirra",
-                "shared_history": "Turn 3: Elder Mirra helped the player find the lost tome.",
+                "shared_history": "Turn 3: Elder Mirra helped find the lost tome.",
             }
         ]
         section = _build_npc_section(npc_ctx)
@@ -333,7 +333,7 @@ class TestAC608SharedHistory:
         assert history_text in section
 
     def test_multiple_npcs_each_get_own_history(self) -> None:
-        """AC-6.8: Each NPC in the scene gets their own shared history injected separately."""
+        """AC-6.8: Each NPC gets their own shared history injected separately."""
         npc_ctx = [
             {
                 "npc_name": "Elder Mirra",
@@ -341,7 +341,7 @@ class TestAC608SharedHistory:
             },
             {
                 "npc_name": "Captain Steinn",
-                "shared_history": "Turn 7: You fought alongside Captain Steinn at the bridge.",
+                "shared_history": "Turn 7: You fought with Steinn at the bridge.",
             },
         ]
         section = _build_npc_section(npc_ctx)
@@ -361,7 +361,7 @@ class TestAC608SharedHistory:
         npc_ctx = [{"npc_name": "Elder Mirra", "shared_history": ""}]
         section = _build_npc_section(npc_ctx)
 
-        # Empty string is falsy in Python — _build_npc_section uses ctx.get("shared_history")
+        # Empty string is falsy — _build_npc_section uses ctx.get("shared_history")
         assert "History with player:" not in section
 
 
@@ -416,7 +416,7 @@ class TestAC609KnowledgeBoundary:
         )
 
     def test_footer_constraint_present_with_knowledge_boundary(self) -> None:
-        """AC-6.9: Footer still appears even when NPC has explicit knowledge_boundary."""
+        """AC-6.9: Footer appears even when NPC has an explicit knowledge_boundary."""
         npc_ctx = [
             {
                 "npc_name": "Scholar Veran",

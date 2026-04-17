@@ -6,12 +6,14 @@ Already covered by existing tests (DO NOT duplicate):
   AC-3.5 (retry cascade) — test_generate_narrative.py::TestGracefulFallback
       covers transient retry → AllTiersFailedError → _FALLBACK_NARRATIVE path,
       budget/permanent error propagation.
-  AC-3.5 (word counts enforced by intent) — test_generate_narrative.py::TestAdaptiveWordCounts
+  AC-3.5 (word counts enforced by intent) —
+      test_generate_narrative.py::TestAdaptiveWordCounts
       parametrises all INTENT_WORD_RANGES entries.
   AC-3.4 (tone/genre in prompt) — test_generate_narrative.py::TestToneGenreInjection
       verifies tone/genre strings appear in _build_generation_prompt output.
   AC-3.2 (summary injection) — test_context_narrative.py::TestInjectSummary
-      verifies session_summary propagation; and test_generate_narrative.py::TestSummaryInjection.
+      verifies session_summary propagation; and
+      test_generate_narrative.py::TestSummaryInjection.
 
 v2 ACs (deferred — require engine features not built in v1):
   AC-3.3 — Pacing tension tracking: requires a pacing-tension subsystem that
@@ -135,11 +137,11 @@ class TestAC301SensoryGuidance:
         assert "End with a subtle narrative hook" not in prompt
 
     def test_failure_narrated_as_meaningful_beat(self) -> None:
-        """S01 AC-1.5 (surfaced here): Prompt instructs failure narration as a story beat.
+        """S01 AC-1.5 (surfaced here): Prompt instructs failure as a story beat.
 
-        Source: generate.py comment at line 217 — "Failure-consequence instruction (S01 AC-1.5)".
-        Included here because it directly affects narrative quality continuity (AC-3.1).
-        This prevents terse error-like outputs and keeps sensory continuity on failed actions.
+        Source: generate.py line 217 — "Failure-consequence instruction (S01 AC-1.5)".
+        Included here because it directly affects narrative quality (AC-3.1).
+        Prevents terse error-like outputs; keeps sensory continuity on failures.
         """
         state = _make_state()
         prompt = _build_generation_prompt(state)
@@ -182,7 +184,7 @@ class TestAC302RevisitContext:
         assert "tavern" in result["session_summary"]
 
     def test_no_summary_means_no_prior_visit_signal(self) -> None:
-        """AC-3.2: Without a summary, context carries no revisit signal (first visit)."""
+        """AC-3.2: Without a summary, context has no revisit signal (first visit)."""
         state = _make_state(game_state={})
         ctx: dict = {}
         result = _inject_summary(ctx, state)
@@ -190,7 +192,7 @@ class TestAC302RevisitContext:
         assert "session_summary" not in result
 
     def test_summary_reaches_generation_prompt(self) -> None:
-        """AC-3.2: When summary is in world_context it appears in the generation prompt."""
+        """AC-3.2: Summary in world_context appears in the generation prompt."""
         state = _make_state(
             world_context={
                 "game_state": {},
@@ -219,7 +221,7 @@ class TestAC304FantasyGenreTone:
     """
 
     def test_fantasy_tone_and_genre_both_injected_together(self) -> None:
-        """AC-3.4: _inject_tone extracts both tone AND genre simultaneously from world_seed.
+        """AC-3.4: _inject_tone extracts tone AND genre together from world_seed.
 
         test_context_narrative.py tests tone-only and genre-only in isolation.
         This verifies the combined fantasy case: both keys must coexist in the
@@ -241,7 +243,7 @@ class TestAC304FantasyGenreTone:
         )
 
     def test_fantasy_genre_surfaces_in_generation_prompt(self) -> None:
-        """AC-3.4: Genre string appears in the generation prompt under 'Narrative style'."""
+        """AC-3.4: Genre appears in the generation prompt under 'Narrative style'."""
         state = _make_state(
             world_context={
                 "game_state": {},
@@ -305,7 +307,7 @@ class TestAC305FallbackNarrativeContent:
         )
 
     def test_fallback_uses_second_person(self) -> None:
-        """AC-3.5: Fallback is narrated in second person ('you'), matching game voice."""
+        """AC-3.5: Fallback uses second person ('you'), matching game voice."""
         assert "you" in _FALLBACK_NARRATIVE.lower(), (
             "Fallback narrative must use second-person game voice"
         )
@@ -443,7 +445,7 @@ class TestAC308IntentWordRanges:
         prompt = _build_generation_prompt(state)
 
         # The spec says "at least two hooks for further interaction"
-        # The prompt line says "a detail, sound, or glimpse that invites further exploration"
+        # The prompt says "a detail, sound, or glimpse that invites further exploration"
         assert "exploration" in prompt.lower() or "hook" in prompt.lower(), (
             "Prompt must carry an invitation to further exploration (AC-3.8)"
         )
