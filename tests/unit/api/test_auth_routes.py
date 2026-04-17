@@ -146,6 +146,15 @@ class TestCreateAnonymous:
         # 3 inserts: player, auth_session, refresh_token
         assert pg.execute.await_count == 3
 
+    def test_indexes_session_in_redis(
+        self, client: TestClient, pg: AsyncMock, redis: AsyncMock
+    ) -> None:
+        pg.execute = AsyncMock(return_value=_make_result())
+        pg.commit = AsyncMock()
+
+        client.post("/api/v1/auth/anonymous")
+        redis.zadd.assert_awaited_once()
+
 
 # ── POST /auth/refresh ─────────────────────────────────────────
 
@@ -194,6 +203,7 @@ class TestRefreshTokens:
         assert "access_token" in data
         assert "refresh_token" in data
         assert data["is_anonymous"] is True
+        redis.zadd.assert_awaited_once()
 
     def test_rejects_invalid_token(self, client: TestClient) -> None:
         resp = client.post("/api/v1/auth/refresh", json={"refresh_token": "garbage"})
@@ -216,6 +226,7 @@ class TestRefreshTokens:
         resp = client.post("/api/v1/auth/refresh", json={"refresh_token": token})
         assert resp.status_code == 401
         assert "SESSION_REVOKED" in resp.text
+        redis.zrem.assert_awaited_once()
 
     def test_rejects_denied_token(
         self, client: TestClient, pg: AsyncMock, redis: AsyncMock
@@ -267,6 +278,7 @@ class TestLogout:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 204
+        redis.zrem.assert_awaited_once()
 
     def test_logout_denies_token_in_redis(
         self, client: TestClient, pg: AsyncMock, redis: AsyncMock
@@ -341,7 +353,7 @@ class TestUpgradeAnonymous:
         return TestClient(anon_app)
 
     def test_upgrades_anonymous_to_registered(
-        self, anon_client: TestClient, pg: AsyncMock
+        self, anon_client: TestClient, pg: AsyncMock, redis: AsyncMock
     ) -> None:
         # email uniqueness check → no conflict
         pg.execute = AsyncMock(
@@ -371,6 +383,7 @@ class TestUpgradeAnonymous:
         data = resp.json()["data"]
         assert data["is_anonymous"] is False
         assert data["player_id"] == str(_PID)
+        redis.zadd.assert_awaited_once()
 
     def test_rejects_duplicate_email(
         self, anon_client: TestClient, pg: AsyncMock
@@ -518,3 +531,86 @@ class TestUpgradeAnonymous:
         )
         assert resp.status_code == 400
         assert "CONSENT_REQUIRED" in resp.text
+
+
+# ── GET /auth/sessions ─────────────────────────────────────────
+
+
+class TestListSessions:
+    @pytest.fixture()
+    def sessions_app(
+        self,
+        pg: AsyncMock,
+        redis: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> FastAPI:
+        settings = _settings()
+        monkeypatch.setattr("tta.api.routes.auth.get_settings", lambda: settings)
+        monkeypatch.setattr("tta.auth.jwt.get_settings", lambda: settings)
+        a = create_app(settings=settings)
+
+        async def _pg():
+            yield pg
+
+        a.dependency_overrides[get_pg] = _pg
+        a.dependency_overrides[get_redis] = lambda: redis
+        a.dependency_overrides[get_current_player] = lambda: _ANON_PLAYER
+        return a
+
+    @pytest.fixture()
+    def sessions_client(self, sessions_app: FastAPI) -> TestClient:
+        return TestClient(sessions_app)
+
+    def test_returns_active_sessions(
+        self, sessions_client: TestClient, redis: AsyncMock
+    ) -> None:
+        expiry_ts = 9_999_999_999.0
+        redis.zremrangebyscore = AsyncMock(return_value=0)
+        redis.zrangebyscore = AsyncMock(
+            return_value=[(str(_SFID), expiry_ts)]
+        )
+
+        resp = sessions_client.get("/api/v1/auth/sessions")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 1
+        assert data[0]["session_id"] == str(_SFID)
+        assert data[0]["expires_at"] == int(expiry_ts)
+
+    def test_returns_empty_list(
+        self, sessions_client: TestClient, redis: AsyncMock
+    ) -> None:
+        redis.zremrangebyscore = AsyncMock(return_value=0)
+        redis.zrangebyscore = AsyncMock(return_value=[])
+
+        resp = sessions_client.get("/api/v1/auth/sessions")
+        assert resp.status_code == 200
+        assert resp.json()["data"] == []
+
+    def test_prunes_expired_before_returning(
+        self, sessions_client: TestClient, redis: AsyncMock
+    ) -> None:
+        redis.zremrangebyscore = AsyncMock(return_value=1)
+        redis.zrangebyscore = AsyncMock(return_value=[])
+
+        sessions_client.get("/api/v1/auth/sessions")
+        redis.zremrangebyscore.assert_awaited_once()
+
+    def test_requires_authentication(
+        self, pg: AsyncMock, redis: AsyncMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        settings = _settings()
+        monkeypatch.setattr("tta.api.routes.auth.get_settings", lambda: settings)
+        monkeypatch.setattr("tta.auth.jwt.get_settings", lambda: settings)
+        a = create_app(settings=settings)
+
+        async def _pg():
+            yield pg
+
+        a.dependency_overrides[get_pg] = _pg
+        a.dependency_overrides[get_redis] = lambda: redis
+        # No get_current_player override — real auth dependency applies
+
+        c = TestClient(a)
+        resp = c.get("/api/v1/auth/sessions")
+        assert resp.status_code == 401
