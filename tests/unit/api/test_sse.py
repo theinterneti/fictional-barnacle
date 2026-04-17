@@ -28,9 +28,9 @@ class TestFormatSSE:
         assert payload == {"game_id": "abc"}
 
     def test_without_event_id(self) -> None:
-        result = format_sse("keepalive", {"ts": "2024-01-01"})
+        result = format_sse("heartbeat", {"ts": "2024-01-01"})
         assert not result.startswith("id:")
-        assert "event: keepalive\n" in result
+        assert "event: heartbeat\n" in result
 
     def test_multiline_data(self) -> None:
         # JSON with newlines (unlikely but contractually supported)

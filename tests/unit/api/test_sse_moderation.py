@@ -1,6 +1,6 @@
 """Tests for SSE moderation events in the stream endpoint.
 
-Verifies FR-24.08 (ModerationEvent emitted before NarrativeBlockEvent)
+Verifies FR-24.08 (ModerationEvent emitted before NarrativeEvent chunks)
 and FR-24.15 (non-moderated turns emit no ModerationEvent).
 """
 
@@ -98,7 +98,7 @@ def client(app: FastAPI) -> TestClient:
 
 class TestSSEModerationEvent:
     """FR-24.08: Moderated turns emit a ModerationEvent before the
-    NarrativeBlockEvent in the SSE stream."""
+    NarrativeEvent chunks in the SSE stream (S10 §6.2)."""
 
     def test_moderated_turn_emits_moderation_event(
         self, client: TestClient, pg: AsyncMock
@@ -132,12 +132,12 @@ class TestSSEModerationEvent:
 
         body = resp.text
         assert "event: moderation" in body
-        assert "narrative_block" in body
+        assert "event: narrative" in body
 
     def test_moderated_turn_has_moderation_before_narrative(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """ModerationEvent appears before NarrativeBlockEvent in stream."""
+        """ModerationEvent appears before NarrativeEvent chunks in stream."""
         turn_id = uuid4()
 
         moderated_state = TurnState(
@@ -165,7 +165,7 @@ class TestSSEModerationEvent:
         body = resp.text
 
         mod_pos = body.index("event: moderation")
-        narr_pos = body.index("event: narrative_block")
+        narr_pos = body.index("event: narrative\n")
         assert mod_pos < narr_pos
 
     def test_normal_turn_no_moderation_event(
@@ -198,7 +198,7 @@ class TestSSEModerationEvent:
         body = resp.text
 
         assert "event: moderation" not in body
-        assert "event: narrative_block" in body
+        assert "event: narrative\n" in body
 
 
 class TestModerationEventModel:
