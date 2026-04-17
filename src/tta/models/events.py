@@ -12,6 +12,7 @@ from tta.models.world import WorldChange
 class EventType(StrEnum):
     """SSE event type discriminator."""
 
+    # Legacy plans-based events (kept for backward compat with games.py)
     TURN_START = "turn_start"
     THINKING = "thinking"
     STILL_THINKING = "still_thinking"
@@ -20,8 +21,15 @@ class EventType(StrEnum):
     WORLD_UPDATE = "world_update"
     TURN_COMPLETE = "turn_complete"
     MODERATION = "moderation"
-    ERROR = "error"
     KEEPALIVE = "keepalive"
+
+    # S10 §6.2 canonical event taxonomy
+    NARRATIVE = "narrative"
+    NARRATIVE_END = "narrative_end"
+    STATE_UPDATE = "state_update"
+    LOCATION_CHANGE = "location_change"
+    ERROR = "error"
+    HEARTBEAT = "heartbeat"
 
 
 class SSEEvent(BaseModel):
@@ -106,6 +114,7 @@ class ErrorEvent(SSEEvent):
     event_type: EventType = EventType.ERROR
     code: str
     message: str
+    turn_id: str | None = None
     correlation_id: str | None = None
     retry_after_seconds: int | None = None
     details: dict | None = None
@@ -115,3 +124,52 @@ class KeepaliveEvent(SSEEvent):
     """Empty heartbeat to keep the connection alive."""
 
     event_type: EventType = EventType.KEEPALIVE
+
+
+# ---------------------------------------------------------------------------
+# S10 §6.2 canonical SSE event taxonomy
+# ---------------------------------------------------------------------------
+
+
+class NarrativeEvent(SSEEvent):
+    """Streamed narrative chunk (S10 §6.2).
+
+    ``sequence`` is a 0-indexed per-turn counter so the client can detect gaps.
+    """
+
+    event_type: EventType = EventType.NARRATIVE
+    text: str
+    turn_id: str
+    sequence: int
+
+
+class NarrativeEndEvent(SSEEvent):
+    """Signals that all narrative chunks for a turn have been sent (S10 §6.2)."""
+
+    event_type: EventType = EventType.NARRATIVE_END
+    turn_id: str
+    total_chunks: int
+
+
+class StateUpdateEvent(SSEEvent):
+    """World-state mutations applied this turn, spec-compliant name (S10 §6.2)."""
+
+    event_type: EventType = EventType.STATE_UPDATE
+    changes: list[WorldChange]
+
+
+class LocationChangeEvent(SSEEvent):
+    """Player has moved to a new location (S10 §6.2)."""
+
+    event_type: EventType = EventType.LOCATION_CHANGE
+    location_id: str
+    name: str
+    description: str
+    exits: list[str]
+
+
+class HeartbeatEvent(SSEEvent):
+    """Periodic heartbeat to keep the SSE connection alive (S10 §6.2)."""
+
+    event_type: EventType = EventType.HEARTBEAT
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
