@@ -605,6 +605,57 @@ class TestS10Section62NarrativeEventType:
         end_pos = body.index("event: narrative_end\n")
         assert narr_pos < end_pos, "narrative_end must follow narrative chunks"
 
+    def test_state_update_appears_after_narrative_end(self) -> None:
+        """DIV-04 / S10 §6.4: state_update event is emitted after narrative_end.
+
+        The spec mandates ordering: narrative chunks → narrative_end → state_update.
+        """
+        turn_id = uuid4()
+        state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="go north",
+            game_state={},
+            status=TurnStatus.complete,
+            narrative_output="You move north through the trees.",
+            world_state_updates=[
+                {
+                    "entity": "player",
+                    "attribute": "location",
+                    "old_value": "clearing",
+                    "new_value": "forest_path",
+                    "reason": "Player moved north",
+                }
+            ],
+        )
+
+        pg = AsyncMock()
+        pg.commit = AsyncMock()
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row_stream()]),
+                _make_result([{"id": turn_id, "turn_number": 1}]),
+            ]
+        )
+
+        app = _make_stream_app(state, pg)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
+        assert resp.status_code == 200
+        body = resp.text
+
+        assert "event: state_update\n" in body, (
+            "state_update event not found in stream for turn with world_state_updates"
+        )
+        end_pos = body.index("event: narrative_end\n")
+        state_update_pos = body.index("event: state_update\n")
+        assert end_pos < state_update_pos, (
+            "state_update must appear after narrative_end "
+            f"(narrative_end at {end_pos}, state_update at {state_update_pos})"
+        )
+
 
 # ---------------------------------------------------------------------------
 # S10 §6.4 / FR-10.34 — sequence starts at 0 and increments per chunk
@@ -654,6 +705,19 @@ class TestS10FR1034SequenceNumbering:
                         sequences.append(payload["sequence"])
 
         assert sequences == [0, 1, 2], f"Expected sequences [0, 1, 2], got {sequences}"
+
+        # DIV-01: narrative events must also carry `text` and `turn_id`
+        for block in body.split("\n\n"):
+            if "event: narrative\n" in block:
+                for line in block.split("\n"):
+                    if line.startswith("data:"):
+                        payload = _json.loads(line[len("data: ") :])
+                        assert "text" in payload, (
+                            "narrative event payload missing 'text' field"
+                        )
+                        assert "turn_id" in payload, (
+                            "narrative event payload missing 'turn_id' field"
+                        )
 
 
 # ---------------------------------------------------------------------------
@@ -706,6 +770,20 @@ class TestS10FR1035TotalChunks:
         assert total_chunks is not None, "narrative_end event not found in stream"
         assert total_chunks == narrative_count, (
             f"total_chunks={total_chunks} != narrative event count={narrative_count}"
+        )
+
+        # DIV-02: narrative_end payload must include turn_id
+        narrative_end_payload: dict | None = None
+        for block in body.split("\n\n"):
+            if "event: narrative_end\n" in block:
+                for line in block.split("\n"):
+                    if line.startswith("data:"):
+                        narrative_end_payload = _json.loads(line[len("data: ") :])
+        assert narrative_end_payload is not None, (
+            "narrative_end event not found for turn_id check"
+        )
+        assert "turn_id" in narrative_end_payload, (
+            "narrative_end payload missing 'turn_id' field"
         )
 
 
@@ -762,6 +840,19 @@ class TestS10FR1036ErrorEventTurnId:
         )
         assert turn_id_in_event == str(turn_id)
 
+        # DIV-07: error event payload must also include `code` and `message`
+        for block in body.split("\n\n"):
+            if "event: error\n" in block:
+                for line in block.split("\n"):
+                    if line.startswith("data:"):
+                        err_payload = _json.loads(line[len("data: ") :])
+                        assert "code" in err_payload, (
+                            "error event payload missing 'code' field"
+                        )
+                        assert "message" in err_payload, (
+                            "error event payload missing 'message' field"
+                        )
+
 
 # ---------------------------------------------------------------------------
 # S10 §6.5 / FR-10.38 — heartbeat event (not keepalive) on idle connections
@@ -778,10 +869,20 @@ class TestS10FR1038HeartbeatEvent:
 
     def test_heartbeat_sse_wire_format(self) -> None:
         """HeartbeatEvent.format_sse() produces 'event: heartbeat' line."""
+        import json as _json
+
         evt = HeartbeatEvent()
         sse = evt.format_sse(event_id=1)
         assert "event: heartbeat\n" in sse
         assert "event: keepalive" not in sse
+
+        # DIV-06: heartbeat payload must include `timestamp`
+        for line in sse.split("\n"):
+            if line.startswith("data:"):
+                payload = _json.loads(line[len("data: ") :])
+                assert "timestamp" in payload, (
+                    "heartbeat event payload missing 'timestamp' field"
+                )
 
     def test_heartbeat_not_keepalive_in_stream_on_timeout(self) -> None:
         """Stream emits 'heartbeat' (not 'keepalive') when pipeline result is delayed.
