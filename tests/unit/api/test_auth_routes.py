@@ -566,9 +566,7 @@ class TestListSessions:
     ) -> None:
         expiry_ts = 9_999_999_999.0
         redis.zremrangebyscore = AsyncMock(return_value=0)
-        redis.zrangebyscore = AsyncMock(
-            return_value=[(str(_SFID), expiry_ts)]
-        )
+        redis.zrangebyscore = AsyncMock(return_value=[(str(_SFID), expiry_ts)])
 
         resp = sessions_client.get("/api/v1/auth/sessions")
         assert resp.status_code == 200
