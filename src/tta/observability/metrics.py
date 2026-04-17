@@ -309,6 +309,28 @@ STATE_DRIFT_DETECTED = Counter(
 )
 
 
+# -- S10 SSE replay buffer metrics (FR-10.41–10.44) --------------------------
+
+SSE_REPLAY_HITS = Counter(
+    "tta_sse_replay_hits_total",
+    "Number of SSE reconnections that were served from the replay buffer",
+    registry=REGISTRY,
+)
+
+SSE_REPLAY_MISSES = Counter(
+    "tta_sse_replay_misses_total",
+    "Number of SSE reconnections where the replay buffer was exhausted",
+    registry=REGISTRY,
+)
+
+SSE_BUFFER_SIZE = Gauge(
+    "tta_sse_buffer_size",
+    "Current number of events in the SSE replay buffer for a game",
+    labelnames=["game_id"],
+    registry=REGISTRY,
+)
+
+
 def metrics_output() -> bytes:
     """Generate Prometheus metrics output from the registry."""
     return generate_latest(REGISTRY)

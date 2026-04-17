@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 from pytest_bdd import given, parsers, then
 
 from tta.api.app import create_app
-from tta.api.deps import get_current_player, get_pg
+from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.config import Settings
 from tta.models.player import Player
 
@@ -97,7 +97,20 @@ def bdd_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
 
 
 @pytest.fixture()
-def app(pg: AsyncMock, bdd_settings: Settings) -> FastAPI:
+def mock_redis() -> AsyncMock:
+    r = AsyncMock()
+    r.incr = AsyncMock(return_value=1)
+    r.zadd = AsyncMock(return_value=1)
+    r.expire = AsyncMock(return_value=1)
+    r.zremrangebyrank = AsyncMock(return_value=0)
+    r.zcard = AsyncMock(return_value=1)
+    r.exists = AsyncMock(return_value=0)
+    r.zrange = AsyncMock(return_value=[])
+    return r
+
+
+@pytest.fixture()
+def app(pg: AsyncMock, bdd_settings: Settings, mock_redis: AsyncMock) -> FastAPI:
     a = create_app(settings=bdd_settings)
 
     async def _pg():
@@ -105,11 +118,12 @@ def app(pg: AsyncMock, bdd_settings: Settings) -> FastAPI:
 
     a.dependency_overrides[get_pg] = _pg
     a.dependency_overrides[get_current_player] = lambda: _PLAYER
+    a.dependency_overrides[get_redis] = lambda: mock_redis
     return a
 
 
 @pytest.fixture()
-def unauth_app(pg: AsyncMock, bdd_settings: Settings) -> FastAPI:
+def unauth_app(pg: AsyncMock, bdd_settings: Settings, mock_redis: AsyncMock) -> FastAPI:
     """App without the get_current_player override — will hit real auth."""
     a = create_app(settings=bdd_settings)
 
@@ -117,6 +131,7 @@ def unauth_app(pg: AsyncMock, bdd_settings: Settings) -> FastAPI:
         yield pg
 
     a.dependency_overrides[get_pg] = _pg
+    a.dependency_overrides[get_redis] = lambda: mock_redis
     return a
 
 

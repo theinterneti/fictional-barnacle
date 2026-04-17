@@ -510,6 +510,23 @@ def _make_stream_app(turn_state: TurnState, pg_mock: AsyncMock) -> FastAPI:
     application.dependency_overrides[get_current_player] = lambda: _PLAYER
     application.dependency_overrides[get_pg] = lambda: pg_mock
     application.state.turn_result_store = _FakeStore(turn_state)
+    # Redis mock for SSE replay buffer (all ops used by SseEventBuffer).
+    _counter = 0
+
+    async def _incr(_key: str) -> int:
+        nonlocal _counter
+        _counter += 1
+        return _counter
+
+    _redis = AsyncMock()
+    _redis.incr = AsyncMock(side_effect=_incr)
+    _redis.zadd = AsyncMock(return_value=0)
+    _redis.expire = AsyncMock(return_value=True)
+    _redis.zremrangebyrank = AsyncMock(return_value=0)
+    _redis.zcard = AsyncMock(return_value=0)
+    _redis.zrangebyscore = AsyncMock(return_value=[])
+    _redis.zrange = AsyncMock(return_value=[])
+    application.state.redis = _redis
     return application
 
 
@@ -930,6 +947,23 @@ class TestS10FR1038HeartbeatEvent:
         application.dependency_overrides[get_current_player] = lambda: _PLAYER
         application.dependency_overrides[get_pg] = lambda: pg
         application.state.turn_result_store = _DelayedStore()
+
+        _counter2 = 0
+
+        async def _incr2(_key: str) -> int:
+            nonlocal _counter2
+            _counter2 += 1
+            return _counter2
+
+        _redis2 = AsyncMock()
+        _redis2.incr = AsyncMock(side_effect=_incr2)
+        _redis2.zadd = AsyncMock(return_value=0)
+        _redis2.expire = AsyncMock(return_value=True)
+        _redis2.zremrangebyrank = AsyncMock(return_value=0)
+        _redis2.zcard = AsyncMock(return_value=0)
+        _redis2.zrangebyscore = AsyncMock(return_value=[])
+        _redis2.zrange = AsyncMock(return_value=[])
+        application.state.redis = _redis2
 
         client = TestClient(application, raise_server_exceptions=False)
         resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
