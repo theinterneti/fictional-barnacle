@@ -114,6 +114,7 @@ async def _issue_token_pair(
     *,
     is_anonymous: bool,
     role: str = "player",
+    redis: Redis,
 ) -> tuple[str, str, int, UUID]:
     """Create auth session + JWT pair.
 
@@ -173,6 +174,10 @@ async def _issue_token_pair(
             "now": now,
         },
     )
+    await redis.zadd(
+        f"tta:auth:player:{player_id}",
+        {str(session_id): session_expires.timestamp()},
+    )
 
     expires_in = (
         settings.anon_access_token_ttl if is_anonymous else settings.access_token_ttl
@@ -200,6 +205,7 @@ def _set_auth_cookie(response: JSONResponse, access_token: str, ttl: int) -> Non
 @router.post("/anonymous", status_code=201)
 async def create_anonymous(
     pg: AsyncSession = Depends(get_pg),
+    redis: Redis = Depends(get_redis),
 ) -> JSONResponse:
     """Create an anonymous player and issue JWT token pair."""
     player_id = uuid4()
@@ -216,7 +222,7 @@ async def create_anonymous(
     )
 
     access, refresh, expires_in, _ = await _issue_token_pair(
-        pg, player_id, is_anonymous=True
+        pg, player_id, is_anonymous=True, redis=redis
     )
     await pg.commit()
 
@@ -298,6 +304,7 @@ async def refresh_tokens(
             {"now": datetime.now(UTC), "sid": session_family_id},
         )
         await pg.commit()
+        await redis.zrem(f"tta:auth:player:{player_id}", str(session_family_id))
         raise AppError(
             ErrorCategory.AUTH_REQUIRED,
             "SESSION_REVOKED",
@@ -350,6 +357,7 @@ async def refresh_tokens(
             {"sfid": str(session_family_id)},
         )
         await pg.commit()
+        await redis.zrem(f"tta:auth:player:{player_id}", str(session_family_id))
         raise AppError(
             ErrorCategory.AUTH_REQUIRED,
             "REFRESH_TOKEN_REUSED",
@@ -392,13 +400,22 @@ async def refresh_tokens(
         },
     )
 
-    # Update session last_used_at
+    # Update session last_used_at and rolling expiry (AC-11.07)
+    new_expiry = now + timedelta(seconds=refresh_ttl)
     await pg.execute(
-        sa.text("UPDATE auth_sessions SET last_used_at = :now WHERE id = :sid"),
-        {"now": now, "sid": session_family_id},
+        sa.text(
+            "UPDATE auth_sessions SET last_used_at = :now, expires_at = :exp "
+            "WHERE id = :sid"
+        ),
+        {"now": now, "exp": new_expiry, "sid": session_family_id},
     )
 
     await pg.commit()
+    await redis.zadd(
+        f"tta:auth:player:{player_id}",
+        {str(session_family_id): new_expiry.timestamp()},
+        xx=True,
+    )
 
     expires_in = (
         settings.anon_access_token_ttl if is_anon else settings.access_token_ttl
@@ -463,6 +480,7 @@ async def logout(
             {"now": datetime.now(UTC), "sid": UUID(sfid)},
         )
         await pg.commit()
+        await redis.zrem(f"tta:auth:player:{claims['sub']}", sfid)
 
     response = Response(status_code=204)
     response.delete_cookie(key="tta_session", path="/")
@@ -571,7 +589,7 @@ async def upgrade_anonymous(
 
     # FR-11.27: issue new token set reflecting upgraded identity
     access, refresh, expires_in, _ = await _issue_token_pair(
-        pg, player.id, is_anonymous=False, role=player.role
+        pg, player.id, is_anonymous=False, role=player.role, redis=redis
     )
     await pg.commit()
 
@@ -586,3 +604,25 @@ async def upgrade_anonymous(
     _set_auth_cookie(response, access, expires_in)
     log.info("anonymous_player_upgraded", player_id=str(player.id))
     return response
+
+
+# ── GET /auth/sessions (AC-11.08) ──────────────────────────────
+
+
+@router.get("/sessions")
+async def list_sessions(
+    player: Player = Depends(get_current_player),
+    redis: Redis = Depends(get_redis),
+) -> JSONResponse:
+    """Return all active sessions for the authenticated player (AC-11.08)."""
+    key = f"tta:auth:player:{player.id}"
+    now_ts = datetime.now(UTC).timestamp()
+    # Prune expired entries before returning
+    await redis.zremrangebyscore(key, "-inf", now_ts)
+    entries: list[tuple[str, float]] = await redis.zrangebyscore(
+        key, now_ts, "+inf", withscores=True
+    )
+    sessions = [
+        {"session_id": sfid, "expires_at": int(score)} for sfid, score in entries
+    ]
+    return JSONResponse(content={"data": sessions})
