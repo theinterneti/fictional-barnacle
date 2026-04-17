@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import re
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -30,12 +31,11 @@ from tta.errors import ErrorCategory
 from tta.logging import bind_context
 from tta.models.events import (
     ErrorEvent,
-    KeepaliveEvent,
+    HeartbeatEvent,
     ModerationEvent,
-    NarrativeBlockEvent,
-    ThinkingEvent,
-    TurnCompleteEvent,
-    TurnStartEvent,
+    NarrativeEndEvent,
+    NarrativeEvent,
+    StateUpdateEvent,
 )
 from tta.models.game import GameStatus
 from tta.models.player import Player
@@ -120,6 +120,23 @@ def _build_typed_payload(change_type: WorldChangeType, item: dict) -> dict:
         base.setdefault("dimension", str(item.get("attribute") or "trust"))
         base.setdefault("direction", str(nv) if nv is not None else "positive")
     return base
+
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _split_narrative(text: str) -> list[str]:
+    """Split narrative text into sentence-aligned chunks (S10 §6.4 FR-10.34).
+
+    Splits on sentence boundaries (`. `, `! `, `? `), keeping the terminal
+    punctuation with its sentence. Returns a list with at least one element.
+    Empty or whitespace-only text returns a single empty-string chunk.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return [""]
+    parts = _SENTENCE_SPLIT_RE.split(stripped)
+    return [p.strip() for p in parts if p.strip()] or [stripped]
 
 
 def _translate_world_updates(raw: list[dict]) -> list[WorldChange]:
@@ -1640,24 +1657,15 @@ async def stream_turn(
             yield ErrorEvent(
                 code="NO_TURN_FOUND",
                 message="No turn found for this game.",
+                turn_id=None,
                 correlation_id=correlation_id,
                 retry_after_seconds=2,
             ).format_sse(counter.next_id())
             return
 
-        current_turn_number = proc_row.turn_number
         current_turn_id = str(proc_row.id)
 
-        # Send turn_start
-        yield TurnStartEvent(
-            turn_id=current_turn_id,
-            turn_number=current_turn_number,
-        ).format_sse(counter.next_id())
-
-        # Signal that the pipeline is processing
-        yield ThinkingEvent().format_sse(counter.next_id())
-
-        # FR-23.22: keepalive loop while waiting for pipeline result
+        # FR-23.22 / S10 §6.5: heartbeat loop while waiting for pipeline result
         store = request.app.state.turn_result_store
         settings: Settings = request.app.state.settings
         keepalive_interval = settings.sse_heartbeat_interval
@@ -1673,21 +1681,26 @@ async def stream_turn(
             if result is not None:
                 break
             if time.monotonic() < deadline:
-                yield KeepaliveEvent().format_sse(counter.next_id())
+                # S10 §6.5: heartbeat every 15s on idle connections
+                yield HeartbeatEvent().format_sse(counter.next_id())
 
         if result is None:
             yield ErrorEvent(
                 code="PIPELINE_TIMEOUT",
                 message="Turn processing timed out.",
+                turn_id=current_turn_id,
                 correlation_id=correlation_id,
                 retry_after_seconds=5,
             ).format_sse(counter.next_id())
             return
 
         if result.status == TurnStatus.failed:
+            # FR-10.36: emit error but do not close stream permanently;
+            # return here ends only this turn's emission, not the SSE connection.
             yield ErrorEvent(
                 code="PIPELINE_FAILED",
                 message="Turn processing failed.",
+                turn_id=current_turn_id,
                 correlation_id=correlation_id,
                 retry_after_seconds=2,
             ).format_sse(counter.next_id())
@@ -1708,19 +1721,34 @@ async def stream_turn(
                 ),
             ).format_sse(counter.next_id())
 
-        # Stream the narrative as a complete block
+        # S10 §6.2 / FR-10.34: emit narrative as sentence-aligned chunks
         if result.narrative_output:
-            yield NarrativeBlockEvent(
-                full_text=result.narrative_output,
+            chunks = _split_narrative(result.narrative_output)
+            for i, chunk in enumerate(chunks):
+                yield NarrativeEvent(
+                    text=chunk,
+                    turn_id=current_turn_id,
+                    sequence=i,
+                ).format_sse(counter.next_id())
+            # S10 §6.2 / FR-10.35: narrative_end with total_chunks count
+            yield NarrativeEndEvent(
+                turn_id=current_turn_id,
+                total_chunks=len(chunks),
+            ).format_sse(counter.next_id())
+        else:
+            # No narrative output — still close the turn with narrative_end
+            yield NarrativeEndEvent(
+                turn_id=current_turn_id,
+                total_chunks=0,
             ).format_sse(counter.next_id())
 
-        # Turn complete
-        yield TurnCompleteEvent(
-            turn_number=result.turn_number,
-            model_used=result.model_used or "unknown",
-            latency_ms=result.latency_ms or 0.0,
-            suggested_actions=result.suggested_actions or [],
-        ).format_sse(counter.next_id())
+        # S10 §6.2: emit state_update for world changes before narrative_end
+        if result.world_state_updates:
+            world_changes = _translate_world_updates(result.world_state_updates)
+            if world_changes:
+                yield StateUpdateEvent(
+                    changes=world_changes,
+                ).format_sse(counter.next_id())
 
     return StreamingResponse(
         event_stream(),
