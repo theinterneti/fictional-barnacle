@@ -19,8 +19,8 @@ from tta.models.world import WorldChange, WorldChangeType
 class TestEventTypeEnum:
     """EventType enum coverage."""
 
-    def test_has_all_ten_values(self) -> None:
-        # 10 legacy + 5 S10 §6.2 canonical = 15 total
+    def test_has_all_fifteen_values(self) -> None:
+        # 9 legacy-only + 1 shared (error) + 5 new S10 §6.2 = 15 total
         assert len(EventType) == 15
 
     def test_values(self) -> None:
