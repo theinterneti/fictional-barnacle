@@ -8,7 +8,7 @@ import json
 import re
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
@@ -18,14 +18,18 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
+
 from tta.api.deps import (
     get_current_player,
     get_pg,
+    get_redis,
     require_anonymous_game_limit,
     require_consent,
 )
 from tta.api.errors import AppError
-from tta.api.sse import SSECounter
+from tta.api.sse import SseEventBuffer
 from tta.config import Settings, get_settings
 from tta.errors import ErrorCategory
 from tta.logging import bind_context
@@ -50,6 +54,9 @@ from tta.observability.metrics import (
     SESSION_DURATION,
     SESSION_TURNS,
     SESSIONS_ACTIVE,
+    SSE_BUFFER_SIZE,
+    SSE_REPLAY_HITS,
+    SSE_REPLAY_MISSES,
     TURN_STORAGE_OPS_DURATION,
 )
 from tta.pipeline.orchestrator import run_pipeline
@@ -1631,8 +1638,14 @@ async def stream_turn(
     request: Request,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
+    redis: Redis = Depends(get_redis),
 ) -> StreamingResponse:
-    """SSE endpoint — streams turn processing events to the client."""
+    """SSE endpoint — streams turn processing events to the client.
+
+    Implements FR-10.40–10.44: clients may reconnect with a
+    ``Last-Event-ID`` header to replay missed events from the Redis
+    buffer (≥100 events, 5-min rolling window).
+    """
     await _get_owned_game(pg, game_id, player)  # ownership check
 
     # Look up the latest turn for its ID and number
@@ -1645,25 +1658,89 @@ async def stream_turn(
         {"sid": game_id},
     )
     proc_row = proc_result.one_or_none()
-    counter = SSECounter()
     correlation_id = getattr(request.state, "request_id", "unknown")
+    game_id_str = str(game_id)
+
+    # Parse Last-Event-ID for reconnect detection (FR-10.40)
+    raw_last_id = request.headers.get("Last-Event-ID", "").strip()
+    last_event_id: int | None = None
+    if raw_last_id:
+        try:
+            last_event_id = int(raw_last_id)
+        except ValueError:
+            last_event_id = None
 
     # NOTE: event_stream is a complex generator because SSE streaming
     # requires a single async function yielding formatted events.
     # TODO: decompose into _wait_for_result() and _emit_turn_events()
     # helpers once the streaming contract stabilises.
     async def event_stream():  # noqa: C901
+        # FR-10.43: hint the client to reconnect after 3 s on disconnect.
+        # This raw string is NOT stored in the replay buffer.
+        yield "retry: 3000\n\n"
+
+        # --- helper: get next global ID, format, buffer, and return raw ---
+        # Defined early so it's available to NO_TURN_FOUND and all error paths.
+        async def _emit(event_obj: object) -> str:  # type: ignore[override]
+            eid = await SseEventBuffer.get_next_id(redis, game_id_str)
+            raw = event_obj.format_sse(eid)  # type: ignore[attr-defined]
+            await SseEventBuffer.append(redis, game_id_str, eid, raw)
+            SSE_BUFFER_SIZE.labels(game_id=game_id_str).set(
+                await redis.zcard(f"tta:sse_buffer:{game_id_str}")
+            )
+            return raw
+
         if proc_row is None:
-            yield ErrorEvent(
-                code="NO_TURN_FOUND",
-                message="No turn found for this game.",
-                turn_id=None,
-                correlation_id=correlation_id,
-                retry_after_seconds=2,
-            ).format_sse(counter.next_id())
+            yield await _emit(
+                ErrorEvent(
+                    code="NO_TURN_FOUND",
+                    message="No turn found for this game.",
+                    turn_id=None,
+                    correlation_id=correlation_id,
+                    retry_after_seconds=2,
+                )
+            )
             return
 
         current_turn_id = str(proc_row.id)
+
+        # --- reconnect path (FR-10.42 / FR-10.44) ---
+        if last_event_id is not None:
+            replayed = await SseEventBuffer.replay_after(
+                redis, game_id_str, last_event_id
+            )
+
+            if replayed is None:
+                # Buffer miss (EC-10.13) — signal client to fetch state via REST
+                SSE_REPLAY_MISSES.inc()
+                yield await _emit(
+                    ErrorEvent(
+                        code="replay_unavailable",
+                        message=(
+                            "The event buffer for this session has expired. "
+                            "Fetch current game state via GET /games/{id}."
+                        ),
+                        correlation_id=correlation_id,
+                        retry_after_seconds=0,
+                    )
+                )
+                # FR-10.44: continue to keepalive loop so the client receives
+                # live events for the in-progress turn (no early return).
+            else:
+                # HIT — replay buffered events to the client
+                SSE_REPLAY_HITS.inc()
+                for raw_event in replayed:
+                    yield raw_event
+
+                # Check whether the turn pipeline has already completed
+                store = request.app.state.turn_result_store
+                result_check = await store.wait_for_result(current_turn_id, timeout=0.1)
+                if result_check is not None:
+                    # Only short-circuit if narrative_end was in the replayed
+                    # events; otherwise fall through so the client gets finals.
+                    if any("event: narrative_end" in e for e in replayed):
+                        return
+                # Turn still in progress — fall through to keepalive loop
 
         # FR-23.22 / S10 §6.5: heartbeat loop while waiting for pipeline result
         store = request.app.state.turn_result_store
@@ -1681,30 +1758,34 @@ async def stream_turn(
             if result is not None:
                 break
             if time.monotonic() < deadline:
-                # S10 §6.5: heartbeat at the configured interval on idle connections,
-                # bounded by the remaining pipeline timeout.
-                yield HeartbeatEvent().format_sse(counter.next_id())
+                # S10 §6.5 heartbeat: bounded by remaining pipeline timeout.
+                _raw = await _emit(HeartbeatEvent())
+                yield _raw
 
         if result is None:
-            yield ErrorEvent(
-                code="PIPELINE_TIMEOUT",
-                message="Turn processing timed out.",
-                turn_id=current_turn_id,
-                correlation_id=correlation_id,
-                retry_after_seconds=5,
-            ).format_sse(counter.next_id())
+            yield await _emit(
+                ErrorEvent(
+                    code="PIPELINE_TIMEOUT",
+                    message="Turn processing timed out.",
+                    turn_id=current_turn_id,
+                    correlation_id=correlation_id,
+                    retry_after_seconds=5,
+                )
+            )
             return
 
         if result.status == TurnStatus.failed:
             # FR-10.36: emit the pipeline failure event, then end this response
             # stream by returning from the async generator.
-            yield ErrorEvent(
-                code="PIPELINE_FAILED",
-                message="Turn processing failed.",
-                turn_id=current_turn_id,
-                correlation_id=correlation_id,
-                retry_after_seconds=2,
-            ).format_sse(counter.next_id())
+            yield await _emit(
+                ErrorEvent(
+                    code="PIPELINE_FAILED",
+                    message="Turn processing failed.",
+                    turn_id=current_turn_id,
+                    correlation_id=correlation_id,
+                    retry_after_seconds=2,
+                )
+            )
             return
 
         # FR-24.06/FR-24.08: emit moderation event before narrative
@@ -1715,38 +1796,46 @@ async def stream_turn(
                 turn_id=current_turn_id,
                 safety_flags=result.safety_flags,
             )
-            yield ModerationEvent(
-                reason=(
-                    "The story has been gently redirected "
-                    "to maintain a supportive experience."
-                ),
-            ).format_sse(counter.next_id())
+            _raw = await _emit(
+                ModerationEvent(
+                    reason=(
+                        "The story has been gently redirected "
+                        "to maintain a supportive experience."
+                    ),
+                )
+            )
+            yield _raw
 
         # S10 §6.2 / FR-10.34: emit narrative as sentence-aligned chunks
         if result.narrative_output:
             chunks = _split_narrative(result.narrative_output)
             for i, chunk in enumerate(chunks):
-                yield NarrativeEvent(
-                    text=chunk,
-                    turn_id=current_turn_id,
-                    sequence=i,
-                ).format_sse(counter.next_id())
+                _raw = await _emit(
+                    NarrativeEvent(
+                        text=chunk,
+                        turn_id=current_turn_id,
+                        sequence=i,
+                    )
+                )
+                yield _raw
         else:
             chunks = []
 
         # S10 §6.4 / FR-10.35: narrative_end with total_chunks count
-        yield NarrativeEndEvent(
-            turn_id=current_turn_id,
-            total_chunks=len(chunks),
-        ).format_sse(counter.next_id())
+        _raw = await _emit(
+            NarrativeEndEvent(
+                turn_id=current_turn_id,
+                total_chunks=len(chunks),
+            )
+        )
+        yield _raw
 
         # S10 §6.2: state_update for world changes follows narrative_end
         if result.world_state_updates:
             world_changes = _translate_world_updates(result.world_state_updates)
             if world_changes:
-                yield StateUpdateEvent(
-                    changes=world_changes,
-                ).format_sse(counter.next_id())
+                _raw = await _emit(StateUpdateEvent(changes=world_changes))
+                yield _raw
 
     return StreamingResponse(
         event_stream(),

@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
-from tta.api.deps import get_current_player, get_pg, require_consent
+from tta.api.deps import get_current_player, get_pg, get_redis, require_consent
 from tta.config import Settings
 from tta.models.events import ErrorEvent
 from tta.models.player import Player
@@ -84,11 +84,25 @@ def pg() -> AsyncMock:
 
 
 @pytest.fixture()
-def app(pg: AsyncMock) -> FastAPI:
+def mock_redis() -> AsyncMock:
+    r = AsyncMock()
+    r.incr = AsyncMock(return_value=1)
+    r.zadd = AsyncMock(return_value=1)
+    r.expire = AsyncMock(return_value=1)
+    r.zremrangebyrank = AsyncMock(return_value=0)
+    r.zcard = AsyncMock(return_value=1)
+    r.exists = AsyncMock(return_value=0)
+    r.zrange = AsyncMock(return_value=[])
+    return r
+
+
+@pytest.fixture()
+def app(pg: AsyncMock, mock_redis: AsyncMock) -> FastAPI:
     application = create_app(_settings())
     application.dependency_overrides[get_current_player] = lambda: _PLAYER
     application.dependency_overrides[get_pg] = lambda: pg
     application.dependency_overrides[require_consent] = lambda: _PLAYER
+    application.dependency_overrides[get_redis] = lambda: mock_redis
     return application
 
 

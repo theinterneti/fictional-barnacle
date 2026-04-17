@@ -21,6 +21,7 @@ from tta.api.app import create_app
 from tta.api.deps import (
     get_current_player,
     get_pg,
+    get_redis,
     require_anonymous_game_limit,
     require_consent,
 )
@@ -90,13 +91,27 @@ def pg() -> AsyncMock:
 
 
 @pytest.fixture()
-def client(pg: AsyncMock) -> TestClient:
+def mock_redis() -> AsyncMock:
+    r = AsyncMock()
+    r.incr = AsyncMock(return_value=1)
+    r.zadd = AsyncMock(return_value=1)
+    r.expire = AsyncMock(return_value=1)
+    r.zremrangebyrank = AsyncMock(return_value=0)
+    r.zcard = AsyncMock(return_value=1)
+    r.exists = AsyncMock(return_value=0)
+    r.zrange = AsyncMock(return_value=[])
+    return r
+
+
+@pytest.fixture()
+def client(pg: AsyncMock, mock_redis: AsyncMock) -> TestClient:
     settings = _settings()
     app = create_app(settings)
     app.dependency_overrides[get_pg] = lambda: pg
     app.dependency_overrides[get_current_player] = lambda: _PLAYER
     app.dependency_overrides[require_consent] = lambda: _PLAYER
     app.dependency_overrides[require_anonymous_game_limit] = lambda: _PLAYER
+    app.dependency_overrides[get_redis] = lambda: mock_redis
     return TestClient(app, raise_server_exceptions=False)
 
 

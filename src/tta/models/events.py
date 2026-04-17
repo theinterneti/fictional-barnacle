@@ -22,7 +22,6 @@ class EventType(StrEnum):
     TURN_COMPLETE = "turn_complete"
     MODERATION = "moderation"
     KEEPALIVE = "keepalive"
-
     # S10 §6.2 canonical event taxonomy
     NARRATIVE = "narrative"
     NARRATIVE_END = "narrative_end"
