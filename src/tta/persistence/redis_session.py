@@ -100,6 +100,7 @@ async def get_or_reconstruct_session(
     await set_active_session(redis, session_id, state)
 
     if neo4j_service is not None and session_factory is not None:
+        log.info("world_graph_reconstruction_attempted", session_id=str(session_id))
         try:
             await neo4j_service.reconstruct_world_graph(session_id, session_factory)
         except Exception:

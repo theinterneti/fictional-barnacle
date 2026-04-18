@@ -563,8 +563,9 @@ class Neo4jWorldService:
         """
         sid = str(game_session_id)
         log = logger.bind(session_id=sid, operation="reconstruct_world_graph")
+        world_seed_dict: dict | None = None
 
-        # Load events from Postgres ordered by authoritative turn number.
+        # Load events and world seed from Postgres ordered by authoritative turn number.
         async with session_factory() as db:
             rows = (
                 await db.execute(
@@ -578,6 +579,14 @@ class Neo4jWorldService:
                     {"sid": game_session_id},
                 )
             ).fetchall()
+            ws_row = (
+                await db.execute(
+                    sa.text("SELECT world_seed FROM game_sessions WHERE id = :sid"),
+                    {"sid": game_session_id},
+                )
+            ).one_or_none()
+            if ws_row is not None:
+                world_seed_dict = ws_row.world_seed
 
         if not rows:
             log.warning(
@@ -611,6 +620,29 @@ class Neo4jWorldService:
             return
 
         async with observe_neo4j_op("reconstruct_world_graph"):
+            # Ensure the base World node exists before replaying events.
+            async with self._driver.session() as check_sess:
+                check_result = await check_sess.run(
+                    "MATCH (w:World {session_id: $sid}) RETURN count(w) AS cnt",
+                    sid=sid,
+                )
+                record = await check_result.single()
+                world_exists = record is not None and record["cnt"] > 0
+
+            if not world_exists:
+                if world_seed_dict is not None:
+                    await self.create_world_graph(
+                        game_session_id,
+                        WorldSeed.model_validate(world_seed_dict),
+                    )
+                    log.info("world_graph_base_seeded", session_id=sid)
+                else:
+                    log.warning(
+                        "world_graph_seed_unavailable",
+                        session_id=sid,
+                        note="no world_seed; event replay may partially no-op",
+                    )
+
             async with self._driver.session() as neo4j_sess:
                 async with await neo4j_sess.begin_transaction() as tx:
                     for change in changes:

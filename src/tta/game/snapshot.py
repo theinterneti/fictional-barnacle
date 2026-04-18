@@ -6,6 +6,7 @@ so that a snapshot failure never blocks gameplay.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from typing import Any
@@ -33,19 +34,30 @@ class GameSnapshotService:
         game_session_id: UUID,
         state: GameState,
     ) -> None:
-        """Persist a snapshot of *state* for *game_session_id*."""
+        """Persist a snapshot of *state* for *game_session_id*.
+
+        ``narrative_history`` is stripped from the JSONB payload and replaced
+        with a SHA-256 digest.  History is reconstructed from the ``turns``
+        table on restore, keeping snapshot rows small.
+        """
         payload = json.loads(state.model_dump_json())
+        history = payload.pop("narrative_history", [])
+        digest = hashlib.sha256(
+            json.dumps(history, sort_keys=True).encode()
+        ).hexdigest()
         async with self._sf() as sess:
             await sess.execute(
                 sa.text(
                     "INSERT INTO game_snapshots"
-                    " (game_session_id, turn_number, world_state)"
-                    " VALUES (:gid, :turn, CAST(:payload AS jsonb))"
+                    " (game_session_id, turn_number, world_state,"
+                    " narrative_history_digest)"
+                    " VALUES (:gid, :turn, CAST(:payload AS jsonb), :digest)"
                 ),
                 {
                     "gid": game_session_id,
                     "turn": state.turn_number,
                     "payload": json.dumps(payload),
+                    "digest": digest,
                 },
             )
             await sess.commit()

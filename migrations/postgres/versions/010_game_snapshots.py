@@ -29,6 +29,7 @@ def upgrade() -> None:
             sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
             nullable=False,
         ),
+        sa.Column("narrative_history_digest", sa.Text(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

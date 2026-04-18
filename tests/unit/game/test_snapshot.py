@@ -90,9 +90,7 @@ class TestSaveSnapshot:
 
 
 class TestGetLatestSnapshot:
-    async def test_returns_none_when_no_rows(
-        self, session_factory: MagicMock
-    ) -> None:
+    async def test_returns_none_when_no_rows(self, session_factory: MagicMock) -> None:
         svc = GameSnapshotService(session_factory)
         sess = session_factory.return_value.__aenter__.return_value
         mock_result = MagicMock()
@@ -123,9 +121,7 @@ class TestGetLatestSnapshot:
         assert restored.turn_number == state.turn_number
         assert restored.current_location_id == state.current_location_id
 
-    async def test_handles_string_world_state(
-        self, session_factory: MagicMock
-    ) -> None:
+    async def test_handles_string_world_state(self, session_factory: MagicMock) -> None:
         """world_state may arrive as JSON string (non-asyncpg drivers)."""
         svc = GameSnapshotService(session_factory)
         state = _make_state(turn=6)

@@ -653,7 +653,11 @@ class TestReconstructWorldGraph:
         transaction_cm = AsyncMock()
         transaction_cm.__aenter__ = AsyncMock(return_value=tx)
         transaction_cm.__aexit__ = AsyncMock(return_value=False)
+        record: dict[str, int] = {"cnt": 1}
+        check_result = AsyncMock()
+        check_result.single = AsyncMock(return_value=record)
         neo4j_sess = AsyncMock()
+        neo4j_sess.run = AsyncMock(return_value=check_result)
         neo4j_sess.begin_transaction = AsyncMock(return_value=transaction_cm)
         sess_cm = AsyncMock()
         sess_cm.__aenter__ = AsyncMock(return_value=neo4j_sess)
@@ -666,7 +670,6 @@ class TestReconstructWorldGraph:
         self,
     ) -> None:
         """SQL must JOIN turns and ORDER BY turn_number, not created_at alone."""
-        from unittest.mock import call
         from uuid import uuid4 as uuid
 
         import sqlalchemy as sa
@@ -685,6 +688,7 @@ class TestReconstructWorldGraph:
         db_mock = AsyncMock()
         result_mock = AsyncMock()
         result_mock.fetchall = MagicMock(return_value=[row])
+        result_mock.one_or_none = MagicMock(return_value=None)
         db_mock.execute = AsyncMock(return_value=result_mock)
 
         session_factory_cm = AsyncMock()
@@ -696,14 +700,12 @@ class TestReconstructWorldGraph:
         await svc.reconstruct_world_graph(session_id, session_factory)
 
         # Verify the SQL text contains the JOIN and ORDER BY turn_number
-        call_args = db_mock.execute.call_args
+        call_args = db_mock.execute.call_args_list[0]
         assert call_args is not None
         sql_text: sa.TextClause = call_args[0][0]
         sql_str = sql_text.text.lower()
         assert "join turns" in sql_str, "Query must JOIN the turns table"
-        assert "t.turn_number" in sql_str.lower(), (
-            "ORDER BY must use turns.turn_number"
-        )
+        assert "t.turn_number" in sql_str.lower(), "ORDER BY must use turns.turn_number"
         assert "order by" in sql_str
 
     @pytest.mark.anyio
@@ -720,6 +722,7 @@ class TestReconstructWorldGraph:
         db_mock = AsyncMock()
         result_mock = AsyncMock()
         result_mock.fetchall = MagicMock(return_value=[])
+        result_mock.one_or_none = MagicMock(return_value=None)
         db_mock.execute = AsyncMock(return_value=result_mock)
 
         session_factory_cm = AsyncMock()
@@ -732,3 +735,89 @@ class TestReconstructWorldGraph:
 
         # Neo4j session should never have been opened
         driver.session.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_base_graph_seeded_when_world_node_absent(self) -> None:
+        """If the World node is missing, reconstruct should seed from world_seed."""
+        from uuid import uuid4 as uuid
+
+        seed = _make_seed()
+        seed_dict = seed.model_dump(mode="json")
+
+        # Driver whose check session returns cnt=0 (no World node exists).
+        driver = self._make_driver()
+        cnt0_result = AsyncMock()
+        cnt0_result.single = AsyncMock(return_value={"cnt": 0})
+        cnt0_sess = AsyncMock()
+        cnt0_sess.run = AsyncMock(return_value=cnt0_result)
+        cnt0_cm = AsyncMock()
+        cnt0_cm.__aenter__ = AsyncMock(return_value=cnt0_sess)
+        cnt0_cm.__aexit__ = AsyncMock(return_value=False)
+
+        tx = AsyncMock()
+        tx.run = AsyncMock()
+        tx_cm = AsyncMock()
+        tx_cm.__aenter__ = AsyncMock(return_value=tx)
+        tx_cm.__aexit__ = AsyncMock(return_value=False)
+        replay_sess = AsyncMock()
+        replay_sess.begin_transaction = AsyncMock(return_value=tx_cm)
+        replay_cm = AsyncMock()
+        replay_cm.__aenter__ = AsyncMock(return_value=replay_sess)
+        replay_cm.__aexit__ = AsyncMock(return_value=False)
+
+        driver.session = MagicMock(side_effect=[cnt0_cm, replay_cm])
+
+        svc = Neo4jWorldService(driver)
+        svc.create_world_graph = AsyncMock()
+        session_id = uuid()
+
+        # Two Postgres execute calls: events + world_seed.
+        event_row = MagicMock()
+        event_row.event_type = WorldChangeType.PLAYER_MOVED.value
+        event_row.entity_id = "player-1"
+        event_row.payload = {"location_id": "loc-a"}
+        events_result = AsyncMock()
+        events_result.fetchall = MagicMock(return_value=[event_row])
+        ws_result = AsyncMock()
+        ws_row = MagicMock()
+        ws_row.world_seed = seed_dict
+        ws_result.one_or_none = MagicMock(return_value=ws_row)
+
+        db_mock = AsyncMock()
+        db_mock.execute = AsyncMock(side_effect=[events_result, ws_result])
+
+        sf_cm = AsyncMock()
+        sf_cm.__aenter__ = AsyncMock(return_value=db_mock)
+        sf_cm.__aexit__ = AsyncMock(return_value=False)
+        session_factory = MagicMock(return_value=sf_cm)
+
+        await svc.reconstruct_world_graph(session_id, session_factory)
+
+        svc.create_world_graph.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_base_graph_not_seeded_when_world_node_exists(self) -> None:
+        """If the World node already exists (cnt>=1), do not re-seed."""
+        from uuid import uuid4 as uuid
+
+        driver = self._make_driver()  # default cnt=1
+        svc = Neo4jWorldService(driver)
+        svc.create_world_graph = AsyncMock()
+        session_id = uuid()
+
+        events_result = AsyncMock()
+        events_result.fetchall = MagicMock(return_value=[])
+        ws_result = AsyncMock()
+        ws_result.one_or_none = MagicMock(return_value=None)
+
+        db_mock = AsyncMock()
+        db_mock.execute = AsyncMock(side_effect=[events_result, ws_result])
+
+        sf_cm = AsyncMock()
+        sf_cm.__aenter__ = AsyncMock(return_value=db_mock)
+        sf_cm.__aexit__ = AsyncMock(return_value=False)
+        session_factory = MagicMock(return_value=sf_cm)
+
+        await svc.reconstruct_world_graph(session_id, session_factory)
+
+        svc.create_world_graph.assert_not_awaited()
