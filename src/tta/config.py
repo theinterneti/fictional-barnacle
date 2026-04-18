@@ -184,6 +184,7 @@ class Settings(BaseSettings):
     # Auto-save / resume (S27 FR-27.05–FR-27.15)
     resume_turn_count: int = 10  # recent turns loaded on resume
     summary_interval: int = 5  # regen summary every N turns
+    snapshot_interval: int = 5  # save game snapshot every N turns (AC-12.04)
     summary_staleness_hours: int = 24  # force regen if older
     summary_model: str = ""  # lighter model for summaries; empty = use default
 

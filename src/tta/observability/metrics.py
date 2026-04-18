@@ -278,6 +278,18 @@ REDIS_KEYS_WITHOUT_TTL = Gauge(
     registry=REGISTRY,
 )
 
+# -- AC-12.08: Neo4j operation latency histogram ---------------------------
+
+NEO4J_OPERATION_BUCKETS = (0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0)
+
+NEO4J_OPERATION_DURATION = Histogram(
+    "tta_neo4j_operation_duration_seconds",
+    "Neo4j operation latency",
+    ["operation", "status"],
+    buckets=NEO4J_OPERATION_BUCKETS,
+    registry=REGISTRY,
+)
+
 # -- LLM semaphore metrics (S28 FR-28.11) ---------------------------------
 
 LLM_SEMAPHORE_ACTIVE = Gauge(

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+import sqlalchemy as sa
 import structlog
 from neo4j import AsyncDriver, Query
 
@@ -18,6 +21,11 @@ from tta.models.world import (
     WorldEvent,
     WorldSeed,
 )
+from tta.observability.db_metrics import observe_neo4j_op
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlmodel.ext.asyncio.session import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -98,13 +106,14 @@ class Neo4jWorldService:
         sid = str(session_id)
         safe_depth = max(1, min(depth, 5))
         query = _LOCATION_CONTEXT_QUERIES[safe_depth]
-        async with self._driver.session() as session:
-            result = await session.run(
-                query,
-                location_id=location_id,
-                session_id=sid,
-            )
-            record = await result.single()
+        async with observe_neo4j_op("get_location_context"):
+            async with self._driver.session() as session:
+                result = await session.run(
+                    query,
+                    location_id=location_id,
+                    session_id=sid,
+                )
+                record = await result.single()
 
         if record is None:
             msg = f"Location {location_id!r} not found for session {sid}"
@@ -149,11 +158,12 @@ class Neo4jWorldService:
         sid = str(session_id)
         log = logger.bind(session_id=sid)
 
-        async with self._driver.session() as session:
-            async with await session.begin_transaction() as tx:
-                for change in changes:
-                    await _dispatch_change(tx, sid, change, log)
-                await tx.commit()
+        async with observe_neo4j_op("apply_world_changes"):
+            async with self._driver.session() as session:
+                async with await session.begin_transaction() as tx:
+                    for change in changes:
+                        await _dispatch_change(tx, sid, change, log)
+                    await tx.commit()
 
     # -- Protocol method: get_player_location ------------------
 
@@ -537,6 +547,79 @@ class Neo4jWorldService:
             await session.run(query, session_id=sid)
 
         logger.info("session_cleaned_up", session_id=sid)
+
+    # -- AC-12.06: reconstruct_world_graph ----------------------
+
+    async def reconstruct_world_graph(
+        self,
+        game_session_id: UUID,
+        session_factory: async_sessionmaker[AsyncSession],
+    ) -> None:
+        """Replay world_events from Postgres to rebuild Neo4j graph state.
+
+        Safe to call even if the graph is partially populated — existing
+        nodes will be updated in-place by the dispatch handlers.  If no
+        events exist the method returns without error (degraded-mode log).
+        """
+        sid = str(game_session_id)
+        log = logger.bind(session_id=sid, operation="reconstruct_world_graph")
+
+        async with observe_neo4j_op("reconstruct_world_graph"):
+            # Load events from Postgres in creation order.
+            async with session_factory() as db:
+                rows = (
+                    await db.execute(
+                        sa.text(
+                            "SELECT event_type, entity_id, payload"
+                            " FROM world_events"
+                            " WHERE session_id = :sid"
+                            " ORDER BY created_at ASC"
+                        ),
+                        {"sid": game_session_id},
+                    )
+                ).fetchall()
+
+            if not rows:
+                log.warning(
+                    "world_graph_reconstruction_skipped",
+                    reason="no_events_found",
+                    note="degraded: Neo4j graph state not available",
+                )
+                return
+
+            changes: list[WorldChange] = []
+            for row in rows:
+                raw_payload = row.payload
+                if isinstance(raw_payload, str):
+                    raw_payload = json.loads(raw_payload)
+                try:
+                    changes.append(
+                        WorldChange(
+                            type=WorldChangeType(row.event_type),
+                            entity_id=row.entity_id,
+                            payload=raw_payload or {},
+                        )
+                    )
+                except ValueError:
+                    log.warning(
+                        "unknown_world_event_type",
+                        event_type=row.event_type,
+                        entity_id=row.entity_id,
+                    )
+
+            if not changes:
+                return
+
+            async with self._driver.session() as neo4j_sess:
+                async with await neo4j_sess.begin_transaction() as tx:
+                    for change in changes:
+                        await _dispatch_change(tx, sid, change, log)
+                    await tx.commit()
+
+        log.info(
+            "world_graph_reconstructed",
+            events_replayed=len(changes),
+        )
 
     # -- Protocol method: validate_movement --------------------
 

@@ -122,3 +122,74 @@ class TestGetOrReconstructSession:
         assert result is None
         # Should NOT re-warm cache if SQL returned nothing
         mock_redis.set.assert_not_awaited()
+
+    async def test_calls_neo4j_reconstruction_on_cache_miss(
+        self, mock_redis: AsyncMock
+    ) -> None:
+        """When neo4j_service and session_factory are provided, reconstruct_world_graph
+        is called after cache miss + SQL re-warm (AC-12.06)."""
+        state = _make_state()
+        loader = AsyncMock(return_value=state)
+        neo4j_service = AsyncMock()
+        neo4j_service.reconstruct_world_graph = AsyncMock()
+        session_factory = AsyncMock()
+        sid = uuid4()
+
+        with patch("tta.persistence.redis_session.CACHE_RECONSTRUCTION_TOTAL"):
+            result = await get_or_reconstruct_session(
+                mock_redis,
+                sid,
+                load_from_sql=loader,
+                neo4j_service=neo4j_service,
+                session_factory=session_factory,
+            )
+
+        assert result is not None
+        neo4j_service.reconstruct_world_graph.assert_awaited_once_with(
+            sid, session_factory
+        )
+
+    async def test_neo4j_reconstruction_failure_does_not_block(
+        self, mock_redis: AsyncMock
+    ) -> None:
+        """Degraded mode: Neo4j reconstruction error is caught; session still returned."""
+        state = _make_state()
+        loader = AsyncMock(return_value=state)
+        neo4j_service = AsyncMock()
+        neo4j_service.reconstruct_world_graph = AsyncMock(
+            side_effect=RuntimeError("neo4j unavailable")
+        )
+        session_factory = AsyncMock()
+
+        with patch("tta.persistence.redis_session.CACHE_RECONSTRUCTION_TOTAL"):
+            result = await get_or_reconstruct_session(
+                mock_redis,
+                uuid4(),
+                load_from_sql=loader,
+                neo4j_service=neo4j_service,
+                session_factory=session_factory,
+            )
+
+        # Session is returned despite the Neo4j error
+        assert result is not None
+        assert result.session_id == state.session_id
+
+    async def test_skips_neo4j_when_only_service_provided(
+        self, mock_redis: AsyncMock
+    ) -> None:
+        """Both neo4j_service AND session_factory required; one alone skips."""
+        state = _make_state()
+        loader = AsyncMock(return_value=state)
+        neo4j_service = AsyncMock()
+        neo4j_service.reconstruct_world_graph = AsyncMock()
+
+        with patch("tta.persistence.redis_session.CACHE_RECONSTRUCTION_TOTAL"):
+            await get_or_reconstruct_session(
+                mock_redis,
+                uuid4(),
+                load_from_sql=loader,
+                neo4j_service=neo4j_service,
+                # session_factory deliberately omitted
+            )
+
+        neo4j_service.reconstruct_world_graph.assert_not_awaited()

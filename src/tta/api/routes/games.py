@@ -41,7 +41,7 @@ from tta.models.events import (
     NarrativeEvent,
     StateUpdateEvent,
 )
-from tta.models.game import GameStatus
+from tta.models.game import GameState, GameStatus
 from tta.models.player import Player
 from tta.models.turn import TurnState, TurnStatus
 from tta.models.world import (
@@ -59,6 +59,7 @@ from tta.observability.metrics import (
     SSE_REPLAY_MISSES,
     TURN_STORAGE_OPS_DURATION,
 )
+from tta.persistence.redis_session import set_active_session
 from tta.pipeline.orchestrator import run_pipeline
 from tta.privacy.cost import get_cost_tracker, reset_cost_tracker
 
@@ -422,6 +423,15 @@ async def _dispatch_pipeline(
         ):
             asyncio.create_task(_regen_summary_bg(app_state, game_id))
 
+        # AC-12.04: fire-and-forget game snapshot every Nth turn
+        if (
+            settings.snapshot_interval > 0
+            and turn_number % settings.snapshot_interval == 0
+        ):
+            asyncio.create_task(
+                _write_snapshot_bg(app_state, game_id, result.game_state, turn_number)
+            )
+
     # --- Apply world state changes (best-effort) ---
     if turn_persisted and result.world_state_updates:
         try:
@@ -551,6 +561,23 @@ async def _regen_summary_bg(app_state: object, game_id: UUID) -> None:
             game_id=str(game_id),
             exc_info=True,
         )
+
+
+async def _write_snapshot_bg(
+    app_state: object,
+    game_id: UUID,
+    game_state_dict: dict,
+    turn_number: int,
+) -> None:
+    """Fire-and-forget: persist a GameState snapshot to PostgreSQL (AC-12.04)."""
+    try:
+        state = GameState.model_validate(
+            {**game_state_dict, "session_id": str(game_id), "turn_number": turn_number}
+        )
+        svc = app_state.snapshot_service  # type: ignore[attr-defined]
+        await svc.save_snapshot(game_id, state)
+    except Exception:
+        log.warning("snapshot_write_failed", game_id=str(game_id), exc_info=True)
 
 
 # Valid state transitions (plan §6.1, S27 FR-27.01)
@@ -1872,6 +1899,48 @@ async def save_game(
             saved_at=now,
             turn_count=turn_count,
         ).model_dump(mode="json")
+    }
+
+
+@router.post("/{game_id}/restore")
+async def restore_game_snapshot(
+    game_id: UUID,
+    request: Request,
+    player: Player = Depends(get_current_player),
+    pg: AsyncSession = Depends(get_pg),
+    redis: Redis = Depends(get_redis),
+) -> dict:
+    """Restore the game session to its most recent PostgreSQL snapshot (AC-12.04).
+
+    Re-hydrates the Redis session cache from the latest stored snapshot.
+    Returns the restored turn number and state.
+    """
+    await _get_owned_game(pg, game_id, player)
+
+    svc = request.app.state.snapshot_service
+    result = await svc.get_latest_snapshot(game_id)
+    if result is None:
+        raise AppError(
+            ErrorCategory.NOT_FOUND,
+            "SNAPSHOT_NOT_FOUND",
+            "No snapshot found for this game session.",
+        )
+
+    turn_number, game_state = result
+
+    # Re-hydrate Redis session cache
+    await set_active_session(redis, game_id, game_state)
+
+    log.info(
+        "snapshot_restored",
+        game_id=str(game_id),
+        turn_number=turn_number,
+    )
+    return {
+        "data": {
+            "restored_to_turn": turn_number,
+            "state": game_state.model_dump(mode="json"),
+        }
     }
 
 
