@@ -130,3 +130,16 @@ def format_sse(
     data_lines = "\n".join(f"data: {line}" for line in lines)
     id_line = f"id: {event_id}\n" if event_id is not None else ""
     return f"{id_line}event: {event}\n{data_lines}\n\n"
+
+
+async def evict_game_keys(redis: Redis, game_id: str) -> None:
+    """Delete all Redis keys associated with a game session.
+
+    Removes the session cache key and SSE replay state (buffer + counter).
+    Callers are responsible for handling exceptions (e.g. make best-effort).
+    """
+    await redis.delete(
+        f"tta:session:{game_id}",
+        _BUFFER_KEY.format(game_id=game_id),
+        _COUNTER_KEY.format(game_id=game_id),
+    )
