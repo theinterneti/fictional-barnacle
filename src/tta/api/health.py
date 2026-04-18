@@ -66,6 +66,26 @@ async def _check_moderation(request: Request) -> str:
     return "ok"
 
 
+async def _check_llm_breaker(request: Request) -> str:
+    """Check LLM circuit breaker state (FR-23.24).
+
+    OPEN or HALF_OPEN means the LLM is experiencing failures; surface as
+    a distinct state so _derive_status can report "degraded".
+    """
+    try:
+        breaker = request.app.state.pipeline_deps.llm_circuit_breaker
+    except AttributeError:
+        return "not_configured"
+    from tta.resilience.circuit_breaker import CircuitState
+
+    state = breaker.state
+    if state == CircuitState.OPEN:
+        return "open"
+    if state == CircuitState.HALF_OPEN:
+        return "half_open"
+    return "ok"
+
+
 async def _run_checks(
     request: Request,
 ) -> dict[str, str]:
@@ -76,6 +96,7 @@ async def _run_checks(
         ("neo4j", _check_neo4j),
         ("redis", _check_redis),
         ("moderation", _check_moderation),
+        ("llm_breaker", _check_llm_breaker),
     ]:
         try:
             checks[name] = await check_fn(request)
@@ -89,18 +110,17 @@ def _derive_status(checks: dict[str, str]) -> str:
     """Derive aggregate status from per-service checks (FR-23.24).
 
     - "unhealthy" if any critical service (Postgres) is unavailable
-    - "degraded" if any non-critical service is unavailable
+    - "degraded" if any non-critical service is unavailable or the
+      LLM circuit breaker is OPEN / HALF_OPEN
     - "healthy" otherwise
-
-    TODO: incorporate circuit-breaker states — a tripped LLM breaker
-    should surface as "degraded" even if the LLM health-check hasn't
-    failed yet.
     """
     for svc, status in checks.items():
         if status == "unavailable" and svc in CRITICAL_SERVICES:
             return "unhealthy"
-    for _svc, status in checks.items():
+    for svc, status in checks.items():
         if status == "unavailable":
+            return "degraded"
+        if svc == "llm_breaker" and status in ("open", "half_open"):
             return "degraded"
     return "healthy"
 

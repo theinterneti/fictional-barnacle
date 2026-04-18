@@ -376,6 +376,61 @@ class TestListGames:
 
 
 # ------------------------------------------------------------------
+# _PUBLIC_STATE_MAP — internal→public status translation (S27 FR-27.15)
+# ------------------------------------------------------------------
+
+
+class TestPublicStateMap:
+    """Direct unit tests for _PUBLIC_STATE_MAP (no HTTP needed)."""
+
+    def test_ended_maps_to_completed(self) -> None:
+        """Internal 'ended' status must surface as 'completed' per S27 FR-27.15."""
+        from tta.api.routes.games import _PUBLIC_STATE_MAP
+
+        assert _PUBLIC_STATE_MAP["ended"] == "completed", (
+            "'ended' must map to 'completed' for S27 compliance"
+        )
+
+    def test_completed_maps_to_completed(self) -> None:
+        from tta.api.routes.games import _PUBLIC_STATE_MAP
+
+        assert _PUBLIC_STATE_MAP["completed"] == "completed"
+
+    def test_abandoned_maps_to_abandoned(self) -> None:
+        from tta.api.routes.games import _PUBLIC_STATE_MAP
+
+        assert _PUBLIC_STATE_MAP["abandoned"] == "abandoned"
+
+    def test_expired_maps_to_abandoned(self) -> None:
+        from tta.api.routes.games import _PUBLIC_STATE_MAP
+
+        assert _PUBLIC_STATE_MAP["expired"] == "abandoned"
+
+    def test_active_states_map_to_active(self) -> None:
+        from tta.api.routes.games import _PUBLIC_STATE_MAP
+
+        for internal in ("created", "active", "paused"):
+            assert _PUBLIC_STATE_MAP[internal] == "active", (
+                f"'{internal}' must map to 'active'"
+            )
+
+    def test_ended_visible_as_completed_via_list_api(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-27.10 / S27 FR-27.15: GET /games returns 'completed' for ended rows."""
+        row = _game_row(status="ended")
+        pg.execute = AsyncMock(return_value=_make_result([row]))
+
+        resp = client.get("/api/v1/games")
+
+        assert resp.status_code == 200
+        game = resp.json()["data"][0]
+        assert game["status"] == "completed", (
+            "API must return 'completed' when internal status is 'ended'"
+        )
+
+
+# ------------------------------------------------------------------
 # GET /api/v1/games/{id} — Game state
 # ------------------------------------------------------------------
 

@@ -32,7 +32,7 @@ log = structlog.get_logger()
 _KEY_PREFIX = "tta:session:"
 _DEFAULT_TTL = 3600
 
-# SSE key templates — must stay in sync with src/tta/api/sse.py
+# SSE key templates (canonical source; imported by src/tta/api/sse.py)
 _SSE_BUFFER_KEY = "tta:sse_buffer:{game_id}"
 _SSE_COUNTER_KEY = "tta:sse_counter:{game_id}"
 

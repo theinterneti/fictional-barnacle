@@ -123,7 +123,7 @@ async def validation_error_handler(
     logger.warning(
         "validation_error",
         error_code="VALIDATION_ERROR",
-        error_category="input_invalid",
+        error_category="schema_invalid",
         status_code=422,
         **_request_context(request),
     )

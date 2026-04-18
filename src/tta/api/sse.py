@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from redis.asyncio import Redis
 
+from tta.persistence.redis_session import _SSE_BUFFER_KEY as _BUFFER_KEY
+from tta.persistence.redis_session import _SSE_COUNTER_KEY as _COUNTER_KEY
+
 # Maximum number of events to retain per game in the replay buffer.
 SSE_BUFFER_MAX_EVENTS = 100
 # TTL (seconds) for the replay buffer sorted set.  FR-10.41: ≥5 min.
 SSE_BUFFER_TTL_SECONDS = 300
-# Redis key templates for SSE replay state.
-_COUNTER_KEY = "tta:sse_counter:{game_id}"
-_BUFFER_KEY = "tta:sse_buffer:{game_id}"
 
 
 class SSECounter:
@@ -130,16 +130,3 @@ def format_sse(
     data_lines = "\n".join(f"data: {line}" for line in lines)
     id_line = f"id: {event_id}\n" if event_id is not None else ""
     return f"{id_line}event: {event}\n{data_lines}\n\n"
-
-
-async def evict_game_keys(redis: Redis, game_id: str) -> None:
-    """Delete all Redis keys associated with a game session.
-
-    Removes the session cache key and SSE replay state (buffer + counter).
-    Callers are responsible for handling exceptions (e.g. make best-effort).
-    """
-    await redis.delete(
-        f"tta:session:{game_id}",
-        _BUFFER_KEY.format(game_id=game_id),
-        _COUNTER_KEY.format(game_id=game_id),
-    )
