@@ -762,7 +762,7 @@ async def _execute_command(
         }
 
     if cmd == "status":
-        turn_count = await _get_turn_count(pg, game_id)
+        turn_count = getattr(row, "turn_count", 0)
         last_played = (
             row.last_played_at.strftime("%Y-%m-%d %H:%M UTC")  # type: ignore[union-attr]
             if getattr(row, "last_played_at", None)
