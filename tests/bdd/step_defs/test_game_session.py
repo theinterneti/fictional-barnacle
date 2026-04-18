@@ -52,7 +52,8 @@ def test_no_auth():
 def create_game(ctx: dict, client: TestClient, pg: AsyncMock) -> dict:
     pg.execute = AsyncMock(
         side_effect=[
-            _make_result(scalar=0),  # count active games
+            _make_result(scalar=0),  # require_anonymous_game_limit (scalar)
+            _make_result(scalar=0),  # _count_active_games (scalar_one)
             _make_result(),  # INSERT
         ]
     )

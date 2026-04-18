@@ -26,8 +26,7 @@ Feature: Game Session Management
   Scenario: End a game session
     Given the player has an active game
     When the player ends that game
-    Then the response status is 200
-    And the game status is "abandoned"
+    Then the response status is 204
 
   Scenario: Cannot create game without authentication
     Given no authentication is provided

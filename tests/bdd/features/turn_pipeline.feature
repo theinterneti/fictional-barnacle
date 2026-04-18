@@ -15,7 +15,6 @@ Feature: Turn Processing Pipeline
     Then the turn is accepted with status 202
     And the response includes a stream URL
 
-  Scenario: Empty input returns a nudge response
+  Scenario: Empty input is rejected
     When the player submits empty turn text
-    Then the response status is 200
-    And the response is a nudge
+    Then the response status is 400

@@ -94,6 +94,7 @@ defined behavior for the player, the operator, and the system.
 | Category | HTTP Status | Player sees | System behavior | Example |
 |---|---|---|---|---|
 | `input_invalid` | 400 | Specific validation message | Log at WARN, no retry | Missing turn text, invalid game ID format |
+| `schema_invalid` | 422 | Specific validation message | Log at WARN, no retry | Pydantic schema/type violations on request body |
 | `auth_required` | 401 | Prompt to register or log in | Log at INFO | Expired session, missing token |
 | `forbidden` | 403 | "You don't have access to this" | Log at WARN | Player accessing another's game |
 | `not_found` | 404 | "Game not found" / "Page not found" | Log at INFO | Deleted game, bad URL |
@@ -519,7 +520,8 @@ Feature: Error Handling & Resilience
   `request_id` naming is non-normative legacy terminology and should not appear in
   response schemas.
 - Input validation category `input_invalid` remains canonical at HTTP 400 (including
-  whitespace-only turn input).
+  whitespace-only turn input). Schema/type violations from Pydantic use `schema_invalid`
+  at HTTP 422.
 
 ---
 

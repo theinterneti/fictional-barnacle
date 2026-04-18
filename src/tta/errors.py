@@ -12,9 +12,10 @@ __all__ = ["ErrorCategory", "CATEGORY_STATUS"]
 
 
 class ErrorCategory(StrEnum):
-    """Nine error categories per S23 §3.1 error taxonomy."""
+    """Ten error categories per S23 §3.1 error taxonomy."""
 
     INPUT_INVALID = "input_invalid"
+    SCHEMA_INVALID = "schema_invalid"
     AUTH_REQUIRED = "auth_required"
     FORBIDDEN = "forbidden"
     NOT_FOUND = "not_found"
@@ -27,6 +28,7 @@ class ErrorCategory(StrEnum):
 
 CATEGORY_STATUS: dict[ErrorCategory, int] = {
     ErrorCategory.INPUT_INVALID: 400,
+    ErrorCategory.SCHEMA_INVALID: 422,
     ErrorCategory.AUTH_REQUIRED: 401,
     ErrorCategory.FORBIDDEN: 403,
     ErrorCategory.NOT_FOUND: 404,

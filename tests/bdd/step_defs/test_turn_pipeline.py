@@ -30,8 +30,8 @@ def test_narrative_generated():
     pass
 
 
-@scenario(FEATURE, "Empty input returns a nudge response")
-def test_empty_input_returns_nudge():
+@scenario(FEATURE, "Empty input is rejected")
+def test_empty_input_is_rejected():
     pass
 
 

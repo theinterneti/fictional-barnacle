@@ -20,12 +20,24 @@ from pytest_bdd import given, parsers, then
 
 from tta.api.app import create_app
 from tta.api.deps import get_current_player, get_pg, get_redis
-from tta.config import Settings
+from tta.config import (
+    CURRENT_CONSENT_VERSION,
+    REQUIRED_CONSENT_CATEGORIES,
+    Settings,
+)
 from tta.models.player import Player
 
 _NOW = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
 _PLAYER_ID = uuid4()
-_PLAYER = Player(id=_PLAYER_ID, handle="BddHero", created_at=_NOW)
+_PLAYER = Player(
+    id=_PLAYER_ID,
+    handle="BddHero",
+    created_at=_NOW,
+    consent_version=CURRENT_CONSENT_VERSION,
+    consent_categories=dict.fromkeys(REQUIRED_CONSENT_CATEGORIES, True),
+    consent_accepted_at=_NOW,
+    age_confirmed_at=_NOW,
+)
 _GAME_ID = uuid4()
 _TURN_ID = uuid4()
 
@@ -54,6 +66,7 @@ def _make_result(
         result.all.return_value = []
     if scalar is not None:
         result.scalar_one.return_value = scalar
+        result.scalar.return_value = scalar
     return result
 
 

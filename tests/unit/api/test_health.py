@@ -49,17 +49,20 @@ def _build_client(
     neo4j: str = "ok",
     redis: str = "ok",
     moderation: str = "disabled",
+    llm_breaker: str = "ok",
 ) -> TestClient:
     """Build a TestClient with per-service stubs.
 
     Pass "ok" for healthy, "unavailable" for a failing check,
     or "not_configured" / "disabled" for non-error states.
+    For llm_breaker, also accepts "open" and "half_open".
     """
     for svc, status in [
         ("postgres", postgres),
         ("neo4j", neo4j),
         ("redis", redis),
         ("moderation", moderation),
+        ("llm_breaker", llm_breaker),
     ]:
         if status == "unavailable":
             monkeypatch.setattr(f"tta.api.health._check_{svc}", _make_failing_stub())
@@ -215,7 +218,13 @@ class TestReadiness:
 
     def test_body_includes_all_checks(self, client: TestClient) -> None:
         data = client.get("/api/v1/health/ready").json()
-        assert set(data["checks"]) == {"postgres", "neo4j", "redis", "moderation"}
+        assert set(data["checks"]) == {
+            "postgres",
+            "neo4j",
+            "redis",
+            "moderation",
+            "llm_breaker",
+        }
 
     def test_returns_503_when_postgres_fails(
         self,
@@ -293,3 +302,69 @@ class TestHealthModeration:
         data = resp.json()
         assert data["status"] == "degraded"
         assert data["checks"]["moderation"] == "unavailable"
+
+
+# ------------------------------------------------------------------
+# LLM circuit breaker health check (FR-23.24)
+# ------------------------------------------------------------------
+
+
+class TestHealthLLMBreaker:
+    """LLM circuit breaker check — OPEN/HALF_OPEN degrade health and block readiness."""
+
+    def test_breaker_open_degrades_health(
+        self,
+        _settings: Settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """OPEN circuit breaker → /health reports degraded."""
+        c = _build_client(monkeypatch, _settings, llm_breaker="open")
+        resp = c.get("/api/v1/health")
+        data = resp.json()
+        assert data["status"] == "degraded"
+        assert data["checks"]["llm_breaker"] == "open"
+
+    def test_breaker_half_open_degrades_health(
+        self,
+        _settings: Settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """HALF_OPEN circuit breaker → /health reports degraded."""
+        c = _build_client(monkeypatch, _settings, llm_breaker="half_open")
+        resp = c.get("/api/v1/health")
+        data = resp.json()
+        assert data["status"] == "degraded"
+        assert data["checks"]["llm_breaker"] == "half_open"
+
+    def test_breaker_open_blocks_readiness(
+        self,
+        _settings: Settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """OPEN circuit breaker → /health/ready returns 503."""
+        c = _build_client(monkeypatch, _settings, llm_breaker="open")
+        resp = c.get("/api/v1/health/ready")
+        assert resp.status_code == 503
+        assert resp.json()["status"] == "not_ready"
+
+    def test_breaker_half_open_blocks_readiness(
+        self,
+        _settings: Settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """HALF_OPEN circuit breaker → /health/ready returns 503."""
+        c = _build_client(monkeypatch, _settings, llm_breaker="half_open")
+        resp = c.get("/api/v1/health/ready")
+        assert resp.status_code == 503
+        assert resp.json()["status"] == "not_ready"
+
+    def test_breaker_not_configured_is_ready(
+        self,
+        _settings: Settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """not_configured breaker does not block readiness."""
+        c = _build_client(monkeypatch, _settings, llm_breaker="not_configured")
+        resp = c.get("/api/v1/health/ready")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ready"
