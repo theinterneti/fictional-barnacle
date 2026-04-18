@@ -280,7 +280,7 @@ class TestStructuredErrorLogging:
         assert len(err_logs) == 1
         log = err_logs[0]
         assert log["error_code"] == "VALIDATION_ERROR"
-        assert log["error_category"] == "input_invalid"
+        assert log["error_category"] == "schema_invalid"
         assert log["status_code"] == 422
         assert log["request_method"] == "POST"
         assert log["request_path"] == "/validation"
