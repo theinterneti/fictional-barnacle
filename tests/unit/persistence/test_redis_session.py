@@ -152,7 +152,7 @@ class TestGetOrReconstructSession:
     async def test_neo4j_reconstruction_failure_does_not_block(
         self, mock_redis: AsyncMock
     ) -> None:
-        """Degraded mode: Neo4j reconstruction error is caught; session still returned."""
+        """Degraded mode: Neo4j error is caught; session still returned."""
         state = _make_state()
         loader = AsyncMock(return_value=state)
         neo4j_service = AsyncMock()
