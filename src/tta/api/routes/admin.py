@@ -29,9 +29,9 @@ from redis.asyncio import Redis
 
 from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
-from tta.api.sse import evict_game_keys
 from tta.errors import ErrorCategory
 from tta.observability.metrics import REGISTRY, SESSIONS_ACTIVE, generate_latest
+from tta.persistence.redis_session import evict_game_state
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger()
@@ -481,7 +481,7 @@ async def terminate_game(
     redis = request.app.state.redis
     if redis is not None:
         try:
-            await evict_game_keys(redis, str(game_id))
+            await evict_game_state(redis, game_id)
         except Exception:
             log.warning("admin.terminate_game.redis_evict_failed", game_id=str(game_id))
 

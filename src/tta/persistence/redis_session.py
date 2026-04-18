@@ -32,6 +32,10 @@ log = structlog.get_logger()
 _KEY_PREFIX = "tta:session:"
 _DEFAULT_TTL = 3600
 
+# SSE key templates — must stay in sync with src/tta/api/sse.py
+_SSE_BUFFER_KEY = "tta:sse_buffer:{game_id}"
+_SSE_COUNTER_KEY = "tta:sse_counter:{game_id}"
+
 
 def _key(session_id: UUID) -> str:
     return f"{_KEY_PREFIX}{session_id}"
@@ -136,3 +140,16 @@ async def delete_active_session(
     """Evict cached game state for a session."""
     with observe_redis_write("delete"):
         await redis.delete(_key(session_id))
+
+
+async def evict_game_state(redis: Redis, game_id: UUID) -> None:
+    """Delete all Redis state for a game: session cache + SSE replay keys.
+
+    Used when a game is forcibly terminated so cached state and active SSE
+    streams are cleaned up atomically (FR-26.12).
+    """
+    await redis.delete(
+        _key(game_id),
+        _SSE_BUFFER_KEY.format(game_id=game_id),
+        _SSE_COUNTER_KEY.format(game_id=game_id),
+    )
