@@ -259,6 +259,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # 8. Pipeline deps
     from tta.choices.consequence_service import InMemoryConsequenceService
+    from tta.game.snapshot import GameSnapshotService
     from tta.game.summary import ContextSummaryService
     from tta.pipeline.types import PipelineDeps
     from tta.resilience.circuit_breaker import LLM_BREAKER, CircuitBreaker
@@ -266,6 +267,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     consequence_svc = InMemoryConsequenceService()
     app.state.summary_service = ContextSummaryService(model=settings.summary_model)
+    app.state.snapshot_service = GameSnapshotService(session_factory)
     relationship_svc = InMemoryRelationshipService()
     llm_circuit_breaker = CircuitBreaker(LLM_BREAKER)
 

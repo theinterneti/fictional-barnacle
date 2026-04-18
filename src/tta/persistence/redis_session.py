@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import structlog
@@ -19,6 +20,12 @@ from tta.observability.metrics import (
     CACHE_RECONSTRUCTION_DURATION,
     CACHE_RECONSTRUCTION_TOTAL,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    from tta.world.neo4j_service import Neo4jWorldService
 
 log = structlog.get_logger()
 
@@ -50,6 +57,8 @@ async def get_or_reconstruct_session(
     session_id: UUID,
     *,
     load_from_sql: LoadFromSQL | None = None,
+    neo4j_service: Neo4jWorldService | None = None,
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
 ) -> GameState | None:
     """Get session from cache, falling back to SQL reconstruction.
 
@@ -58,6 +67,9 @@ async def get_or_reconstruct_session(
     When cache misses and ``load_from_sql`` is provided, the session is
     loaded from SQL, re-warmed into Redis, and a reconstruction counter
     is incremented.
+
+    If ``neo4j_service`` and ``session_factory`` are both provided, the
+    Neo4j world graph is also reconstructed from ``world_events`` (AC-12.06).
 
     Returns *None* only when the session is genuinely missing.
     """
@@ -86,6 +98,19 @@ async def get_or_reconstruct_session(
     )
 
     await set_active_session(redis, session_id, state)
+
+    if neo4j_service is not None and session_factory is not None:
+        log.info("world_graph_reconstruction_attempted", session_id=str(session_id))
+        try:
+            await neo4j_service.reconstruct_world_graph(session_id, session_factory)
+        except Exception:
+            log.warning(
+                "world_graph_reconstruction_failed",
+                session_id=str(session_id),
+                exc_info=True,
+                note="degraded: Neo4j graph state not available",
+            )
+
     return state
 
 

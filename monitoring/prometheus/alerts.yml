@@ -94,3 +94,20 @@ groups:
           description: >-
             {{ $value | humanizePercentage }} of the PG connection pool
             is in use for over 2 minutes.
+
+      # 6. Neo4j p95 operation latency > 500ms → Warning (AC-12.08)
+      - alert: Neo4jHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(tta_neo4j_operation_duration_seconds_bucket[5m])) by (le, operation, status)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Neo4j p95 latency exceeds 500ms for operation {{ $labels.operation }}"
+          description: >-
+            The 95th percentile Neo4j operation duration for
+            {{ $labels.operation }} (status: {{ $labels.status }}) is
+            {{ $value | humanizeDuration }}.
