@@ -636,3 +636,99 @@ class TestGetWorldState:
 
         with pytest.raises(ValueError, match="No world state"):
             await svc.get_world_state(uuid4())
+
+
+# ------------------------------------------------------------------
+# Neo4jWorldService.reconstruct_world_graph
+# ------------------------------------------------------------------
+
+
+class TestReconstructWorldGraph:
+    """AC-12.06: Replay world_events in turn-number order."""
+
+    def _make_driver(self) -> MagicMock:
+        driver = MagicMock()
+        tx = AsyncMock()
+        tx.run = AsyncMock()
+        transaction_cm = AsyncMock()
+        transaction_cm.__aenter__ = AsyncMock(return_value=tx)
+        transaction_cm.__aexit__ = AsyncMock(return_value=False)
+        neo4j_sess = AsyncMock()
+        neo4j_sess.begin_transaction = AsyncMock(return_value=transaction_cm)
+        sess_cm = AsyncMock()
+        sess_cm.__aenter__ = AsyncMock(return_value=neo4j_sess)
+        sess_cm.__aexit__ = AsyncMock(return_value=False)
+        driver.session = MagicMock(return_value=sess_cm)
+        return driver
+
+    @pytest.mark.anyio
+    async def test_sql_query_joins_turns_ordered_by_turn_number(
+        self,
+    ) -> None:
+        """SQL must JOIN turns and ORDER BY turn_number, not created_at alone."""
+        from unittest.mock import call
+        from uuid import uuid4 as uuid
+
+        import sqlalchemy as sa
+
+        driver = self._make_driver()
+        svc = Neo4jWorldService(driver)
+
+        session_id = uuid()
+
+        # Build a fake pg row with a MOVE_PLAYER event
+        row = MagicMock()
+        row.event_type = WorldChangeType.PLAYER_MOVED.value
+        row.entity_id = "player-1"
+        row.payload = {"location_id": "loc-2"}
+
+        db_mock = AsyncMock()
+        result_mock = AsyncMock()
+        result_mock.fetchall = MagicMock(return_value=[row])
+        db_mock.execute = AsyncMock(return_value=result_mock)
+
+        session_factory_cm = AsyncMock()
+        session_factory_cm.__aenter__ = AsyncMock(return_value=db_mock)
+        session_factory_cm.__aexit__ = AsyncMock(return_value=False)
+
+        session_factory = MagicMock(return_value=session_factory_cm)
+
+        await svc.reconstruct_world_graph(session_id, session_factory)
+
+        # Verify the SQL text contains the JOIN and ORDER BY turn_number
+        call_args = db_mock.execute.call_args
+        assert call_args is not None
+        sql_text: sa.TextClause = call_args[0][0]
+        sql_str = sql_text.text.lower()
+        assert "join turns" in sql_str, "Query must JOIN the turns table"
+        assert "t.turn_number" in sql_str.lower(), (
+            "ORDER BY must use turns.turn_number"
+        )
+        assert "order by" in sql_str
+
+    @pytest.mark.anyio
+    async def test_no_events_returns_without_error(
+        self,
+    ) -> None:
+        """Empty world_events → return early without raising."""
+        from uuid import uuid4 as uuid
+
+        driver = self._make_driver()
+        svc = Neo4jWorldService(driver)
+        session_id = uuid()
+
+        db_mock = AsyncMock()
+        result_mock = AsyncMock()
+        result_mock.fetchall = MagicMock(return_value=[])
+        db_mock.execute = AsyncMock(return_value=result_mock)
+
+        session_factory_cm = AsyncMock()
+        session_factory_cm.__aenter__ = AsyncMock(return_value=db_mock)
+        session_factory_cm.__aexit__ = AsyncMock(return_value=False)
+        session_factory = MagicMock(return_value=session_factory_cm)
+
+        # Should not raise
+        await svc.reconstruct_world_graph(session_id, session_factory)
+
+        # Neo4j session should never have been opened
+        driver.session.assert_not_called()

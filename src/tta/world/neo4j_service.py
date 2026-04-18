@@ -564,52 +564,53 @@ class Neo4jWorldService:
         sid = str(game_session_id)
         log = logger.bind(session_id=sid, operation="reconstruct_world_graph")
 
-        async with observe_neo4j_op("reconstruct_world_graph"):
-            # Load events from Postgres in creation order.
-            async with session_factory() as db:
-                rows = (
-                    await db.execute(
-                        sa.text(
-                            "SELECT event_type, entity_id, payload"
-                            " FROM world_events"
-                            " WHERE session_id = :sid"
-                            " ORDER BY created_at ASC"
-                        ),
-                        {"sid": game_session_id},
-                    )
-                ).fetchall()
-
-            if not rows:
-                log.warning(
-                    "world_graph_reconstruction_skipped",
-                    reason="no_events_found",
-                    note="degraded: Neo4j graph state not available",
+        # Load events from Postgres ordered by authoritative turn number.
+        async with session_factory() as db:
+            rows = (
+                await db.execute(
+                    sa.text(
+                        "SELECT we.event_type, we.entity_id, we.payload"
+                        " FROM world_events we"
+                        " JOIN turns t ON we.turn_id = t.id"
+                        " WHERE we.session_id = :sid"
+                        " ORDER BY t.turn_number ASC, we.created_at ASC"
+                    ),
+                    {"sid": game_session_id},
                 )
-                return
+            ).fetchall()
 
-            changes: list[WorldChange] = []
-            for row in rows:
-                raw_payload = row.payload
-                if isinstance(raw_payload, str):
-                    raw_payload = json.loads(raw_payload)
-                try:
-                    changes.append(
-                        WorldChange(
-                            type=WorldChangeType(row.event_type),
-                            entity_id=row.entity_id,
-                            payload=raw_payload or {},
-                        )
-                    )
-                except ValueError:
-                    log.warning(
-                        "unknown_world_event_type",
-                        event_type=row.event_type,
+        if not rows:
+            log.warning(
+                "world_graph_reconstruction_skipped",
+                reason="no_events_found",
+                note="degraded: Neo4j graph state not available",
+            )
+            return
+
+        changes: list[WorldChange] = []
+        for row in rows:
+            raw_payload = row.payload
+            if isinstance(raw_payload, str):
+                raw_payload = json.loads(raw_payload)
+            try:
+                changes.append(
+                    WorldChange(
+                        type=WorldChangeType(row.event_type),
                         entity_id=row.entity_id,
+                        payload=raw_payload or {},
                     )
+                )
+            except ValueError:
+                log.warning(
+                    "unknown_world_event_type",
+                    event_type=row.event_type,
+                    entity_id=row.entity_id,
+                )
 
-            if not changes:
-                return
+        if not changes:
+            return
 
+        async with observe_neo4j_op("reconstruct_world_graph"):
             async with self._driver.session() as neo4j_sess:
                 async with await neo4j_sess.begin_transaction() as tx:
                     for change in changes:

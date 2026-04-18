@@ -24,7 +24,11 @@ def upgrade() -> None:
         ),
         sa.Column("game_session_id", sa.Uuid(), nullable=False),
         sa.Column("turn_number", sa.Integer(), nullable=False),
-        sa.Column("world_state", sa.JSON(), nullable=False),
+        sa.Column(
+            "world_state",
+            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), "postgresql"),
+            nullable=False,
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -40,7 +44,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_game_snapshots_session_turn",
         "game_snapshots",
-        ["game_session_id", sa.text("turn_number DESC")],
+        ["game_session_id", "turn_number"],
     )
 
 

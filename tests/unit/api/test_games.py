@@ -1965,3 +1965,94 @@ class TestTurnPersistence:
         assert all(t["narrative_output"] for t in body["data"]), (
             "AC-27.5: every turn in history must have narrative_output set"
         )
+
+
+# ------------------------------------------------------------------
+# POST /api/v1/games/{game_id}/restore
+# ------------------------------------------------------------------
+
+
+class TestRestoreGameSnapshot:
+    """AC-12.04: Restore game state from the most recent SQL snapshot."""
+
+    @pytest.fixture()
+    def _redis(self) -> AsyncMock:
+        r = AsyncMock()
+        r.set = AsyncMock()
+        return r
+
+    @pytest.fixture()
+    def _snapshot_svc(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture()
+    def client(
+        self,
+        app: FastAPI,
+        _redis: AsyncMock,
+        _snapshot_svc: AsyncMock,
+    ) -> TestClient:
+        from tta.api.deps import get_redis
+
+        async def _get_redis():
+            return _redis
+
+        app.dependency_overrides[get_redis] = _get_redis
+        app.state.snapshot_service = _snapshot_svc
+        return TestClient(app)
+
+    def test_restore_returns_200_with_state(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        _snapshot_svc: AsyncMock,
+    ) -> None:
+        """AC-12.04: 200 with restored_to_turn and state when snapshot found."""
+        from tta.models.game import GameState
+
+        game_state = GameState(
+            session_id=_GAME_ID, turn_number=5, current_location_id="hall"
+        )
+        pg.execute = AsyncMock(return_value=_make_result([_game_row()]))
+        _snapshot_svc.get_latest_snapshot = AsyncMock(return_value=(5, game_state))
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/restore")
+
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body["restored_to_turn"] == 5
+        assert body["state"]["session_id"] == str(_GAME_ID)
+        assert body["state"]["turn_number"] == 5
+
+    def test_restore_returns_404_when_no_snapshot(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        _snapshot_svc: AsyncMock,
+    ) -> None:
+        """AC-12.04: 404 with SNAPSHOT_NOT_FOUND when no snapshot exists."""
+        pg.execute = AsyncMock(return_value=_make_result([_game_row()]))
+        _snapshot_svc.get_latest_snapshot = AsyncMock(return_value=None)
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/restore")
+
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "SNAPSHOT_NOT_FOUND"
+
+    def test_restore_returns_404_for_unowned_game(
+        self,
+        client: TestClient,
+        pg: AsyncMock,
+        _snapshot_svc: AsyncMock,
+    ) -> None:
+        """Ownership check: 404 when game belongs to a different player."""
+        different_owner = uuid4()
+        pg.execute = AsyncMock(
+            return_value=_make_result([_game_row(player_id=different_owner)])
+        )
+
+        resp = client.post(f"/api/v1/games/{_GAME_ID}/restore")
+
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "GAME_NOT_FOUND"
+        _snapshot_svc.get_latest_snapshot.assert_not_called()
