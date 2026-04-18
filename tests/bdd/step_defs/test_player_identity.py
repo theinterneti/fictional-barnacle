@@ -15,6 +15,13 @@ from tests.bdd.conftest import (
     _PLAYER_ID,
     _make_result,
 )
+from tta.config import CURRENT_CONSENT_VERSION, REQUIRED_CONSENT_CATEGORIES
+
+_CONSENT_BODY = {
+    "age_13_plus_confirmed": True,
+    "consent_version": CURRENT_CONSENT_VERSION,
+    "consent_categories": dict.fromkeys(REQUIRED_CONSENT_CATEGORIES, True),
+}
 
 FEATURE = "../features/player_identity.feature"
 
@@ -76,7 +83,7 @@ def register(ctx: dict, client: TestClient, pg: AsyncMock) -> dict:
     pg.commit = AsyncMock()
     ctx["response"] = client.post(
         "/api/v1/players",
-        json={"handle": ctx["handle"]},
+        json={"handle": ctx["handle"], **_CONSENT_BODY},
     )
     return ctx
 
