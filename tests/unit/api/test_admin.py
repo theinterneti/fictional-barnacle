@@ -601,7 +601,7 @@ class TestGameTermination:
         client = _build_client(settings)
         game_id = uuid.uuid4()
 
-        # Atomic UPDATE RETURNING returns the game id (game was active → now ended)
+        # Atomic UPDATE RETURNING returns the game id (game was active → now completed)
         updated_row = MagicMock()
         updated_row.id = game_id
         update_result = MagicMock()
@@ -614,6 +614,10 @@ class TestGameTermination:
         mock_session.__aexit__ = AsyncMock(return_value=False)
         client.app.state.pg = MagicMock(return_value=mock_session)  # type: ignore[union-attr]
 
+        # Mock Redis so SSE/session key eviction is exercised
+        mock_redis = AsyncMock()
+        client.app.state.redis = mock_redis  # type: ignore[union-attr]
+
         resp = client.post(
             f"/admin/games/{game_id}/terminate",
             json={"reason": "Admin force-terminated for policy violation"},
@@ -622,9 +626,15 @@ class TestGameTermination:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["status"] == "ended"
+        assert body["status"] == "completed"
         audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
         audit_repo.create_and_append.assert_awaited_once()
+        gid = str(game_id)
+        mock_redis.delete.assert_awaited_once_with(
+            f"tta:session:{gid}",
+            f"tta:sse_buffer:{gid}",
+            f"tta:sse_counter:{gid}",
+        )
 
     def test_terminate_game_not_active_returns_error(self, settings: Settings) -> None:
         """EC-26.2: Game exists but is non-active → 409 GAME_ALREADY_TERMINATED."""

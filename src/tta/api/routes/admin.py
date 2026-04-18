@@ -434,7 +434,7 @@ async def terminate_game(
     async with request.app.state.pg() as session:
         result = await session.execute(
             sa.text(
-                "UPDATE game_sessions SET status = 'ended' "
+                "UPDATE game_sessions SET status = 'completed' "
                 "WHERE id = :gid AND status IN ('active', 'paused') "
                 "RETURNING id"
             ),
@@ -465,6 +465,16 @@ async def terminate_game(
 
     SESSIONS_ACTIVE.dec()
 
+    # Evict cached session and close any active SSE connections (FR-26.12)
+    redis = request.app.state.redis
+    if redis is not None:
+        gid_str = str(game_id)
+        await redis.delete(
+            f"tta:session:{gid_str}",
+            f"tta:sse_buffer:{gid_str}",
+            f"tta:sse_counter:{gid_str}",
+        )
+
     await _audit(
         request,
         admin,
@@ -474,7 +484,7 @@ async def terminate_game(
         reason=body.reason,
     )
 
-    return JSONResponse(content={"status": "ended", "game_id": str(game_id)})
+    return JSONResponse(content={"status": "completed", "game_id": str(game_id)})
 
 
 # ==================================================================
