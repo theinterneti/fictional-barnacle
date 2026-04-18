@@ -216,7 +216,11 @@ class TestReadiness:
     def test_body_includes_all_checks(self, client: TestClient) -> None:
         data = client.get("/api/v1/health/ready").json()
         assert set(data["checks"]) == {
-            "postgres", "neo4j", "redis", "moderation", "llm_breaker"
+            "postgres",
+            "neo4j",
+            "redis",
+            "moderation",
+            "llm_breaker",
         }
 
     def test_returns_503_when_postgres_fails(
