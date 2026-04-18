@@ -76,6 +76,8 @@ async def _check_llm_breaker(request: Request) -> str:
         breaker = request.app.state.pipeline_deps.llm_circuit_breaker
     except AttributeError:
         return "not_configured"
+    if breaker is None:
+        return "not_configured"
     from tta.resilience.circuit_breaker import CircuitState
 
     state = breaker.state
