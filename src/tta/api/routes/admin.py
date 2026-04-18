@@ -31,6 +31,7 @@ from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
 from tta.observability.metrics import REGISTRY, SESSIONS_ACTIVE, generate_latest
+from tta.persistence.redis_session import evict_game_state
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger()
@@ -465,16 +466,6 @@ async def terminate_game(
 
     SESSIONS_ACTIVE.dec()
 
-    # Evict cached session and close any active SSE connections (FR-26.12)
-    redis = request.app.state.redis
-    if redis is not None:
-        gid_str = str(game_id)
-        await redis.delete(
-            f"tta:session:{gid_str}",
-            f"tta:sse_buffer:{gid_str}",
-            f"tta:sse_counter:{gid_str}",
-        )
-
     await _audit(
         request,
         admin,
@@ -483,6 +474,16 @@ async def terminate_game(
         target_id=str(game_id),
         reason=body.reason,
     )
+
+    # Best-effort: evict cached session and close any active SSE connections (FR-26.12).
+    # Redis unavailability must not roll back the already-committed DB change or
+    # prevent the audit entry from being written.
+    redis = request.app.state.redis
+    if redis is not None:
+        try:
+            await evict_game_state(redis, game_id)
+        except Exception:
+            log.warning("admin.terminate_game.redis_evict_failed", game_id=str(game_id))
 
     return JSONResponse(content={"status": "completed", "game_id": str(game_id)})
 

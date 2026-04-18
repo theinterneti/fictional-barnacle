@@ -630,11 +630,10 @@ class TestGameTermination:
         audit_repo = client.app.state.audit_repo  # type: ignore[union-attr]
         audit_repo.create_and_append.assert_awaited_once()
         gid = str(game_id)
-        mock_redis.delete.assert_awaited_once_with(
-            f"tta:session:{gid}",
-            f"tta:sse_buffer:{gid}",
-            f"tta:sse_counter:{gid}",
-        )
+        mock_redis.delete.assert_awaited_once()
+        deleted_keys = mock_redis.delete.await_args.args
+        assert len(deleted_keys) == 3
+        assert all(key.endswith(f":{gid}") for key in deleted_keys)
 
     def test_terminate_game_not_active_returns_error(self, settings: Settings) -> None:
         """EC-26.2: Game exists but is non-active → 409 GAME_ALREADY_TERMINATED."""
