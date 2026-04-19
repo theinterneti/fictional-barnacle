@@ -42,8 +42,8 @@ DEFAULT_ROLE_CONFIGS: dict[ModelRole, ModelRoleConfig] = {
     ModelRole.EXTRACTION: ModelRoleConfig(
         primary="anthropic/claude-haiku-4-20250514",
         temperature=0.0,
-        max_tokens=512,
-        timeout_seconds=10.0,
+        max_tokens=2048,
+        timeout_seconds=30.0,
     ),
     ModelRole.SUMMARIZATION: ModelRoleConfig(
         primary="anthropic/claude-haiku-4-20250514",

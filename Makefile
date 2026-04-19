@@ -9,7 +9,7 @@
         test-up test-down quality check check-format \
         dev playtest up down build logs shell \
         docker-up docker-down docker-langfuse \
-        migrate migrate-neo4j clean load-test
+        migrate migrate-neo4j clean load-test sim sim-quick
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | \
@@ -165,3 +165,9 @@ merge: ## Merge PR after verifying review comments (PR=<number>)
 # ---------------------------------------------------------------------------
 load-test: ## Run load test (10 VU, 60s; requires server with LLM_MOCK=true)
 	bash scripts/load_test.sh
+
+sim: ## Run v1 multi-scenario simulation (requires live server with LLM)
+	uv run python scripts/sim_runner.py --verbose
+
+sim-quick: ## Run single-turn smoke check via sim runner
+	uv run python scripts/sim_runner.py --quick --verbose
