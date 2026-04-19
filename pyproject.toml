@@ -45,6 +45,7 @@ dev = [
     "pytest-watcher>=0.4",
     "ruff>=0.8",
     "pyright>=1.1",
+    "locust>=2.0",
 ]
 
 [tool.hatch.build.targets.wheel]

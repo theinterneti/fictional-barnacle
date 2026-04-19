@@ -95,6 +95,21 @@ groups:
             {{ $value | humanizePercentage }} of the PG connection pool
             is in use for over 2 minutes.
 
+      # 7. Turn latency budget > 2s p95 → Warning (S28 AC-28.02)
+      - alert: TurnLatencyBudget
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(tta_turn_total_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Turn p95 latency exceeds 2-second budget"
+          description: >-
+            The 95th percentile end-to-end turn processing time is
+            {{ $value | humanizeDuration }}, exceeding the 2-second budget.
+
       # 6. Neo4j p95 operation latency > 500ms → Warning (AC-12.08)
       - alert: Neo4jHighLatency
         expr: |

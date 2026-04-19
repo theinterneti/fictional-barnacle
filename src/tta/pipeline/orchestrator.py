@@ -16,7 +16,12 @@ from opentelemetry import trace
 from tta.logging import bind_context
 from tta.models.turn import TurnState, TurnStatus
 from tta.observability.daily_cost import record_daily_turn
-from tta.observability.metrics import TURN_DURATION, TURN_TOTAL
+from tta.observability.metrics import (
+    TURN_DURATION,
+    TURN_STAGE_DURATION,
+    TURN_TOTAL,
+    TURN_TOTAL_DURATION,
+)
 from tta.observability.tracing import get_tracer, set_span_error
 from tta.pipeline.stages.context import context_stage
 from tta.pipeline.stages.deliver import deliver_stage
@@ -62,6 +67,8 @@ async def run_pipeline(
         turn_number=state.turn_number,
     )
 
+    pipeline_start = time.monotonic()
+
     with tracer.start_as_current_span(
         "turn_pipeline",
         attributes={
@@ -93,7 +100,14 @@ async def run_pipeline(
                                 timeout=stage_config.timeout_seconds,
                             )
                             stage_span.set_status(trace.StatusCode.ERROR, "timeout")
+                            stage_elapsed = time.monotonic() - stage_start
+                            TURN_STAGE_DURATION.labels(
+                                stage=stage_name, status="timeout"
+                            ).observe(stage_elapsed)
                             TURN_TOTAL.labels(status="failure").inc()
+                            TURN_TOTAL_DURATION.observe(
+                                time.monotonic() - pipeline_start
+                            )
                             return state.model_copy(
                                 update={"status": TurnStatus.failed}
                             )
@@ -104,19 +118,27 @@ async def run_pipeline(
                                 exc_info=True,
                             )
                             set_span_error(exc)
+                            stage_elapsed = time.monotonic() - stage_start
+                            TURN_STAGE_DURATION.labels(
+                                stage=stage_name, status="error"
+                            ).observe(stage_elapsed)
                             TURN_TOTAL.labels(status="failure").inc()
+                            TURN_TOTAL_DURATION.observe(
+                                time.monotonic() - pipeline_start
+                            )
                             return state.model_copy(
                                 update={"status": TurnStatus.failed}
                             )
 
-                        stage_ms = round((time.monotonic() - stage_start) * 1000, 1)
-                        TURN_DURATION.labels(stage=stage_name).observe(
-                            time.monotonic() - stage_start
-                        )
+                        stage_elapsed = time.monotonic() - stage_start
+                        TURN_DURATION.labels(stage=stage_name).observe(stage_elapsed)
+                        TURN_STAGE_DURATION.labels(
+                            stage=stage_name, status="success"
+                        ).observe(stage_elapsed)
                         log.debug(
                             "stage_complete",
                             stage=stage_name,
-                            duration_ms=stage_ms,
+                            duration_ms=round(stage_elapsed * 1000, 1),
                         )
 
                     # Early return if stage marked turn as failed
@@ -128,6 +150,7 @@ async def run_pipeline(
                         )
                         pipeline_span.set_status(trace.StatusCode.ERROR, "stage_failed")
                         TURN_TOTAL.labels(status="failure").inc()
+                        TURN_TOTAL_DURATION.observe(time.monotonic() - pipeline_start)
                         return state
 
                     # Early return for moderated turns — redirect narrative
@@ -140,6 +163,7 @@ async def run_pipeline(
                             safety_flags=state.safety_flags,
                         )
                         TURN_TOTAL.labels(status="moderated").inc()
+                        TURN_TOTAL_DURATION.observe(time.monotonic() - pipeline_start)
                         return state
 
         except TimeoutError:
@@ -149,7 +173,9 @@ async def run_pipeline(
             )
             pipeline_span.set_status(trace.StatusCode.ERROR, "overall_timeout")
             TURN_TOTAL.labels(status="failure").inc()
+            TURN_TOTAL_DURATION.observe(time.monotonic() - pipeline_start)
             return state.model_copy(update={"status": TurnStatus.failed})
 
     TURN_TOTAL.labels(status="success").inc()
+    TURN_TOTAL_DURATION.observe(time.monotonic() - pipeline_start)
     return state

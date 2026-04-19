@@ -25,6 +25,7 @@ from tta.observability.daily_cost import record_daily_cost
 from tta.observability.langfuse import record_llm_generation
 from tta.observability.metrics import (
     LLM_COST_TOTAL,
+    LLM_TOKENS_PER_SECOND,
     SESSION_COST_EXCEEDED,
 )
 from tta.observability.tracing import current_trace_id
@@ -132,6 +133,12 @@ async def guarded_llm_call(
         llm_span.set_attribute("llm.tokens.completion", tc.completion_tokens)
         llm_span.set_attribute("llm.cost_usd", cost_usd)
         llm_span.set_attribute("llm.latency_ms", latency_ms)
+
+        # S28 AC-28.03: update LLM throughput gauge (completion tokens/s)
+        if tc.completion_tokens and latency_ms > 0:
+            LLM_TOKENS_PER_SECOND.labels(model=model_name).set(
+                tc.completion_tokens / (latency_ms / 1000)
+            )
 
         # Feed daily cost accumulator (AC-31)
         if cost_usd > 0:
