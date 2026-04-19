@@ -1101,15 +1101,16 @@ async def _get_turn_count(pg: AsyncSession, game_id: UUID) -> int:
 
 
 async def _get_max_turn_number(pg: AsyncSession, game_id: UUID) -> int:
-    """Get the highest completed turn number for a game (0 if none).
+    """Get the highest turn number for a game (0 if none).
 
-    FR-23.17: failed turns do NOT advance the turn counter,
-    so we only count turns that reached 'complete' status.
+    We count ALL turns regardless of status so that a failed turn still
+    occupies its slot — preventing duplicate turn_number on retry
+    (uq_turns_session_turn unique constraint).  Turn numbers may therefore
+    skip if a turn fails, but the sequence is still monotonically increasing.
     """
     result = await pg.execute(
         sa.text(
-            "SELECT coalesce(max(turn_number), 0) FROM turns "
-            "WHERE session_id = :sid AND status = 'complete'"
+            "SELECT coalesce(max(turn_number), 0) FROM turns WHERE session_id = :sid"
         ),
         {"sid": game_id},
     )

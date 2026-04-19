@@ -151,8 +151,26 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.info("llm_client_mock_enabled")
     else:
         from tta.llm.litellm_client import LiteLLMClient
+        from tta.llm.roles import DEFAULT_ROLE_CONFIGS, ModelRole, ModelRoleConfig
 
-        app.state.llm_client = LiteLLMClient()
+        # Allow env-var overrides for primary/fallback model per FR-17.30 audit.
+        # If TTA_LITELLM_MODEL is non-default, override ALL roles so that
+        # operators can switch providers (e.g. openrouter/...) without code changes.
+        _default_primary = "openai/gpt-4o-mini"
+        if settings.litellm_model and settings.litellm_model != _default_primary:
+            _overridden = dict(DEFAULT_ROLE_CONFIGS)
+            for _role in ModelRole:
+                _base = _overridden[_role]
+                _overridden[_role] = ModelRoleConfig(
+                    primary=settings.litellm_model,
+                    fallback=settings.litellm_fallback_model or _base.fallback,
+                    temperature=_base.temperature,
+                    max_tokens=_base.max_tokens,
+                    timeout_seconds=_base.timeout_seconds,
+                )
+            app.state.llm_client = LiteLLMClient(role_configs=_overridden)
+        else:
+            app.state.llm_client = LiteLLMClient()
 
     # S17 FR-17.30: log configured LLM provider on startup for audit trail
     log.info(
@@ -266,7 +284,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from tta.world.relationship_service import InMemoryRelationshipService
 
     consequence_svc = InMemoryConsequenceService()
-    app.state.summary_service = ContextSummaryService(model=settings.summary_model)
+    # Use explicit summary_model if set; otherwise fall back to the litellm_model
+    # override (so all LLM calls use the same provider), then the built-in default.
+    _summary_model = settings.summary_model or settings.litellm_model or ""
+    app.state.summary_service = ContextSummaryService(model=_summary_model)
     app.state.snapshot_service = GameSnapshotService(session_factory)
     relationship_svc = InMemoryRelationshipService()
     llm_circuit_breaker = CircuitBreaker(LLM_BREAKER)

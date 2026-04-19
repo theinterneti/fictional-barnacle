@@ -179,11 +179,20 @@ async def _stream_sse(
                     if block.strip():
                         event_type, data = _parse_sse_block(block)
                         events.append((event_type, data))
-                        if event_type == "turn_complete":
+                        if event_type in ("narrative_end", "turn_complete"):
                             return events
     except httpx.TimeoutException:
         pass
     return events
+
+
+def _extract_narrative(events: list[tuple[str, dict[str, Any]]]) -> str:
+    """Concatenate text from narrative chunk events."""
+    parts: list[str] = []
+    for et, data in events:
+        if et == "narrative" and isinstance(data.get("text"), str):
+            parts.append(data["text"])
+    return " ".join(parts)[:160].replace("\n", " ")
 
 
 # ── Core sim logic ────────────────────────────────────────────────────────────
@@ -192,17 +201,33 @@ async def _stream_sse(
 async def _register_player(
     client: httpx.AsyncClient, base: str, handle: str
 ) -> tuple[str, str]:
-    """Register a player and return (session_token, player_id)."""
-    r = await client.post(f"{base}/players", json={"handle": handle})
-    if r.status_code not in (201, 409):
+    """Register an anonymous player, record consent, return (access_token, player_id).
+
+    Flow: POST /auth/anonymous (no body) → PATCH /players/me/consent
+    Anonymous players need a separate consent call before they can create games.
+    """
+    r = await client.post(f"{base}/auth/anonymous")
+    if r.status_code != 201:
         raise RuntimeError(f"Player registration failed: {r.status_code} {r.text}")
-    if r.status_code == 409:
-        # Retry with unique handle
-        handle = f"{handle}-{secrets.token_hex(3)}"
-        r = await client.post(f"{base}/players", json={"handle": handle})
-        r.raise_for_status()
     data = r.json()["data"]
-    return data["session_token"], data["player_id"]
+    token = data["access_token"]
+    player_id = data["player_id"]
+
+    # Record consent — required by require_consent dep before game creation
+    auth_headers = {"Authorization": f"Bearer {token}"}
+    rc = await client.patch(
+        f"{base}/players/me/consent",
+        json={
+            "consent_version": "1.0",
+            "consent_categories": {"core_gameplay": True, "llm_processing": True},
+            "age_13_plus_confirmed": True,
+        },
+        headers=auth_headers,
+    )
+    if rc.status_code not in (200, 204):
+        raise RuntimeError(f"Consent recording failed: {rc.status_code} {rc.text}")
+
+    return token, player_id
 
 
 async def _create_game(
@@ -261,19 +286,15 @@ async def _run_turn(
 
     event_types = [et for et, _ in events]
 
-    # Extract narrative excerpt
-    narrative_excerpt = ""
-    for et, data in events:
-        if et == "narrative_block" and isinstance(data.get("full_text"), str):
-            narrative_excerpt = data["full_text"][:160].replace("\n", " ")
-            break
+    # Extract narrative excerpt — concatenate text from narrative chunk events
+    narrative_excerpt = _extract_narrative(events)
 
-    # Validate required events
+    # Validate required events (S10 FR-10.34/10.35)
     missing = []
-    if "narrative_block" not in event_types:
-        missing.append("narrative_block")
-    if "turn_complete" not in event_types:
-        missing.append("turn_complete")
+    if not any(et == "narrative" for et in event_types):
+        missing.append("narrative")
+    if "narrative_end" not in event_types:
+        missing.append("narrative_end")
 
     if missing:
         return TurnResult(
@@ -381,9 +402,7 @@ async def _run_scenario(
                 )
                 if turn_result.narrative_excerpt:
                     excerpt = turn_result.narrative_excerpt
-                    print(
-                        f"{indent}  {_c('❝ ' + excerpt + '…', CYAN, color=color)}"
-                    )
+                    print(f"{indent}  {_c('❝ ' + excerpt + '…', CYAN, color=color)}")
             else:
                 print(
                     f"{indent}{_c('✗', RED, BOLD, color=color)} "
@@ -391,9 +410,7 @@ async def _run_scenario(
                 )
                 if turn_result.event_types:
                     evts = ", ".join(turn_result.event_types)
-                    print(
-                        f"{indent}  Got events: {_c(evts, DIM, color=color)}"
-                    )
+                    print(f"{indent}  Got events: {_c(evts, DIM, color=color)}")
 
     result.elapsed_s = time.monotonic() - t0
     return result
@@ -506,8 +523,7 @@ async def run(
                 sys.exit(1)
             if not json_output:
                 print(
-                    f"  {_c('✓', GREEN, BOLD, color=color)} "
-                    f"API ready ({hc_ms:.0f}ms)"
+                    f"  {_c('✓', GREEN, BOLD, color=color)} API ready ({hc_ms:.0f}ms)"
                 )
         except httpx.ConnectError:
             print(
@@ -537,9 +553,7 @@ async def run(
                     f"  {_c(f'Scenario: {name}', BOLD, color=color)}  "
                     f"{_c(bar, DIM, color=color)}"
                 )
-                print(
-                    f"    {_c(scenario['description'], DIM, color=color)}"
-                )
+                print(f"    {_c(scenario['description'], DIM, color=color)}")
                 print(
                     f"    Turns: {len(scenario['turns'])} | "
                     f"Prefs: {scenario.get('preferences', {})}"
@@ -573,7 +587,7 @@ def main() -> None:
         description="TTA v1 simulation harness — scripted multi-turn playthrough.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-available scenarios: {', '.join(SCENARIOS)}
+available scenarios: {", ".join(SCENARIOS)}
 
 examples:
   uv run python scripts/sim_runner.py
@@ -645,9 +659,7 @@ examples:
     if not args.json_output:
         print()
         print(_c("  TTA v1 Simulation Runner", BOLD, color=color))
-        print(
-            f"  Scenarios : {', '.join(scenario_names)}"
-        )
+        print(f"  Scenarios : {', '.join(scenario_names)}")
         print(f"  Base URL  : {args.base_url}")
         print(f"  Timeout   : {args.timeout}s per turn")
         print()
