@@ -373,15 +373,16 @@ class TestAC107IdleTimeout:
 
         before = datetime.now(UTC)
         await run_lifecycle_pass(session_factory)
+        after = datetime.now(UTC)
 
         # Extract the cutoff passed to the idle-pause query (3rd execute call)
         call_args = pg.execute.call_args_list[2]
         params = call_args[0][1]  # positional arg: params dict
         cutoff: datetime = params["cutoff"]
 
-        expected_cutoff = before - timedelta(minutes=30)
-        # Allow 1 second tolerance for test execution time
-        assert abs((cutoff - expected_cutoff).total_seconds()) < 1
+        earliest_expected_cutoff = before - timedelta(minutes=30)
+        latest_expected_cutoff = after - timedelta(minutes=30)
+        assert earliest_expected_cutoff <= cutoff <= latest_expected_cutoff
 
 
 # ---------------------------------------------------------------------------

@@ -1,20 +1,33 @@
-"""S02 Genesis Onboarding — AC compliance tests.
+"""genesis_lite unit behaviors — foundational tests for S02 Genesis Onboarding.
 
-Acceptance criteria covered
----------------------------
-AC-2.1  Narrative intro generated after genesis
-AC-2.2  World graph created exactly once per session
-AC-2.5  GenesisResult envelope contains all expected fields
-AC-2.6  Session-scoped variance: different sessions produce different prompts
-AC-2.7  LLM error propagated — no silent corruption
-AC-2.8  Terse / single-word defining_detail expanded automatically
-AC-2.9  character_concept forwarded to enrichment prompt
+These tests validate the ``genesis_lite`` module's implementation behaviors at the
+unit level.  They are *not* full S02 spec-AC compliance tests: the S02 Acceptance
+Criteria (five-act flow, harmful-content redirection, mid-session reconnect,
+identity challenge) require integration infrastructure and are covered by BDD /
+integration tests.
 
-Deferred (integration-only or UX/timing)
------------------------------------------
+Unit behaviors covered
+-----------------------
+GL-1  run_genesis_lite returns a non-empty narrative intro
+GL-2  World graph is created exactly once per session (no duplicate writes)
+GL-3  GenesisResult envelope exposes all expected fields
+GL-4  Session-scoped variance: different session_ids produce different prompts
+GL-5  LLM error propagation — no silent failure or data corruption
+GL-6  Terse / single-word defining_detail is expanded automatically
+GL-7  character_concept is forwarded into the enrichment prompt
+
+Related S02 ACs (full behavioral validation deferred to integration)
+----------------------------------------------------------------------
+AC-2.1  Genesis begins with a narrative prompt when the app loads
+AC-2.2  Five acts of Genesis complete before entering the game world
 AC-2.3  First narrative references genesis elements by name (LLM quality)
 AC-2.4  Full genesis completes within 5-10 minutes (wall-clock)
-AC-2.10 No visible mode boundary (UX/e2e)
+AC-2.5  Disconnect during Act III → resume from Act III on reconnect
+AC-2.6  Second playthrough opens differently from the first
+AC-2.7  Harmful content during Genesis → redirection, not corruption
+AC-2.8  Terse player → Genesis asks follow-up questions to build detail
+AC-2.9  Player rejects generated identity → Genesis offers alternatives
+AC-2.10 No visible mode boundary between Genesis and gameplay
 """
 
 from __future__ import annotations
