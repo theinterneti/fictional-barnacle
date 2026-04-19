@@ -7,7 +7,7 @@ Feature: Rate Limiting
     Given a registered player with a valid session token
     And the player has an active game
     And rate limiting is enabled
-    When the player submits turn text "I look around"
+    When the player submits a rate-limited turn "I look around"
     Then the response status is 202
     And the response includes a "X-RateLimit-Limit" header
     And the response includes a "X-RateLimit-Remaining" header
@@ -18,7 +18,7 @@ Feature: Rate Limiting
     And the player has an active game
     And rate limiting is enabled
     And the player has exceeded the turn rate limit
-    When the player submits turn text "One more try"
+    When the player submits a rate-limited turn "One more try"
     Then the response status is 429
     And the response error code is "rate_limited"
     And the response includes a "Retry-After" header

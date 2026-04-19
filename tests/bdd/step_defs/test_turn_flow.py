@@ -68,7 +68,7 @@ def _setup_turn_pg(pg: AsyncMock) -> None:
 
 
 @when(
-    parsers.parse('the player submits turn text "{text}"'),
+    parsers.parse('the player submits their turn "{text}"'),
     target_fixture="ctx",
 )
 def submit_turn(ctx: dict, client: TestClient, pg: AsyncMock, text: str) -> dict:

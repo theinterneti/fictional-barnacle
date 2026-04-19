@@ -3,7 +3,7 @@ Feature: SSE Streaming
   I want to receive real-time narrative events from the server
   So that I can experience the game turn results as they are generated
 
-  Scenario: Successful turn emits standard event sequence
+  Scenario: SSE stream connection opens successfully
     Given a registered player with a valid session token
     And the player has an active game
     When the player opens the SSE stream for their game

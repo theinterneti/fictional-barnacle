@@ -21,7 +21,7 @@ from tests.bdd.conftest import (
 FEATURE = "../features/turns/sse_streaming.feature"
 
 
-@scenario(FEATURE, "Successful turn emits standard event sequence")
+@scenario(FEATURE, "SSE stream connection opens successfully")
 def test_sse_stream_opens():
     pass
 
@@ -59,12 +59,14 @@ def buffered_sse_events(
         ]
     )
     # Return one buffered raw event string for the replay path.
-    mock_redis.zrange = AsyncMock(
-        return_value=[
-            b'id: 2\nevent: narrative\ndata: {"text": "You look around."}\n\n'
-        ]
-    )
+    # zrange(withscores=True) returns list[tuple[str, float]] (decode_responses=True).
+    _RAW_EVENT = 'id: 2\nevent: narrative_end\ndata: {"text": "You look around."}\n\n'
+    mock_redis.zrange = AsyncMock(return_value=[(_RAW_EVENT, 2.0)])
+    # zrangebyscore returns list[str].
+    mock_redis.zrangebyscore = AsyncMock(return_value=[_RAW_EVENT])
     ctx["buffered"] = True
+    ctx["turn_id"] = turn_id
+    ctx["raw_event"] = _RAW_EVENT
     return ctx
 
 
@@ -111,6 +113,21 @@ def reconnect_with_last_event_id(
     last_id: str,
 ) -> dict:
     _seed_app_state(app)
+    # Pre-seed the turn result store so replay_after + wait_for_result exits
+    # immediately — without this the stream hangs in the keepalive loop.
+    if "turn_id" in ctx:
+        from uuid import uuid4
+
+        from tta.models.turn import TurnState, TurnStatus
+
+        app.state.turn_result_store._results[str(ctx["turn_id"])] = TurnState(
+            session_id=uuid4(),
+            turn_id=ctx["turn_id"],
+            turn_number=1,
+            player_input="I look around",
+            game_state={},
+            status=TurnStatus.complete,
+        )
     ctx["response"] = client.get(
         f"/api/v1/games/{_GAME_ID}/stream",
         headers={"Last-Event-ID": last_id},
@@ -153,10 +170,11 @@ def sse_content_type(ctx: dict) -> None:
 
 @then("the replayed events are returned in the stream")
 def replayed_events_present(ctx: dict) -> None:
-    body = ctx["response"].text
-    # The mock buffer returns a raw event string; check that the stream
-    # carries data (even if the keepalive loop returns no additional events).
     assert ctx["response"].status_code == 200
-    # The route may emit the replayed event or a keepalive; either way the
-    # connection should open successfully.
-    assert body is not None
+    body = ctx["response"].text
+    assert "event: narrative_end" in body, (
+        f"Expected 'event: narrative_end' in SSE body; got: {body!r}"
+    )
+    assert "You look around." in body, (
+        f"Expected payload text 'You look around.' in SSE body; got: {body!r}"
+    )

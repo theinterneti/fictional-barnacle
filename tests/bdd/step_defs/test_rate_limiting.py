@@ -92,7 +92,7 @@ def _setup_turn_pg(pg: AsyncMock) -> None:
 
 
 @when(
-    parsers.parse('the player submits turn text "{text}"'),
+    parsers.parse('the player submits a rate-limited turn "{text}"'),
     target_fixture="ctx",
 )
 def submit_turn(ctx: dict, client: TestClient, pg: AsyncMock, text: str) -> dict:
@@ -100,6 +100,7 @@ def submit_turn(ctx: dict, client: TestClient, pg: AsyncMock, text: str) -> dict
     ctx["response"] = client.post(
         f"/api/v1/games/{_GAME_ID}/turns",
         json={"input": text},
+        headers={"Authorization": "Bearer fake-test-token"},
     )
     return ctx
 
