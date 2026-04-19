@@ -28,6 +28,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 
@@ -278,10 +279,39 @@ async def _run_turn(
 
     turn_data = r.json()["data"]
     stream_path = turn_data["stream_url"]
-    full_stream_url = f"http://{_host_from_base(base)}{stream_path}"
+    # Preserve scheme and authority from base; only replace the path component
+    _parsed = urlparse(base)
+    full_stream_url = urlunparse(
+        (_parsed.scheme, _parsed.netloc, stream_path, "", "", "")
+    )
 
     # Stream SSE
-    events = await _stream_sse(client, full_stream_url, headers, timeout=sse_timeout)
+    try:
+        events = await _stream_sse(
+            client, full_stream_url, headers, timeout=sse_timeout
+        )
+    except httpx.HTTPError as exc:
+        return TurnResult(
+            turn_number=turn_num,
+            player_input=turn_input,
+            elapsed_ms=(time.monotonic() - t0) * 1000,
+            event_types=[],
+            narrative_excerpt="",
+            passed=False,
+            failure_reason=f"SSE stream failed: {exc}",
+        )
+    except Exception as exc:
+        return TurnResult(
+            turn_number=turn_num,
+            player_input=turn_input,
+            elapsed_ms=(time.monotonic() - t0) * 1000,
+            event_types=[],
+            narrative_excerpt="",
+            passed=False,
+            failure_reason=(
+                f"Unexpected error while streaming SSE: {type(exc).__name__}: {exc}"
+            ),
+        )
     elapsed_ms = (time.monotonic() - t0) * 1000
 
     event_types = [et for et, _ in events]
@@ -315,14 +345,6 @@ async def _run_turn(
         narrative_excerpt=narrative_excerpt,
         passed=True,
     )
-
-
-def _host_from_base(base: str) -> str:
-    """Extract host:port from e.g. http://localhost:8000/api/v1."""
-    # Strip scheme and path, return host:port
-    without_scheme = base.split("://", 1)[-1]
-    host_port = without_scheme.split("/")[0]
-    return host_port
 
 
 async def _run_scenario(
@@ -505,20 +527,23 @@ async def run(
             r = await client.get(f"{base}/health/ready")
             hc_ms = (time.monotonic() - hc_start) * 1000
             if r.status_code != 200:
+                _err = sys.stderr if json_output else sys.stdout
                 print(
                     _c(
                         f"  ✗ Health check failed: {r.status_code}",
                         RED,
                         BOLD,
                         color=color,
-                    )
+                    ),
+                    file=_err,
                 )
                 print(
                     _c(
                         "  Make sure the server is running: make dev",
                         YELLOW,
                         color=color,
-                    )
+                    ),
+                    file=_err,
                 )
                 sys.exit(1)
             if not json_output:
@@ -526,20 +551,23 @@ async def run(
                     f"  {_c('✓', GREEN, BOLD, color=color)} API ready ({hc_ms:.0f}ms)"
                 )
         except httpx.ConnectError:
+            _err = sys.stderr if json_output else sys.stdout
             print(
                 _c(
                     f"  ✗ Cannot connect to {base}",
                     RED,
                     BOLD,
                     color=color,
-                )
+                ),
+                file=_err,
             )
             print(
                 _c(
                     "  Start the stack first: docker-compose up -d && make dev",
                     YELLOW,
                     color=color,
-                )
+                ),
+                file=_err,
             )
             sys.exit(1)
 
@@ -640,6 +668,9 @@ examples:
     args = parser.parse_args()
     color = not args.no_color and sys.stdout.isatty()
 
+    # Normalise base URL — strip trailing slash so URL joins don't double-slash
+    base_url = args.base_url.rstrip("/")
+
     # Determine which scenarios to run
     if args.quick:
         scenario_names = ["quick"]
@@ -660,16 +691,16 @@ examples:
         print()
         print(_c("  TTA v1 Simulation Runner", BOLD, color=color))
         print(f"  Scenarios : {', '.join(scenario_names)}")
-        print(f"  Base URL  : {args.base_url}")
+        print(f"  Base URL  : {base_url}")
         print(f"  Timeout   : {args.timeout}s per turn")
         print()
 
     report = asyncio.run(
         run(
-            base=args.base_url,
+            base=base_url,
             scenario_names=scenario_names,
             sse_timeout=args.timeout,
-            verbose=args.verbose or not args.json_output,
+            verbose=args.verbose,
             json_output=args.json_output,
             color=color,
         )
