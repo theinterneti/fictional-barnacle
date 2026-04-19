@@ -101,7 +101,7 @@ groups:
           histogram_quantile(0.95,
             sum(rate(tta_turn_total_duration_seconds_bucket[5m])) by (le)
           ) > 2
-        for: 5m
+        for: 2m
         labels:
           severity: warning
         annotations:

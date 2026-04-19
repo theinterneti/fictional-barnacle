@@ -184,15 +184,26 @@ def _on_quit(environment: LocustEnv, **_kwargs: object) -> None:
     if stats is None:
         return
 
-    total = stats.total
-    total_reqs = total.num_requests
-    failures = total.num_failures
-    error_pct = (failures / total_reqs * 100) if total_reqs else 0.0
-    p95 = total.get_response_time_percentile(0.95) or 0.0
+    # AC-28.04: evaluate against turn-specific stats, not all HTTP requests,
+    # so fast registration/game-creation calls don't mask slow turns.
+    turn_stats = stats.get("full_turn_latency", "TURN")
+    total_reqs = turn_stats.num_requests
+    failures = turn_stats.num_failures
+
+    if total_reqs == 0:
+        print(
+            "\n[load_test] FAIL — no TURN/full_turn_latency samples recorded; "
+            "cannot validate AC-28.04"
+        )
+        environment.process_exit_code = 1
+        return
+
+    error_pct = failures / total_reqs * 100
+    p95 = turn_stats.get_response_time_percentile(0.95) or 0.0
 
     print(
-        f"\n[load_test] total={total_reqs} failures={failures} "
-        f"error%={error_pct:.2f} p95={p95:.0f}ms"
+        f"\n[load_test] TURN/full_turn_latency total={total_reqs} "
+        f"failures={failures} error%={error_pct:.2f} p95={p95:.0f}ms"
     )
 
     if p95 > P95_BUDGET_MS:

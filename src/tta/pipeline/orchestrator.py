@@ -131,9 +131,12 @@ async def run_pipeline(
                             )
 
                         stage_elapsed = time.monotonic() - stage_start
+                        stage_metric_status = (
+                            "error" if state.status == TurnStatus.failed else "success"
+                        )
                         TURN_DURATION.labels(stage=stage_name).observe(stage_elapsed)
                         TURN_STAGE_DURATION.labels(
-                            stage=stage_name, status="success"
+                            stage=stage_name, status=stage_metric_status
                         ).observe(stage_elapsed)
                         log.debug(
                             "stage_complete",

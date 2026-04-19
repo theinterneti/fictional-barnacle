@@ -135,7 +135,7 @@ async def guarded_llm_call(
         llm_span.set_attribute("llm.latency_ms", latency_ms)
 
         # S28 AC-28.03: update LLM throughput gauge (completion tokens/s)
-        if tc.completion_tokens and latency_ms > 0:
+        if tc.completion_tokens is not None and latency_ms > 0:
             LLM_TOKENS_PER_SECOND.labels(model=model_name).set(
                 tc.completion_tokens / (latency_ms / 1000)
             )
