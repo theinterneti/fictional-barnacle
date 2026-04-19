@@ -244,13 +244,14 @@ class TestTurnAtomicity:
         # Failsafe: update_status called after fail_turn raised
         turn_repo.update_status.assert_awaited_once_with(turn_id, "failed")
 
-    def test_max_turn_number_skips_failed_turns(
+    def test_max_turn_number_counts_all_turns(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
-        """FR-23.17: failed turns don't advance the counter.
+        """FR-23.17: failed turns occupy their slot to prevent duplicate turn_number.
 
-        Submit a turn → verify the SQL for max turn number filters
-        to status='complete' only.
+        Submit a turn → verify the SQL for max turn number counts ALL turns
+        regardless of status, ensuring the monotonic sequence holds even
+        when prior turns failed (uq_turns_session_turn unique constraint).
         """
         pg.execute = AsyncMock(
             side_effect=[
@@ -269,11 +270,13 @@ class TestTurnAtomicity:
         )
 
         assert resp.status_code == 202
-        # Verify _get_max_turn_number query filters by status='complete'
+        # Verify _get_max_turn_number query does NOT filter by status —
+        # all turns (including failed) must occupy their slot.
         calls = pg.execute.call_args_list
         max_turn_call = calls[3]
         sql_text = str(max_turn_call[0][0].text)
-        assert "status = 'complete'" in sql_text
+        assert "coalesce(max(turn_number)" in sql_text
+        assert "status" not in sql_text
 
 
 # ── AC-23.7: Concurrent turn rejection ──
