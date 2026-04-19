@@ -9,7 +9,7 @@
         test-up test-down quality check check-format \
         dev playtest up down build logs shell \
         docker-up docker-down docker-langfuse \
-        migrate migrate-neo4j clean
+        migrate migrate-neo4j clean load-test
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | \
@@ -159,3 +159,9 @@ review-check: ## Check if PR review comments are resolved (PR=<number>)
 
 merge: ## Merge PR after verifying review comments (PR=<number>)
 	@./scripts/merge-guard.sh --merge $(PR) -- --squash --delete-branch
+
+# ---------------------------------------------------------------------------
+# Load testing
+# ---------------------------------------------------------------------------
+load-test: ## Run load test (10 VU, 60s; requires server with LLM_MOCK=true)
+	bash scripts/load_test.sh

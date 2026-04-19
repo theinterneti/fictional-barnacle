@@ -52,6 +52,31 @@ TURN_DURATION = Histogram(
     registry=REGISTRY,
 )
 
+# S28 AC-28.01: Per-stage duration with success/error outcome label
+TURN_STAGE_DURATION = Histogram(
+    "tta_turn_stage_duration_seconds",
+    "Turn pipeline stage duration with outcome label",
+    ["stage", "status"],
+    buckets=DURATION_BUCKETS,
+    registry=REGISTRY,
+)
+
+# S28 AC-28.02: End-to-end pipeline duration (drives TurnLatencyBudget alert)
+TURN_TOTAL_DURATION = Histogram(
+    "tta_turn_total_duration_seconds",
+    "End-to-end turn pipeline duration in seconds",
+    buckets=DURATION_BUCKETS,
+    registry=REGISTRY,
+)
+
+# S28 AC-28.03: LLM output throughput gauge (completion tokens / second)
+LLM_TOKENS_PER_SECOND = Gauge(
+    "tta_llm_tokens_per_second",
+    "LLM output throughput in completion tokens per second",
+    ["model"],
+    registry=REGISTRY,
+)
+
 TURN_TOTAL = Counter(
     "tta_turn_total",
     "Total turns processed",
