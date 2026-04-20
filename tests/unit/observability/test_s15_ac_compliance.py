@@ -220,6 +220,10 @@ class TestS15Metrics:
     """S15 §2 — metric names, labels, and histogram buckets."""
 
     def _registered_names(self) -> set[str]:
+        # prometheus_client strips the ``_total`` suffix from Counter names
+        # when returning ``describe()[0].name``.  A counter declared as
+        # ``tta_http_requests_total`` has describe()[0].name == "tta_http_requests".
+        # Assertions below use the base name (without ``_total``) intentionally.
         return {
             m.describe()[0].name
             for m in REGISTRY._names_to_collectors.values()  # pyright: ignore[reportAttributeAccessIssue]
@@ -310,7 +314,14 @@ class TestS15LangfuseOptional:
         assert get_langfuse() is None
 
     def test_init_with_host_instantiates_client(self) -> None:
-        """init_langfuse with a configured host creates a Langfuse client."""
+        """init_langfuse with a configured host creates a Langfuse client (AC-1).
+
+        Patches ``langfuse.Langfuse`` at its source so the real ``init_langfuse``
+        function executes — its local ``from langfuse import Langfuse`` resolves
+        against sys.modules["langfuse"], which the patch intercepts.
+        """
+        import tta.observability.langfuse as lf_mod
+
         settings = _settings(
             langfuse_host="http://langfuse.example",
             langfuse_public_key="pub-key",
@@ -318,28 +329,16 @@ class TestS15LangfuseOptional:
         )
         fake_client = MagicMock()
         fake_langfuse_cls = MagicMock(return_value=fake_client)
-        with patch(
-            "tta.observability.langfuse.Langfuse", fake_langfuse_cls, create=True
-        ):
-            # Temporarily import Langfuse inside the function by patching
-            import tta.observability.langfuse as lf_mod
 
-            real_init = lf_mod.init_langfuse
-
-            def patched_init(s: Any) -> None:
-                if s.langfuse_host:
-                    lf_mod._langfuse_client = fake_langfuse_cls(
-                        host=s.langfuse_host,
-                        public_key=s.langfuse_public_key,
-                        secret_key=s.langfuse_secret_key,
-                    )
-                else:
-                    lf_mod._langfuse_client = None
-
-            lf_mod.init_langfuse = patched_init
-            try:
-                lf_mod.init_langfuse(settings)
-                assert get_langfuse() is not None
-            finally:
-                lf_mod.init_langfuse = real_init
-                lf_mod._langfuse_client = None
+        lf_mod._langfuse_client = None  # reset before test
+        try:
+            with patch("langfuse.Langfuse", fake_langfuse_cls):
+                init_langfuse(settings)
+                assert get_langfuse() is fake_client
+                fake_langfuse_cls.assert_called_once_with(
+                    host="http://langfuse.example",
+                    public_key="pub-key",
+                    secret_key="sec-key",
+                )
+        finally:
+            lf_mod._langfuse_client = None  # cleanup global state

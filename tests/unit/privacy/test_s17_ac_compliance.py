@@ -311,7 +311,7 @@ class TestS17AgeGate:
         }
 
     def test_age_gate_rejects_when_false(self) -> None:
-        """POST /api/v1/players with age_13_plus_confirmed=False returns 422."""
+        """POST /api/v1/players with age_13_plus_confirmed=False returns 400."""
         pg = _make_pg()
         client = self._client(pg)
         body = self._valid_body()
@@ -350,6 +350,11 @@ class TestS17AgeGate:
         body = self._valid_body()
 
         response = client.post("/api/v1/players", json=body)
+
+        # Age gate must not reject a confirmed player.
+        assert response.status_code != 400, (
+            "Age gate should have passed with age_13_plus_confirmed=True"
+        )
 
         # Anything except 422 means age gate passed
         if response.status_code == 422:
