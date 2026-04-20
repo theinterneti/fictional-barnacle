@@ -26,7 +26,7 @@ async def test_with_smart_router():
     llm = SmartRouterLLMClient(task_type="simple")
     world_service = InMemoryWorldService()
     template_registry = TemplateRegistry(
-        directory=Path(__file__).resolve().parents[1]
+        directory=Path(__file__).resolve().parents[2]
         / "src"
         / "tta"
         / "world"

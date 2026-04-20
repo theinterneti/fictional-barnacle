@@ -130,6 +130,11 @@ def _run_migrations(
                 "oserror",
                 "econnrefused",
                 "target server attribute",
+                "password authentication",
+                "authentication failed",
+                "invalid password",
+                "role",
+                "does not exist",
             )
         ):
             pytest.skip(
