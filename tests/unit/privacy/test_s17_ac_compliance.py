@@ -331,17 +331,15 @@ class TestS17AgeGate:
         response = client.post("/api/v1/players", json=body)
         data = response.json()
 
-        # Accept either 422 from Pydantic or 400 from AppError
-        assert response.status_code in (400, 422)
-        # If it's an AppError response, check the code
-        if "code" in data:
-            assert data["code"] == "AGE_CONFIRMATION_REQUIRED"
+        assert response.status_code == 400
+        assert data["error"]["code"] == "AGE_CONFIRMATION_REQUIRED"
 
     def test_age_gate_accepts_confirmed(self) -> None:
         """POST /api/v1/players with age_13_plus_confirmed=True proceeds past age gate.
 
         May fail later on DB (handle uniqueness) but must not fail on age gate.
         """
+        from unittest.mock import patch
 
         pg = _make_pg()
         # Return None for handle uniqueness check → no conflict
@@ -349,20 +347,24 @@ class TestS17AgeGate:
         client = self._client(pg)
         body = self._valid_body()
 
-        response = client.post("/api/v1/players", json=body)
+        # get_settings() is called directly in the route (not via DI) to set cookie
+        # attributes, and also inside create_access_token. In CI the required env
+        # vars are not set, so Settings() raises ValidationError → 500.  Patch both
+        # call sites to make the test hermetic.
+        s = _settings()
+        with (
+            patch("tta.api.routes.players.get_settings", return_value=s),
+            patch(
+                "tta.api.routes.players.create_access_token",
+                return_value="test-token",
+            ),
+        ):
+            response = client.post("/api/v1/players", json=body)
 
         # Age gate must not reject a confirmed player.
-        assert response.status_code != 400, (
+        assert response.status_code == 201, (
             "Age gate should have passed with age_13_plus_confirmed=True"
         )
-
-        # Anything except 422 means age gate passed
-        if response.status_code == 422:
-            data = response.json()
-            if "code" in data:
-                assert data["code"] != "AGE_CONFIRMATION_REQUIRED", (
-                    "Age gate should have passed with age_13_plus_confirmed=True"
-                )
 
 
 # ---------------------------------------------------------------------------
