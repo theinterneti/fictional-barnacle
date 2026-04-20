@@ -120,17 +120,27 @@ def _run_migrations(
         import pytest
 
         combined = (result.stdout + result.stderr).lower()
-        if any(
-            kw in combined
-            for kw in (
-                "connection refused",
-                "could not connect",
-                "connect call failed",
-                "connection timed out",
-                "oserror",
-                "econnrefused",
-                "target server attribute",
+        # Specific auth-user-missing: FATAL: role "xyz" does not exist
+        _auth_user_missing = (
+            "fatal" in combined and "role" in combined and "does not exist" in combined
+        )
+        if (
+            any(
+                kw in combined
+                for kw in (
+                    "connection refused",
+                    "could not connect",
+                    "connect call failed",
+                    "connection timed out",
+                    "oserror",
+                    "econnrefused",
+                    "target server attribute",
+                    "password authentication",
+                    "authentication failed",
+                    "invalid password",
+                )
             )
+            or _auth_user_missing
         ):
             pytest.skip(
                 f"PostgreSQL unavailable (alembic exit {result.returncode}): "
