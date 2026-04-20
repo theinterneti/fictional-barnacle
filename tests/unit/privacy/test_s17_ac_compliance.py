@@ -354,7 +354,10 @@ class TestS17AgeGate:
         s = _settings()
         with (
             patch("tta.api.routes.players.get_settings", return_value=s),
-            patch("tta.api.routes.players.create_access_token", return_value="test-token"),
+            patch(
+                "tta.api.routes.players.create_access_token",
+                return_value="test-token",
+            ),
         ):
             response = client.post("/api/v1/players", json=body)
 
