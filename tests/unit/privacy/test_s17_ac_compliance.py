@@ -339,6 +339,7 @@ class TestS17AgeGate:
 
         May fail later on DB (handle uniqueness) but must not fail on age gate.
         """
+        from unittest.mock import patch
 
         pg = _make_pg()
         # Return None for handle uniqueness check → no conflict
@@ -346,7 +347,16 @@ class TestS17AgeGate:
         client = self._client(pg)
         body = self._valid_body()
 
-        response = client.post("/api/v1/players", json=body)
+        # get_settings() is called directly in the route (not via DI) to set cookie
+        # attributes, and also inside create_access_token. In CI the required env
+        # vars are not set, so Settings() raises ValidationError → 500.  Patch both
+        # call sites to make the test hermetic.
+        s = _settings()
+        with (
+            patch("tta.api.routes.players.get_settings", return_value=s),
+            patch("tta.api.routes.players.create_access_token", return_value="test-token"),
+        ):
+            response = client.post("/api/v1/players", json=body)
 
         # Age gate must not reject a confirmed player.
         assert response.status_code == 201, (
