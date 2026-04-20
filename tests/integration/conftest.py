@@ -117,6 +117,25 @@ def _run_migrations(
         text=True,
     )
     if result.returncode != 0:
+        import pytest
+
+        combined = (result.stdout + result.stderr).lower()
+        if any(
+            kw in combined
+            for kw in (
+                "connection refused",
+                "could not connect",
+                "connect call failed",
+                "connection timed out",
+                "oserror",
+                "econnrefused",
+                "target server attribute",
+            )
+        ):
+            pytest.skip(
+                f"PostgreSQL unavailable (alembic exit {result.returncode}): "
+                f"{result.stderr[:200]}"
+            )
         raise RuntimeError(
             f"Alembic migration failed (rc={result.returncode}):\n"
             f"STDOUT: {result.stdout}\n"
