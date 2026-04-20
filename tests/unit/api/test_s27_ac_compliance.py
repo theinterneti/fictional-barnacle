@@ -281,7 +281,7 @@ class TestAC274DeleteGame:
         resp = client.request(
             "DELETE", f"/api/v1/games/{_GAME_ID}", json={"confirm": True}
         )
-        assert resp.status_code in {200, 204}
+        assert resp.status_code == 204
 
 
 # ── AC-27.5: Save / resume (session persistence) ─────────────────
@@ -310,7 +310,7 @@ class TestAC275GameResume:
         resp = client.get(f"/api/v1/games/{_GAME_ID}")
         assert resp.status_code == 200
         body = resp.json()["data"]
-        assert body.get("turn_count", 0) >= 0  # persisted value returned
+        assert body.get("turn_count") == 3  # matches mocked _game_row(turn_count=3)
 
     def test_game_retains_title_and_summary(
         self, client: TestClient, pg: AsyncMock
@@ -390,7 +390,7 @@ class TestAC277StateTransitions:
         resp = client.request(
             "DELETE", f"/api/v1/games/{_GAME_ID}", json={"confirm": True}
         )
-        assert resp.status_code in {200, 204}
+        assert resp.status_code == 204
 
     def test_completed_game_not_returned_as_active(
         self, client: TestClient, pg: AsyncMock

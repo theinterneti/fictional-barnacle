@@ -33,6 +33,11 @@ from tta.models.world import (
     WorldTemplate,
 )
 from tta.world.neo4j_service import Neo4jWorldService
+from tta.world.template_validator import (
+    DanglingReferenceError,
+    DuplicateKeyError,
+    validate_template,
+)
 
 # ── Helpers ───────────────────────────────────────────────────────
 
@@ -123,32 +128,21 @@ class TestAC1301ReferentialIntegrity:
         assert template.regions[0].key == "forest"
 
     def test_dangling_region_key_raises_error(self) -> None:
-        """A location referencing a non-existent region should be rejected.
-
-        WorldTemplate does NOT enforce referential integrity as a Pydantic
-        validator — that validation occurs in the service layer.  We verify
-        the data model accepts the dangling key but the service can reject it.
-        """
-        # The model itself allows dangling keys (validation is in service layer)
+        """validate_template() raises DanglingReferenceError for a missing region."""
         dangling = TemplateLocation(
             key="lost_place",
             region_key="ghost_region",
             type="exterior",
             archetype="ruin",
+            is_starting_location=True,
         )
-        # The *template* will accept it without error — integrity is enforced
-        # at graph materialisation time (create_world_graph) or seed validation.
         template = WorldTemplate(
             metadata=_minimal_metadata(),
             regions=[_minimal_region(key="forest")],
             locations=[dangling],
         )
-        # The dangling reference is detectable
-        region_keys = {r.key for r in template.regions}
-        location_region_keys = {loc.region_key for loc in template.locations}
-        assert not location_region_keys.issubset(region_keys), (
-            "Dangling region_key should be detectable by caller"
-        )
+        with pytest.raises(DanglingReferenceError):
+            validate_template(template)
 
 
 # ── AC-13.02: Region key uniqueness ──────────────────────────────
@@ -164,7 +158,7 @@ class TestAC1302RegionKeyUniqueness:
     """
 
     def test_duplicate_region_keys_detectable(self) -> None:
-        """Two regions with the same key result in duplicate keys."""
+        """validate_template() raises DuplicateKeyError for two regions with same key."""
         r1 = _minimal_region(key="forest", archetype="dense")
         r2 = _minimal_region(key="forest", archetype="sparse")
         template = WorldTemplate(
@@ -172,10 +166,8 @@ class TestAC1302RegionKeyUniqueness:
             regions=[r1, r2],
             locations=[_minimal_location()],
         )
-        region_keys = [r.key for r in template.regions]
-        assert len(region_keys) != len(set(region_keys)), (
-            "Duplicate region keys should be detectable"
-        )
+        with pytest.raises(DuplicateKeyError):
+            validate_template(template)
 
     def test_unique_region_keys_accepted(self) -> None:
         """A template with unique region keys is valid."""
