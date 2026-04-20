@@ -47,7 +47,7 @@ def _build_client(settings: Settings | None = None) -> TestClient:
         settings = _settings()
     app = create_app(settings)
     app.state.settings = settings
-    app.state.pg = MagicMock()
+    app.state.pg = _make_pg(_make_session())
     app.state.redis = None
     app.state.neo4j_driver = None
     app.state.session_repo = MagicMock()
@@ -68,7 +68,7 @@ def _build_client(settings: Settings | None = None) -> TestClient:
     audit_repo.create_and_append = AsyncMock()
     audit_repo.query = AsyncMock(return_value=[])
     app.state.audit_repo = audit_repo
-    return TestClient(app, raise_server_exceptions=False)
+    return TestClient(app)
 
 
 def _row(**kwargs: Any) -> SimpleNamespace:
@@ -89,8 +89,10 @@ def _result_all(rows: list[Any]) -> MagicMock:
     return m
 
 
-def _make_session(results: list[Any]) -> AsyncMock:
+def _make_session(results: list[Any] | None = None) -> AsyncMock:
     """Create async session mock used by routes via ``async with pg()``."""
+    if results is None:
+        results = []
     mock_session = AsyncMock()
     if len(results) == 1:
         mock_session.execute = AsyncMock(return_value=results[0])
@@ -144,7 +146,7 @@ class TestAC261AdminAuth:
     def test_valid_key_grants_access(self) -> None:
         client = _build_client()
         resp = client.get("/admin/audit-log", headers=_auth())
-        assert resp.status_code not in {401, 403}
+        assert resp.status_code == 200
 
 
 # ── AC-26.3: Player search / lookup ──────────────────────────────
@@ -161,32 +163,26 @@ class TestAC263PlayerSearch:
     """
 
     def test_player_lookup_returns_profile(self) -> None:
-        settings = _settings()
-        client = _build_client(settings)
-        # Stub the pg execute to return a player row and a game count
-        pg = client.app.state.pg  # type: ignore[attr-defined]
-        pg.execute = AsyncMock(
-            side_effect=[
-                MagicMock(
-                    one_or_none=MagicMock(
-                        return_value=_row(
-                            id=_PLAYER_ID,
-                            handle="hero",
-                            status="active",
-                            suspended_reason=None,
-                            created_at=_NOW,
-                            game_count=3,
-                        )
-                    )
-                ),
-            ]
+        player_row = _result_first(
+            _row(
+                id=_PLAYER_ID,
+                handle="hero",
+                status="active",
+                suspended_reason=None,
+                created_at=_NOW,
+            )
         )
+        count_row = _result_first(_row(total=3, active=1))
+        client = _build_client()
+        client.app.state.pg = _make_pg(_make_session([player_row, count_row]))  # type: ignore[union-attr]
         resp = client.get(
             f"/admin/players/{_PLAYER_ID}",
             headers=_auth(),
         )
-        # Either 200 (found) or a handled not-found code — must not be auth error
-        assert resp.status_code not in {401, 403}
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["handle"] == "hero"
+        assert body["games"]["total"] == 3
 
     def test_player_not_found_returns_404(self) -> None:
         client = _build_client()
@@ -216,20 +212,13 @@ class TestAC264PlayerSuspend:
     """
 
     def _stub_pg_for_suspend(self, client: TestClient, *, found: bool) -> None:
-        pg = client.app.state.pg  # type: ignore[attr-defined]
-
-        def _side_effect(stmt: Any, params: Any = None) -> MagicMock:
-            text = str(stmt)
-            if "UPDATE players SET status" in text:
-                row = _row(id=_PLAYER_ID) if found else None
-                return MagicMock(one_or_none=MagicMock(return_value=row))
-            if "SELECT id FROM players" in text:
-                row = _row(id=_PLAYER_ID) if found else None
-                return MagicMock(one_or_none=MagicMock(return_value=row))
-            return MagicMock(one_or_none=MagicMock(return_value=None))
-
-        pg.execute = AsyncMock(side_effect=_side_effect)
-        pg.commit = AsyncMock()
+        if found:
+            # UPDATE succeeds → returns a row
+            session = _make_session([_result_first(_row(id=_PLAYER_ID))])
+        else:
+            # UPDATE finds nothing → SELECT also finds nothing → 404
+            session = _make_session([_result_first(None), _result_first(None)])
+        client.app.state.pg = _make_pg(session)  # type: ignore[union-attr]
 
     def test_suspend_active_player_returns_200(self) -> None:
         client = _build_client()
@@ -255,14 +244,9 @@ class TestAC264PlayerSuspend:
 
     def test_unsuspend_writes_audit_entry(self) -> None:
         client = _build_client()
-        pg = client.app.state.pg  # type: ignore[attr-defined]
-
-        def _side_effect(stmt: Any, params: Any = None) -> MagicMock:
-            row = _row(id=_PLAYER_ID)
-            return MagicMock(one_or_none=MagicMock(return_value=row))
-
-        pg.execute = AsyncMock(side_effect=_side_effect)
-        pg.commit = AsyncMock()
+        client.app.state.pg = _make_pg(  # type: ignore[union-attr]
+            _make_session([_result_first(_row(id=_PLAYER_ID))])
+        )
         audit_repo = client.app.state.audit_repo  # type: ignore[attr-defined]
         audit_repo.create_and_append = AsyncMock()
         client.post(
@@ -342,7 +326,7 @@ class TestAC265GameTerminate:
             json={"reason": "administrative force terminate"},
             headers=_auth(),
         )
-        assert resp.status_code not in {401, 403}
+        assert resp.status_code == 200
 
     def test_terminate_sets_state_to_completed(self) -> None:
         """The UPDATE query MUST use state = 'completed', not 'ended'/'abandoned'."""
@@ -412,22 +396,15 @@ class TestAC266ModerationReview:
 
     def test_moderation_queue_accessible(self) -> None:
         client = _build_client()
-        pg = client.app.state.pg  # type: ignore[attr-defined]
-        pg.execute = AsyncMock(
-            return_value=MagicMock(
-                all=MagicMock(return_value=[]),
-                scalar_one=MagicMock(return_value=0),
-            )
-        )
         resp = client.get("/admin/moderation/flags", headers=_auth())
-        assert resp.status_code not in {401, 403}
+        assert resp.status_code == 200
 
     def test_flag_review_requires_valid_action(self) -> None:
         client = _build_client()
         flag_id = uuid.uuid4()
         resp = client.post(
             f"/admin/moderation/flags/{flag_id}/review",
-            json={"action": "invalid_action"},
+            json={"action": "invalid_action", "notes": "valid notes for the test"},
             headers=_auth(),
         )
         assert resp.status_code == 422
@@ -478,13 +455,9 @@ class TestAC267AuditLog:
     def test_write_operations_produce_audit_entries(self) -> None:
         """AC-26.8: suspend_player writes an audit entry."""
         client = _build_client()
-        pg = client.app.state.pg  # type: ignore[attr-defined]
-
-        def _side_effect(stmt: Any, params: Any = None) -> MagicMock:
-            return MagicMock(one_or_none=MagicMock(return_value=_row(id=_PLAYER_ID)))
-
-        pg.execute = AsyncMock(side_effect=_side_effect)
-        pg.commit = AsyncMock()
+        client.app.state.pg = _make_pg(  # type: ignore[union-attr]
+            _make_session([_result_first(_row(id=_PLAYER_ID))])
+        )
         audit_repo = client.app.state.audit_repo  # type: ignore[attr-defined]
         audit_repo.create_and_append = AsyncMock()
         client.post(
