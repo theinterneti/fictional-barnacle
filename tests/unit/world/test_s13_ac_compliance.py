@@ -158,7 +158,7 @@ class TestAC1302RegionKeyUniqueness:
     """
 
     def test_duplicate_region_keys_detectable(self) -> None:
-        """validate_template() raises DuplicateKeyError for two regions with same key."""
+        """Raises DuplicateKeyError for two regions with the same key."""
         r1 = _minimal_region(key="forest", archetype="dense")
         r2 = _minimal_region(key="forest", archetype="sparse")
         template = WorldTemplate(
