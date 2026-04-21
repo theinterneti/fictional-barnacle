@@ -198,7 +198,7 @@ class TemplateRegistry:
 
         # Tag-based matching: award +1 for each template tag that appears
         # as a word in any preference value (handles "dark forest", "medieval castle")
-        for tag in meta.tags:
+        for tag in getattr(meta, "tags", []):
             tag_lower = tag.lower()
             for pref_val in preferences.values():
                 if tag_lower in pref_val.lower().split():

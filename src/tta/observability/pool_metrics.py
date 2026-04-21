@@ -62,10 +62,12 @@ async def _sample_once(app: FastAPI) -> None:
                 try:
                     val = raw() if callable(raw) else raw  # type: ignore[operator]
                     NEO4J_POOL_ACTIVE.set(int(val))  # type: ignore[arg-type]
-                except Exception:
-                    NEO4J_POOL_ACTIVE.set(
-                        0
-                    )  # method signature differs in this driver version
+                except (TypeError, AttributeError) as exc:
+                    log.debug(
+                        "neo4j_pool_metric_unavailable",
+                        reason=str(exc),
+                    )
+                    NEO4J_POOL_ACTIVE.set(0)
 
 
 async def _sampler_loop(app: FastAPI, interval: float) -> None:
