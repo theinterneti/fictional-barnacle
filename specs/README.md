@@ -115,8 +115,8 @@ for the full roadmap rationale, dependency graph, and open questions per spec.
 | [S31](31-actor-identity-portability.md) | Actor Identity Portability | Actor IDs universe-agnostic; unblocks cross-universe travel |
 | [S32](32-transport-abstraction.md) | Transport Abstraction | `NarrativeTransport` interface; SSE as first impl, WebSocket-ready |
 | [S33](33-universe-persistence-schema.md) | Universe Persistence Schema | Versioned forward-compat state envelope; enables universe reload |
-| S34 | Diegetic Time | In-world clock; day/night cycles, scene transitions, skip-ahead |
-| S35 | NPC Autonomy Between Turns | Off-screen NPC goals, routines, salience filter (no LangGraph) |
+| [S34](34-diegetic-time.md) | Diegetic Time | In-world clock; day/night cycles, scene transitions, skip-ahead |
+| [S35](35-npc-autonomy-between-turns.md) | NPC Autonomy Between Turns | Off-screen NPC goals, routines, salience filter (no LangGraph) |
 | S36 | Consequence Propagation | Effect ripple via graph-walk, bounded depth, rumor distortion |
 | S37 | World Memory Model | Canon events, decay, compression, structured attributed memory |
 | S38 | NPC Memory Model | Per-NPC episodic memory; relationship-graph arcs; v4+ multiplayer hook |
