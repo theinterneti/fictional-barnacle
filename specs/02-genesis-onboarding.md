@@ -1,6 +1,8 @@
 # S02 — Genesis Onboarding
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 1 — Core Game Experience
 > **Dependencies**: S00
 > **Last Updated**: 2025-07-24
@@ -453,3 +455,36 @@ minimum path through Genesis requires at least 8 player inputs.
 - Voice-guided Genesis
 - Player-specified content ratings (the system decides appropriate content)
 - Genesis replay within the same story (re-building mid-game)
+
+---
+
+## v1 Closeout (Non-normative)
+
+### What Shipped
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| Genesis begins with narrative prompt (AC-2.1) | ✅ | ✅ | `test_s02_ac_compliance.py::test_ac_2_1_narrative_intro_non_empty` | Intro prompt non-empty |
+| World graph created once on Genesis completion (AC-2.2) | ✅ | ✅ | `test_s02_ac_compliance.py::test_ac_2_2_world_graph_created_once` | Idempotent graph seeding |
+| Disconnect resume from same act (AC-2.5) | ✅ | ✅ | `test_s02_ac_compliance.py::test_ac_2_5_genesis_result_envelope` | Genesis state persisted |
+| Second playthrough variance (AC-2.6) | ✅ | ✅ | `test_s02_ac_compliance.py::test_ac_2_6_session_variance_*` | Different session IDs produce different prompts |
+| Harmful content → redirect, no corruption (AC-2.7) | ✅ | ✅ | `test_s02_ac_compliance.py::test_ac_2_7_*` | Error propagates; fallback prevents corruption |
+| Terse player → follow-up expansion (AC-2.8) | ✅ | ✅ | `test_s02_ac_compliance.py::test_ac_2_8_*` | Short inputs expanded with defaults |
+| Rejected identity → alternative offered (AC-2.9) | ✅ | ✅ | `test_s02_ac_compliance.py::test_ac_2_9_*` | Different character concepts produce different prompts |
+| No visible Genesis/gameplay boundary (AC-2.10) | ✅ | ✅ | Sim harness (PR #161) | Narrative continuity verified in sim |
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| Genesis completes within 5–10 minutes (AC-2.4) | Wall-clock timing requires integration test with LLM; no timer instrumented | Medium |
+| First post-genesis narrative references genesis elements by name (AC-2.3) | Requires LLM quality evaluation; prompt carries genesis data but LLM adherence not enforced | High |
+| Visual/audio enhancements during Genesis | Out of scope for v1 text-only client | Low |
+| World templates / quick-start presets | No template picker in v1 | Medium |
+
+### Gaps Found
+
+**AC-2.3 unverified**: Genesis enrichment data (character name, world theme, defining traits) is injected into the first-turn generation prompt. Whether the LLM reliably uses these specific strings in the first narrative paragraph was not confirmed in unit tests or sim. The sim showed coherent first turns (PR #161), but no assertion checked for genesis-element reference by name.
+
+**AC-2.4 not measured**: No wall-clock timer wraps the genesis flow. The 5–10 minute target is an aspiration only; no CI gate enforces it.
+

@@ -1,6 +1,8 @@
 # S01 — Gameplay Loop & Progression
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 1 — Core Game Experience
 > **Dependencies**: S00
 > **Last Updated**: 2026-04-09
@@ -470,3 +472,35 @@ No "new game+" mechanics, no unlockable content based on previous completions.
 - 2026-04-09: Replaced deprecated IPA/WBA/NGA agent names with 4-stage pipeline names
   (Input Understanding, Context Assembly, Narrative Generation, Delivery) in FR-1.1.
   Corrected cross-reference from S03 to S08 (Turn Processing Pipeline).
+
+---
+
+## v1 Closeout (Non-normative)
+
+### What Shipped
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| Empty input returns in-world message (AC-1.2) | ✅ | ✅ | `test_s01_ac_compliance.py` | Handled in command router |
+| `/save` persists state (AC-1.3) | ✅ | ✅ | `test_s01_ac_compliance.py` | Snapshot written to PG |
+| Failure narrative on action failure (AC-1.5) | ✅ | ✅ | `test_s01_ac_compliance.py` | Intent-classified failure routes to narrative |
+| Story-completion epilogue (AC-1.6) | ✅ | ✅ | `test_s01_ac_compliance.py` | Game moves to `completed` state |
+| 30-min idle timeout (AC-1.7) | ✅ | ✅ | `test_s01_ac_compliance.py`; lifecycle cleanup module | Session expires; state preserved |
+| Second-playthrough world isolation (AC-1.8) | ✅ | ✅ | `test_s01_ac_compliance.py` | New world graph seeded independently |
+| Unknown-command error response (AC-1.10) | ✅ | ✅ | `test_s01_ac_compliance.py` | Command router returns narrative error |
+| Sim turns complete within response window | ✅ | ✅ | PR #161 sim harness (11/11 turns) | Live streaming tested |
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| Response starts within 2 s / completes within 15 s (AC-1.1) | Requires integration infra with time-aware assertions; LLM latency not deterministic | High |
+| Browser-close + reopen shows last narrative + recap (AC-1.4) | Requires persistent last-narrative store and reconnect UX flow | High |
+| Mid-stream SSE reconnect reprocesses from last input (AC-1.9) | SSE reconnect not implemented; EventSource would re-trigger full turn | High |
+
+### Gaps Found
+
+**AC-1.1 unverified end-to-end**: The 2 s time-to-first-token / 15 s time-to-complete targets were not measured in v1. Sim runs produced responses but did not instrument per-turn latency. LLM provider latency varies significantly; no P99 latency data exists.
+
+**AC-1.4 / AC-1.9 reconnect gap**: Both ACs require client-side state to be restored after disconnection. The SSE layer delivers tokens but does not persist the turn-in-progress state for reconnect. A player who loses connectivity mid-response currently receives no replay. This is a high-severity UX gap for mobile or unreliable connections.
+
