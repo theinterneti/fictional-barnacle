@@ -1,6 +1,8 @@
 # S14 — Deployment & Infrastructure
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations
 > **Dependencies**: S01 (Gameplay Loop), S08 (Turn Pipeline), S10 (API)
 > **Last Updated**: 2026-04-07
@@ -469,3 +471,55 @@ shell:
 db-reset:
 	docker compose down -v && docker compose up -d
 ```
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+- **Docker Compose stack** — all services (FastAPI, PostgreSQL, Neo4j, Redis) defined in
+  `docker-compose.yml` and `docker-compose.override.yml`
+- **Multi-stage Dockerfile** — production image with non-root user, minimal layers,
+  health-check instruction
+- **`docker-compose.test.yml`** — isolated test environment for CI
+- **Environment variable configuration** — all secrets via env vars; `.env.template`
+  with 1Password URI placeholders
+- **Alembic migrations** — schema management via `alembic.ini` and `migrations/`
+- **GitHub Actions CI** — `.github/workflows/ci.yml` runs quality gate + tests on every push
+- **Makefile targets** — `make quality`, `make test`, `make validate-all`
+
+### Evidence
+
+- `Dockerfile` and `docker-compose.yml` reviewed in PR #157 and PR #161
+- CI green across all merged PRs (waves 30–38)
+- `scripts/` directory contains run and migration scripts
+
+### Gaps Found in v1
+
+1. **No staging environment** — only local Compose; no cloud staging tier; cloud deployment
+   not attempted
+2. **No container image registry** — images are built locally; no registry push or pull
+3. **No Kubernetes manifests** — entire deployment is Docker Compose only
+4. **No secrets management integration at deploy time** — relies on developer running
+   `op run --env-file=.env --` locally; no CI secret injection pipeline
+5. **No rollback automation** — manual docker-compose down/up only
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Cloud staging + production environments | Infrastructure / ops effort beyond v1 scope |
+| Container registry + image tagging | Part of v2 release pipeline |
+| Kubernetes manifests | v2 deployment target |
+| Automated rollback | Requires versioned artifact pipeline |
+
+### Lessons for v2
+
+- Docker Compose is sufficient for developer workflow but not for production
+- 1Password integration works well for secret management; should be wired into CI with a
+  service account for v2 staging deployments
+- The test compose file (`docker-compose.test.yml`) pattern is solid; keep it for v2

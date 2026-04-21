@@ -1,6 +1,8 @@
 # S26 — Admin & Operator Tooling
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations
 > **Dependencies**: S10 (API), S11 (Identity), S15 (Observability), S23 (Error Handling)
 > **Last Updated**: 2026-04-09
@@ -453,3 +455,51 @@ Feature: Admin & Operator Tooling
 | **Audit log** | An append-only record of all administrative actions, used for accountability and compliance. |
 | **Moderation flag** | A record created by S24's content moderation system when content is classified as potentially violating content policies. |
 | **Circuit-breaker state** | The current open/closed/half-open state of circuit breakers per S23, indicating whether a dependent service is available. |
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+- **Admin routes** — `src/tta/api/routes/admin.py`; protected by `verify_admin_token`
+  dependency
+- **Player management** — `GET /admin/players/{id}`, `DELETE /admin/players/{id}` (AC-26.1)
+- **Game termination** — `POST /admin/games/{id}/terminate` sets state to `completed`
+  (AC-26.5; note: `completed` not `ended`/`abandoned`)
+- **World management** — `GET /admin/worlds`, `DELETE /admin/worlds/{id}` (AC-26.3, AC-26.6)
+- **Rate-limit reset** — `POST /admin/rate-limit-reset` (AC-26.7)
+- **Metrics endpoint** — `GET /metrics` Prometheus scrape endpoint (AC-26.4)
+
+### Evidence
+
+- `tests/unit/api/test_s26_ac_compliance.py` — covers AC-26.1, AC-26.3, AC-26.4,
+  AC-26.5, AC-26.6, AC-26.7
+
+### Gaps Found in v1
+
+1. **No player data export** — `GET /admin/players/{id}/export` (AC-26.2) is absent;
+   no GDPR-compliant data portability
+2. **No audit log** — operator actions (terminations, deletions) are not written to an
+   immutable audit trail (AC-26.8)
+3. **No admin UI** — all admin operations require direct API calls; no browser-based
+   dashboard exists
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Player data export (AC-26.2) | Requires GDPR pipeline; deferred with S17 deletion job |
+| Immutable audit log (AC-26.8) | Requires append-only log store or event sourcing |
+| Admin dashboard | v2 operator experience work |
+
+### Lessons for v2
+
+- The `verify_admin_token` dependency is simple and effective; consider migrating to
+  role-based access control (RBAC) in v2 once multiple operator roles emerge
+- Game termination correctly uses `completed` (not `ended`/`abandoned`) — this asymmetry
+  is critical for the game lifecycle state machine; document it in v2 state diagrams
+- Audit logs should be first-class in v2; every destructive admin action must be traceable

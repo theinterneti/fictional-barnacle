@@ -1,6 +1,8 @@
 # S16 — Testing Infrastructure
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations
 > **Dependencies**: S00 (Testing Charter), S01 (Gameplay Loop), S14 (Deployment), S15 (Observability)
 > **Last Updated**: 2026-04-07
@@ -778,3 +780,57 @@ filterwarnings = [
     "ignore::DeprecationWarning:langfuse.*",
 ]
 ```
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+- **167 test files** across `tests/unit/`, `tests/integration/`, and `tests/bdd/`
+- **2 268 unit tests** (approximate, at wave 38 merge) — pytest suite with full
+  `make test` execution in CI
+- **BDD suite** — Gherkin feature files in `tests/bdd/features/` with step
+  implementations; `TestClient` + `AsyncMock` pattern for sync BDD execution
+- **AC compliance tests** — dedicated `test_s*_ac_compliance.py` files for S11, S15, S17,
+  S23, S24, S25, S26, S27, S28
+- **Sim harness** — `scripts/sim/` with scenario YAML files; 11/11 v1 sim turns passed
+  (PR #161)
+- **`pyproject.toml`** — pytest config with `asyncio_mode = "auto"`, coverage, and
+  test-path discovery
+- **`docker-compose.test.yml`** — isolated postgres/redis/neo4j for integration tests
+
+### Evidence
+
+- `make test` green across all v1 PRs (waves 30–38)
+- `tests/bdd/features/` contains feature files for all major v1 flows
+- Sim PR #161 passed 11/11 scenarios
+
+### Gaps Found in v1
+
+1. **No live Neo4j integration tests in CI** — Neo4j degrades gracefully; graph path
+   never exercised against a real instance in CI
+2. **No mutation testing** — coverage metric only; fault detection quality unknown
+3. **No performance benchmark suite in CI** — `test_s28_performance.py` asserts latency
+   budgets but against in-memory mocks, not real infra
+4. **Sim harness is single-session** — does not test multi-player concurrency
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Live Neo4j integration tests | Requires docker-compose.test.yml update |
+| Mutation testing (mutmut) | v2 quality uplift |
+| Real-infra perf benchmarks | v2 staging environment needed |
+| Multi-session sim scenarios | v2 concurrency validation |
+
+### Lessons for v2
+
+- The AAA test pattern and BDD-first compliance tests are a strong foundation — keep both
+- AC compliance test files are the clearest coupling between spec ACs and code; add one
+  per new spec in v2
+- Integration test conftest skips DB setup when Postgres is unavailable; add a CI matrix
+  job with live services so the integration path is always exercised

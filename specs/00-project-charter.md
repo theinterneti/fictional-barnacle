@@ -1,6 +1,8 @@
 # S00 — Project Charter
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ✅ Complete
 > **Level**: 0 — Foundation
 > **Dependencies**: None (this is the root)
 > **Last Updated**: 2025-07-24
@@ -218,3 +220,76 @@ All specs in this repo follow these conventions:
 - Database schema details (see S12, S13)
 - Deployment topology (see S14)
 - Any feature outside the v1 fence
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+**TTA v1** is a working text adventure game engine with:
+- 24 functional specs covering core gameplay, AI/content, platform, and operations
+- 7 technical plans with architecture, contracts, and stack decisions
+- A FastAPI server with SSE streaming, session auth, PostgreSQL + Neo4j + Redis persistence
+- A LiteLLM-backed turn pipeline (Understand → Enrich → Generate → Stream)
+- 2268+ unit tests, BDD tests, and an end-to-end simulation harness
+- Docker Compose local stack, CI pipeline, Prometheus metrics, structlog observability
+- Consent gating, privacy field filtering, rate limiting, and fail-closed moderation
+
+All 24 v1 specs are now formally closed with retrospective sections documenting what
+shipped, what was verified in simulation, and what is deferred to v2.
+
+### Did v1 Meet Its Charter Goals?
+
+| AC | Goal | Verdict |
+|----|------|---------|
+| AC-1 | 23+ specs with complete content | ✅ 24 specs shipped |
+| AC-2 | Testable acceptance criteria in every spec | ✅ All specs have ACs |
+| AC-3 | Acyclic dependency graph | ✅ No circular dependencies |
+| AC-4 | Legacy assumptions addressed | ✅ Documented per-spec |
+| AC-5 | v1 scope fence is unambiguous | ✅ v2 deferred features listed per spec |
+| AC-6 | Technology direction documented | ✅ Plans document stack choices |
+| AC-7 | Testing philosophy with measurable targets | ✅ S16 + sim harness |
+
+### Gaps Found in v1
+
+1. **No cloud deployment** — v1 runs in Docker Compose locally; no staging environment,
+   no registry, no cloud target
+2. **No live Neo4j in CI** — the graph service degrades gracefully but its fallback path
+   masks real graph bugs
+3. **No multi-instance testing** — rate limiting, session management, and performance
+   are all single-process only
+4. **Async background jobs absent** — GDPR deletion, retention enforcement, breach
+   notification are all deferred
+5. **No real players** — v1 is validated by simulation harness and unit tests, not by
+   human playtesters
+
+### Open Questions from Charter (Resolution)
+
+1. **Permanent name**: Repository is `fictional-barnacle`; game name TBD for v2
+2. **License**: Not yet decided; deferred to v2 pre-release decision
+3. **Public roadmap**: v2 spec and plan series to begin after closeout merge
+4. **Frontend**: API-only for v1; web client stub exists; full UI is v2 scope
+5. **AI attribution**: Not yet addressed; v2 content policy work
+
+### What v2 Must Address
+
+The highest-leverage v2 investments based on v1 retrospective:
+1. **Cloud deployment + staging environment** — real infra needed for real players
+2. **Live Neo4j integration tests** — close the graph bug blind spot
+3. **Async background jobs** (GDPR, retention, notifications)
+4. **Human playtester feedback loop** — the simulation harness is necessary but not
+   sufficient; real humans will surface UX and narrative gaps
+5. **Multi-instance / horizontal scaling** — rate limiting and session storage need
+   distributed backends before any real traffic
+
+### Lessons for v2
+
+- Spec-Driven Development worked: having 24 specs before writing code meant clear scope,
+  testable ACs, and a clean audit trail. Keep this approach.
+- The simulation harness was the most valuable integration test we built. Invest in
+  expanding it to cover multi-session, multi-player, and long-arc narrative scenarios.
+- The OSS-first principle kept custom code minimal (~2,200 lines). Maintain this discipline.

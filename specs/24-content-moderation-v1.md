@@ -1,6 +1,8 @@
 # S24 — Content Moderation v1
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 2 — AI & Content
 > **Dependencies**: S07 (LLM Integration), S08 (Turn Pipeline), S09 (Prompts), S19 (Crisis & Content Safety — future stub)
 > **Last Updated**: 2026-04-09
@@ -474,3 +476,48 @@ Feature: Content Moderation v1
 | Audit trail for moderation actions | §3.5, FR-24.12–FR-24.14 | Separate store, access-controlled |
 | Content classification hooks | §3.2, FR-24.04–FR-24.05 | 10 categories, configurable actions |
 | Graceful degradation | §3.6, FR-24.15–FR-24.16 | Configurable fail-open/fail-closed |
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+- **Fail-closed safety hook** — `src/tta/safety/hooks.py`; pipeline stage returns
+  `SafetyResult` with `blocked: true` when moderation fires; turn aborts gracefully
+- **Content moderation middleware** — input and output checked before/after LLM call
+- **`moderation_block` error category** — surfaced as HTTP 400 with a safe user-facing
+  message; no internal detail leaked
+
+### Evidence
+
+- `tests/unit/moderation/test_s24_fail_closed.py` — fail-closed behaviour: moderation
+  failure → turn abort, not crash
+- `tests/unit/moderation/test_s24_metadata_leakage.py` — internal moderation reasons
+  are not included in API error responses
+
+### Gaps Found in v1
+
+1. **No configurable blocklist** — moderation is binary (pass / fail); no configurable
+   word/phrase blocklist or severity threshold
+2. **No human review queue** — blocked content is silently discarded; no queue for
+   operator review
+3. **Moderation provider abstracted but not swappable** — hook exists but no live
+   moderation service is wired; v1 uses stub/mock
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Configurable blocklist + severity thresholds | v2 content policy work |
+| Human review queue + operator dashboard | S26/v2 moderation workflow |
+| Live moderation provider integration | Requires API key and live testing |
+
+### Lessons for v2
+
+- Fail-closed is the right default — never skip it even in degraded mode
+- Metadata leakage tests are a must-have for any moderation system; keep this test class
+  and extend it for every new error response shape in v2

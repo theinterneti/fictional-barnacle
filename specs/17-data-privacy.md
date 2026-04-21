@@ -1,6 +1,8 @@
 # S17 — Data Privacy
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations
 > **Dependencies**: S01 (Gameplay Loop), S05 (Choice & Consequence), S14 (Deployment), S15 (Observability)
 > **Last Updated**: 2026-04-07
@@ -596,3 +598,57 @@ Player Input
 | Privacy officer | None | Designated (if commercialized) |
 | Breach response | Basic plan | Incident response team, automated detection |
 | Anonymization | Manual script | Automated pipeline |
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+- **PII registry** — `src/tta/privacy/pii.py` defines classification levels and a
+  canonical PII field registry
+- **Data classification levels** — `DataClassification` enum (PUBLIC → RESTRICTED →
+  CONFIDENTIAL → SENSITIVE_PII)
+- **Consent gating** — anonymous player registration enforces consent version,
+  required consent categories, and 13+ age confirmation
+- **Retention policies** — `RetentionPolicy` constants defined per data type
+- **Privacy field filter** — `PrivacyFieldFilter` strips PII from log records before
+  emission; tested in `test_s15_ac_compliance.py`
+- **Breach response stub** — `src/tta/privacy/breach.py` defines notification interface
+
+### Evidence
+
+- `tests/unit/privacy/test_s17_ac_compliance.py` — 6 test classes:
+  `TestS17DataClassification`, `TestS17PiiRegistry`, `TestS17RetentionPolicies`,
+  `TestS17ConsentConstants`, `TestS17AgeGate`, `TestS17BreachResponse` (all passing)
+- `src/tta/api/routes/players.py:46–176` — consent + age gate enforcement in registration
+
+### Gaps Found in v1
+
+1. **No async GDPR deletion job** — player data deletion is synchronous and blocking;
+   background job for multi-table cascaded deletion absent
+2. **Breach notification is a stub** — `breach.py` defines the interface but no actual
+   notification mechanism (email, webhook) is implemented
+3. **Retention enforcement is declarative only** — policies are defined but no scheduled
+   job enforces them by deleting expired records
+4. **No data export endpoint** — players have no self-service way to request their data
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Async GDPR deletion job | Requires background task infrastructure |
+| Live breach notification | Requires ops/compliance infrastructure |
+| Automated retention enforcement | Requires scheduler (Celery, APScheduler, or cron) |
+| Player data export endpoint | Part of v2 self-service privacy features |
+
+### Lessons for v2
+
+- Consent gating at registration is the strongest privacy control we have; preserve it
+  and extend it to session creation
+- The privacy field filter in logs is load-bearing — never bypass it in production
+- Retention policies should be enforced by a job, not just declared; this gap should be
+  closed early in v2 before any real player data accumulates

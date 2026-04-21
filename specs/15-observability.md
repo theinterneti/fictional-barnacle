@@ -1,6 +1,8 @@
 # S15 — Observability
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations
 > **Dependencies**: S08 (Turn Pipeline), S14 (Deployment)
 > **Last Updated**: 2026-04-09
@@ -524,3 +526,53 @@ trace.set_tracer_provider(provider)
 - 2026-04-09: Replaced deprecated IPA/WBA/NGA agent names with pipeline stage names
   (input_understanding, context_assembly, generation, delivery) in trace span diagram,
   FR-15.18 (Langfuse definition), and AC-15.01 acceptance criteria.
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+- **Structured logging** — `structlog` configured with JSON renderer; `RequestIDMiddleware`
+  binds `correlation_id` to every log record
+- **Privacy filter** — `PrivacyFieldFilter` strips PII fields before emission
+- **Prometheus metrics** — module-local `CollectorRegistry`; counters for HTTP requests,
+  turns, LLM cost; histograms for turn latency and LLM latency;
+  `DURATION_BUCKETS = (0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0)`
+- **Langfuse integration** — optional; `NoopLangfuse` used when unconfigured
+- **`/api/v1/health`** and **`/api/v1/health/ready`** — liveness and readiness endpoints;
+  LLM circuit-breaker state included; readiness 503 when breaker OPEN/HALF_OPEN
+- **Alert rules** — `monitoring/prometheus/alerts.yml` defines latency and error alerts
+
+### Evidence
+
+- `tests/unit/observability/test_s15_ac_compliance.py` — 5 test classes:
+  `TestS15Logging`, `TestS15PrivacyFilter`, `TestS15Correlation`, `TestS15Metrics`,
+  `TestS15LangfuseOptional` (all passing; part of PR #157)
+- `tests/unit/api/test_health.py` covers LLM-breaker readiness gate
+
+### Gaps Found in v1
+
+1. **No live Prometheus scrape** — metrics are instrumented but no running Prometheus/Grafana
+   stack is wired up end-to-end in CI
+2. **Langfuse traces not validated end-to-end** — `NoopLangfuse` covers the non-configured
+   path; actual trace payloads not asserted against Langfuse schema
+3. **Log volume / sampling** — no log sampling or rate limiting; high-throughput scenarios
+   may produce excessive log output
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Live Prometheus + Grafana in CI | Infrastructure effort; dashboards exist but not wired |
+| Langfuse trace schema validation | Requires live Langfuse instance in test env |
+| Log sampling / aggregation | v2 production readiness |
+
+### Lessons for v2
+
+- The privacy filter is a critical correctness boundary; keep it as a first-class test fixture
+- `correlation_id` propagation is solid and spans HTTP → pipeline → LLM → response
+- Prometheus metric naming with explicit `_total` suffix follows exposition format correctly

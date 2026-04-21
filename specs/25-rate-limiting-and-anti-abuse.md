@@ -1,6 +1,8 @@
 # S25 — Rate Limiting & Anti-Abuse
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform
 > **Dependencies**: S10 (API & Streaming), S11 (Player Identity & Sessions), S23 (Error Handling), S24 (Content Moderation)
 > **Last Updated**: 2026-04-09
@@ -375,3 +377,52 @@ Feature: Rate Limiting & Anti-Abuse
 | **Cooldown** | A period during which a rate-limited source must wait before retrying. Escalating cooldowns increase the wait after repeated violations. |
 | **Credential stuffing** | An automated attack where stolen username/password pairs are tried against a service. |
 | **In-flight** | A request that has been accepted for processing but has not yet completed. |
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+- **`RateLimitMiddleware`** — per-endpoint sliding-window rate limiter in
+  `src/tta/api/middleware.py`; uses `InMemoryRateLimiter` from
+  `src/tta/resilience/rate_limiter.py`
+- **Endpoint groups** — `EndpointGroup` enum with distinct limits for turn submission,
+  auth, and default endpoints
+- **`429` response shape** — `_build_429_response` returns JSON with `Retry-After` header
+- **Rate-limit headers** — `X-RateLimit-Limit`, `X-RateLimit-Remaining`,
+  `X-RateLimit-Reset` headers on all rate-limited responses
+- **Admin reset** — `/admin/rate-limit-reset` endpoint allows operator override (AC-26.7)
+
+### Evidence
+
+- `tests/unit/resilience/test_rate_limiter.py` — AC-25.1 through AC-25.5 covered:
+  window tracking, 429 response, Retry-After header, session key extraction, endpoint
+  classification
+
+### Gaps Found in v1
+
+1. **In-memory only** — rate limits reset on server restart; no Redis-backed distributed
+   limiter; multi-instance deployments cannot share state
+2. **No abuse pattern detection** — simple token-bucket / sliding window only; no
+   anomaly detection or IP reputation checking
+3. **No ban / lockout escalation** — repeated violation beyond threshold does not escalate
+   to a temporary ban
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Redis-backed distributed rate limiter | Required for multi-instance v2 |
+| Abuse pattern detection | v2 anti-abuse work |
+| Escalating lockout | v2 trust & safety |
+
+### Lessons for v2
+
+- In-memory rate limiting is acceptable for v1 single-process; replace it before
+  multi-instance or horizontal scaling in v2
+- The `EndpointGroup` abstraction is clean; keep it and add new groups per new v2 endpoint
+  cluster
