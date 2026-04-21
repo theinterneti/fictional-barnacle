@@ -98,7 +98,7 @@
       "key": "item_notice_board",
       "location_key": "loc_entrance",
       "npc_key": null,
-      "type": "environmental",
+      "type": "ambient",
       "archetype": "notice board covered in job postings and wanted posters",
       "portable": false,
       "hidden": false

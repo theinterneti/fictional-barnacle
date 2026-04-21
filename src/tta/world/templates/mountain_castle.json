@@ -121,7 +121,7 @@
       "key": "item_battle_map",
       "location_key": "loc_tower",
       "npc_key": null,
-      "type": "environmental",
+      "type": "ambient",
       "archetype": "detailed battle map with troop positions marked in grease pencil",
       "portable": false,
       "hidden": false

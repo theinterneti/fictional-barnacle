@@ -91,7 +91,7 @@
       "key": "item_carved_marker",
       "location_key": "loc_trailhead",
       "npc_key": null,
-      "type": "environmental",
+      "type": "ambient",
       "archetype": "carved wooden marker warning travelers to turn back",
       "portable": false,
       "hidden": false
