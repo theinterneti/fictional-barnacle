@@ -1,6 +1,8 @@
 # S12 — Persistence Strategy
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform
 > **Dependencies**: S04 (World Model), S13 (World Graph Schema)
 > **Last Updated**: 2026-04-09
@@ -548,3 +550,59 @@ Player submits turn
 - 2026-04-09: Removed SQLite references throughout. PostgreSQL is now specified for all
   environments (dev, test, prod) per plans/system.md. Updated §9.3 (FR-12.06/12.07),
   decision matrix header, and resolved OQ-12.04.
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+> It does not change any requirements or acceptance criteria.
+
+### What Shipped
+
+- **PostgreSQL** as the sole durable store for players, games, turns, and consent records
+  (FR-12.01, FR-12.02); SQLite entirely removed (2026-04-09)
+- **Alembic migrations** run automatically on app startup; no manual DDL needed (FR-12.04)
+- **Redis** for session index and SSE channel management (FR-12.09)
+- **Neo4j CE** wired as world-graph store; connection optional — app degrades gracefully
+  when Neo4j is unavailable (FR-12.12)
+- **`needs_recovery` flag** on game records for detecting persistence failures (S27)
+
+### Evidence
+
+- AC-12.01 (PG schema), AC-12.02 (Alembic migrations), AC-12.04 (startup migration),
+  AC-12.09 (Redis session), AC-12.12 (Neo4j optional) — all exercised in
+  `tests/unit/persistence/test_s12_ac_compliance.py`
+- Integration test `_run_migrations` skips gracefully on Postgres unavailable (PR #157)
+- All 100 platform compliance tests pass
+
+### Gaps Found in v1
+
+1. **No performance SLAs validated** — AC-12.05 (Redis < 5 ms p95), AC-12.06 (cache miss
+   < 500 ms), AC-12.07 (turn < 200 ms), AC-12.08 (Neo4j 2-hop < 200 ms) require real
+   infrastructure + timing harness; none tested
+2. **No GDPR purge job** — AC-12.03 (deletion within 72 h) depends on async background
+   worker; only soft-delete wired in v1
+3. **No Neo4j migration idempotency test** — AC-12.10 cannot be asserted without live
+   Neo4j; deferred
+4. **No SQL restore drill** — AC-12.11 is an operational procedure; not automated
+
+### Deferred to v2
+
+| AC | Feature | Reason |
+|----|---------|--------|
+| AC-12.03 | GDPR 72 h deletion job | Async worker infrastructure |
+| AC-12.05 | Redis < 5 ms p95 | Real Redis + timing harness |
+| AC-12.06 | Cache-miss reconstruction < 500 ms | Real Redis + timing harness |
+| AC-12.07 | Turn processing < 200 ms p95 | Real infra + load harness |
+| AC-12.08 | Neo4j 2-hop traversal < 200 ms | Real Neo4j + timing harness |
+| AC-12.10 | Neo4j migration idempotency | Live Neo4j unit-test infra |
+| AC-12.11 | SQL restore within 1 hour | Operational runbook |
+
+### Lessons for v2
+
+- Performance SLAs (AC-12.05–12.08) require a dedicated integration test environment with
+  real infrastructure; unit tests cannot substitute
+- Neo4j optional-degradation strategy is working well; the degraded path must be
+  continuously tested so it does not regress silently

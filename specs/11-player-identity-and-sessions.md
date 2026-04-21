@@ -1,6 +1,8 @@
 # S11 — Player Identity & Sessions
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform
 > **Dependencies**: S12 (Persistence Strategy)
 > **Last Updated**: 2026-04-07
@@ -636,3 +638,59 @@ And the response includes a Retry-After header
   `active` and `paused` games count.
 - OQ-11.05: Should we support password reset via email for v1? Yes, but spec deferred
   to a follow-up addendum.
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+> It does not change any requirements or acceptance criteria.
+
+### What Shipped
+
+- **Anonymous player registration** with consent enforcement, required categories, and 13+
+  age confirmation (FR-11.01, FR-11.02)
+- **JWT-based auth** — short-lived access token + refresh token issued on registration
+  (FR-11.04)
+- **Authenticated session** via `Authorization: Bearer` header; `get_current_player`
+  dependency enforces token validity (FR-11.10)
+- **Session index** — Redis sorted-set tracking player session list (FR-11.12;
+  `GET /api/v1/auth/sessions`)
+- **Soft-delete player** — marks player as `deleted` and enqueues GDPR erasure (FR-11.02)
+- **Consent version tracking** — registration stores consent version + categories
+
+### Evidence
+
+- AC-11.01 (registration), AC-11.02 (consent), AC-11.04 (JWT), AC-11.10 (auth header),
+  AC-11.12 (session index) — exercised in `tests/unit/api/test_s11_ac_compliance.py`
+- BDD scenarios: `register anonymous player`, `register with missing consent` pass
+- Redis sorted-set session index: PR #149 (wave-30)
+
+### Gaps Found in v1
+
+1. **No login endpoint** — AC-11.03 (multi-device) and AC-11.09 (lockout) both require
+   a login endpoint that was deferred; anonymous-only registration is the v1 path
+2. **No session expiry background job** — AC-11.05/11.06/11.08 (game pause/expire/abandon
+   after N days) are not implemented; no cron or background task wired
+3. **No async deletion job** — AC-11.13 (`data not retrievable within 72 h`) requires an
+   async worker; v1 soft-deletes but does not physically purge
+4. **DB constraint only** for AC-11.14 (deleted `player_id` not reassignable) — not
+   unit-asserted
+
+### Deferred to v2
+
+| AC | Feature | Reason |
+|----|---------|--------|
+| AC-11.03 | Multi-device login | Login endpoint deferred (anonymous-only in v1) |
+| AC-11.05–11.08 | Session/game expiry background jobs | Background task infrastructure |
+| AC-11.09 | Login lockout | Login endpoint deferred |
+| AC-11.11 | Deleted player cannot login | Login endpoint deferred |
+| AC-11.13 | Data not retrievable within 72 h | Async deletion job |
+| AC-11.14 | `player_id` not reassignable | DB constraint assertion |
+
+### Lessons for v2
+
+- Login endpoint is a hard prerequisite for retention features (AC-11.03, 11.09, 11.11)
+- Background job infrastructure (for session expiry, GDPR purge) should be specced before
+  those ACs are claimed as done
