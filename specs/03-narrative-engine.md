@@ -1,6 +1,8 @@
 # S03 — Narrative Engine
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 1 — Core Game Experience
 > **Dependencies**: S00
 > **Last Updated**: 2025-07-24
@@ -487,3 +489,40 @@ include: input context (anonymized), failure reason, retry count, final outcome.
 - Non-English narrative generation
 - Player-configurable narrator personality
 - Simultaneous multi-stream narrative (e.g., split-screen text for parallel events)
+
+---
+
+## v1 Closeout (Non-normative)
+
+### What Shipped
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| Sensory/env guidance in generation prompt (AC-3.1) | ✅ | ✅ | `test_s03_ac_compliance.py::TestSensoryEnvGuidance` | Prompt carries exploration-hook for look/move intents |
+| Revisit delta signal in context (AC-3.2) | ✅ | ✅ | `test_s03_ac_compliance.py::TestRevisitSignal`; `test_context_narrative.py::TestInjectSummary` | Summary injected; LLM adherence not enforced |
+| Tone/genre injected in prompt (AC-3.4) | ✅ | ✅ | `test_generate_narrative.py::TestToneGenreInjection` | Tone/genre strings appear in `_build_generation_prompt` output |
+| Retry cascade + adaptive word counts (AC-3.5) | ✅ | ✅ | `test_generate_narrative.py::TestGracefulFallback`, `TestAdaptiveWordCounts` | All INTENT_WORD_RANGES parametrised |
+| Context window management at turn 100 (AC-3.6) | ✅ | ✅ | `test_s03_ac_compliance.py::TestContextWindowManagement` | Old turns pruned; session summary injected |
+| Exploration hook on first-visit look (AC-3.8) | ✅ | ✅ | `test_s03_ac_compliance.py::TestExplorationHook` | Non-exploration intents do not inject hook |
+| Deterministic context assembly (AC-3.10) | ✅ | ✅ | `test_s03_ac_compliance.py::TestDeterministicContext` | Same state → same context output |
+| Streaming delivery (AC-3.9) | ✅ | ✅ | FastAPI SSE route; `test_turn_sse_stream.py` | Rate enforcement not testable at unit level |
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| Pacing/tension tracking (AC-3.3) | Requires arc-level pacing subsystem absent in v1 | High |
+| Coherence violation detection (AC-3.7) | Requires NPC/world-state checker wired into generate; not built | High |
+| Player-adjustable verbosity (OQ-3.5) | No preference storage; conflicts with adaptive length | Medium |
+| Long-form narrative coherence (>10 turns) | LLM context drift; no cross-turn reference index | High |
+| NPC voice consistency | No per-NPC persona stored across turns | High |
+| Anaphoric pronoun/reference resolution | Understand stage returns intent only, no reference graph | Medium |
+
+### Gaps Found
+
+**AC-3.2 partial**: The revisit signal (summary string) is injected into world_context and reaches the generation prompt. However, the LLM is not constrained to produce a shorter delta-focused narrative on revisit — the prompt includes the instruction but there is no length enforcement or automatic comparison against first-visit word count. In sim runs, revisit responses were occasionally longer than first-visit descriptions.
+
+**AC-3.7 gap (coherence)**: Generate stage has no coherence checker. The sim harness (11/11 turn passes) validated per-turn output but did not test cross-turn continuity across 20+ turns. At turn 10–15 in extended play, narrative references to NPCs, items, and locations can drift (NPC described as present after being marked absent; location described with wrong features). This is the highest-severity v1 narrative gap.
+
+**AC-3.9 partial**: Token-by-token streaming is implemented at the FastAPI/SSE layer (`/api/v1/game/{id}/turn` SSE endpoint). The deliver stage is a finalise-and-mark step, not a streaming participant. No per-token rate enforcement exists; throughput is governed by the upstream LLM provider.
+
