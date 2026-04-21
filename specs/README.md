@@ -113,7 +113,7 @@ for the full roadmap rationale, dependency graph, and open questions per spec.
 | S29 | [Universe as First-Class Entity](29-universe-as-first-class-entity.md) | Universe identity, config, persistent state — not a session appendage |
 | [S30](30-session-universe-binding.md) | Session↔Universe Binding | Explicit 1:1 binding contract; schema permits n:1 for v4+ |
 | [S31](31-actor-identity-portability.md) | Actor Identity Portability | Actor IDs universe-agnostic; unblocks cross-universe travel |
-| S32 | Transport Abstraction | `NarrativeTransport` interface; SSE as first impl, WebSocket-ready |
+| [S32](32-transport-abstraction.md) | Transport Abstraction | `NarrativeTransport` interface; SSE as first impl, WebSocket-ready |
 | [S33](33-universe-persistence-schema.md) | Universe Persistence Schema | Versioned forward-compat state envelope; enables universe reload |
 | S34 | Diegetic Time | In-world clock; day/night cycles, scene transitions, skip-ahead |
 | S35 | NPC Autonomy Between Turns | Off-screen NPC goals, routines, salience filter (no LangGraph) |
