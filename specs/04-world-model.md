@@ -1,6 +1,8 @@
 # S04 — World Model
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 1 — Core Game Experience
 > **Dependencies**: S00
 > **Last Updated**: 2025-07-24
@@ -490,3 +492,85 @@ transforms query results into narrative.
 - Multi-world interactions (portals between different players' worlds)
 - Player-built structures or world modifications beyond state changes
 - Minimap or visual world representation
+
+---
+
+## v1 Closeout (Non-normative)
+
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
+>
+> This section is retrospective. It records what shipped in v1, what was verified,
+> gaps found via simulation and code review, and what is deferred to v2. No FRs or
+> ACs are modified here.
+
+### Implementation Fit
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| AC-4.1 WorldContext on "look around" | ✅ Yes | ✅ Unit tests | `tests/unit/world/test_s04_ac_compliance.py` TestAC401 — 6 tests (location, NPCs, items, exits, conditions) | Time-of-day and active_events fields absent from v1 WorldContext |
+| AC-4.2 Cascading state on fire/destruction | ❌ No | — | Pre-marked `[v2]` in spec | No world-tick engine in v1; world_changes from LLM output applied but do not cascade to neighbouring entities |
+| AC-4.3 Diff query returns changes | ⚠️ Partial | ✅ Unit tests | `test_s04_ac_compliance.py` TestAC403 — 3 tests | Changes stored and retrievable; automatic narrative diff on revisit deferred to v2 |
+| AC-4.4 Lazy region generation | ❌ No | — | Pre-marked `[v2]` in spec | v1 uses 2 pre-seeded templates (`haunted_manor`, `quiet_village`); no on-demand generation |
+| AC-4.5 NPC schedule / day-night advance | ❌ No | — | Pre-marked `[v2]` in spec | Time-of-day injected into prompts as narrative flavour only; no autonomous NPC movement |
+| AC-4.6 Distinct region identity | ✅ Yes | ✅ Unit tests | `test_s04_ac_compliance.py` TestAC406 — 4 tests | Template metadata keys, archetypes, tones and scales verified distinct |
+| AC-4.7 5000-entity Nearby ≤200ms | ❌ No | — | Pre-marked `[v2]` in spec | In-memory world state used when Neo4j unavailable; scale not benchmarked |
+| AC-4.8 Atomic state restoration | ✅ Yes | ✅ Unit tests | `test_s04_ac_compliance.py` TestAC408 — 4 tests | Batch changes applied atomically; idempotency and empty-batch safety confirmed |
+| FR-1.x World entity graph | ✅ Yes | ✅ Neo4j service + unit tests | `src/tta/world/neo4j_service.py`; `tests/unit/world/test_neo4j_service.py` | Location, Region, NPC, Item nodes and relationships wired |
+| FR-2.3/FR-2.4 Atomic + logged changes | ✅ Yes | ✅ Unit tests | `src/tta/world/changes.py`; `test_changes.py` | Change log persisted per turn |
+| FR-4.1 Starting location from template | ⚠️ Partial | ✅ Code review | `neo4j_service.py:289–290` reads `is_starting_location`; fallback to `locations[0]` at line 504–505 | Spawn correct when Neo4j available; falls back to first list entry when Neo4j is offline — sim showed wrong-location spawn under fallback path |
+| FR-4.2/4.3 Lazy / deterministic generation | ❌ No | — | Pre-marked `[v2]` in spec | World is entirely pre-seeded from templates |
+| FR-6.1/6.2 Incremental persistence | ⚠️ Partial | ✅ Code review | `src/tta/world/service.py`; world_changes stored after each turn | Full entity-state snapshot (FR-6.2) not implemented; no chapter-boundary snapshot |
+| FR-6.3 World state rollback | ❌ No | — | Not implemented | Rollback is ad-hoc; no explicit snapshot/restore API |
+| FR-7.1/7.2 Nearby query ≤200ms | ⚠️ Partial | ✅ Unit tests | `test_world_service.py`, `test_neo4j_service.py` | Query implemented; 200ms SLA not benchmarked; in-memory fallback used when Neo4j offline |
+
+**Overall**: World structure, atomic changes, and starting-location handling ship in v1.
+Simulation FRs (FR-3.x), lazy generation (FR-4.2–4.5), full persistence (FR-6.2–6.3),
+and scale (FR-7 SLAs) are entirely v2. 5 of 8 ACs have partial or full coverage.
+
+### Gaps Found
+
+**Gap 1 — Spawn point fallback uses wrong location.**
+`neo4j_service.py` lines 289–290 correctly reads `is_starting_location: true` from the
+template. However, when Neo4j is unavailable (offline dev environment, CI) the code
+falls through to the fallback at line 504–505 which takes `tmpl.locations[0]` — the
+first location in the list by definition order, not the marked starting location. In
+the `haunted_manor` template this happens to be `loc_gate` (which is the starting
+location), but any template where the starting location is not first in the JSON
+`locations` array will spawn the player at the wrong place. Simulation confirmed this
+produces misleading "you are at X" context assembly even when the narrative described
+arriving at Y.
+
+**Gap 2 — Spatial continuity under Neo4j fallback.**
+When Neo4j is unavailable, `context.py` `get_full_context()` falls back to the
+`game_state` dict, which only tracks player location as a string label — not a canonical
+graph node identifier. Across 3–4 turns the LLM can drift the location label (e.g.,
+"the gatehouse" vs "the rusted iron gate at the estate entrance") with no constraint,
+producing incoherent movement tracking. This is a v2 root-cause fix: Neo4j must be
+treated as a hard dependency for location identity, not an optional enhancement.
+
+**Gap 3 — No diff-driven narrative on revisit.**
+AC-4.3's change storage works, but the narrative engine (S03/S08) never reads the diff
+on player return — there is no "what changed since you were last here" injection into the
+generation prompt. The data exists; the plumbing to use it does not.
+
+**Gap 4 — Simulation FRs silent in v1.**
+FR-3.2–FR-3.8 (time, day/night, weather, NPC schedules, off-screen events, proximity
+simulation) are entirely absent. They are marked `[v2]` in the ACs but the FRs
+themselves do not carry the `[v2 —]` notation. This creates a false impression that
+simulation is partially implemented when it is entirely deferred.
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| World-tick engine (FR-3.x) | Requires autonomous scheduler and event propagation beyond turn-driven updates | High |
+| Cascading state effects (AC-4.2) | Requires world-tick + entity dependency graph | High |
+| Lazy / deterministic region generation (AC-4.4, FR-4.2–4.5) | Requires on-demand LLM region seeding with adjacency constraint solver | High |
+| NPC schedule simulation (AC-4.5, FR-3.5) | Requires world-tick + NPC routine engine | Medium |
+| Off-screen events (FR-3.6) | Requires world-tick with event cascade rules | Medium |
+| 5000-entity scale + 200ms SLA (AC-4.7, NFR-4.1) | Requires Neo4j as mandatory dependency with benchmarked indexing | Medium |
+| Full world snapshot + chapter-boundary snapshot (FR-6.2) | Requires coordinated snapshot across PostgreSQL + Neo4j + Redis | Medium |
+| World state rollback API (FR-6.3) | Requires snapshot/restore protocol with transaction support | Low |
+| Diff-driven revisit narration (AC-4.3 full) | Needs change diff injected into generation prompt by S08 context stage | Medium |
+| Spawn fallback correctness (FR-4.1) | Fix: fallback should filter by `is_starting_location` rather than take `[0]` | High (quick fix) |
