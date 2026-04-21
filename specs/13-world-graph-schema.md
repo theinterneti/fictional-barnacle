@@ -1,6 +1,8 @@
 # S13 — World Graph Schema
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform
 > **Dependencies**: S04 (World Model)
 > **Last Updated**: 2026-04-07
@@ -871,3 +873,59 @@ game queries. The full session data lives in SQL (see S12).
 - OQ-13.05: Should NPC knowledge be stored as properties on `KNOWS_ABOUT` relationships
   or as separate `Knowledge` nodes? Relationships are simpler. Separate nodes would
   support richer metadata (source, confidence, decay). Relationships are fine for v1.
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+> It does not change any requirements or acceptance criteria.
+
+### What Shipped
+
+- **Node types defined**: `Location`, `Item`, `NPC`, `Faction`, `WorldState` with
+  required properties and Neo4j constraints (FR-13.01, FR-13.02, FR-13.03)
+- **Neo4j CE integration** — driver wired; constraints applied on genesis
+- **Context assembly** — `world/context.py` builds narrative context from graph data;
+  degrades to string labels when Neo4j unavailable
+- **Relationship schema** — `CONTAINS`, `CONNECTS_TO`, `BELONGS_TO`, `OWNS`, `KNOWS_ABOUT`,
+  `GUARDS`, `HAS_STATE` defined (FR-13.10–13.14)
+
+### Evidence
+
+- AC-13.01 (Location), AC-13.02 (Item), AC-13.03 (NPC), AC-13.10–13.12 (relationships),
+  AC-13.14 (constraints) — exercised in `tests/unit/world/test_s13_ac_compliance.py`
+- All 100 platform compliance tests pass
+- S04 latent bug identified in sim: `neo4j_service.py:504–505` uses `tmpl.locations[0]`
+  instead of `is_starting_location: true` (deferred fix)
+
+### Gaps Found in v1
+
+1. **No rich context retrieval** — AC-13.04–13.09 (query nearby NPCs, items; k-hop context;
+   NPC state injection; item context with properties; Faction data) not unit-tested with
+   live Neo4j; context.py falls back to lightweight string labels in all CI environments
+2. **No history/partial updates** — AC-13.15 (turn history in graph) and AC-13.16
+   (partial node updates without full reload) not implemented
+3. **Starting-location selection bug** — genesis picks `locations[0]` not the node with
+   `is_starting_location: true`; affects world consistency when genesis template has
+   multiple locations
+4. **NPC memory absent** — dead NPCs and cross-session NPC state not persisted; NPC nodes
+   are created at genesis but never updated by the pipeline
+
+### Deferred to v2
+
+| AC | Feature | Reason |
+|----|---------|--------|
+| AC-13.04–13.09 | Graph query depth / NPC+item context | Requires live Neo4j integration tests |
+| AC-13.15 | Turn history in graph | Not implemented |
+| AC-13.16 | Partial node updates | Not implemented |
+| Starting-location bug | Fix `neo4j_service.py:504–505` | Targeted fix needed |
+| NPC state persistence | Write NPC mutations back to graph after each turn | Pipeline wiring |
+
+### Lessons for v2
+
+- The optional-Neo4j degradation path works but hides graph bugs in CI; a live Neo4j
+  integration test environment is needed to catch schema and traversal regressions
+- NPC state persistence is a fundamental prerequisite for narrative continuity across
+  sessions; must be specced and shipped early in v2

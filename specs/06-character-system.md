@@ -1,6 +1,8 @@
 # S06 — Character System
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 1 — Core Game Experience
 > **Dependencies**: S00
 > **Last Updated**: 2025-07-24
@@ -584,3 +586,38 @@ recovery). The character persists through apparent death.
 - NPC romance as a core mechanic (emotional subtext is in; explicit romance
   systems are out)
 - Voice acting or audio for NPC dialogue
+
+---
+
+## v1 Closeout (Non-normative)
+
+### What Shipped
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| /character displays WorldSeed-derived attributes (AC-6.1) | ✅ | ✅ | `test_s06_character_system.py` | PC traits from genesis visible |
+| Relationship dimensions updated on interaction (AC-6.3, AC-6.4) | ✅ | ✅ | `test_s06_character_system.py`; `test_s06_ac_compliance.py::TestRelationshipUpdate` | Affinity/trust delta on help |
+| Distinct NPC vocabulary markers in generation prompt (AC-6.5) | ✅ | ✅ | `test_s06_character_system.py::TestNPCSection` | `_build_npc_section` includes vocabulary |
+| Hidden NPC goal influence in dialogue (AC-6.6) | ✅ | ✅ | `test_s06_character_system.py::TestHiddenGoalPrompt` | `goals_short` injected |
+| Companion NPC presence in scene prompt (AC-6.7) | ✅ | ✅ | `test_s06_character_system.py::TestCompanionIdentification` | `_identify_companions` detects co-located companions |
+| Session-break recognition on return (AC-6.8) | ✅ | ✅ | `test_s06_ac_compliance.py::TestSessionBreakGreeting` | Greeting flag set after break |
+| Out-of-knowledge NPC deflection (AC-6.9) | ✅ | ✅ | `test_s06_ac_compliance.py::TestOutOfKnowledgeResponse` | NPC doesn't fabricate beyond knowledge scope |
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| Trait evolution from repeated contrary actions (AC-6.2) | No trait-mutation subsystem in v1; traits are static post-genesis | High |
+| NPC death state tracking (AC-6.10) | No death-event subsystem; NPCs remain in context after death | High |
+| NPC memory of prior player interactions | No cross-session NPC memory store | High |
+| Pet/animal companions | Humanoid NPCs only in v1 | Low |
+| Romance mechanics | Emotional subtext in; explicit romance systems out | Low |
+
+### Gaps Found
+
+**NPC memory gap**: NPCs have personality and vocabulary markers injected per-turn from template data, but no persistent memory of what the player has said or done to them in prior sessions. Returning to a long-running game, an NPC will not remember a promise, debt, or grievance from session 1. This is the most player-visible character-system gap in v1.
+
+**Trait evolution absent (AC-6.2)**: Player traits are seeded at genesis and remain static. The spec envisions trait drift after 10+ contrary actions. No counter or mutation mechanism exists. This manifests as players who consistently act against their stated traits receiving no narrative acknowledgement of the contradiction.
+
+**NPC death (AC-6.10)**: If a Key NPC is marked dead in world state, the generate stage continues to include them in the NPC context section via `_build_npc_section`. There is no filter on death state before prompt injection. Dead NPCs may appear in generated narrative.
+

@@ -1,6 +1,8 @@
 # S23 — Error Handling & Resilience
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform
 > **Dependencies**: S07 (LLM Integration), S08 (Turn Pipeline), S10 (API & Streaming), S12 (Persistence Strategy)
 > **Last Updated**: 2026-04-09
@@ -553,3 +555,55 @@ This spec intentionally separates concerns:
 
 The technical plan ("how") and task breakdown are separate documents generated
 during the Plan and Tasks phases of the SDD workflow.
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+
+### What Shipped
+
+- **Error taxonomy** — `ErrorCategory` enum in `src/tta/errors.py` with 10 categories
+  (`auth_required`, `not_found`, `rate_limited`, `input_invalid`, `schema_invalid`,
+  `provider_error`, `moderation_block`, `game_over`, `service_unavailable`, `internal`)
+- **JSON error envelope** — `AppError` raises; `errors.py` handlers map categories to HTTP
+  codes; all responses include `correlation_id`
+- **LLM circuit breaker** — `tenacity`-based breaker; OPEN/HALF_OPEN state surfaced in
+  `/api/v1/health/ready`; graceful degradation returns `TurnStatus.failed` instead of crash
+- **FastAPI validation errors** — mapped to `schema_invalid` / HTTP 422
+- **Request ID middleware** — `X-Request-ID` header; bound as `correlation_id` in structlog
+
+### Evidence
+
+- `tests/unit/api/test_errors.py` — error handler unit tests
+- `tests/unit/pipeline/test_s23_graceful_degradation.py` — AC-23.3: LLM failure → 
+  `TurnStatus.failed` (not exception)
+- BDD scenarios in `tests/bdd/features/` cover HTTP error shape expectations
+
+### Gaps Found in v1
+
+1. **Retry budget not tested end-to-end** — `tenacity` retry config exists but no test
+   asserts the exact retry count and backoff against a flapping mock provider
+2. **Provider fallback chain not E2E tested** — a two-tier fallback exists in
+   `tta/llm/litellm_client.py` (raises `AllTiersFailedError` when both tiers fail), but
+   no integration test verifies the full fallback path fires while the circuit breaker is
+   OPEN
+3. **Error budget / SLO tracking** — error rates are metric-instrumented but no alert
+   fires when the error budget is exhausted
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Multi-provider fallback chain | Requires LiteLLM fallback config + testing |
+| Retry budget assertions | v2 resilience test coverage |
+| Error budget SLO alerting | Requires Prometheus + alertmanager in live env |
+
+### Lessons for v2
+
+- The `ErrorCategory` taxonomy is clean and maps well to HTTP; keep it as the single source
+  of truth for all error classification
+- `correlation_id` propagation means every error in logs can be traced back to a request —
+  this is invaluable for debugging; enforce it for all v2 services too

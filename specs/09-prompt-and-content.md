@@ -1,6 +1,8 @@
 # S09 — Prompt & Content Management
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 2 — AI & Content
 > **Dependencies**: S07 (LLM Integration), S08 (Turn Processing Pipeline)
 > **Last Updated**: 2026-04-07
@@ -678,3 +680,35 @@ The following are explicitly NOT covered by this spec:
 | `{{#each list}} ... {{/each}}` | Iteration over list | `{{#each npcs}} - {{name}}: {{desc}} {{/each}}` |
 | `{{> fragment_id}}` | Include a named fragment | `{{> safety-preamble}}` |
 | `{{!-- comment --}}` | Template comment (stripped from output) | `{{!-- TODO: refine tone --}}` |
+
+---
+
+## v1 Closeout (Non-normative)
+
+### What Shipped
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| File-based prompt registry with Jinja2 templates (AC-09.1) | ✅ | ✅ | `test_s09_ac_compliance.py` | `FilePromptRegistry`; templates in `prompts/templates/` |
+| Template injection signal detection (AC-09.3) | ✅ | ✅ | `test_s09_ac_compliance.py` | `log_injection_signals()` on all rendered prompts |
+| Required template presence validation (AC-09.4) | ✅ | ✅ | `test_s09_ac_compliance.py` | `REQUIRED_TEMPLATES` checked at startup |
+| Jinja2 sandbox for untrusted template content (AC-09.5) | ✅ | ✅ | `test_s09_ac_compliance.py` | `SecurityError` raised on exploit attempt |
+| Fragments composable into templates (AC-09.8) | ✅ | ✅ | `test_s09_ac_compliance.py` | `prompts/fragments/` included via Jinja2 |
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| Runtime prompt version activation / rollback without deploy (AC-09.2) | No hot-reload mechanism; requires redeploy to change templates | High |
+| Genre packs (tone, archetypes, location moods) (AC-09.6) | Only a single `haunted_manor` template exists; no pack system | High |
+| Langfuse per-version prompt metrics (AC-09.7) | Requires live Langfuse integration | Medium |
+| Shadow mode + interactive author preview (AC-09.9) | No authoring tooling shipped in v1 | Low |
+
+### Gaps Found
+
+**Single genre only**: v1 ships one world template (`haunted_manor.json`) and one narrative voice. There is no genre pack system — tone, mood vocabulary, and archetype lists are hardcoded in templates. Any new setting requires forking and manually editing the template file.
+
+**No runtime prompt updates**: Changing a prompt requires a full redeploy. In production this is unacceptable for a content-driven game — prompt tuning to fix quality issues cannot be done without downtime. AC-09.2 is a critical gap for a production v2.
+
+**AC-09.7 metrics absent**: Without Langfuse integration, there is no way to measure prompt effectiveness (refusal rate, quality score) across template versions.
+

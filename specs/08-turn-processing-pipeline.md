@@ -1,6 +1,8 @@
 # S08 — Turn Processing Pipeline
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 2 — AI & Content
 > **Dependencies**: S01 (Core Game Loop), S03 (Narrative Engine), S07 (LLM Integration)
 > **Last Updated**: 2026-04-07
@@ -679,3 +681,69 @@ The following are explicitly NOT covered by this spec:
 | `speak` | Player says something in-character | "Hello, my name is…", "'I come in peace'" |
 | `rest` | Player wants to wait, rest, or pass time | "Wait until morning", "Take a nap", "Rest" |
 | `other` | Unclassified or ambiguous | "Hmm", "asdfg", "I wonder what happens if…" |
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It records what shipped in v1,
+> evidence used to verify each requirement, gaps found, and items deferred to v2.
+> Normative requirements (ACs, FRs) remain unchanged above.
+
+**Closed:** 2025-07-14
+**Implementation Fit:** ⚠️ Partial
+**Validation Basis:** Sim harness (11/11 turns passing, PR #161); unit tests in `tests/unit/pipeline/`; code review of `orchestrator.py`, `understand.py`, `context.py`, `generate.py`, `deliver.py`.
+
+### Evidence / Validation Basis
+
+The pipeline was exercised through the sim harness with 11 end-to-end turn scenarios,
+all passing (PR #161). The four stages — understand, context, generate, deliver — are
+wired in `orchestrator.py` and fully instrumented with `TURN_STAGE_DURATION` (per-stage
+histogram with `stage` + `status` labels), `TURN_TOTAL_DURATION` (full-pipeline
+histogram), and `TURN_TOTAL` counter. Intent classification is tested in
+`tests/unit/pipeline/test_understand.py`; context assembly in
+`tests/unit/pipeline/test_context.py`; LLM retry cascade in
+`tests/unit/pipeline/test_generate.py`. AC-08.2 (anaphoric reference resolution) and
+the quality-gate aspects of AC-08.4 (repetitive output detection, pre-apply world-state
+validation) were not exercised because they are not implemented in v1.
+
+### Implementation Fit
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| AC-08.1 — 4-stage pipeline (understand→context→generate→deliver) | ✅ | ✅ | `orchestrator.py`; sim 11/11 | All stages wired |
+| AC-08.2 — Anaphoric reference resolution ("it", "them", "here") | ❌ | ❌ | Code review `understand.py` | Not implemented; only intent classification runs |
+| AC-08.3 — Intent classification (regex + LLM fallback) | ✅ | ✅ | `understand.py:64-143`; unit tests | Regex-first; 7 intent categories + meta |
+| AC-08.4 — Output quality gate (repetition detect + world-state pre-validate) | ⚠️ | ⚠️ | Code review `generate.py` | Pre/post safety checks ship; repetition detect and world-state pre-validation absent |
+| AC-08.4 — 3-tier LLM retry cascade | ✅ | ✅ | `generate.py:378-429`; unit tests | Tier 2 simplifies prompt; tier 3 uses fallback narrative |
+| AC-08.5 — Graceful degradation (fallback narrative on all-tiers failure) | ✅ | ✅ | `generate.py:272-280`; sim | `_FALLBACK_NARRATIVE` injected on `AllTiersFailedError` |
+| AC-08.6 — Idempotent turn deduplication | ✅ | ✅ | `orchestrator.py`; unit tests | Turn ID checked before processing |
+| AC-08.7 — Langfuse trace per turn with per-stage spans | ✅ | ⚠️ | Code review; Langfuse not exercised in sim | Spans emitted; no automated assertion on trace structure |
+| AC-08.7 — Per-turn cost recorded | ✅ | ⚠️ | `orchestrator.py:token_count`; not sim-asserted | Token counts passed through; cost aggregation untested end-to-end |
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| AC-08.2 — Anaphoric reference resolution | Requires entity tracking across turns (e.g. "it" → last mentioned item); v1 context assembly does not model this | High |
+| AC-08.4 — Repetitive output detection and retry | No output quality scoring in v1; detecting model-loop / stuck-pattern outputs requires heuristic or embedding comparison | Med |
+| AC-08.4 — World-state update validation before application | `deliver.py` is a minimal v1 stub; pre-apply graph consistency checks need Neo4j round-trip in pipeline | Med |
+| Q-08.1 — Parallel understand + context prefetch | Performance optimisation (200–300 ms); deferred to perf pass | Low |
+| Q-08.2 — Multi-step action handling | "I pick up the key and unlock the door" as one or two turns undefined; deferred to alpha playtest | Med |
+
+### Gaps Found
+
+**Spatial continuity (root cause here):** The context stage (`context.py`) assembles
+world state from Neo4j when available and falls back to the `game_state` dict otherwise.
+In the v1 sim, the LLM does not reliably track the player's current room across turns —
+it drifts after 3–4 turns. The root cause is that the context prompt injects location as
+a string description without pinning canonical room identity; the LLM treats it as
+flavour text rather than a constraint. This is the deepest v1 gap and directly informs
+v2 work on S04 (spawn points, authoritative room identity) and S13 (graph-grounded
+context injection).
+
+**Consequence tracking invisible to generation:** `context.py` injects active consequence
+chains and divergence guidance. In sim, no observable consequence carried across more than
+one turn. The generation prompt receives the hints but the LLM does not consistently act
+on them. This is a prompt-design gap that will inform S05 v2 work on consequence
+surfacing strategy.

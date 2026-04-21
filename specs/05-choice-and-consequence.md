@@ -1,6 +1,8 @@
 # S05 — Choice & Consequence
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 1 — Core Game Experience
 > **Dependencies**: S00
 > **Last Updated**: 2025-07-24
@@ -521,3 +523,37 @@ Some feuds just fade."* This is closure, not a hand-wave.
 - Faction-level strategy consequences (Risk-style)
 - Time-travel or timeline manipulation mechanics
 - Choice analytics shared with other players
+
+---
+
+## v1 Closeout (Non-normative)
+
+### What Shipped
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| Delayed consequence manifest after 10+ turns (AC-5.1) | ✅ | ✅ | `test_s05_ac_compliance.py::TestDelayedConsequence` | SHORT_TERM threshold enforced |
+| Suggested actions present in turn response (AC-5.2) | ✅ | ✅ | `test_s05_ac_compliance.py::TestSuggestedActions` | 2–4 suggestions per turn |
+| NPC-ignore consequence chain created (AC-5.3) | ✅ | ✅ | `test_s05_ac_compliance.py::TestNPCIgnoreConsequence` | Chain enters dormant state after ignore |
+| Permanent-choice warning signal (AC-5.4) | ✅ | ✅ | `test_s05_ac_compliance.py::TestPermanentChoiceWarning` | Warning flag in turn state |
+| 30-chain evaluation performance (AC-5.6) | ✅ | ✅ | `test_s05_ac_compliance.py::TestConcurrentChains` | Under 100ms |
+| Divergence score across two playthroughs (AC-5.7) | ✅ | ✅ | `test_s05_ac_compliance.py::TestDivergenceScore` | Same-choice produces same initial chain |
+| Dormant chain reactivation after 50+ turns (AC-5.8) | ✅ | ✅ | `test_s05_ac_compliance.py::TestDormantChainReactivation` | Epoch tracking works |
+| Branching consequence chains (AC-5.9) | ✅ | ✅ | `test_s05_ac_compliance.py::TestBranchingChains` | Up to 3 branches off single choice |
+| Steering prompt when divergence exceeds threshold (AC-5.10) | ✅ | ✅ | `test_s05_ac_compliance.py::TestDivergenceSteering` | Narrative steering flag set |
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| Subtle foreshadowing over 5+ turns (AC-5.5) | Requires LLM evaluation across ≥5 turns; no unit-testable hook | High |
+| Cross-playthrough consequence memory | No persistence of chains across world resets | Medium |
+| Consequence visualization | No rendering layer; out-of-scope v1 | Low |
+| Faction-level strategy consequences | Faction system absent in v1 | Medium |
+
+### Gaps Found
+
+**AC-5.5 unverified in simulation**: The sim harness validated individual turn responses (11/11 passing) but did not run a scenario specifically checking that a choice at turn N produced detectable narrative foreshadowing by turn N+5. Consequence chain state is stored correctly in the model, but whether the generate stage reliably converts chain state into narrative hints was not confirmed end-to-end. This is a medium-risk gap for player experience.
+
+**Long-running chain drift**: Consequence chains that span 20+ turns rely on the generation prompt carrying chain context. As the context window fills, older chain context is pruned before newer turns. There is no mechanism to compact or summarise active chains before pruning occurs, meaning very long consequence chains may lose narrative coherence.
+

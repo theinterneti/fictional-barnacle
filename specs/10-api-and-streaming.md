@@ -1,6 +1,8 @@
 # S10 — API & Streaming
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform
 > **Dependencies**: S04 (World Model), S11 (Player Identity & Sessions), S12 (Persistence Strategy)
 > **Last Updated**: 2026-04-07
@@ -628,3 +630,56 @@ the API.
 - **Error envelope identifier alignment**: `correlation_id` is canonical in the error
   envelope. Implementations MAY continue to source it from `request.state.request_id`
   internally, but response field naming is `correlation_id`.
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+> It does not change any requirements or acceptance criteria.
+
+### What Shipped
+
+- **Single FastAPI process** with SSE streaming via `/api/v1/games/{id}/turns` (FR-10.01, FR-10.03)
+- **Turn endpoint** accepting player input and streaming LLM narrative back chunk-by-chunk
+- **Health & readiness endpoints** at `/api/v1/health` and `/api/v1/health/ready` (FR-10.09, FR-10.10)
+- **Error envelope** with `correlation_id` field aligned to S23 (FR-10.11, FR-10.12)
+- **RBAC stubs** — anonymous player token required for game actions (FR-10.07)
+- **`/api/v1/games`** create/list/get/delete routes (soft-delete to `abandoned` per S27)
+
+### Evidence
+
+- 100 unit tests pass across S10/S11/S12/S13/S27 compliance suites (4.16 s)
+- AC-10.01 (POST /games), AC-10.03 (POST /turns), AC-10.07 (auth), AC-10.09/10.10 (health),
+  AC-10.11/10.12 (error envelope) — all exercised in `tests/unit/api/test_s10_ac_compliance.py`
+- BDD scenario `play a complete game turn via SSE` passes in `tests/bdd/`
+- PR #161 sim: 11/11 turns completed, SSE chunks received end-to-end
+
+### Gaps Found in v1
+
+1. **No SSE reconnect** — AC-10.05 (missed events within 30 s) not implemented; Redis pub/sub
+   replay absent; client disconnect loses buffered events permanently
+2. **No timing SLA validation** — AC-10.04 (chunk < 2 s) and AC-10.06 (heartbeat every 15 s)
+   measured in unit tests by config value, not real-time observation
+3. **No OpenAPI validation** — AC-10.02 requires `openapi-spec-validator` tooling; schema drift
+   between code and spec not caught automatically
+4. **`X-RateLimit-*` headers absent on SSE streaming responses** — AC-10.08 requires
+   rate-limit headers on every authenticated response; `RateLimitMiddleware` is wired
+   globally but headers are not injected on the SSE streaming response path
+
+### Deferred to v2
+
+| AC | Feature | Reason |
+|----|---------|--------|
+| AC-10.02 | OpenAPI spec-validator in CI | Tooling/CI setup |
+| AC-10.04 | Real-time chunk-delivery SLA (< 2 s) | Requires integration harness |
+| AC-10.05 | SSE reconnect + missed-event replay | Redis pub/sub architecture |
+| AC-10.06 | SSE heartbeat every 15 s in prod | Integration timing |
+| AC-10.08 | `X-RateLimit-*` headers on every auth response | Rate-limit middleware (S25) |
+
+### Lessons for v2
+
+- SSE reconnect is the single most impactful reliability gap for players; prioritise in v2
+- `openapi-spec-validator` CI step is cheap to add and prevents schema drift
+- Heartbeat interval is configurable (15 s default) but untested under load

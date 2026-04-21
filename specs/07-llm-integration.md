@@ -1,6 +1,8 @@
 # S07 — LLM Integration
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 2 — AI & Content
 > **Dependencies**: S01 (Core Game Loop), S03 (Narrative Engine)
 > **Last Updated**: 2026-04-07
@@ -451,3 +453,33 @@ The following are explicitly NOT covered by this spec:
 | **Context budget** | The maximum number of input tokens allocated for an LLM call, computed from the model's context window minus output reservation. |
 | **Golden test** | A test that records an LLM response and replays it on subsequent runs for regression detection. |
 | **SSE** | Server-Sent Events — the protocol used to stream tokens to the player's client. |
+
+---
+
+## v1 Closeout (Non-normative)
+
+### What Shipped
+
+| Item | Shipped | Verified | Evidence | Notes |
+|------|---------|----------|----------|-------|
+| LiteLLM library-mode client (AC-07.1) | ✅ | ✅ | `test_s07_ac_compliance.py`; `litellm_client.py` | Not proxy mode; direct import |
+| Multi-model role config (narrator/enricher/world) (AC-07.2) | ✅ | ✅ | `test_s07_ac_compliance.py` | `ModelRole` enum with per-role configs |
+| Retry + provider fallback chain (AC-07.3) | ✅ | ✅ | `test_s07_ac_compliance.py` | tenacity-backed; all tiers fail → `AllTiersFailedError` |
+| Context budget / token window management (AC-07.4) | ✅ | ✅ | `test_s07_ac_compliance.py`; `context_budget.py` | Priority-based chunk fitting |
+| Structured error taxonomy (transient/permanent/budget) (AC-07.5) | ✅ | ✅ | `test_s07_ac_compliance.py` | `TransientLLMError`, `PermanentLLMError`, `BudgetExceededError` |
+| SSE streaming delivery via LiteLLM (AC-07.7) | ✅ | ✅ | `test_s07_ac_compliance.py`; sim harness PR #161 | Token stream verified in sim |
+
+### Deferred to v2
+
+| Item | Reason | v2 Priority |
+|------|--------|-------------|
+| Langfuse per-call observability (AC-07.6) | Requires live Langfuse integration; unit env cannot test | High |
+| Cost tracking per turn / per session | No per-turn cost emission in v1 | Medium |
+| Prompt caching across repeated calls | Not implemented | Low |
+
+### Gaps Found
+
+**AC-07.6 not integrated in v1**: LLM calls are wired to structlog but not to Langfuse traces. Prompt/response pairs are not stored for quality review. This is a significant observability gap for production use — there is no way to review what the LLM said to players in v1.
+
+**Budget overflow behavior**: When all chunks are stripped and the request still exceeds the budget, `fit_chunks_to_budget` raises `BudgetExceededError`. There is no graceful degradation fallback narrative — the turn fails silently. Player sees an error response rather than a reduced-quality narrative.
+

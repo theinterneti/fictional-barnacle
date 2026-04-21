@@ -1,6 +1,8 @@
 # S27 — Save/Load & Game Management
 
 > **Status**: 📝 Draft
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ✅ Full
 > **Level**: 1 — Core Game Experience
 > **Dependencies**: S01 (Gameplay Loop), S04 (World Model), S11 (Player Identity), S12 (Persistence)
 > **Last Updated**: 2026-04-09
@@ -421,3 +423,56 @@ Feature: Save/Load & Game Management
 | **Context summary** | A short, generated description of the current narrative state, used to re-orient returning players. |
 | **Cursor-based pagination** | A pagination strategy that uses a pointer to a specific record (cursor) rather than an offset number, providing stable results when data changes between page loads. |
 | **needs_recovery** | An internal flag indicating that a game's persisted state may be inconsistent due to a prior persistence failure. |
+
+---
+
+## v1 Closeout (Non-normative)
+
+> This section is retrospective and non-normative. It documents what shipped in the v1
+> baseline, what was verified, what gaps were found, and what is deferred to v2.
+> It does not change any requirements or acceptance criteria.
+
+### What Shipped
+
+- **Game CRUD** — create, list, get, delete (soft-delete to `abandoned`) via
+  `/api/v1/games` (AC-27.1)
+- **Game listing** — player sees own games paginated, showing title/summary (AC-27.2)
+- **Get game** — returns full game state including turn count and status (AC-27.3)
+- **Soft-delete** — sets status to `abandoned`, not physical delete (AC-27.4; aligned
+  with FR-27.16 `abandoned` semantics)
+- **Resume game** — `POST /api/v1/games/{id}/turns` resumes an active game (AC-27.5)
+- **Turn count increment** — each completed turn increments `turn_count` (AC-27.6)
+- **State transitions** — `active` → `paused` → `active` → `completed`/`abandoned` (AC-27.7)
+- **Read-only completed/abandoned games** — no new turns accepted (AC-27.8)
+- **Title and summary** — auto-generated on genesis; updated on game completion (AC-27.9)
+- **List own games** — players cannot see other players' games (AC-27.10)
+
+### Evidence
+
+- All 10 v1 ACs covered in `tests/unit/api/test_s27_ac_compliance.py` (10 test classes,
+  all passing)
+- BDD scenarios `create game`, `play turn`, `delete game` pass
+- PR #161 sim: 11/11 turns across a persistent game session
+
+### Gaps Found in v1
+
+1. **Auto-save timing** — saves are synchronous per-turn; no background periodic save;
+   no `needs_recovery` flag assertion test beyond schema presence
+2. **Resumption context** — returning player receives `context_summary` in response but
+   no dedicated "here's what happened" narrative re-orientation (AC-27.5 met minimally)
+3. **`POST /admin/games/{id}/terminate`** sets state to `completed` (S26 AC-26.5) — tied
+   to admin tooling, not player-facing; tested in S26 suite
+
+### Deferred to v2
+
+| Feature | Reason |
+|---------|--------|
+| Background periodic auto-save | Architecture; synchronous is sufficient for v1 |
+| Narrative re-orientation on resume | Requires pipeline stage for returning-player context |
+| Export / full save-file download | Out of scope for v1 |
+
+### Lessons for v2
+
+- All 10 v1 ACs are verified — this is the most complete platform spec in v1
+- `needs_recovery` flag is set but the recovery path (re-build from turn log) is not
+  implemented; must be specced and tested in v2 before claiming full disaster-recovery coverage
