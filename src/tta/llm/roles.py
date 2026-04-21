@@ -31,7 +31,7 @@ DEFAULT_ROLE_CONFIGS: dict[ModelRole, ModelRoleConfig] = {
         fallback="anthropic/claude-haiku-4-20250514",
         temperature=0.85,
         max_tokens=1024,
-        timeout_seconds=30.0,
+        timeout_seconds=90.0,
     ),
     ModelRole.CLASSIFICATION: ModelRoleConfig(
         primary="anthropic/claude-haiku-4-20250514",

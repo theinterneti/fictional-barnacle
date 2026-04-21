@@ -1,0 +1,130 @@
+{
+  "metadata": {
+    "template_key": "tavern_inn",
+    "display_name": "The Wanderer's Rest",
+    "tags": ["fantasy", "tavern", "social", "inn", "warm", "cozy"],
+    "compatible_tones": ["hopeful", "whimsical", "dark"],
+    "compatible_tech_levels": ["primitive", "medieval"],
+    "compatible_magic": ["none", "rare", "common"],
+    "compatible_scales": ["intimate", "regional"],
+    "location_count": 4,
+    "npc_count": 3
+  },
+  "regions": [
+    {"key": "reg_common", "archetype": "busy tavern common area"},
+    {"key": "reg_back", "archetype": "private back rooms and cellar"}
+  ],
+  "locations": [
+    {
+      "key": "loc_entrance",
+      "region_key": "reg_common",
+      "type": "exterior",
+      "archetype": "tavern entrance with a creaking wooden sign swaying overhead",
+      "is_starting_location": true,
+      "light_level": "bright",
+      "tags": ["transitional", "social"]
+    },
+    {
+      "key": "loc_common_room",
+      "region_key": "reg_common",
+      "type": "interior",
+      "archetype": "warm common room packed with travelers and the smell of roasting meat",
+      "light_level": "bright",
+      "tags": ["social", "loud"]
+    },
+    {
+      "key": "loc_bar",
+      "region_key": "reg_common",
+      "type": "interior",
+      "archetype": "long bar of scarred oak where the innkeeper pours drinks",
+      "light_level": "bright",
+      "tags": ["social", "knowledge"]
+    },
+    {
+      "key": "loc_back_room",
+      "region_key": "reg_back",
+      "type": "interior",
+      "archetype": "private back room used for hushed deals and secret meetings",
+      "light_level": "dim",
+      "tags": ["hidden", "danger"]
+    }
+  ],
+  "connections": [
+    {
+      "from_key": "loc_entrance",
+      "to_key": "loc_common_room",
+      "direction": "north",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_common_room",
+      "to_key": "loc_bar",
+      "direction": "east",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_bar",
+      "to_key": "loc_back_room",
+      "direction": "north",
+      "bidirectional": true,
+      "is_locked": false
+    }
+  ],
+  "npcs": [
+    {
+      "key": "npc_innkeeper",
+      "location_key": "loc_bar",
+      "role": "quest_giver",
+      "archetype": "stout innkeeper who knows every rumor in the region",
+      "disposition": "friendly"
+    },
+    {
+      "key": "npc_bard",
+      "location_key": "loc_common_room",
+      "role": "ambient",
+      "archetype": "traveling bard strumming a battered lute",
+      "disposition": "friendly"
+    },
+    {
+      "key": "npc_hooded_stranger",
+      "location_key": "loc_back_room",
+      "role": "merchant",
+      "archetype": "hooded stranger nursing a drink and watching the room",
+      "disposition": "neutral"
+    }
+  ],
+  "items": [
+    {
+      "key": "item_notice_board",
+      "location_key": "loc_entrance",
+      "npc_key": null,
+      "type": "ambient",
+      "archetype": "notice board covered in job postings and wanted posters",
+      "portable": false,
+      "hidden": false
+    },
+    {
+      "key": "item_sealed_letter",
+      "location_key": null,
+      "npc_key": "npc_hooded_stranger",
+      "type": "quest",
+      "archetype": "sealed letter bearing an unfamiliar wax crest",
+      "portable": true,
+      "hidden": true
+    }
+  ],
+  "knowledge": [
+    {
+      "npc_key": "npc_innkeeper",
+      "about_key": "npc_hooded_stranger",
+      "knowledge_type": "character",
+      "is_secret": true
+    },
+    {
+      "npc_key": "npc_bard",
+      "about_key": "loc_back_room",
+      "knowledge_type": "location",
+      "is_secret": false
+    }
+  ]
+}

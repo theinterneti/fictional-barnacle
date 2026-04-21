@@ -518,7 +518,10 @@ async def run(
     report = SimReport()
     t0 = time.monotonic()
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    # Use longer read timeout: genesis LLM calls can be slow on free-tier models
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=5.0)
+    ) as client:
         # Pre-flight health check
         if not json_output:
             print(_c("Pre-flight: checking API readiness…", DIM, color=color))
