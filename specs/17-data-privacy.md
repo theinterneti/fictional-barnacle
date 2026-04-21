@@ -632,8 +632,9 @@ Player Input
    background job for multi-table cascaded deletion absent
 2. **Breach notification is a stub** — `breach.py` defines the interface but no actual
    notification mechanism (email, webhook) is implemented
-3. **Retention enforcement is declarative only** — policies are defined but no scheduled
-   job enforces them by deleting expired records
+3. **Retention enforcement is partial** — `purge_loop` in `tta/privacy/purge.py` runs
+   hourly (launched from `app.py`) and enforces retention for game/turn records; other
+   data categories (audit logs, session metadata, consent records) are not yet covered
 4. **No data export endpoint** — players have no self-service way to request their data
 
 ### Deferred to v2

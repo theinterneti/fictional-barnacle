@@ -9,11 +9,11 @@ are non-normative retrospective sections only.
 ## Frontmatter Additions
 
 Add these two fields immediately after the existing `Status:` line in each spec's
-YAML frontmatter block:
+blockquote header block:
 
-```yaml
-Release Baseline: 🔒 v1 Closed
-Implementation Fit: ✅  # or ⚠️ or ❌
+```
+> **Release Baseline**: 🔒 v1 Closed
+> **Implementation Fit**: ✅ Full  # or ⚠️ Partial or ❌ Significant gaps
 ```
 
 **`Status:`** — Leave unchanged. This tracks doc lifecycle (Draft/Review/Approved).

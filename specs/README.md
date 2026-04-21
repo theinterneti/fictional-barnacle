@@ -72,11 +72,11 @@ These are **not full specs**. They define boundaries and constraints on v1 desig
 
 | # | Spec | Status | v1 Baseline | Description |
 |---|------|--------|-------------|-------------|
-| S18 | [Therapeutic Framework](future/18-therapeutic-framework.md) | 📝 Stub | Boundary constraints for therapy integration |
-| S19 | [Crisis & Content Safety](future/19-crisis-and-content-safety.md) | 📝 Stub | Boundary constraints for safety systems |
-| S20 | [Story Sharing](future/20-story-sharing.md) | 📝 Stub | Boundary constraints for shareable stories |
-| S21 | [Collaborative Writing](future/21-collaborative-writing.md) | 📝 Stub | Boundary constraints for co-authoring |
-| S22 | [Community](future/22-community.md) | 📝 Stub | Boundary constraints for player community |
+| S18 | [Therapeutic Framework](future/18-therapeutic-framework.md) | 📝 Stub | — | Boundary constraints for therapy integration |
+| S19 | [Crisis & Content Safety](future/19-crisis-and-content-safety.md) | 📝 Stub | — | Boundary constraints for safety systems |
+| S20 | [Story Sharing](future/20-story-sharing.md) | 📝 Stub | — | Boundary constraints for shareable stories |
+| S21 | [Collaborative Writing](future/21-collaborative-writing.md) | 📝 Stub | — | Boundary constraints for co-authoring |
+| S22 | [Community](future/22-community.md) | 📝 Stub | — | Boundary constraints for player community |
 
 ## Dependency Graph
 

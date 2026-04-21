@@ -2,7 +2,7 @@
 
 > **Status**: 📝 Draft
 > **Release Baseline**: 🔒 v1 Closed
-> **Implementation Fit**: ✅ Complete
+> **Implementation Fit**: ✅ Full
 > **Level**: 0 — Foundation
 > **Dependencies**: None (this is the root)
 > **Last Updated**: 2025-07-24
@@ -234,7 +234,7 @@ All specs in this repo follow these conventions:
 - 24 functional specs covering core gameplay, AI/content, platform, and operations
 - 7 technical plans with architecture, contracts, and stack decisions
 - A FastAPI server with SSE streaming, session auth, PostgreSQL + Neo4j + Redis persistence
-- A LiteLLM-backed turn pipeline (Understand → Enrich → Generate → Stream)
+- A LiteLLM-backed turn pipeline (understand → context → generate → deliver)
 - 2268+ unit tests, BDD tests, and an end-to-end simulation harness
 - Docker Compose local stack, CI pipeline, Prometheus metrics, structlog observability
 - Consent gating, privacy field filtering, rate limiting, and fail-closed moderation

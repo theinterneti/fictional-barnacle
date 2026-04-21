@@ -664,8 +664,9 @@ the API.
    measured in unit tests by config value, not real-time observation
 3. **No OpenAPI validation** — AC-10.02 requires `openapi-spec-validator` tooling; schema drift
    between code and spec not caught automatically
-4. **No rate-limit headers** — AC-10.08 (`X-RateLimit-*` on every authenticated response)
-   deferred; middleware not wired
+4. **`X-RateLimit-*` headers absent on SSE streaming responses** — AC-10.08 requires
+   rate-limit headers on every authenticated response; `RateLimitMiddleware` is wired
+   globally but headers are not injected on the SSE streaming response path
 
 ### Deferred to v2
 

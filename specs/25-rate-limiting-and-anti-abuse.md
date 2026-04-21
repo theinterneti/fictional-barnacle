@@ -388,14 +388,15 @@ Feature: Rate Limiting & Anti-Abuse
 ### What Shipped
 
 - **`RateLimitMiddleware`** — per-endpoint sliding-window rate limiter in
-  `src/tta/api/middleware.py`; uses `InMemoryRateLimiter` from
-  `src/tta/resilience/rate_limiter.py`
+  `src/tta/api/middleware.py`; uses `RedisRateLimiter` (when Redis is reachable) or
+  `InMemoryRateLimiter` (fallback) from `src/tta/resilience/rate_limiter.py`
 - **Endpoint groups** — `EndpointGroup` enum with distinct limits for turn submission,
   auth, and default endpoints
 - **`429` response shape** — `_build_429_response` returns JSON with `Retry-After` header
 - **Rate-limit headers** — `X-RateLimit-Limit`, `X-RateLimit-Remaining`,
   `X-RateLimit-Reset` headers on all rate-limited responses
-- **Admin reset** — `/admin/rate-limit-reset` endpoint allows operator override (AC-26.7)
+- **Admin reset** — `/admin/rate-limits/player/{player_id}/reset` allows per-player
+  override; `/admin/rate-limits/ip/{ip_address}/unblock` for IP-level reset (AC-26.7)
 
 ### Evidence
 
@@ -405,12 +406,14 @@ Feature: Rate Limiting & Anti-Abuse
 
 ### Gaps Found in v1
 
-1. **In-memory only** — rate limits reset on server restart; no Redis-backed distributed
-   limiter; multi-instance deployments cannot share state
-2. **No abuse pattern detection** — simple token-bucket / sliding window only; no
-   anomaly detection or IP reputation checking
-3. **No ban / lockout escalation** — repeated violation beyond threshold does not escalate
-   to a temporary ban
+1. **Redis limiter not shared across multiple workers** — `RedisRateLimiter` is used
+   when Redis is reachable, but each worker process maintains its own in-memory sliding
+   window alongside Redis; multi-instance deployments may inconsistently share state
+2. **Abuse pattern detection is basic** — `AbuseDetector` in `RateLimitMiddleware`
+   detects `RAPID_FIRE` and `CREDENTIAL_STUFFING` patterns, but no IP reputation
+   checking, volumetric anomaly detection, or external threat feed integration exists
+3. **No ban / lockout escalation** — repeated violations increment violation counters but
+   do not escalate to a temporary ban or block
 
 ### Deferred to v2
 

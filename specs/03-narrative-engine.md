@@ -524,5 +524,5 @@ include: input context (anonymized), failure reason, retry count, final outcome.
 
 **AC-3.7 gap (coherence)**: Generate stage has no coherence checker. The sim harness (11/11 turn passes) validated per-turn output but did not test cross-turn continuity across 20+ turns. At turn 10–15 in extended play, narrative references to NPCs, items, and locations can drift (NPC described as present after being marked absent; location described with wrong features). This is the highest-severity v1 narrative gap.
 
-**AC-3.9 partial**: Token-by-token streaming is implemented at the FastAPI/SSE layer (`/api/v1/game/{id}/turn` SSE endpoint). The deliver stage is a finalise-and-mark step, not a streaming participant. No per-token rate enforcement exists; throughput is governed by the upstream LLM provider.
+**AC-3.9 partial**: Token-by-token streaming is implemented at the FastAPI/SSE layer (`/api/v1/games/{game_id}/turns` submit endpoint, `/api/v1/games/{game_id}/stream` SSE endpoint). The deliver stage is a finalise-and-mark step, not a streaming participant. No per-token rate enforcement exists; throughput is governed by the upstream LLM provider.
 

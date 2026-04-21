@@ -586,8 +586,10 @@ during the Plan and Tasks phases of the SDD workflow.
 
 1. **Retry budget not tested end-to-end** — `tenacity` retry config exists but no test
    asserts the exact retry count and backoff against a flapping mock provider
-2. **Provider fallback chain absent** — circuit breaker opens on one provider; no automatic
-   fallback to a secondary LLM provider
+2. **Provider fallback chain not E2E tested** — a two-tier fallback exists in
+   `tta/llm/litellm_client.py` (raises `AllTiersFailedError` when both tiers fail), but
+   no integration test verifies the full fallback path fires while the circuit breaker is
+   OPEN
 3. **Error budget / SLO tracking** — error rates are metric-instrumented but no alert
    fires when the error budget is exhausted
 

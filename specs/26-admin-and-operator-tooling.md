@@ -465,8 +465,8 @@ Feature: Admin & Operator Tooling
 
 ### What Shipped
 
-- **Admin routes** — `src/tta/api/routes/admin.py`; protected by `verify_admin_token`
-  dependency
+- **Admin routes** — `src/tta/api/routes/admin.py`; protected by `require_admin`
+  dependency (`AdminIdentity` from `tta.admin.auth`)
 - **Player management** — `GET /admin/players/{id}`, `DELETE /admin/players/{id}` (AC-26.1)
 - **Game termination** — `POST /admin/games/{id}/terminate` sets state to `completed`
   (AC-26.5; note: `completed` not `ended`/`abandoned`)
@@ -483,8 +483,9 @@ Feature: Admin & Operator Tooling
 
 1. **No player data export** — `GET /admin/players/{id}/export` (AC-26.2) is absent;
    no GDPR-compliant data portability
-2. **No audit log** — operator actions (terminations, deletions) are not written to an
-   immutable audit trail (AC-26.8)
+2. **Audit log immutability not enforced** — `tta/persistence/audit_repo.py` and
+   `/admin/audit-log` endpoint exist (AC-26.8), but there is no write-once guarantee,
+   retention policy, or tamper-evidence mechanism
 3. **No admin UI** — all admin operations require direct API calls; no browser-based
    dashboard exists
 
