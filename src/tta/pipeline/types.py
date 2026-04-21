@@ -83,7 +83,7 @@ class PipelineConfig(BaseModel):
         default_factory=lambda: [
             StageConfig(name=StageName.UNDERSTAND),
             StageConfig(name=StageName.CONTEXT),
-            StageConfig(name=StageName.GENERATE),
+            StageConfig(name=StageName.GENERATE, timeout_seconds=90.0),
             StageConfig(name=StageName.DELIVER),
         ]
     )

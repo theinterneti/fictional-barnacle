@@ -1,0 +1,123 @@
+{
+  "metadata": {
+    "template_key": "forest_clearing",
+    "display_name": "The Ancient Forest",
+    "tags": ["fantasy", "forest", "dark", "nature", "outdoor", "woodland"],
+    "compatible_tones": ["dark", "hopeful", "whimsical"],
+    "compatible_tech_levels": ["primitive", "medieval"],
+    "compatible_magic": ["rare", "common", "pervasive"],
+    "compatible_scales": ["regional", "national"],
+    "location_count": 4,
+    "npc_count": 2
+  },
+  "regions": [
+    {"key": "reg_edge", "archetype": "forest edge where civilization ends"},
+    {"key": "reg_deep", "archetype": "ancient deep forest where few dare venture"}
+  ],
+  "locations": [
+    {
+      "key": "loc_trailhead",
+      "region_key": "reg_edge",
+      "type": "exterior",
+      "archetype": "overgrown trailhead where the road gives way to twisted roots",
+      "is_starting_location": true,
+      "light_level": "dim",
+      "tags": ["transitional", "eerie"]
+    },
+    {
+      "key": "loc_clearing",
+      "region_key": "reg_edge",
+      "type": "exterior",
+      "archetype": "sunlit clearing ringed by ancient oaks, an old campfire in the center",
+      "light_level": "bright",
+      "tags": ["social", "safe"]
+    },
+    {
+      "key": "loc_ruins",
+      "region_key": "reg_deep",
+      "type": "exterior",
+      "archetype": "moss-covered ruins of a forgotten shrine half-consumed by roots",
+      "light_level": "dim",
+      "tags": ["knowledge", "eerie"]
+    },
+    {
+      "key": "loc_glade",
+      "region_key": "reg_deep",
+      "type": "exterior",
+      "archetype": "silent glade where the air hums with old magic and no bird sings",
+      "light_level": "dark",
+      "tags": ["danger", "hidden"]
+    }
+  ],
+  "connections": [
+    {
+      "from_key": "loc_trailhead",
+      "to_key": "loc_clearing",
+      "direction": "north",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_clearing",
+      "to_key": "loc_ruins",
+      "direction": "east",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_ruins",
+      "to_key": "loc_glade",
+      "direction": "north",
+      "bidirectional": true,
+      "is_locked": false
+    }
+  ],
+  "npcs": [
+    {
+      "key": "npc_hermit",
+      "location_key": "loc_clearing",
+      "role": "quest_giver",
+      "archetype": "weather-beaten hermit who has lived in the forest for decades",
+      "disposition": "neutral"
+    },
+    {
+      "key": "npc_spirit",
+      "location_key": "loc_glade",
+      "role": "ambient",
+      "archetype": "luminous forest spirit bound to the ancient glade",
+      "disposition": "neutral"
+    }
+  ],
+  "items": [
+    {
+      "key": "item_carved_marker",
+      "location_key": "loc_trailhead",
+      "npc_key": null,
+      "type": "environmental",
+      "archetype": "carved wooden marker warning travelers to turn back",
+      "portable": false,
+      "hidden": false
+    },
+    {
+      "key": "item_shrine_token",
+      "location_key": "loc_ruins",
+      "npc_key": null,
+      "type": "quest",
+      "archetype": "small stone token etched with a symbol that glows faintly at dusk",
+      "portable": true,
+      "hidden": true
+    }
+  ],
+  "knowledge": [
+    {
+      "npc_key": "npc_hermit",
+      "about_key": "loc_glade",
+      "knowledge_type": "location",
+      "is_secret": true
+    },
+    {
+      "npc_key": "npc_spirit",
+      "about_key": "item_shrine_token",
+      "knowledge_type": "item",
+      "is_secret": false
+    }
+  ]
+}

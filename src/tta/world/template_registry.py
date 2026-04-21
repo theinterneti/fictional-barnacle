@@ -196,4 +196,13 @@ class TemplateRegistry:
         if scale and scale in meta.compatible_scales:
             score += 1
 
+        # Tag-based matching: award +1 for each template tag that appears
+        # as a word in any preference value (handles "dark forest", "medieval castle")
+        for tag in meta.tags:
+            tag_lower = tag.lower()
+            for pref_val in preferences.values():
+                if tag_lower in pref_val.lower().split():
+                    score += 1
+                    break  # each tag scores at most once
+
         return score

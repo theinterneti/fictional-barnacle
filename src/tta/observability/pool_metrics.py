@@ -59,8 +59,13 @@ async def _sample_once(app: FastAPI) -> None:
         if pool is not None:
             raw = getattr(pool, "in_use_connection_count", None)
             if raw is not None:
-                val = raw() if callable(raw) else raw  # type: ignore[operator]
-                NEO4J_POOL_ACTIVE.set(int(val))  # type: ignore[arg-type]
+                try:
+                    val = raw() if callable(raw) else raw  # type: ignore[operator]
+                    NEO4J_POOL_ACTIVE.set(int(val))  # type: ignore[arg-type]
+                except Exception:
+                    NEO4J_POOL_ACTIVE.set(
+                        0
+                    )  # method signature differs in this driver version
 
 
 async def _sampler_loop(app: FastAPI, interval: float) -> None:

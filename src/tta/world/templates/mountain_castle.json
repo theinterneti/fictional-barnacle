@@ -1,0 +1,144 @@
+{
+  "metadata": {
+    "template_key": "mountain_castle",
+    "display_name": "The Mountain Citadel",
+    "tags": ["fantasy", "castle", "medieval", "fortress", "epic", "political"],
+    "compatible_tones": ["dark", "austere", "hopeful"],
+    "compatible_tech_levels": ["medieval", "industrial"],
+    "compatible_magic": ["none", "rare", "common"],
+    "compatible_scales": ["regional", "national", "global"],
+    "location_count": 5,
+    "npc_count": 3
+  },
+  "regions": [
+    {"key": "reg_outer", "archetype": "outer bailey and castle approach"},
+    {"key": "reg_inner", "archetype": "inner keep with great hall and towers"}
+  ],
+  "locations": [
+    {
+      "key": "loc_gatehouse",
+      "region_key": "reg_outer",
+      "type": "exterior",
+      "archetype": "stone gatehouse spanning a dry moat, portcullis raised but guards watching",
+      "is_starting_location": true,
+      "light_level": "bright",
+      "tags": ["transitional", "danger"]
+    },
+    {
+      "key": "loc_courtyard",
+      "region_key": "reg_outer",
+      "type": "exterior",
+      "archetype": "cobbled courtyard where soldiers drill and merchants hawk wares",
+      "light_level": "bright",
+      "tags": ["social", "loud"]
+    },
+    {
+      "key": "loc_great_hall",
+      "region_key": "reg_inner",
+      "type": "interior",
+      "archetype": "great hall with a long feasting table beneath banners of old victories",
+      "light_level": "bright",
+      "tags": ["social", "knowledge"]
+    },
+    {
+      "key": "loc_armory",
+      "region_key": "reg_inner",
+      "type": "interior",
+      "archetype": "well-stocked armory smelling of oil and iron",
+      "light_level": "dim",
+      "tags": ["danger", "hidden"]
+    },
+    {
+      "key": "loc_tower",
+      "region_key": "reg_inner",
+      "type": "interior",
+      "archetype": "high tower overlooking the mountain pass, maps spread across a war table",
+      "light_level": "bright",
+      "tags": ["knowledge", "eerie"]
+    }
+  ],
+  "connections": [
+    {
+      "from_key": "loc_gatehouse",
+      "to_key": "loc_courtyard",
+      "direction": "north",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_courtyard",
+      "to_key": "loc_great_hall",
+      "direction": "north",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_great_hall",
+      "to_key": "loc_armory",
+      "direction": "east",
+      "bidirectional": true
+    },
+    {
+      "from_key": "loc_great_hall",
+      "to_key": "loc_tower",
+      "direction": "up",
+      "bidirectional": true,
+      "is_locked": true
+    }
+  ],
+  "npcs": [
+    {
+      "key": "npc_guard_captain",
+      "location_key": "loc_gatehouse",
+      "role": "quest_giver",
+      "archetype": "scarred guard captain who has defended the castle for twenty years",
+      "disposition": "neutral"
+    },
+    {
+      "key": "npc_steward",
+      "location_key": "loc_great_hall",
+      "role": "merchant",
+      "archetype": "hawk-faced steward who manages the castle's affairs with cold efficiency",
+      "disposition": "neutral"
+    },
+    {
+      "key": "npc_court_mage",
+      "location_key": "loc_tower",
+      "role": "ambient",
+      "archetype": "elderly court mage studying the movements of enemy forces in the pass below",
+      "disposition": "friendly"
+    }
+  ],
+  "items": [
+    {
+      "key": "item_signet_ring",
+      "location_key": null,
+      "npc_key": "npc_steward",
+      "type": "quest",
+      "archetype": "heavy signet ring bearing the lord's seal, grant of passage",
+      "portable": true,
+      "hidden": false
+    },
+    {
+      "key": "item_battle_map",
+      "location_key": "loc_tower",
+      "npc_key": null,
+      "type": "environmental",
+      "archetype": "detailed battle map with troop positions marked in grease pencil",
+      "portable": false,
+      "hidden": false
+    }
+  ],
+  "knowledge": [
+    {
+      "npc_key": "npc_guard_captain",
+      "about_key": "npc_court_mage",
+      "knowledge_type": "character",
+      "is_secret": true
+    },
+    {
+      "npc_key": "npc_court_mage",
+      "about_key": "loc_armory",
+      "knowledge_type": "location",
+      "is_secret": false
+    }
+  ]
+}
