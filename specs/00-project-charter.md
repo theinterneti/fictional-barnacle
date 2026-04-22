@@ -293,3 +293,25 @@ The highest-leverage v2 investments based on v1 retrospective:
 - The simulation harness was the most valuable integration test we built. Invest in
   expanding it to cover multi-session, multi-player, and long-arc narrative scenarios.
 - The OSS-first principle kept custom code minimal (~2,200 lines). Maintain this discipline.
+
+---
+
+## v2+ Roadmap Pointer (Non-normative)
+
+> This section is **not part of the v1 Closeout** above. The v1 Closeout is frozen.
+> This pointer was added after v1 completion.
+
+The post-v1 release plan — covering v2 (Believable Simulation), v3 (Cloud Deployment),
+v4+ (Multiverse), and v5+ (Long Vision) — is documented in an internal planning
+artifact that is not part of this repository.
+
+That document is a **planning artifact**, not a normative spec. It covers:
+
+- Product thesis and release lineup (S29–S63)
+- Per-spec one-paragraph summaries and dependency graph
+- Forward-compat ACs added to v1 specs (S04, S08, S10, S15)
+- Drafting order and open questions per spec
+- Explicit scope fences (no LangGraph, no microservices, no 10-agent decomposition)
+
+Spec IDs S29–S63 are reserved in `specs/README.md`. Individual specs will be drafted
+via the SDD brainstorm workflow; none are yet normative.
