@@ -146,25 +146,25 @@ for the full roadmap rationale, dependency graph, and open questions per spec.
 
 | # | Name | Description |
 |---|------|-------------|
-| S50 | Concurrent Universe Loading | Two or more universes resident in memory simultaneously; resource-budget rules, eviction policy, isolation guarantees |
-| S51 | Cross-Universe Travel Protocol | Actor movement from Universe A to Universe B; trigger conditions, state-transfer rules, arrival onboarding |
-| S52 | Nexus as Special Universe | Nexus modeled as a universe whose composition permits inhabitants from any other universe; no engine-level hub special case |
-| S53 | Nexus Access Rules | Narrative triggers and gating for reaching the Nexus; the *story* of why players find it, separate from its mechanics (S52) |
-| S54 | Inter-Universe Event Substrate | Communication bus between loaded universes; pure primitive, no semantics; delivery guarantees and ordering rules |
-| S55 | Bleedthrough Propagation Rules | Semantics of subtle inter-universe influence on S54; weather anomalies, rumors, echoes; probabilistic distortion rules |
-| S56 | Resonance Correlation Engine | Thematic echoes: a choice in Universe A biases narrative weight in Universe B along shared S39 themes; correlation rules, strength decay |
-| S57 | Multi-Actor Universe Model | Multiple actors coexist in one universe; promotes v1 S21; shared world-state semantics, per-actor narrative perspective |
-| S58 | Turn Conflict Resolution | Simultaneous/contradictory actor actions; ordering rules, priority, narrative reconciliation |
-| S59 | Multiplayer Transport | WebSocket implementation of S32 `NarrativeTransport` interface; session-level sync, presence, reconnection |
+| [S50](50-concurrent-universe-loading.md) | Concurrent Universe Loading | Two or more universes resident in memory simultaneously; resource-budget rules, eviction policy, isolation guarantees |
+| [S51](51-cross-universe-travel-protocol.md) | Cross-Universe Travel Protocol | Actor movement from Universe A to Universe B; trigger conditions, state-transfer rules, arrival onboarding |
+| [S52](52-nexus-as-special-universe.md) | Nexus as Special Universe | Nexus modeled as a universe whose composition permits inhabitants from any other universe; no engine-level hub special case |
+| [S53](53-nexus-access-rules.md) | Nexus Access Rules | Narrative triggers and gating for reaching the Nexus; the *story* of why players find it, separate from its mechanics (S52) |
+| [S54](54-inter-universe-event-substrate.md) | Inter-Universe Event Substrate | Communication bus between loaded universes; pure primitive, no semantics; delivery guarantees and ordering rules |
+| [S55](55-bleedthrough-propagation-rules.md) | Bleedthrough Propagation Rules | Semantics of subtle inter-universe influence on S54; weather anomalies, rumors, echoes; probabilistic distortion rules |
+| [S56](56-resonance-correlation-engine.md) | Resonance Correlation Engine | Thematic echoes: a choice in Universe A biases narrative weight in Universe B along shared S39 themes; correlation rules, strength decay |
+| [S57](57-multi-actor-universe-model.md) | Multi-Actor Universe Model | Multiple actors coexist in one universe; promotes v1 S21; shared world-state semantics, per-actor narrative perspective |
+| [S58](58-turn-conflict-resolution.md) | Turn Conflict Resolution | Simultaneous/contradictory actor actions; ordering rules, priority, narrative reconciliation |
+| [S59](59-multiplayer-transport.md) | Multiplayer Transport | WebSocket implementation; session-level sync, presence, reconnection |
 
 ### v5+ — "Long Vision" (S60–S63, promotes v1 stubs)
 
 | # | Promotes | Description |
 |---|----------|-------------|
-| S60 | v1 S19 Crisis Safety | **Gate** for S61. Crisis detection, escalation, clinician-notify |
-| S61 | v1 S18 Therapeutic Framework | CBT + Mindfulness MVP; therapeutic annotation layer |
-| S62 | v1 S20 Story Sharing | PDF/ePub/web export; consent model; public story library |
-| S63 | v1 S22 Community | User-generated world templates; moderation; attribution |
+| [S60](60-crisis-safety-protocol.md) | v1 S19 Crisis Safety | **Gate** for S61. Two-tier crisis detection (pattern match + LLM classifier); out-of-fiction safety response; clinical review required |
+| [S61](61-therapeutic-framework.md) | v1 S18 Therapeutic Framework | CBT + Mindfulness MVP; therapeutic annotation layer; opt-in; frequency-capped technique injection |
+| [S62](62-story-sharing.md) | v1 S20 Story Sharing | PDF/ePub/web export from MemoryRecords; GDPR-safe; unlisted-by-default web stories |
+| [S63](63-community-and-user-generated-worlds.md) | v1 S22 Community | User-generated world templates; automated + human moderation pipeline; attribution |
 
 > **Note**: v1 stubs S18–S22 remain frozen at `specs/future/` until the relevant
 > v5+ spec is drafted. S21 is **not** promoted via this table; it is superseded by
