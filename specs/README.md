@@ -138,10 +138,10 @@ for the full roadmap rationale, dependency graph, and open questions per spec.
 
 | # | Name | Description |
 |---|------|-------------|
-| S46 | Cloud Deployment v2 | Fly.io / Cloud Run; live-DB CI; TLS; secrets rotation |
-| S47 | Live Neo4j in CI | Ephemeral Neo4j per test run; replaces mocked integration tests; fixture setup/teardown |
-| S48 | Async Job Runner | Job queue + worker for GDPR deletion, retention sweeps, backfills; worker permitted alongside FastAPI process |
-| S49 | Horizontal Scaling | Session affinity policy; Redis cluster; load-balancer config |
+| [S46](46-cloud-deployment-target.md) | Cloud Deployment Target | Fly.io deployment; Fly Postgres + Neo4j/Redis machines; secrets via `fly secrets`; rolling zero-downtime deploys; staging auto-deploy on main merge |
+| [S47](47-live-neo4j-in-ci.md) | Live Neo4j in CI | Ephemeral Neo4j per test run; replaces mocked integration tests; Cypher fixture files; 60s startup budget |
+| [S48](48-async-job-runner.md) | Async Job Runner | ARQ (asyncio Redis queue); jobs: GDPR delete, retention sweep, session cleanup, backfill; dead-letter queue; admin enqueue API |
+| [S49](49-horizontal-scaling.md) | Horizontal Scaling & Multi-Instance Sessions | Stateless Redis sessions (no affinity); SSE affinity via Fly header; Redis PubSub broadcasts; ARQ job deduplication |
 
 ### v4+ — "Multiverse Unlock" (S50–S59)
 
