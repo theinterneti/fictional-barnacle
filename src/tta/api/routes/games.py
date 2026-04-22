@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-import re
 import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -33,14 +32,6 @@ from tta.api.sse import SseEventBuffer
 from tta.config import Settings, get_settings
 from tta.errors import ErrorCategory
 from tta.logging import bind_context
-from tta.models.events import (
-    ErrorEvent,
-    HeartbeatEvent,
-    ModerationEvent,
-    NarrativeEndEvent,
-    NarrativeEvent,
-    StateUpdateEvent,
-)
 from tta.models.game import GameState, GameStatus
 from tta.models.player import Player
 from tta.models.turn import TurnState, TurnStatus
@@ -62,6 +53,7 @@ from tta.observability.metrics import (
 from tta.persistence.redis_session import set_active_session
 from tta.pipeline.orchestrator import run_pipeline
 from tta.privacy.cost import get_cost_tracker, reset_cost_tracker
+from tta.transport import SSETransport
 
 log = structlog.get_logger()
 
@@ -128,23 +120,6 @@ def _build_typed_payload(change_type: WorldChangeType, item: dict) -> dict:
         base.setdefault("dimension", str(item.get("attribute") or "trust"))
         base.setdefault("direction", str(nv) if nv is not None else "positive")
     return base
-
-
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
-
-
-def _split_narrative(text: str) -> list[str]:
-    """Split narrative text into sentence-aligned chunks (S10 §6.4 FR-10.34).
-
-    Splits on sentence boundaries (`. `, `! `, `? `), keeping the terminal
-    punctuation with its sentence. Empty or whitespace-only input returns ``[]``;
-    narrative emission is also skipped upstream (see ``event_stream``).
-    """
-    stripped = text.strip()
-    if not stripped:
-        return []
-    parts = _SENTENCE_SPLIT_RE.split(stripped)
-    return [p.strip() for p in parts if p.strip()] or [stripped]
 
 
 def _translate_world_updates(raw: list[dict]) -> list[WorldChange]:
@@ -1709,6 +1684,8 @@ async def stream_turn(
 
         # --- helper: get next global ID, format, buffer, and return raw ---
         # Defined early so it's available to NO_TURN_FOUND and all error paths.
+        _pending: list[str] = []
+
         async def _emit(event_obj: object) -> str:  # type: ignore[override]
             eid = await SseEventBuffer.get_next_id(redis, game_id_str)
             raw = event_obj.format_sse(eid)  # type: ignore[attr-defined]
@@ -1716,18 +1693,22 @@ async def stream_turn(
             SSE_BUFFER_SIZE.labels(game_id=game_id_str).set(
                 await redis.zcard(f"tta:sse_buffer:{game_id_str}")
             )
+            _pending.append(raw)
             return raw
 
+        transport = SSETransport(redis=redis, game_id=game_id_str, emit=_emit)
+
         if proc_row is None:
-            yield await _emit(
-                ErrorEvent(
-                    code="NO_TURN_FOUND",
-                    message="No turn found for this game.",
-                    turn_id=None,
-                    correlation_id=correlation_id,
-                    retry_after_seconds=2,
-                )
+            await transport.send_error(
+                code="NO_TURN_FOUND",
+                message="No turn found for this game.",
+                turn_id=None,
+                correlation_id=correlation_id,
+                retry_after_seconds=2,
             )
+            for r in _pending:
+                yield r
+            _pending.clear()
             return
 
         current_turn_id = str(proc_row.id)
@@ -1741,17 +1722,19 @@ async def stream_turn(
             if replayed is None:
                 # Buffer miss (EC-10.13) — signal client to fetch state via REST
                 SSE_REPLAY_MISSES.inc()
-                yield await _emit(
-                    ErrorEvent(
-                        code="replay_unavailable",
-                        message=(
-                            "The event buffer for this session has expired. "
-                            "Fetch current game state via GET /games/{id}."
-                        ),
-                        correlation_id=correlation_id,
-                        retry_after_seconds=0,
-                    )
+                await transport.send_error(
+                    code="replay_unavailable",
+                    message=(
+                        "The event buffer for this session has expired. "
+                        "Fetch current game state via GET /games/{id}."
+                    ),
+                    turn_id=None,
+                    correlation_id=correlation_id,
+                    retry_after_seconds=0,
                 )
+                for r in _pending:
+                    yield r
+                _pending.clear()
                 # FR-10.44: continue to keepalive loop so the client receives
                 # live events for the in-progress turn (no early return).
             else:
@@ -1787,33 +1770,37 @@ async def stream_turn(
                 break
             if time.monotonic() < deadline:
                 # S10 §6.5 heartbeat: bounded by remaining pipeline timeout.
-                _raw = await _emit(HeartbeatEvent())
-                yield _raw
+                await transport.send_heartbeat()
+                for r in _pending:
+                    yield r
+                _pending.clear()
 
         if result is None:
-            yield await _emit(
-                ErrorEvent(
-                    code="PIPELINE_TIMEOUT",
-                    message="Turn processing timed out.",
-                    turn_id=current_turn_id,
-                    correlation_id=correlation_id,
-                    retry_after_seconds=5,
-                )
+            await transport.send_error(
+                code="PIPELINE_TIMEOUT",
+                message="Turn processing timed out.",
+                turn_id=current_turn_id,
+                correlation_id=correlation_id,
+                retry_after_seconds=5,
             )
+            for r in _pending:
+                yield r
+            _pending.clear()
             return
 
         if result.status == TurnStatus.failed:
             # FR-10.36: emit the pipeline failure event, then end this response
             # stream by returning from the async generator.
-            yield await _emit(
-                ErrorEvent(
-                    code="PIPELINE_FAILED",
-                    message="Turn processing failed.",
-                    turn_id=current_turn_id,
-                    correlation_id=correlation_id,
-                    retry_after_seconds=2,
-                )
+            await transport.send_error(
+                code="PIPELINE_FAILED",
+                message="Turn processing failed.",
+                turn_id=current_turn_id,
+                correlation_id=correlation_id,
+                retry_after_seconds=2,
             )
+            for r in _pending:
+                yield r
+            _pending.clear()
             return
 
         # FR-24.06/FR-24.08: emit moderation event before narrative
@@ -1824,46 +1811,41 @@ async def stream_turn(
                 turn_id=current_turn_id,
                 safety_flags=result.safety_flags,
             )
-            _raw = await _emit(
-                ModerationEvent(
-                    reason=(
-                        "The story has been gently redirected "
-                        "to maintain a supportive experience."
-                    ),
-                )
+            await transport.send_moderation(
+                reason=(
+                    "The story has been gently redirected "
+                    "to maintain a supportive experience."
+                ),
             )
-            yield _raw
+            for r in _pending:
+                yield r
+            _pending.clear()
 
         # S10 §6.2 / FR-10.34: emit narrative as sentence-aligned chunks
         if result.narrative_output:
-            chunks = _split_narrative(result.narrative_output)
-            for i, chunk in enumerate(chunks):
-                _raw = await _emit(
-                    NarrativeEvent(
-                        text=chunk,
-                        turn_id=current_turn_id,
-                        sequence=i,
-                    )
-                )
-                yield _raw
+            total_chunks = await transport.send_narrative(
+                result.narrative_output, current_turn_id
+            )
         else:
-            chunks = []
+            total_chunks = 0
+        for r in _pending:
+            yield r
+        _pending.clear()
 
         # S10 §6.4 / FR-10.35: narrative_end with total_chunks count
-        _raw = await _emit(
-            NarrativeEndEvent(
-                turn_id=current_turn_id,
-                total_chunks=len(chunks),
-            )
-        )
-        yield _raw
+        await transport.send_end(current_turn_id, total_chunks)
+        for r in _pending:
+            yield r
+        _pending.clear()
 
         # S10 §6.2: state_update for world changes follows narrative_end
         if result.world_state_updates:
             world_changes = _translate_world_updates(result.world_state_updates)
             if world_changes:
-                _raw = await _emit(StateUpdateEvent(changes=world_changes))
-                yield _raw
+                await transport.send_state_update(world_changes)
+                for r in _pending:
+                    yield r
+                _pending.clear()
 
     return StreamingResponse(
         event_stream(),

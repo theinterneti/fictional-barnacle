@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from tta.prompts.loader import FilePromptRegistry
     from tta.resilience.circuit_breaker import CircuitBreaker
     from tta.safety.hooks import SafetyHook
+    from tta.transport.protocol import NarrativeTransport
     from tta.universe.actor_service import ActorService
     from tta.universe.service import UniverseService
     from tta.world.relationship_service import RelationshipService
@@ -58,6 +59,7 @@ class PipelineDeps:
     db_session_factory: Any | None = None  # async_sessionmaker for direct DB access
     universe_service: UniverseService | None = None  # v2 S29
     actor_service: ActorService | None = None  # v2 S31
+    transport: NarrativeTransport | None = None  # v2 S32 FR-32.06a
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState
