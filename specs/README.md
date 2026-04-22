@@ -99,6 +99,80 @@ S00 (Charter)
  └── S18-S22 (Future) ← Stubs, boundary constraints only
 ```
 
+## Reserved Spec IDs — v2+ (Post-v1 Roadmap)
+
+IDs S29–S63 are allocated to post-v1 releases. Specs S29–S39 are now published
+as full specs in this repository. IDs S40–S63 remain reserved roadmap slots and
+will be drafted via individual brainstorm sessions following the SDD workflow.
+See [`docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md`](../docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md)
+for the full roadmap rationale, dependency graph, and open questions per spec.
+
+### v2.0 — "Believable Simulation" (S29–S40)
+
+| # | Name | Description |
+|---|------|-------------|
+| S29 | [Universe as First-Class Entity](29-universe-as-first-class-entity.md) | Universe identity, config, persistent state — not a session appendage |
+| [S30](30-session-universe-binding.md) | Session↔Universe Binding | Explicit 1:1 binding contract; schema permits n:1 for v4+ |
+| [S31](31-actor-identity-portability.md) | Actor Identity Portability | Actor IDs universe-agnostic; unblocks cross-universe travel |
+| [S32](32-transport-abstraction.md) | Transport Abstraction | `NarrativeTransport` interface; SSE as first impl, WebSocket-ready |
+| [S33](33-universe-persistence-schema.md) | Universe Persistence Schema | Versioned forward-compat state envelope; enables universe reload |
+| [S34](34-diegetic-time.md) | Diegetic Time | In-world clock; day/night cycles, scene transitions, skip-ahead |
+| [S35](35-npc-autonomy-between-turns.md) | NPC Autonomy Between Turns | Off-screen NPC goals, routines, salience filter (no LangGraph) |
+| [S36](36-consequence-propagation.md) | Consequence Propagation | Effect ripple via graph-walk, bounded depth, rumor distortion |
+| [S37](37-world-memory-model.md) | World Memory Model | Canon events, decay, compression, structured attributed memory |
+| [S38](38-npc-memory-and-social-model.md) | NPC Memory & Social Model | Per-NPC episodic memory; relationship-graph arcs; gossip propagation; v4+ multiplayer hook |
+| [S39](39-universe-composition-model.md) | Universe Composition Model | Themes, tropes, archetypes, genre-twists; composable, seedable, deterministic from (seed, config) |
+| S40 | Genesis v2 | 7-phase world-creation; consumes S39 composition vocabulary |
+
+### v2.1 — "Prove It's Fun" (S41–S45)
+
+| # | Name | Description |
+|---|------|-------------|
+| S41 | Scenario Seed Library | Curated/community scenario seeds; YAML/JSON format; discovery registry |
+| S42 | LLM Playtester Agent Harness | LLM-persona agents; semi-randomized taste profiles; end-to-end session runs; transcript + commentary |
+| S43 | Human Playtester Program | Recruitment, consent, NDA; structured feedback protocol |
+| S44 | Narrative Quality Evaluation | Scoring rubric; 0–1 normalisation; LLM + human signal weighting |
+| S45 | Evaluation Pipeline | Orchestration of parallel LLM-playtester runs; human-playtester intake; result aggregation; CI thresholds |
+
+### v3 — "Ship It" (S46–S49)
+
+| # | Name | Description |
+|---|------|-------------|
+| S46 | Cloud Deployment v2 | Fly.io / Cloud Run; live-DB CI; TLS; secrets rotation |
+| S47 | Live Neo4j in CI | Ephemeral Neo4j per test run; replaces mocked integration tests; fixture setup/teardown |
+| S48 | Async Job Runner | Job queue + worker for GDPR deletion, retention sweeps, backfills; worker permitted alongside FastAPI process |
+| S49 | Horizontal Scaling | Session affinity policy; Redis cluster; load-balancer config |
+
+### v4+ — "Multiverse Unlock" (S50–S59)
+
+| # | Name | Description |
+|---|------|-------------|
+| S50 | Concurrent Universe Loading | Two or more universes resident in memory simultaneously; resource-budget rules, eviction policy, isolation guarantees |
+| S51 | Cross-Universe Travel Protocol | Actor movement from Universe A to Universe B; trigger conditions, state-transfer rules, arrival onboarding |
+| S52 | Nexus as Special Universe | Nexus modeled as a universe whose composition permits inhabitants from any other universe; no engine-level hub special case |
+| S53 | Nexus Access Rules | Narrative triggers and gating for reaching the Nexus; the *story* of why players find it, separate from its mechanics (S52) |
+| S54 | Inter-Universe Event Substrate | Communication bus between loaded universes; pure primitive, no semantics; delivery guarantees and ordering rules |
+| S55 | Bleedthrough Propagation Rules | Semantics of subtle inter-universe influence on S54; weather anomalies, rumors, echoes; probabilistic distortion rules |
+| S56 | Resonance Correlation Engine | Thematic echoes: a choice in Universe A biases narrative weight in Universe B along shared S39 themes; correlation rules, strength decay |
+| S57 | Multi-Actor Universe Model | Multiple actors coexist in one universe; promotes v1 S21; shared world-state semantics, per-actor narrative perspective |
+| S58 | Turn Conflict Resolution | Simultaneous/contradictory actor actions; ordering rules, priority, narrative reconciliation |
+| S59 | Multiplayer Transport | WebSocket implementation of S32 `NarrativeTransport` interface; session-level sync, presence, reconnection |
+
+### v5+ — "Long Vision" (S60–S63, promotes v1 stubs)
+
+| # | Promotes | Description |
+|---|----------|-------------|
+| S60 | v1 S19 Crisis Safety | **Gate** for S61. Crisis detection, escalation, clinician-notify |
+| S61 | v1 S18 Therapeutic Framework | CBT + Mindfulness MVP; therapeutic annotation layer |
+| S62 | v1 S20 Story Sharing | PDF/ePub/web export; consent model; public story library |
+| S63 | v1 S22 Community | User-generated world templates; moderation; attribution |
+
+> **Note**: v1 stubs S18–S22 remain frozen at `specs/future/` until the relevant
+> v5+ spec is drafted. S21 is **not** promoted via this table; it is superseded by
+> S57–S59 (v4+) which provide a more complete multiplayer foundation.
+
+---
+
 ## Conventions
 
 - Specs are **behavior-focused**, not implementation-prescriptive
