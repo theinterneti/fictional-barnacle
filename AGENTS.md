@@ -52,6 +52,24 @@ static/         Web playtest client
 - OSS-first — justify any new custom code
 - Single FastAPI process, no microservices
 
+## AC Traceability Standard
+
+Every test function that validates a spec AC **must** carry a `@pytest.mark.spec` marker:
+
+```python
+@pytest.mark.spec("AC-29.01", "AC-29.02")
+def test_universe_creation_sets_dormant_status(...):
+    ...
+```
+
+Rules:
+- Format: `AC-NN.MM` (zero-padded, e.g. `AC-07.04` not `AC-7.4`)
+- Multiple ACs per test are allowed and encouraged
+- Inline `# AC-NN.MM` comments alone are **not sufficient** — the marker is required
+- `make trace` reports coverage; `make trace-html` generates the dashboard
+- The `spec` marker is registered in `pyproject.toml`; no `PytestUnknownMarkWarning` will fire
+- See `spec/tool-ac-traceability.md` for the full traceability standard
+
 ## Quality Gate
 
 ```bash
