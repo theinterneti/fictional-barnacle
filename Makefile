@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 # Self-documenting help — parses '## ' comments after targets
 # ---------------------------------------------------------------------------
-.PHONY: help validate-specs validate-plans validate-all regen-indexes \
+.PHONY: help validate-specs validate-plans validate-all regen-indexes dashboard \
         lint format typecheck test test-unit test-integration test-watch \
         test-bdd test-hypothesis \
         test-up test-down quality check check-format \
@@ -29,6 +29,9 @@ validate-all: validate-specs validate-plans ## Run both validators
 regen-indexes: ## Regenerate spec and plan index files
 	uv run python specs/index_specs.py
 	uv run python plans/index_plans.py
+
+dashboard: ## Generate specs/index.html completeness visualization
+	uv run python specs/index_specs.py --html --out index && mv index.html specs/index.html
 
 # ---------------------------------------------------------------------------
 # Code quality
