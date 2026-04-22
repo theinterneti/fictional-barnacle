@@ -183,6 +183,11 @@ def parse_spec(path: Path) -> SpecMeta | None:
             meta.has_gherkin_scenarios = True
             if re.match(r"\s*Scenario", line, re.IGNORECASE):
                 meta.gherkin_scenario_count += 1
+                # v2+ specs embed Gherkin inside an Acceptance Criteria section;
+                # count each Scenario as an AC item (Scenario: AC-NN.NN format).
+                if in_ac_section and re.match(r"\s*Scenario:\s*AC-\d+", line, re.IGNORECASE):
+                    meta.has_acceptance_criteria = True
+                    meta.acceptance_criteria_count += 1
 
     # Flush any pending AC group at end of file
     if pending_ac_group:

@@ -1,7 +1,7 @@
 {
   "plan_count": 7,
-  "total_lines": 10822,
-  "total_words": 46821,
+  "total_lines": 10981,
+  "total_words": 47704,
   "plans": [
     {
       "file": "system.md",
@@ -24,7 +24,8 @@
         "7. Development Workflow",
         "8. Docker Compose (v1)",
         "9. Implementation Wave Strategy",
-        "10. Open Items for Component Plans"
+        "10. Open Items for Component Plans",
+        "Changelog"
       ],
       "subsections": [
         "1.1 \u2014 Core Technologies",
@@ -62,8 +63,8 @@
         "7.3 \u2014 Branching Strategy",
         "7.4 \u2014 Configuration"
       ],
-      "word_count": 5474,
-      "line_count": 963,
+      "word_count": 5773,
+      "line_count": 1038,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -86,7 +87,8 @@
         "S11",
         "S17",
         "S18",
-        "S19"
+        "S19",
+        "S23"
       ],
       "plan_refs": [
         "api-and-sessions.md",
@@ -120,6 +122,7 @@
         "S27 (Save/Load & Game Management)"
       ],
       "sections": [
+        "0. Resolved Conflicts and Normative Decisions",
         "1. FastAPI Application Structure",
         "2. Route Specifications",
         "3. SSE Implementation",
@@ -141,9 +144,14 @@
         "B.8 Soft Delete and Purge",
         "B.9 API Routes Summary (S27)",
         "B.10 Settings (S27)",
-        "B.11 File Inventory (S27)"
+        "B.11 File Inventory (S27)",
+        "Changelog"
       ],
       "subsections": [
+        "0.1 \u2014 JWT Auth Replaces Opaque Tokens (S11 vs Plan \u00a72.1)",
+        "0.2 \u2014 Token Lifetimes Follow Spec (FR-11.29)",
+        "0.3 \u2014 UUID vs ULID for Identifiers",
+        "0.4 \u2014 S10/S23/S27 Contract Reconciliation (Issue #128)",
         "1.1 \u2014 Application Factory",
         "1.2 \u2014 Router Organization",
         "1.3 \u2014 Dependency Injection",
@@ -160,7 +168,7 @@
         "2.9 \u2014 Save Game (`POST /api/v1/games/{game_id}/save`)",
         "2.10 \u2014 Resume Game (`POST /api/v1/games/{game_id}/resume`)",
         "2.11 \u2014 Update Game Status (`PATCH /api/v1/games/{game_id}`)",
-        "2.12 \u2014 End Game (`DELETE /api/v1/games/{game_id}`)",
+        "2.12 \u2014 Delete Game (`DELETE /api/v1/games/{game_id}`)",
         "2.13 \u2014 Health Endpoints",
         "2.14 \u2014 Endpoint Summary Table",
         "3.1 \u2014 Architecture: Buffer-Then-Stream",
@@ -176,7 +184,7 @@
         "4.4 \u2014 Session Expiry and Cleanup",
         "4.5 \u2014 Token Renewal",
         "4.6 \u2014 What Is NOT in v1",
-        "5.1 \u2014 SQLModel Table Definitions",
+        "5.1 \u2014 Domain Model Definitions",
         "5.2 \u2014 Repository Pattern: Async Functions",
         "5.3 \u2014 Connection Pool Configuration",
         "5.4 \u2014 Transaction Handling",
@@ -204,20 +212,22 @@
         "Delete endpoint",
         "Purge background task"
       ],
-      "word_count": 8903,
-      "line_count": 2333,
+      "word_count": 9303,
+      "line_count": 2384,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
       "has_testing": true,
       "has_code_blocks": true,
-      "code_block_count": 65,
+      "code_block_count": 64,
       "has_normative_markers": true,
       "normative_sections": [
         "(top-level)",
+        "0. Resolved Conflicts and Normative Decisions",
         "3.5 \u2014 Event Types (normative, from system.md \u00a74.2)",
-        "5.1 \u2014 SQLModel Table Definitions"
+        "5.1 \u2014 Domain Model Definitions",
+        "Purge background task"
       ],
       "spec_refs": [
         "S01",
@@ -228,6 +238,7 @@
         "S12",
         "S13",
         "S23",
+        "S24",
         "S27"
       ],
       "plan_refs": [
@@ -235,6 +246,7 @@
       ],
       "section_refs": [
         "\u00a71.3",
+        "\u00a72.1",
         "\u00a72.4",
         "\u00a72.5",
         "\u00a72.6",
@@ -275,7 +287,8 @@
         "7. Pipeline Orchestrator",
         "8. Testing Strategy",
         "Appendix A \u2014 Dependency Summary",
-        "Appendix B \u2014 Configuration Reference"
+        "Appendix B \u2014 Configuration Reference",
+        "Changelog"
       ],
       "subsections": [
         "0.1 \u2014 Streaming Architecture: Buffer-Then-Stream",
@@ -325,8 +338,8 @@
         "8.5 \u2014 High-Risk Scenario Tests",
         "8.6 \u2014 Performance Tests"
       ],
-      "word_count": 6046,
-      "line_count": 1241,
+      "word_count": 6094,
+      "line_count": 1248,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -338,7 +351,8 @@
       "normative_sections": [
         "0. Resolved Conflicts and Normative Decisions",
         "1.2 \u2014 LLMClient Implementation",
-        "2.3 \u2014 TurnState Extensions"
+        "2.3 \u2014 TurnState Extensions",
+        "8.6 \u2014 Performance Tests"
       ],
       "spec_refs": [
         "S07",
@@ -413,7 +427,8 @@
         "C.7 Horizontal Scaling Readiness",
         "C.8 SSE Connection Lifetime",
         "C.9 Benchmarking",
-        "C.10 File Inventory (S28)"
+        "C.10 File Inventory (S28)",
+        "Changelog"
       ],
       "subsections": [
         "1.1 \u2014 Dockerfile (Multi-Stage Build)",
@@ -477,8 +492,8 @@
         "Redis Pool",
         "Neo4j Pool"
       ],
-      "word_count": 9518,
-      "line_count": 2739,
+      "word_count": 9545,
+      "line_count": 2750,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -486,8 +501,10 @@
       "has_testing": true,
       "has_code_blocks": true,
       "code_block_count": 75,
-      "has_normative_markers": false,
-      "normative_sections": [],
+      "has_normative_markers": true,
+      "normative_sections": [
+        "Neo4j Pool"
+      ],
       "spec_refs": [
         "S07",
         "S10",
@@ -548,7 +565,8 @@
         "10. Dependencies",
         "11. Implementation Wave Mapping",
         "12. Key Interfaces Summary",
-        "Appendix A \u2014 S09 Functional Requirement Coverage"
+        "Appendix A \u2014 S09 Functional Requirement Coverage",
+        "Changelog"
       ],
       "subsections": [
         "v1 boundaries",
@@ -595,8 +613,8 @@
         "10.1 \u2014 New Python dependencies",
         "10.2 \u2014 No new infrastructure"
       ],
-      "word_count": 6925,
-      "line_count": 1384,
+      "word_count": 6952,
+      "line_count": 1383,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -604,8 +622,10 @@
       "has_testing": true,
       "has_code_blocks": true,
       "code_block_count": 36,
-      "has_normative_markers": false,
-      "normative_sections": [],
+      "has_normative_markers": true,
+      "normative_sections": [
+        "10.2 \u2014 No new infrastructure"
+      ],
       "spec_refs": [
         "S03",
         "S07",
@@ -666,7 +686,8 @@
         "4. Configuration Summary",
         "5. Database Migrations",
         "6. File Inventory",
-        "7. Implementation Waves"
+        "7. Implementation Waves",
+        "Changelog"
       ],
       "subsections": [
         "1.1 \u2014 Error Taxonomy",
@@ -689,8 +710,8 @@
         "3.6 \u2014 In-Memory Fallback",
         "5.1 \u2014 Moderation Audit Table"
       ],
-      "word_count": 2319,
-      "line_count": 663,
+      "word_count": 2355,
+      "line_count": 671,
       "has_tech_stack": false,
       "has_architecture": true,
       "has_data_models": true,
@@ -700,9 +721,11 @@
       "code_block_count": 20,
       "has_normative_markers": true,
       "normative_sections": [
-        "(top-level)"
+        "(top-level)",
+        "5.1 \u2014 Moderation Audit Table"
       ],
       "spec_refs": [
+        "S10",
         "S23",
         "S24",
         "S25"
@@ -741,7 +764,8 @@
         "8. Testing Strategy",
         "Appendix A: Mapping to system.md",
         "Appendix B: Naming Reconciliation",
-        "Appendix C: Future Component Candidate \u2014 Hindsight Memory System"
+        "Appendix C: Future Component Candidate \u2014 Hindsight Memory System",
+        "Changelog"
       ],
       "subsections": [
         "1.1 \u2014 Design Principles",
@@ -783,8 +807,8 @@
         "8.5 \u2014 World Mutation Tests",
         "8.6 \u2014 BDD Tests (Gherkin)"
       ],
-      "word_count": 7636,
-      "line_count": 1499,
+      "word_count": 7682,
+      "line_count": 1507,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -792,8 +816,10 @@
       "has_testing": true,
       "has_code_blocks": true,
       "code_block_count": 41,
-      "has_normative_markers": false,
-      "normative_sections": [],
+      "has_normative_markers": true,
+      "normative_sections": [
+        "8.6 \u2014 BDD Tests (Gherkin)"
+      ],
       "spec_refs": [
         "S02",
         "S04",
