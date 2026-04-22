@@ -13,13 +13,12 @@ AC-26.5 CRITICAL: POST /admin/games/{id}/terminate must set state = "completed"
 from __future__ import annotations
 
 import uuid
-
-import pytest
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app

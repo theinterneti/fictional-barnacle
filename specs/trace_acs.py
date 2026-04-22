@@ -158,8 +158,7 @@ def scan_markers(tests_dir: Path) -> dict[str, list[str]]:
                     direct_ids.extend(ids)
 
             # Collect inherited IDs from parent class(es)
-            inherited_ids: list[str] = []
-            for cls_name, ids in class_ac_ids.items():
+            for _cls_name, _ids in class_ac_ids.items():
                 # Check if this function is a direct method of the class by looking
                 # at the parent node — ast.walk doesn't give parent context, so we
                 # check whether the function name appears as a method of any marked
