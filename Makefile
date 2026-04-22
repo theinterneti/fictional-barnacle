@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 # Self-documenting help — parses '## ' comments after targets
 # ---------------------------------------------------------------------------
-.PHONY: help validate-specs validate-plans validate-all regen-indexes dashboard \
+.PHONY: help validate-specs validate-plans validate-all regen-indexes dashboard trace trace-html \
         lint format typecheck test test-unit test-integration test-watch \
         test-bdd test-hypothesis \
         test-up test-down quality check check-format \
@@ -24,11 +24,17 @@ validate-specs: ## Run spec indexer with validation
 validate-plans: ## Run plan indexer with validation
 	uv run python plans/index_plans.py --validate
 
-validate-all: validate-specs validate-plans ## Run both validators
+validate-all: validate-specs validate-plans trace ## Run all validators including AC traceability
 
 regen-indexes: ## Regenerate spec and plan index files
 	uv run python specs/index_specs.py
 	uv run python plans/index_plans.py
+
+trace: ## Validate AC traceability (exit 1 on orphan citations)
+	uv run python specs/trace_acs.py --validate
+
+trace-html: ## Generate specs/trace.html AC traceability dashboard
+	uv run python specs/trace_acs.py --html
 
 dashboard: ## Generate specs/index.html completeness visualization
 	uv run python specs/index_specs.py --html --out index && mv index.html specs/index.html

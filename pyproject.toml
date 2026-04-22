@@ -91,6 +91,7 @@ markers = [
     "llm_live: Tests that call real LLM APIs",
     "hypothesis: Property-based tests",
     "bdd: BDD acceptance tests",
+    "spec: Links test to one or more spec AC IDs (format: AC-NN.NN)",
 ]
 
 # ---------------------------------------------------------------------------
