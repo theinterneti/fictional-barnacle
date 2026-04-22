@@ -49,3 +49,4 @@ class GameState(BaseModel):
     turn_number: int = 0
     current_location_id: str = "start"
     narrative_history: list[dict] = Field(default_factory=list)
+    world_time: dict | None = None  # v2 S34 — serialised WorldTime dataclass

@@ -299,6 +299,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.universe_service = UniverseService()
     app.state.actor_service = ActorService()
 
+    # v2 Diegetic time service (S34)
+    from tta.simulation.world_time import WorldTimeService
+
+    app.state.world_time_service = WorldTimeService()
+
     app.state.pipeline_deps = PipelineDeps(
         llm=app.state.llm_client,
         world=app.state.world_service,
@@ -316,6 +321,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         db_session_factory=session_factory,
         universe_service=app.state.universe_service,
         actor_service=app.state.actor_service,
+        world_time_service=app.state.world_time_service,
     )
 
     # Redact credentials from DSN before logging
