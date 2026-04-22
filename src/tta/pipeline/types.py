@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from tta.prompts.loader import FilePromptRegistry
     from tta.resilience.circuit_breaker import CircuitBreaker
     from tta.safety.hooks import SafetyHook
+    from tta.universe.actor_service import ActorService
+    from tta.universe.service import UniverseService
     from tta.world.relationship_service import RelationshipService
     from tta.world.service import WorldService
 
@@ -54,6 +56,8 @@ class PipelineDeps:
     llm_semaphore: LLMSemaphore | None = None
     llm_circuit_breaker: CircuitBreaker | None = None
     db_session_factory: Any | None = None  # async_sessionmaker for direct DB access
+    universe_service: UniverseService | None = None  # v2 S29
+    actor_service: ActorService | None = None  # v2 S31
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState

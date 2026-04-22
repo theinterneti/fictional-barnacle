@@ -292,6 +292,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     relationship_svc = InMemoryRelationshipService()
     llm_circuit_breaker = CircuitBreaker(LLM_BREAKER)
 
+    # v2 Universe + Actor services (S29, S31)
+    from tta.universe.actor_service import ActorService
+    from tta.universe.service import UniverseService
+
+    app.state.universe_service = UniverseService()
+    app.state.actor_service = ActorService()
+
     app.state.pipeline_deps = PipelineDeps(
         llm=app.state.llm_client,
         world=app.state.world_service,
@@ -307,6 +314,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         llm_semaphore=app.state.llm_semaphore,
         llm_circuit_breaker=llm_circuit_breaker,
         db_session_factory=session_factory,
+        universe_service=app.state.universe_service,
+        actor_service=app.state.actor_service,
     )
 
     # Redact credentials from DSN before logging
