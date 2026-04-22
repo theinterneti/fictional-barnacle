@@ -117,8 +117,8 @@ for the full roadmap rationale, dependency graph, and open questions per spec.
 | [S33](33-universe-persistence-schema.md) | Universe Persistence Schema | Versioned forward-compat state envelope; enables universe reload |
 | [S34](34-diegetic-time.md) | Diegetic Time | In-world clock; day/night cycles, scene transitions, skip-ahead |
 | [S35](35-npc-autonomy-between-turns.md) | NPC Autonomy Between Turns | Off-screen NPC goals, routines, salience filter (no LangGraph) |
-| S36 | Consequence Propagation | Effect ripple via graph-walk, bounded depth, rumor distortion |
-| S37 | World Memory Model | Canon events, decay, compression, structured attributed memory |
+| [S36](36-consequence-propagation.md) | Consequence Propagation | Effect ripple via graph-walk, bounded depth, rumor distortion |
+| [S37](37-world-memory-model.md) | World Memory Model | Canon events, decay, compression, structured attributed memory |
 | S38 | NPC Memory Model | Per-NPC episodic memory; relationship-graph arcs; v4+ multiplayer hook |
 | S39 | Universe Composition Model | Themes, tropes, archetypes, genre-twists; composable, seedable, deterministic from (seed, config) |
 | S40 | Genesis v2 | 7-phase world-creation; consumes S39 composition vocabulary |
