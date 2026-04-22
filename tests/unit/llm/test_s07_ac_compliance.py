@@ -111,6 +111,7 @@ async def _async_iter(items: list[Any]) -> Any:
 # ── AC-07.1: Model Abstraction ───────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-07.01")
 class TestAC071ModelAbstraction:
     """AC-07.1: All LLM calls go through a unified interface with a uniform
     response envelope including model, content, usage, latency_ms, cost_usd,
@@ -179,6 +180,7 @@ class TestAC071ModelAbstraction:
 # ── AC-07.2: Fallback Behavior ───────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-07.02")
 class TestAC072FallbackBehavior:
     """AC-07.2: Primary failure → fallback used; all tiers fail → LLMError raised
     (not a raw exception); fallback tier is recorded in the response."""
@@ -258,6 +260,7 @@ class TestAC072FallbackBehavior:
 # ── AC-07.3: Context Window Management ──────────────────────────────────────
 
 
+@pytest.mark.spec("AC-07.03")
 class TestAC073ContextWindowManagement:
     """AC-07.3: P0 content (system prompt, safety rules) is never truncated;
     P3 content is dropped first when budget is exceeded."""
@@ -331,6 +334,7 @@ class TestAC073ContextWindowManagement:
 # ── AC-07.4: Streaming ───────────────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-07.04")
 class TestAC074Streaming:
     """AC-07.4: SSE token-by-token delivery; mid-stream error handled cleanly;
     done event includes total token count."""
@@ -421,6 +425,7 @@ class TestAC074Streaming:
 # ── AC-07.5: Cost Management ─────────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-07.05")
 class TestAC075CostManagement:
     """AC-07.5: Per-turn costs are tracked in the response and queryable;
     session cost cap prevents runaway spending via BudgetExceededError."""
@@ -520,6 +525,7 @@ class TestAC075CostManagement:
 # ── AC-07.7: Testing (Mock Mode) ────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-07.07")
 class TestAC077MockModeTesting:
     """AC-07.7: Full test suite runs without live LLM calls. Mock mode exercises
     the complete call path — only the HTTP request to the provider is replaced."""

@@ -159,6 +159,7 @@ class _ErrorLLM:
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.01")
 async def test_ac_2_1_narrative_intro_non_empty():
     """[AC-2.1] run_genesis_lite returns a non-empty narrative_intro."""
     llm = _CapturingLLM(
@@ -185,6 +186,7 @@ async def test_ac_2_1_narrative_intro_non_empty():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.02")
 async def test_ac_2_2_world_graph_created_once(monkeypatch: pytest.MonkeyPatch):
     """[AC-2.2] create_world_graph is called exactly once for a single session."""
     world_service = InMemoryWorldService()
@@ -217,6 +219,7 @@ async def test_ac_2_2_world_graph_created_once(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.05")
 async def test_ac_2_5_genesis_result_envelope():
     """[AC-2.5] GenesisResult has all required fields with correct types."""
     session = uuid4()
@@ -247,6 +250,7 @@ async def test_ac_2_5_genesis_result_envelope():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.06")
 async def test_ac_2_6_session_variance_different_prompts():
     """[AC-2.6] Two different session UUIDs yield different enrichment prompts."""
     # UUIDs chosen so that int(hex[:8], 16) % 6 differs between them.
@@ -273,6 +277,7 @@ async def test_ac_2_6_session_variance_different_prompts():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.06")
 async def test_ac_2_6_no_variance_without_session_id():
     """[AC-2.6] Without a session_id, no 'Creative direction' line is appended."""
     template = _template_with_start_loc()
@@ -291,6 +296,7 @@ async def test_ac_2_6_no_variance_without_session_id():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.07")
 async def test_ac_2_7_llm_error_propagates_from_intro():
     """[AC-2.7] RuntimeError from the intro LLM call is propagated, not swallowed."""
 
@@ -328,6 +334,7 @@ async def test_ac_2_7_llm_error_propagates_from_intro():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.07")
 async def test_ac_2_7_enrichment_error_uses_default_fallback():
     """[AC-2.7] Enrichment LLM error falls back to deterministic defaults (no panic)."""
 
@@ -374,6 +381,7 @@ async def test_ac_2_7_enrichment_error_uses_default_fallback():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.08")
 async def test_ac_2_8_single_word_defining_detail_expanded():
     """[AC-2.8] A single-word defining_detail is expanded before the LLM call."""
     template = _template_with_start_loc()
@@ -388,6 +396,7 @@ async def test_ac_2_8_single_word_defining_detail_expanded():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.08")
 async def test_ac_2_8_two_word_defining_detail_expanded():
     """[AC-2.8] A two-word defining_detail is also expanded."""
     template = _template_with_start_loc()
@@ -401,6 +410,7 @@ async def test_ac_2_8_two_word_defining_detail_expanded():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.08")
 async def test_ac_2_8_long_defining_detail_not_expanded():
     """[AC-2.8] A longer defining_detail (>2 words) is passed through unchanged."""
     detail = "a land where rain never falls"
@@ -417,6 +427,7 @@ async def test_ac_2_8_long_defining_detail_not_expanded():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.08")
 async def test_ac_2_8_missing_fields_get_defaults():
     """[AC-2.8] Empty WorldSeed fields receive safe defaults before prompting."""
     template = _template_with_start_loc()
@@ -438,6 +449,7 @@ async def test_ac_2_8_missing_fields_get_defaults():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.09")
 async def test_ac_2_9_character_concept_in_prompt():
     """[AC-2.9] The character_concept appears in the enrichment user prompt."""
     template = _template_with_start_loc()
@@ -451,6 +463,7 @@ async def test_ac_2_9_character_concept_in_prompt():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-02.09")
 async def test_ac_2_9_different_concepts_produce_different_prompts():
     """[AC-2.9] Different character_concepts produce different enrichment prompts."""
     template = _template_with_start_loc()

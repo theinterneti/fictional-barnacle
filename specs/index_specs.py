@@ -183,6 +183,12 @@ def parse_spec(path: Path) -> SpecMeta | None:
             meta.has_gherkin_scenarios = True
             if re.match(r"\s*Scenario", line, re.IGNORECASE):
                 meta.gherkin_scenario_count += 1
+                # v2+ specs embed Gherkin inside an Acceptance Criteria section;
+                # count each Scenario as an AC item (Scenario: AC-NN.NN format).
+                pattern = r"\s*Scenario:\s*AC-\d+"
+                if in_ac_section and re.match(pattern, line, re.IGNORECASE):
+                    meta.has_acceptance_criteria = True
+                    meta.acceptance_criteria_count += 1
 
     # Flush any pending AC group at end of file
     if pending_ac_group:
@@ -368,6 +374,226 @@ def format_markdown(specs: list[SpecMeta]) -> str:
     return "\n".join(lines)
 
 
+def _spec_score(s: SpecMeta) -> int:
+    """Return 0–100 completeness score based on weighted quality signals.
+
+    Signal weights (totalling 100):
+      has_acceptance_criteria   25 pts — core quality requirement
+      has_gherkin_scenarios     25 pts — behavioural test coverage
+      has_edge_cases/scope      20 pts — boundary and scope thinking
+      has_user_stories          15 pts — stakeholder perspective
+      word_count >= 1000        15 pts — sufficient depth
+    """
+    pts = 0
+    if s.has_acceptance_criteria:
+        pts += 25
+    if s.has_gherkin_scenarios:
+        pts += 25
+    if s.has_edge_cases or s.has_out_of_scope:
+        pts += 20
+    if s.has_user_stories:
+        pts += 15
+    if s.word_count >= 1000:
+        pts += 15
+    return pts
+
+
+def _score_color(score: int) -> str:
+    if score >= 85:
+        return "#22c55e"
+    if score >= 60:
+        return "#f59e0b"
+    if score >= 30:
+        return "#f97316"
+    return "#ef4444"
+
+
+def format_html(specs: list[SpecMeta]) -> str:
+    """Generate a self-contained HTML completeness dashboard."""
+    from datetime import UTC, datetime
+
+    generated = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+
+    # Exclude template pseudo-spec from stats
+    real_specs = [s for s in specs if s.number]
+    total_words = sum(s.word_count for s in real_specs)
+    has_ac_count = sum(1 for s in real_specs if s.has_acceptance_criteria)
+    clean_count = sum(1 for s in real_specs if not s.warnings)
+    ac_pct = round(has_ac_count / len(real_specs) * 100) if real_specs else 0
+
+    # Group by level
+    levels: dict[str, list[SpecMeta]] = {}
+    for s in specs:
+        key = s.level if s.level != "Unknown" else "Ungrouped"
+        levels.setdefault(key, []).append(s)
+
+    def make_group_html(level: str, group: list[SpecMeta]) -> str:
+        real = [s for s in group if s.number]
+        if not real:
+            real = group
+        grp_clean = sum(1 for s in real if not s.warnings)
+        grp_pct = round(grp_clean / len(real) * 100) if real else 0
+        rows = []
+        for s in real:
+            score = _spec_score(s)
+            color = _score_color(score)
+            bar_w = score
+            warns_html = ""
+            if s.warnings:
+                chips = "".join(f'<span class="chip">{w}</span>' for w in s.warnings)
+                warns_html = chips
+            else:
+                warns_html = '<span class="badge-clean">✓ clean</span>'
+            stub_cls = " stub" if "Stub" in s.status else ""
+            row = (
+                f'<tr class="spec-row{stub_cls}">'
+                f'<td class="num">{s.number}</td>'
+                f'<td class="title"><a href="{s.file}">{s.title}</a></td>'
+                f'<td class="bar-cell">'
+                f'  <div class="bar-wrap">'
+                f'    <div class="bar-fill" style="width:{bar_w}%;background:{color}"></div>'
+                f"  </div>"
+                f'  <span class="score-label">{score}</span>'
+                f"</td>"
+                f'<td class="num-cell">{s.word_count:,}</td>'
+                f'<td class="num-cell">{s.acceptance_criteria_count}</td>'
+                f'<td class="num-cell">{s.gherkin_scenario_count}</td>'
+                f'<td class="warns">{warns_html}</td>'
+                f"</tr>"
+            )
+            rows.append(row)
+        rows_html = "\n".join(rows)
+        slug = level.lower().replace(" ", "-").replace("—", "").replace("–", "")
+        return (
+            f'<div class="group" id="grp-{slug}">'
+            f'<div class="group-header">'
+            f"  <h2>{level}</h2>"
+            f'  <div class="grp-meta">'
+            f'    <span class="grp-count">{len(real)} specs</span>'
+            f'    <span class="grp-clean-pct">{grp_pct}% clean</span>'
+            f'    <div class="grp-bar-wrap">'
+            f'      <div class="grp-bar-fill" style="width:{grp_pct}%"></div>'
+            f"    </div>"
+            f"  </div>"
+            f"</div>"
+            f"<table>"
+            f"<thead><tr>"
+            f"  <th>#</th><th>Title</th>"
+            f'  <th class="th-score">Score</th>'
+            f'  <th class="num-cell">Words</th>'
+            f'  <th class="num-cell">ACs</th>'
+            f'  <th class="num-cell">Gherkin</th>'
+            f"  <th>Warnings</th>"
+            f"</tr></thead>"
+            f"<tbody>{rows_html}</tbody>"
+            f"</table>"
+            f"</div>"
+        )
+
+    groups_html = "\n".join(make_group_html(lvl, grp) for lvl, grp in levels.items())
+
+    css = """
+:root {
+  --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
+  --text: #0f172a; --muted: #64748b;
+  --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
+  --accent: #6366f1;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg);
+       color: var(--text); font-size: 14px; line-height: 1.5; }
+header { background: var(--accent); color: #fff; padding: 24px 32px; }
+header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; }
+header p { opacity: .75; font-size: .85rem; margin-top: 4px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+         padding: 24px 32px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border);
+             border-radius: 10px; padding: 20px; text-align: center; }
+.stat-card .val { font-size: 2rem; font-weight: 800; color: var(--accent);
+                  line-height: 1; }
+.stat-card .lbl { color: var(--muted); font-size: .8rem; margin-top: 6px;
+                  text-transform: uppercase; letter-spacing: .04em; }
+.groups { padding: 0 32px 48px; display: flex; flex-direction: column; gap: 28px; }
+.group { background: var(--surface); border: 1px solid var(--border);
+         border-radius: 10px; overflow: hidden; }
+.group-header { display: flex; align-items: center; gap: 16px;
+                padding: 14px 20px; background: #f1f5f9; border-bottom: 1px solid var(--border); }
+.group-header h2 { font-size: .95rem; font-weight: 700; flex: 1; }
+.grp-meta { display: flex; align-items: center; gap: 10px; }
+.grp-count, .grp-clean-pct { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.grp-bar-wrap { width: 80px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+.grp-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
+table { width: 100%; border-collapse: collapse; }
+thead th { background: #f8fafc; font-size: .75rem; font-weight: 600;
+           text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+           padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f8fafc; }
+tbody tr.stub { opacity: .6; }
+td { padding: 9px 12px; vertical-align: middle; }
+.num { font-weight: 700; font-size: .8rem; color: var(--muted); white-space: nowrap; width: 40px; }
+.title a { color: var(--text); text-decoration: none; font-weight: 500; }
+.title a:hover { color: var(--accent); text-decoration: underline; }
+.bar-cell { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+.bar-wrap { flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+.score-label { font-size: .75rem; font-weight: 700; color: var(--muted); width: 26px; text-align: right; }
+.num-cell { text-align: right; color: var(--muted); font-size: .82rem; white-space: nowrap; }
+th.num-cell { text-align: right; }
+.warns { max-width: 340px; }
+.chip { display: inline-block; background: #fef3c7; color: #92400e;
+        font-size: .72rem; padding: 2px 7px; border-radius: 12px;
+        margin: 2px 2px 2px 0; white-space: nowrap; }
+.badge-clean { display: inline-block; background: #dcfce7; color: #166534;
+               font-size: .75rem; padding: 2px 8px; border-radius: 12px;
+               font-weight: 600; }
+footer { text-align: center; color: var(--muted); font-size: .78rem;
+         padding: 24px; border-top: 1px solid var(--border); }
+@media (max-width: 800px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .groups, .stats { padding-left: 16px; padding-right: 16px; }
+}
+"""
+
+    html_parts = [
+        "<!DOCTYPE html>",
+        '<html lang="en">',
+        "<head>",
+        '<meta charset="UTF-8">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+        "<title>TTA Spec Completeness Dashboard</title>",
+        f"<style>{css}</style>",
+        "</head>",
+        "<body>",
+        "<header>",
+        "  <h1>TTA Spec Completeness Dashboard</h1>",
+        f"  <p>Generated {generated} &nbsp;·&nbsp; {len(real_specs)} specs &nbsp;·&nbsp;"
+        f" <code>specs/index_specs.py --html</code></p>",
+        "</header>",
+        '<section class="stats">',
+        f'  <div class="stat-card"><div class="val">{len(real_specs)}</div>'
+        f'    <div class="lbl">Total Specs</div></div>',
+        f'  <div class="stat-card"><div class="val">{total_words:,}</div>'
+        f'    <div class="lbl">Total Words</div></div>',
+        f'  <div class="stat-card"><div class="val">{ac_pct}%</div>'
+        f'    <div class="lbl">AC Coverage</div></div>',
+        f'  <div class="stat-card"><div class="val">{clean_count}</div>'
+        f'    <div class="lbl">Clean Specs</div></div>',
+        "</section>",
+        '<section class="groups">',
+        groups_html,
+        "</section>",
+        "<footer>",
+        f"  Generated by <code>specs/index_specs.py</code> on {generated}."
+        f" Scores: AC 25pt + Gherkin 25pt + Scope/Edge 20pt + Stories 15pt + Depth≥1k 15pt.",
+        "</footer>",
+        "</body>",
+        "</html>",
+    ]
+    return "\n".join(html_parts)
+
+
 def format_json(specs: list[SpecMeta]) -> str:
     """Generate a JSON index of all specs."""
     data = {
@@ -463,6 +689,11 @@ def main() -> None:
         help="Output JSON instead of Markdown",
     )
     parser.add_argument(
+        "--html",
+        action="store_true",
+        help="Output self-contained HTML dashboard",
+    )
+    parser.add_argument(
         "--validate",
         action="store_true",
         help="Run quality validation checks",
@@ -497,6 +728,8 @@ def main() -> None:
         output = format_validation(specs)
     elif args.json:
         output = format_json(specs)
+    elif args.html:
+        output = format_html(specs)
     else:
         output = format_markdown(specs)
 
@@ -507,6 +740,10 @@ def main() -> None:
             print(f"Wrote {out_path}")
         elif args.validate:
             out_path = Path(f"{args.out}-validation.md")
+            out_path.write_text(output, encoding="utf-8")
+            print(f"Wrote {out_path}")
+        elif args.html:
+            out_path = Path(f"{args.out}.html")
             out_path.write_text(output, encoding="utf-8")
             print(f"Wrote {out_path}")
         else:

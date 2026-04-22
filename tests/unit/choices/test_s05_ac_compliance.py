@@ -30,6 +30,7 @@ from tta.models.consequence import (
 # ── AC-5.1: Delayed consequences manifest after SHORT_TERM turns ──────────────
 
 
+@pytest.mark.spec("AC-05.01")
 class TestAC501DelayedConsequences:
     """AC-5.1: Consequential choice produces delayed consequence after 10+ turns.
 
@@ -110,6 +111,7 @@ class TestAC501DelayedConsequences:
 # ── AC-5.2: At least 3 distinct choice types offered ─────────────────────────
 
 
+@pytest.mark.spec("AC-05.02")
 class TestAC502DistinctChoiceTypes:
     """AC-5.2: Suggested actions offer at least 3 distinct approaches.
 
@@ -163,6 +165,7 @@ class TestAC502DistinctChoiceTypes:
 # ── AC-5.3: Refusal is tracked as a choice ───────────────────────────────────
 
 
+@pytest.mark.spec("AC-05.03")
 class TestAC503RefusalTracked:
     """AC-5.3: Ignoring an NPC request is classified and tracked as a choice.
 
@@ -209,6 +212,7 @@ class TestAC503RefusalTracked:
 # ── AC-5.4: Permanent reversibility stored and distinguishable ────────────────
 
 
+@pytest.mark.spec("AC-05.04")
 class TestAC504PermanentReversibility:
     """AC-5.4: Before a permanent choice, narrative signals weight and finality.
 
@@ -275,6 +279,7 @@ class TestAC504PermanentReversibility:
 # ── AC-5.6: 30 chains evaluated within 300ms ─────────────────────────────────
 
 
+@pytest.mark.spec("AC-05.06")
 class TestAC506PerformanceBudget:
     """AC-5.6: 30 active consequence chains evaluated within 300ms.
 
@@ -319,6 +324,7 @@ class TestAC506PerformanceBudget:
 # ── AC-5.7: Session isolation (no cross-contamination) ───────────────────────
 
 
+@pytest.mark.spec("AC-05.07")
 class TestAC507SessionIsolation:
     """AC-5.7: Same choice in two playthroughs produces independent chains.
 
@@ -376,6 +382,7 @@ class TestAC507SessionIsolation:
 # ── AC-5.8: Dormant chains pruned to PRUNED/DORMANT status ───────────────────
 
 
+@pytest.mark.spec("AC-05.08")
 class TestAC508DormantPruning:
     """AC-5.8: Chains dormant for 50+ turns are pruned with narrative closure.
 
@@ -476,6 +483,7 @@ class TestAC508DormantPruning:
 # ── AC-5.9: 3 branching chains stored and tracked independently ───────────────
 
 
+@pytest.mark.spec("AC-05.09")
 class TestAC509BranchingChains:
     """AC-5.9: A choice spawning 3 chains — each independently trackable.
 
@@ -586,6 +594,7 @@ class TestAC509BranchingChains:
 # ── AC-5.10: DivergenceScore steering threshold ───────────────────────────────
 
 
+@pytest.mark.spec("AC-05.10")
 class TestAC510DivergenceSteering:
     """AC-5.10: When divergence exceeds threshold, narrative references thread.
 

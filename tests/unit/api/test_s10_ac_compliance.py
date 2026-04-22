@@ -169,6 +169,7 @@ def err_client(err_app: FastAPI) -> TestClient:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.01")
 class TestAC1001GameplayFlow:
     """AC-10.01: Player can create account, start game, submit turn via API."""
 
@@ -224,6 +225,7 @@ class TestAC1001GameplayFlow:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.03")
 class TestAC1003ErrorShape:
     """AC-10.03: Error responses follow the standard envelope."""
 
@@ -272,6 +274,7 @@ class TestAC1003ErrorShape:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.07")
 class TestAC1007RateLimit:
     """AC-10.07: Exceeding rate limit returns 429 with Retry-After header."""
 
@@ -301,6 +304,7 @@ class TestAC1007RateLimit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.09")
 class TestAC1009NoInternalDetails:
     """AC-10.09: API responses never expose stack traces or file paths."""
 
@@ -339,6 +343,7 @@ class TestAC1009NoInternalDetails:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.10")
 class TestAC1010RequestId:
     """AC-10.10: Every error response includes a correlation_id (request_id)."""
 
@@ -378,6 +383,7 @@ class TestAC1010RequestId:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.11")
 class TestAC1011UnauthenticatedReturns401:
     """AC-10.11: No auth token on protected endpoints → 401, not 403 or 404."""
 
@@ -440,6 +446,7 @@ class TestAC1011UnauthenticatedReturns401:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.12")
 class TestAC1012PlayerIsolation:
     """AC-10.12: Cross-player game access returns 404, not 403."""
 

@@ -159,6 +159,7 @@ def anon_client(anon_app: FastAPI) -> TestClient:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-11.01")
 class TestAC1101AnonymousAuth:
     """AC-11.01: POST /api/v1/auth/anonymous returns 201 with required fields."""
 
@@ -217,6 +218,7 @@ class TestAC1101AnonymousAuth:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-11.02")
 class TestAC1102UpgradePreservesPlayerId:
     """AC-11.02: POST /api/v1/auth/upgrade returns the same player_id."""
 
@@ -263,6 +265,7 @@ class TestAC1102UpgradePreservesPlayerId:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-11.04")
 class TestAC1104CreatedToActiveTransition:
     """AC-11.04: First turn on a 'created' game triggers status→active UPDATE."""
 
@@ -361,6 +364,7 @@ class TestAC1104CreatedToActiveTransition:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-11.10")
 class TestAC1110RefreshTokenReuseDetection:
     """AC-11.10: Reusing a refresh token → 401 + session family revocation."""
 
@@ -499,6 +503,7 @@ class TestAC1110RefreshTokenReuseDetection:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-11.12")
 class TestAC1112NoPasswordInResponses:
     """AC-11.12: Auth responses never expose password or password_hash fields."""
 

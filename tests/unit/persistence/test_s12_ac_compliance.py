@@ -31,6 +31,7 @@ from tta.persistence.redis_session import (
 # ── AC-12.01: Turn round-trip (create → retrieve) ────────────────────────────
 
 
+@pytest.mark.spec("AC-12.01")
 class TestAC1201TurnRoundTrip:
     """AC-12.01: A turn submitted is retrievable from turn history.
 
@@ -101,6 +102,7 @@ class TestAC1201TurnRoundTrip:
 # ── AC-12.02: Cache reconstruction on Redis miss ─────────────────────────────
 
 
+@pytest.mark.spec("AC-12.02")
 class TestAC1202CacheReconstruction:
     """AC-12.02: After Redis restart, next turn completes via cache reconstruction.
 
@@ -166,6 +168,7 @@ class TestAC1202CacheReconstruction:
 # ── AC-12.04: State consistency across multiple snapshots ─────────────────────
 
 
+@pytest.mark.spec("AC-12.04")
 class TestAC1204StateDriftPrevention:
     """AC-12.04: Game state after N turns matches the accumulated effect.
 
@@ -237,6 +240,7 @@ class TestAC1204StateDriftPrevention:
 # ── AC-12.09: SQL migration applies without manual intervention ───────────────
 
 
+@pytest.mark.spec("AC-12.09")
 class TestAC1209AlembicMigrations:
     """AC-12.09: SQL migration applies without manual intervention.
 
@@ -302,6 +306,7 @@ class TestAC1209AlembicMigrations:
 # ── AC-12.12: All Redis keys have TTL ────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-12.12")
 class TestAC1212RedisTtlCompliance:
     """AC-12.12: All Redis keys have a TTL set (no unbounded memory growth).
 

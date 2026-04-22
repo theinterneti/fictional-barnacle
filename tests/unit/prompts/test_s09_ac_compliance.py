@@ -89,6 +89,7 @@ def real_registry() -> FilePromptRegistry:
 # ── AC-09.1: Prompts as Versioned Assets ────────────────────────────────────
 
 
+@pytest.mark.spec("AC-09.01")
 class TestAC091PromptsAsVersionedAssets:
     """AC-09.1: Prompts stored as files; each has a unique ID, version, and
     declared variables; system refuses to start if a required prompt is missing."""
@@ -150,6 +151,7 @@ class TestAC091PromptsAsVersionedAssets:
 # ── AC-09.3: Template Variables ──────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-09.03")
 class TestAC093TemplateVariables:
     """AC-09.3: Variables injected correctly; missing required variable → clear error;
     sanitization prevents prompt injection via template syntax."""
@@ -211,6 +213,7 @@ class TestAC093TemplateVariables:
 # ── AC-09.4: Prompt Composition ──────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-09.04")
 class TestAC094PromptComposition:
     """AC-09.4: Prompts include shared fragments by reference; updating a fragment
     affects all dependents; circular references are detected and rejected."""
@@ -305,6 +308,7 @@ class TestAC094PromptComposition:
 # ── AC-09.5: Prompt Testing ───────────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-09.05")
 class TestAC095PromptTesting:
     """AC-09.5: Golden tests detect unintended output changes; scenario tests
     validate behavioral assertions; tests run with deterministic settings."""
@@ -363,6 +367,7 @@ class TestAC095PromptTesting:
 # ── AC-09.8: Guardrails ───────────────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-09.08")
 class TestAC098Guardrails:
     """AC-09.8: Every player-facing prompt includes safety preamble; preamble
     cannot be removed; player input always in user message, never system;

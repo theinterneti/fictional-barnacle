@@ -72,6 +72,7 @@ def _make_deps(*, llm: MockLLMClient | AsyncMock | None = None) -> PipelineDeps:
 # ── AC-08.1 — End-to-end turn processing ────────────────────────────────────
 
 
+@pytest.mark.spec("AC-08.01")
 class TestAC081EndToEnd:
     """AC-08.1: Player submits turn → pipeline runs all stages → narrative
     produced. World-state side effects (world_state_updates) available after
@@ -128,6 +129,7 @@ class TestAC081EndToEnd:
 # ── AC-08.2 — Input understanding ───────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-08.02")
 class TestAC082InputUnderstanding:
     """AC-08.2: Intent classified correctly; gibberish → 'other' with low
     confidence; empty input handled gracefully; meta-commands routed
@@ -201,6 +203,7 @@ class TestAC082InputUnderstanding:
 # ── AC-08.3 — Context assembly ──────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-08.03")
 class TestAC083ContextAssembly:
     """AC-08.3: Relevant world state assembled; fits token budget; DB failure
     → partial context (pipeline still continues)."""
@@ -285,6 +288,7 @@ class TestAC083ContextAssembly:
 # ── AC-08.4 — Generation quality ─────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-08.04")
 class TestAC084GenerationQuality:
     """AC-08.4: Narrative is produced from context; world-state updates
     extracted; suggested actions supported."""
@@ -420,6 +424,7 @@ class TestAC084GenerationQuality:
 # ── AC-08.5 — Delivery ───────────────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-08.05")
 class TestAC085Delivery:
     """AC-08.5: Thinking event exists; turn_complete event contains required
     metadata; turn is persisted after delivery."""
@@ -490,6 +495,7 @@ class TestAC085Delivery:
 # ── AC-08.6 — Error resilience ───────────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-08.06")
 class TestAC086ErrorResilience:
     """AC-08.6: Understanding failure → keyword fallback (turn continues);
     DB failure → minimal context; all LLM tiers fail → fallback narrative;

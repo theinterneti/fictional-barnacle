@@ -1,8 +1,41 @@
 {
-  "spec_count": 29,
-  "total_words": 93739,
-  "total_acceptance_criteria": 394,
+  "spec_count": 65,
+  "total_words": 168566,
+  "total_acceptance_criteria": 668,
   "specs": [
+    {
+      "file": "CLOSEOUT_TEMPLATE.md",
+      "number": "",
+      "title": "CLOSEOUT_TEMPLATE",
+      "status": "Unknown",
+      "level": "Unknown",
+      "dependencies": [],
+      "last_updated": "",
+      "sections": [
+        "Frontmatter Additions",
+        "Section Template",
+        "v1 Closeout (Non-normative)",
+        "Evidence Validity Rules",
+        "Implementation Fit Scale"
+      ],
+      "word_count": 545,
+      "has_acceptance_criteria": false,
+      "acceptance_criteria_count": 0,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": false,
+      "has_gherkin_scenarios": false,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "Missing acceptance criteria",
+        "No user stories found",
+        "No edge cases section",
+        "No 'Out of Scope' section",
+        "No Gherkin scenarios — ACs should use Given/When/Then"
+      ]
+    },
     {
       "file": "00-project-charter.md",
       "number": "S00",
@@ -27,9 +60,11 @@
         "Spec Conventions",
         "Acceptance Criteria",
         "Open Questions",
-        "Out of Scope"
+        "Out of Scope",
+        "v1 Closeout (Non-normative)",
+        "v2+ Roadmap Pointer (Non-normative)"
       ],
-      "word_count": 1633,
+      "word_count": 2345,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 7,
       "has_user_stories": false,
@@ -65,9 +100,10 @@
         "Dependencies",
         "Open Questions",
         "Out of Scope (v1)",
-        "Changelog"
+        "Changelog",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3340,
+      "word_count": 3682,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 10,
       "has_user_stories": true,
@@ -77,60 +113,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-1.1",
-          "ac_status": "done",
-          "description": "Player submits action → narrative advances"
-        },
-        {
-          "id": "AC-1.2",
-          "ac_status": "done",
-          "description": "Turn includes consequences and choices"
-        },
-        {
-          "id": "AC-1.3",
-          "ac_status": "done",
-          "description": "Choice selection → narrative consequence"
-        },
-        {
-          "id": "AC-1.4",
-          "ac_status": "done",
-          "description": "Invalid command → helpful in-character guidance"
-        },
-        {
-          "id": "AC-1.5",
-          "ac_status": "done",
-          "description": "Character failure → narrative consequence (prompt hardened wave-29)"
-        },
-        {
-          "id": "AC-1.6",
-          "ac_status": "done",
-          "description": "Story completion → epilogue + archive (LLM epilogue wave-29)"
-        },
-        {
-          "id": "AC-1.7",
-          "ac_status": "done",
-          "description": "Turn count available in game state"
-        },
-        {
-          "id": "AC-1.8",
-          "ac_status": "v2",
-          "description": "Multiple concurrent sessions (needs session isolation)"
-        },
-        {
-          "id": "AC-1.9",
-          "ac_status": "done",
-          "description": "Meta-commands do not consume narrative turns"
-        },
-        {
-          "id": "AC-1.10",
-          "ac_status": "v2",
-          "description": "10+ turn session → narrative coherence (needs coherence detector)"
-        }
-      ],
-      "compliance_pct": 80
+      "warnings": []
     },
     {
       "file": "02-genesis-onboarding.md",
@@ -152,9 +135,10 @@
         "Acceptance Criteria",
         "Dependencies",
         "Open Questions",
-        "Out of Scope (v1)"
+        "Out of Scope (v1)",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3338,
+      "word_count": 3702,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 10,
       "has_user_stories": true,
@@ -164,60 +148,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-2.1",
-          "ac_status": "done",
-          "description": "Player greeting → Genesis prompt"
-        },
-        {
-          "id": "AC-2.2",
-          "ac_status": "done",
-          "description": "Complete Genesis → playable world"
-        },
-        {
-          "id": "AC-2.3",
-          "ac_status": "done",
-          "description": "Post-Genesis references ≥2 established elements (wave-29)"
-        },
-        {
-          "id": "AC-2.4",
-          "ac_status": "done",
-          "description": "Genre selection → appropriate world"
-        },
-        {
-          "id": "AC-2.5",
-          "ac_status": "v2",
-          "description": "Genesis act state machine (Act I-V modeling)"
-        },
-        {
-          "id": "AC-2.6",
-          "ac_status": "done",
-          "description": "Repeat Genesis → different phrasing (wave-29)"
-        },
-        {
-          "id": "AC-2.7",
-          "ac_status": "done",
-          "description": "Default genre available"
-        },
-        {
-          "id": "AC-2.8",
-          "ac_status": "done",
-          "description": "Terse responses → valid world (wave-29)"
-        },
-        {
-          "id": "AC-2.9",
-          "ac_status": "done",
-          "description": "Mid-Genesis trait correction (wave-29)"
-        },
-        {
-          "id": "AC-2.10",
-          "ac_status": "done",
-          "description": "Seamless Genesis→gameplay transition (wave-29)"
-        }
-      ],
-      "compliance_pct": 90
+      "warnings": []
     },
     {
       "file": "03-narrative-engine.md",
@@ -239,11 +170,12 @@
         "Acceptance Criteria",
         "Dependencies",
         "Open Questions",
-        "Out of Scope (v1)"
+        "Out of Scope (v1)",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3556,
+      "word_count": 4026,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 10,
+      "acceptance_criteria_count": 9,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
@@ -251,60 +183,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-3.1",
-          "ac_status": "done",
-          "description": "LLM generates narrative from context"
-        },
-        {
-          "id": "AC-3.2",
-          "ac_status": "done",
-          "description": "Narrative includes world state references"
-        },
-        {
-          "id": "AC-3.3",
-          "ac_status": "v2",
-          "description": "Tension pacing via 3-act structure (needs pacing system)"
-        },
-        {
-          "id": "AC-3.4",
-          "ac_status": "done",
-          "description": "Player action reflected in next response"
-        },
-        {
-          "id": "AC-3.5",
-          "ac_status": "done",
-          "description": "LLM failure → atmospheric in-world fallback (wave-29)"
-        },
-        {
-          "id": "AC-3.6",
-          "ac_status": "done",
-          "description": "Turn 100+ context ≤500ms (timing added wave-29)"
-        },
-        {
-          "id": "AC-3.7",
-          "ac_status": "v2",
-          "description": "Coherence violation → self-correction (needs detector)"
-        },
-        {
-          "id": "AC-3.8",
-          "ac_status": "done",
-          "description": "Exploration → 150-300 words + hooks (wave-29)"
-        },
-        {
-          "id": "AC-3.9",
-          "ac_status": "v2",
-          "description": "Streaming tokens delivered consistently — requires SSE integration test"
-        },
-        {
-          "id": "AC-3.10",
-          "ac_status": "done",
-          "description": "Same game state → identical context payload (determinism, wave-36)"
-        }
-      ],
-      "compliance_pct": 70.0
+      "warnings": []
     },
     {
       "file": "04-world-model.md",
@@ -326,9 +205,10 @@
         "Acceptance Criteria",
         "Dependencies",
         "Open Questions",
-        "Out of Scope (v1)"
+        "Out of Scope (v1)",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3649,
+      "word_count": 4712,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": true,
@@ -338,50 +218,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-4.1",
-          "ac_status": "done",
-          "description": "WorldContext provides location, entities, events on query"
-        },
-        {
-          "id": "AC-4.2",
-          "ac_status": "v2",
-          "description": "Cascading state changes propagate to nearby entities (needs world-tick engine)"
-        },
-        {
-          "id": "AC-4.3",
-          "ac_status": "done",
-          "description": "Diff query returns state changes since last visit"
-        },
-        {
-          "id": "AC-4.4",
-          "ac_status": "v2",
-          "description": "Lazy region generation within 3s (needs on-demand generation)"
-        },
-        {
-          "id": "AC-4.5",
-          "ac_status": "v2",
-          "description": "NPC schedules advance with time (needs world-tick scheduler)"
-        },
-        {
-          "id": "AC-4.6",
-          "ac_status": "done",
-          "description": "Each region has distinct identity (archetype, atmosphere)"
-        },
-        {
-          "id": "AC-4.7",
-          "ac_status": "v2",
-          "description": "Nearby query < 200ms at 5000 entities (needs Neo4j backend)"
-        },
-        {
-          "id": "AC-4.8",
-          "ac_status": "done",
-          "description": "World state restored to last completed turn after crash"
-        }
-      ],
-      "compliance_pct": 50.0
+      "warnings": []
     },
     {
       "file": "05-choice-and-consequence.md",
@@ -403,9 +240,10 @@
         "Acceptance Criteria",
         "Dependencies",
         "Open Questions",
-        "Out of Scope (v1)"
+        "Out of Scope (v1)",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3623,
+      "word_count": 4020,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 10,
       "has_user_stories": true,
@@ -415,60 +253,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-5.1",
-          "ac_status": "done",
-          "description": "Delayed consequence manifests after SHORT_TERM turns"
-        },
-        {
-          "id": "AC-5.2",
-          "ac_status": "done",
-          "description": "Choice classifier produces 3+ distinct types; refusal/moral/dialogue recognized"
-        },
-        {
-          "id": "AC-5.3",
-          "ac_status": "done",
-          "description": "Refusal inputs classified as ChoiceType.REFUSAL; tracked in consequence service"
-        },
-        {
-          "id": "AC-5.4",
-          "ac_status": "done",
-          "description": "PERMANENT reversibility stored and distinguishable from lesser categories"
-        },
-        {
-          "id": "AC-5.5",
-          "ac_status": "v2",
-          "description": "Subtle foreshadowing over 5+ turns (needs live narrative + hidden chain)"
-        },
-        {
-          "id": "AC-5.6",
-          "ac_status": "done",
-          "description": "30 chains evaluated within 300ms"
-        },
-        {
-          "id": "AC-5.7",
-          "ac_status": "done",
-          "description": "Consequence chains are session-isolated (no cross-contamination)"
-        },
-        {
-          "id": "AC-5.8",
-          "ac_status": "done",
-          "description": "Dormant chains pruned to PRUNED status after 50+ turns"
-        },
-        {
-          "id": "AC-5.9",
-          "ac_status": "done",
-          "description": "3 branching chains stored independently and resolve independently"
-        },
-        {
-          "id": "AC-5.10",
-          "ac_status": "done",
-          "description": "DivergenceScore.needs_steering true at score >= 0.7"
-        }
-      ],
-      "compliance_pct": 90.0
+      "warnings": []
     },
     {
       "file": "06-character-system.md",
@@ -490,9 +275,10 @@
         "Acceptance Criteria",
         "Dependencies",
         "Open Questions",
-        "Out of Scope (v1)"
+        "Out of Scope (v1)",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 4266,
+      "word_count": 4679,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 10,
       "has_user_stories": true,
@@ -502,60 +288,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-6.1",
-          "ac_status": "done",
-          "description": "NPCs have distinct personality traits"
-        },
-        {
-          "id": "AC-6.2",
-          "ac_status": "v2",
-          "description": "Trait evolution after 10+ contrary actions"
-        },
-        {
-          "id": "AC-6.3",
-          "ac_status": "done",
-          "description": "NPC dialogue reflects personality"
-        },
-        {
-          "id": "AC-6.4",
-          "ac_status": "done",
-          "description": "Help NPC → relationship increases (wave-29)"
-        },
-        {
-          "id": "AC-6.5",
-          "ac_status": "done",
-          "description": "NPC dialogue distinct per NPC (wave-29)"
-        },
-        {
-          "id": "AC-6.6",
-          "ac_status": "done",
-          "description": "NPC hidden goal subtly steers dialogue (goals_short prompt, wave-26)"
-        },
-        {
-          "id": "AC-6.7",
-          "ac_status": "done",
-          "description": "Companion NPC referenced in narrative (_identify_companions, wave-26)"
-        },
-        {
-          "id": "AC-6.8",
-          "ac_status": "done",
-          "description": "Return after break → NPC references history (wave-29)"
-        },
-        {
-          "id": "AC-6.9",
-          "ac_status": "done",
-          "description": "NPC beyond knowledge → authentic response (wave-29)"
-        },
-        {
-          "id": "AC-6.10",
-          "ac_status": "v2",
-          "description": "NPC death → emotional cascade (needs motivation graph)"
-        }
-      ],
-      "compliance_pct": 80.0
+      "warnings": []
     },
     {
       "file": "07-llm-integration.md",
@@ -585,9 +318,10 @@
         "— Acceptance Criteria",
         "— Out of Scope",
         "— Open Questions",
-        "Appendix A — Glossary"
+        "Appendix A — Glossary",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3991,
+      "word_count": 4293,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 24,
       "has_user_stories": true,
@@ -597,45 +331,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-07.1",
-          "ac_status": "done",
-          "description": "All LLM calls go through unified interface; response envelope includes model, content, usage, latency_ms, cost_usd, and finish_reason"
-        },
-        {
-          "id": "AC-07.2",
-          "ac_status": "done",
-          "description": "Primary failure triggers fallback; all tiers fail raises AllTiersFailedError; fallback tier recorded in response"
-        },
-        {
-          "id": "AC-07.3",
-          "ac_status": "done",
-          "description": "Excessive context completes without error; P0 content never truncated; budget computed correctly"
-        },
-        {
-          "id": "AC-07.4",
-          "ac_status": "done",
-          "description": "Stream buffers token-by-token content; mid-stream error raises cleanly; done event includes total token count"
-        },
-        {
-          "id": "AC-07.5",
-          "ac_status": "done",
-          "description": "Per-turn costs tracked in response and queryable; session cost cap raises BudgetExceededError to prevent runaway spending"
-        },
-        {
-          "id": "AC-07.6",
-          "ac_status": "v2",
-          "description": "Every LLM call appears in Langfuse with full data; all calls within a turn grouped under one trace (requires live Langfuse integration infra)"
-        },
-        {
-          "id": "AC-07.7",
-          "ac_status": "done",
-          "description": "Full test suite runs without live LLM calls; mock mode exercises complete call path except HTTP request"
-        }
-      ],
-      "compliance_pct": 85.7
+      "warnings": []
     },
     {
       "file": "08-turn-processing-pipeline.md",
@@ -667,9 +363,10 @@
         "— Out of Scope",
         "— Open Questions",
         "Appendix A — Glossary",
-        "Appendix B — Intent Categories"
+        "Appendix B — Intent Categories",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 5958,
+      "word_count": 6673,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 7,
       "has_user_stories": true,
@@ -679,45 +376,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 24,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-08.1",
-          "ac_status": "done",
-          "description": "End-to-end turn processing: player submits turn → all four pipeline stages execute → narrative streams via SSE; world-state side effects available atomically after generation"
-        },
-        {
-          "id": "AC-08.2",
-          "ac_status": "done",
-          "description": "Input understanding: intent classified correctly; gibberish → 'other' with low confidence; meta-commands routed separately; LLM failure falls back to keyword detection then 'other'"
-        },
-        {
-          "id": "AC-08.3",
-          "ac_status": "done",
-          "description": "Context assembly: relevant world state assembled (location, intent, game state); DB unavailability → partial context flag; pipeline still continues with minimal context"
-        },
-        {
-          "id": "AC-08.4",
-          "ac_status": "done",
-          "description": "Generation quality: narrative produced from assembled context; world-state updates extracted via LLM; suggested actions populated when extraction returns them"
-        },
-        {
-          "id": "AC-08.5",
-          "ac_status": "done",
-          "description": "Delivery: ThinkingEvent and TurnCompleteEvent SSE types defined with required metadata; deliver_stage marks turn complete; turn persisted to repository"
-        },
-        {
-          "id": "AC-08.6",
-          "ac_status": "done",
-          "description": "Error resilience: understanding LLM failure → keyword fallback; DB unavailable → minimal context; all LLM tiers fail → in-world fallback narrative; duplicate turns/idempotency keys rejected"
-        },
-        {
-          "id": "AC-08.7",
-          "ac_status": "v2",
-          "description": "Observability: Langfuse per-stage spans with full Understanding and Context objects as attributes (requires live Langfuse integration infra)"
-        }
-      ],
-      "compliance_pct": 85.7
+      "warnings": []
     },
     {
       "file": "09-prompt-and-content.md",
@@ -751,9 +410,10 @@
         "— Out of Scope",
         "— Open Questions",
         "Appendix A — Glossary",
-        "Appendix B — Prompt Template Syntax Quick Reference"
+        "Appendix B — Prompt Template Syntax Quick Reference",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 5436,
+      "word_count": 5757,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 35,
       "has_user_stories": true,
@@ -763,55 +423,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 1,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-09.1",
-          "ac_status": "done",
-          "description": "Prompts stored as versioned files; each has unique ID, version, declared variables; system refuses to start if required prompt missing"
-        },
-        {
-          "id": "AC-09.2",
-          "ac_status": "v2",
-          "description": "Registry resolves IDs to active versions; runtime activation/rollback without deploy; events audited"
-        },
-        {
-          "id": "AC-09.3",
-          "ac_status": "done",
-          "description": "Variables injected correctly; missing required variables raise clear error; sandboxed environment prevents injection"
-        },
-        {
-          "id": "AC-09.4",
-          "ac_status": "done",
-          "description": "Prompts include shared fragments by reference; circular references detected and rejected"
-        },
-        {
-          "id": "AC-09.5",
-          "ac_status": "done",
-          "description": "Golden tests detect unintended output changes; scenario tests validate behavioral assertions; deterministic rendering"
-        },
-        {
-          "id": "AC-09.6",
-          "ac_status": "v2",
-          "description": "Genre packs loadable and versioned; include tone, archetypes, location moods, fallback responses"
-        },
-        {
-          "id": "AC-09.7",
-          "ac_status": "v2",
-          "description": "Langfuse generation includes prompt template ID, version, fragment versions; per-version metrics tracked"
-        },
-        {
-          "id": "AC-09.8",
-          "ac_status": "done",
-          "description": "Every player-facing prompt includes safety preamble; preamble cannot be removed; injection logged observe-only"
-        },
-        {
-          "id": "AC-09.9",
-          "ac_status": "v2",
-          "description": "Authors can preview output; shadow mode processes real inputs without serving players; registration validates syntax"
-        }
-      ],
-      "compliance_pct": 55.6
+      "warnings": []
     },
     {
       "file": "10-api-and-streaming.md",
@@ -841,11 +453,13 @@
         "Edge Cases & Failure Modes",
         "Acceptance Criteria",
         "Out of Scope",
-        "Open Questions"
+        "Open Questions",
+        "Migration Notes (Issue #128)",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3453,
+      "word_count": 3978,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 12,
+      "acceptance_criteria_count": 13,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
@@ -853,70 +467,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-10.01",
-          "ac_status": "done",
-          "description": "Player can create account, start game, submit turn, receive stream using only documented endpoints"
-        },
-        {
-          "id": "AC-10.02",
-          "ac_status": "v2",
-          "description": "OpenAPI spec passes openapi-spec-validator (requires integration tooling)"
-        },
-        {
-          "id": "AC-10.03",
-          "ac_status": "done",
-          "description": "Every endpoint returns documented error envelope shape for all error conditions"
-        },
-        {
-          "id": "AC-10.04",
-          "ac_status": "v2",
-          "description": "SSE narrative stream begins delivering chunks within 2 s of turn submission (real-time timing, integration only)"
-        },
-        {
-          "id": "AC-10.05",
-          "ac_status": "v2",
-          "description": "Client reconnect within 30 s receives all missed events (requires Redis pub/sub infra)"
-        },
-        {
-          "id": "AC-10.06",
-          "ac_status": "v2",
-          "description": "Keep-alive heartbeats arrive at least every 15 s during idle (SSE middleware, integration only)"
-        },
-        {
-          "id": "AC-10.07",
-          "ac_status": "done",
-          "description": "Exceeding turn submission rate limit returns 429 with Retry-After header"
-        },
-        {
-          "id": "AC-10.08",
-          "ac_status": "v2",
-          "description": "Rate-limit headers present on every authenticated response (middleware-level, integration only)"
-        },
-        {
-          "id": "AC-10.09",
-          "ac_status": "done",
-          "description": "No API response ever contains stack traces, file paths, or internal details"
-        },
-        {
-          "id": "AC-10.10",
-          "ac_status": "done",
-          "description": "Every error response includes a correlation_id traceable in server logs"
-        },
-        {
-          "id": "AC-10.11",
-          "ac_status": "done",
-          "description": "Unauthenticated requests to protected endpoints return 401, not 403 or 404"
-        },
-        {
-          "id": "AC-10.12",
-          "ac_status": "done",
-          "description": "Player cannot access another player's game — API returns 404 (not 403)"
-        }
-      ],
-      "compliance_pct": 58.3
+      "warnings": []
     },
     {
       "file": "11-player-identity-and-sessions.md",
@@ -927,7 +478,7 @@
       "dependencies": [
         "S12 (Persistence Strategy)"
       ],
-      "last_updated": "2026-04-12",
+      "last_updated": "2026-04-07",
       "sections": [
         "Purpose",
         "Design Philosophy",
@@ -943,9 +494,10 @@
         "Security Considerations",
         "Acceptance Criteria",
         "Out of Scope",
-        "Open Questions"
+        "Open Questions",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3935,
+      "word_count": 4318,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 14,
       "has_user_stories": true,
@@ -955,93 +507,19 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
-      "warnings": [],
-      "implementation_notes": " Wave 27: Fixed GameStatus bug — DB insert now uses created (not active), matching spec lifecycle.",
-      "acceptance_criteria": [
-        {
-          "id": "AC-11.01",
-          "ac_status": "done",
-          "description": "Anonymous auth returns 201 with player_id, access_token, is_anonymous=true"
-        },
-        {
-          "id": "AC-11.02",
-          "ac_status": "done",
-          "description": "Upgrade preserves anonymous player_id in token response"
-        },
-        {
-          "id": "AC-11.03",
-          "ac_status": "v2",
-          "description": "Multi-device login: same game list from two browsers"
-        },
-        {
-          "id": "AC-11.04",
-          "ac_status": "done",
-          "description": "First turn submission transitions game created→active"
-        },
-        {
-          "id": "AC-11.05",
-          "ac_status": "v2",
-          "description": "Paused game resumable within 30-day window (29 days)"
-        },
-        {
-          "id": "AC-11.06",
-          "ac_status": "v2",
-          "description": "Game paused for 31 days found in expired state"
-        },
-        {
-          "id": "AC-11.07",
-          "ac_status": "v2",
-          "description": "Expired game can be resumed with welcome-back narrative"
-        },
-        {
-          "id": "AC-11.08",
-          "ac_status": "v2",
-          "description": "Created game abandoned after 25 hours with no turns"
-        },
-        {
-          "id": "AC-11.09",
-          "ac_status": "v2",
-          "description": "Login locked after 5 failed attempts → 429"
-        },
-        {
-          "id": "AC-11.10",
-          "ac_status": "done",
-          "description": "Reused refresh token invalidates entire session family"
-        },
-        {
-          "id": "AC-11.11",
-          "ac_status": "v2",
-          "description": "Deleted player credentials rejected at login"
-        },
-        {
-          "id": "AC-11.12",
-          "ac_status": "done",
-          "description": "No API response contains password or password_hash field"
-        },
-        {
-          "id": "AC-11.13",
-          "ac_status": "v2",
-          "description": "Player data not retrievable via API within 72h of deletion"
-        },
-        {
-          "id": "AC-11.14",
-          "ac_status": "v2",
-          "description": "Deleted player_id cannot be reassigned to new player"
-        }
-      ],
-      "compliance_pct": 35.7
+      "warnings": []
     },
     {
       "file": "12-persistence-strategy.md",
       "number": "S12",
       "title": "Persistence Strategy",
-      "status": "🟡 Partial",
+      "status": "📝 Draft",
       "level": "3 — Platform",
       "dependencies": [
         "S04 (World Model)",
         "S13 (World Graph Schema)"
       ],
-      "last_updated": "2026-04-12",
+      "last_updated": "2026-04-09",
       "sections": [
         "Purpose",
         "Design Philosophy",
@@ -1059,9 +537,10 @@
         "Edge Cases",
         "Out of Scope",
         "Open Questions",
-        "Changelog"
+        "Changelog",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3728,
+      "word_count": 4142,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 12,
       "has_user_stories": true,
@@ -1071,78 +550,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 0,
-      "warnings": [],
-      "implementation_notes": "Wave 27: AC-12.02 (cache reconstruction), AC-12.05 (Redis latency metrics), AC-12.07 (turn storage latency), AC-12.11 (backup/restore runbook), AC-12.12 (TTL compliance monitoring) implemented. Remaining: AC-12.01/03/04/06/08/09/10 need schema migrations or Neo4j infra.",
-      "acs_implemented": [
-        "AC-12.02",
-        "AC-12.05",
-        "AC-12.07",
-        "AC-12.11",
-        "AC-12.12"
-      ],
-      "acceptance_criteria": [
-        {
-          "id": "AC-12.01",
-          "ac_status": "done",
-          "description": "Turn submitted is retrievable from turn history after a server restart"
-        },
-        {
-          "id": "AC-12.02",
-          "ac_status": "done",
-          "description": "After Redis restart, next turn completes successfully (cache reconstruction transparent)"
-        },
-        {
-          "id": "AC-12.03",
-          "ac_status": "v2",
-          "description": "GDPR deletion request removes all PII from SQL within 72 hours (requires async background job + direct DB query)"
-        },
-        {
-          "id": "AC-12.04",
-          "ac_status": "done",
-          "description": "Game state after 100 turns matches accumulated effect of all snapshots (no state drift)"
-        },
-        {
-          "id": "AC-12.05",
-          "ac_status": "v2",
-          "description": "Game state read from Redis cache completes in under 5ms p95 (requires real Redis + timing harness)"
-        },
-        {
-          "id": "AC-12.06",
-          "ac_status": "v2",
-          "description": "Cache miss reconstruction from SQL + Neo4j completes in under 500ms p95 (requires real infra)"
-        },
-        {
-          "id": "AC-12.07",
-          "ac_status": "v2",
-          "description": "Turn processing (all storage ops, excluding AI) completes in under 200ms p95 (requires real infra)"
-        },
-        {
-          "id": "AC-12.08",
-          "ac_status": "v2",
-          "description": "World graph traversal (2-hop) completes in under 200ms p95 (requires real Neo4j)"
-        },
-        {
-          "id": "AC-12.09",
-          "ac_status": "done",
-          "description": "SQL migration applies without manual intervention beyond running the migration command"
-        },
-        {
-          "id": "AC-12.10",
-          "ac_status": "v2",
-          "description": "Neo4j migration script is idempotent (no Neo4j unit-test infra available)"
-        },
-        {
-          "id": "AC-12.11",
-          "ac_status": "v2",
-          "description": "Operator can restore SQL from backup and have service functional within 1 hour (operational procedure)"
-        },
-        {
-          "id": "AC-12.12",
-          "ac_status": "done",
-          "description": "All Redis keys have a TTL set (no unbounded memory growth)"
-        }
-      ],
-      "compliance_pct": 41.7
+      "warnings": []
     },
     {
       "file": "13-world-graph-schema.md",
@@ -1171,9 +579,10 @@
         "Acceptance Criteria",
         "Edge Cases",
         "Out of Scope",
-        "Open Questions"
+        "Open Questions",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 5530,
+      "word_count": 5928,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 16,
       "has_user_stories": true,
@@ -1212,9 +621,10 @@
         "Key Scenarios (Gherkin)",
         "Appendix A: Container Dependency Graph",
         "Appendix B: Port Map",
-        "Appendix C: Makefile Quick Reference"
+        "Appendix C: Makefile Quick Reference",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3223,
+      "word_count": 3563,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 34,
       "has_user_stories": true,
@@ -1251,9 +661,10 @@
         "Key Scenarios (Gherkin)",
         "Appendix A: Recommended OSS Stack",
         "Appendix B: OpenTelemetry Configuration",
-        "Changelog"
+        "Changelog",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3415,
+      "word_count": 3743,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 32,
       "has_user_stories": true,
@@ -1277,7 +688,7 @@
         "S14 (Deployment)",
         "S15 (Observability)"
       ],
-      "last_updated": "2026-04-12",
+      "last_updated": "2026-04-07",
       "sections": [
         "Overview",
         "CI Pipeline",
@@ -1295,9 +706,10 @@
         "Test Organization & Conventions",
         "Key Scenarios (Gherkin)",
         "Appendix A: CI Pipeline Diagram",
-        "Appendix B: pytest.ini / pyproject.toml Test Config"
+        "Appendix B: pytest.ini / pyproject.toml Test Config",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 4707,
+      "word_count": 5072,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 48,
       "has_user_stories": true,
@@ -1307,8 +719,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 8,
-      "warnings": [],
-      "implementation_notes": " Wave 27: Removed continue-on-error:true from CI integration tests."
+      "warnings": []
     },
     {
       "file": "17-data-privacy.md",
@@ -1340,9 +751,10 @@
         "Key Scenarios (Gherkin)",
         "Appendix A: Data Flow Diagram",
         "Appendix B: GDPR Quick Reference",
-        "Appendix C: v1 vs Future Privacy Maturity"
+        "Appendix C: v1 vs Future Privacy Maturity",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 4208,
+      "word_count": 4576,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 44,
       "has_user_stories": true,
@@ -1352,60 +764,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "FR-17.22",
-          "ac_status": "done",
-          "description": "Consent required for data processing (wave-29)"
-        },
-        {
-          "id": "FR-17.23",
-          "ac_status": "done",
-          "description": "Consent categories granular (wave-29)"
-        },
-        {
-          "id": "FR-17.24",
-          "ac_status": "done",
-          "description": "Consent version tracked (wave-29)"
-        },
-        {
-          "id": "FR-17.25",
-          "ac_status": "done",
-          "description": "Consent withdrawal possible (wave-29)"
-        },
-        {
-          "id": "FR-17.29",
-          "ac_status": "done",
-          "description": "LLM provider config documented (wave-29)"
-        },
-        {
-          "id": "FR-17.30",
-          "ac_status": "done",
-          "description": "Provider change notification logged (wave-29)"
-        },
-        {
-          "id": "FR-17.31",
-          "ac_status": "done",
-          "description": "Self-hosted Langfuse documented (wave-29)"
-        },
-        {
-          "id": "FR-17.36",
-          "ac_status": "done",
-          "description": "Age confirmation field (wave-29)"
-        },
-        {
-          "id": "FR-17.37",
-          "ac_status": "done",
-          "description": "Under-13 blocked (wave-29)"
-        },
-        {
-          "id": "FR-17.38",
-          "ac_status": "done",
-          "description": "Age gate before data collection (wave-29)"
-        }
-      ],
-      "compliance_pct": 100
+      "warnings": []
     },
     {
       "file": "future/18-therapeutic-framework.md",
@@ -1617,11 +976,13 @@
         "Dependencies & Integration Boundaries",
         "Open Questions",
         "Out of Scope",
-        "Appendix"
+        "Migration Notes (Issue #128)",
+        "Appendix",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 4228,
+      "word_count": 4659,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 12,
+      "acceptance_criteria_count": 24,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
@@ -1629,70 +990,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 12,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-23.1",
-          "ac_status": "done",
-          "description": "All error responses use standard envelope shape"
-        },
-        {
-          "id": "AC-23.2",
-          "ac_status": "done",
-          "description": "Correlation IDs flow from request to response to logs"
-        },
-        {
-          "id": "AC-23.3",
-          "ac_status": "done",
-          "description": "LLM total failure produces friendly player message (502)"
-        },
-        {
-          "id": "AC-23.4",
-          "ac_status": "done",
-          "description": "Database retries with exponential backoff (wave-30)"
-        },
-        {
-          "id": "AC-23.5",
-          "ac_status": "done",
-          "description": "Circuit breaker opens after threshold failures"
-        },
-        {
-          "id": "AC-23.6",
-          "ac_status": "done",
-          "description": "Failed turns don't corrupt game state (turn atomicity)"
-        },
-        {
-          "id": "AC-23.7",
-          "ac_status": "done",
-          "description": "Concurrent turns for same game rejected with 409"
-        },
-        {
-          "id": "AC-23.8",
-          "ac_status": "v2",
-          "description": "SSE stream delivers error events"
-        },
-        {
-          "id": "AC-23.9",
-          "ac_status": "done",
-          "description": "Health endpoint reports degraded when non-critical service is down"
-        },
-        {
-          "id": "AC-23.10",
-          "ac_status": "done",
-          "description": "No stack traces or module paths in production error responses"
-        },
-        {
-          "id": "AC-23.11",
-          "ac_status": "done",
-          "description": "Empty turn input returns 400 input_invalid (wave-30)"
-        },
-        {
-          "id": "AC-23.12",
-          "ac_status": "done",
-          "description": "Health endpoint reports unhealthy when Postgres is down"
-        }
-      ],
-      "compliance_pct": 91.7
+      "warnings": []
     },
     {
       "file": "24-content-moderation-v1.md",
@@ -1719,11 +1017,12 @@
         "Dependencies & Integration Boundaries",
         "Open Questions",
         "Out of Scope",
-        "Appendix"
+        "Appendix",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3812,
+      "word_count": 4086,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 10,
+      "acceptance_criteria_count": 20,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
@@ -1731,60 +1030,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 10,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-24.1",
-          "ac_status": "done",
-          "description": "Safe content passes moderation without delay"
-        },
-        {
-          "id": "AC-24.2",
-          "ac_status": "done",
-          "description": "Harmful content blocked with gentle redirect"
-        },
-        {
-          "id": "AC-24.3",
-          "ac_status": "v2",
-          "description": "Streaming output interrupted within 2 tokens (needs token-level streaming)"
-        },
-        {
-          "id": "AC-24.4",
-          "ac_status": "done",
-          "description": "Complete audit trail for all moderation actions"
-        },
-        {
-          "id": "AC-24.5",
-          "ac_status": "done",
-          "description": "System continues serving when moderation is down (fail-open)"
-        },
-        {
-          "id": "AC-24.6",
-          "ac_status": "done",
-          "description": "Player never sees moderation internals"
-        },
-        {
-          "id": "AC-24.7",
-          "ac_status": "done",
-          "description": "Prompt injection detected and blocked"
-        },
-        {
-          "id": "AC-24.8",
-          "ac_status": "done",
-          "description": "Repeated blocks trigger session escalation"
-        },
-        {
-          "id": "AC-24.9",
-          "ac_status": "done",
-          "description": "Fantasy violence not false-positive blocked"
-        },
-        {
-          "id": "AC-24.10",
-          "ac_status": "done",
-          "description": "Fail-closed mode blocks all turns when moderation is down"
-        }
-      ],
-      "compliance_pct": 90.0
+      "warnings": []
     },
     {
       "file": "25-rate-limiting-and-anti-abuse.md",
@@ -1811,11 +1057,12 @@
         "Dependencies & Integration Boundaries",
         "Open Questions",
         "Out of Scope",
-        "Appendix"
+        "Appendix",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 2904,
+      "word_count": 3212,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 8,
+      "acceptance_criteria_count": 16,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
@@ -1823,50 +1070,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 8,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-25.1",
-          "ac_status": "done",
-          "description": "Normal gameplay unaffected by rate limits"
-        },
-        {
-          "id": "AC-25.2",
-          "ac_status": "done",
-          "description": "429 response with proper headers when limit exceeded"
-        },
-        {
-          "id": "AC-25.3",
-          "ac_status": "done",
-          "description": "Rate limit headers present on all responses"
-        },
-        {
-          "id": "AC-25.4",
-          "ac_status": "done",
-          "description": "Concurrent turn submission prevented with 409"
-        },
-        {
-          "id": "AC-25.5",
-          "ac_status": "done",
-          "description": "Credential stuffing detected and blocked for 15 minutes"
-        },
-        {
-          "id": "AC-25.6",
-          "ac_status": "done",
-          "description": "In-memory fallback when Redis is down"
-        },
-        {
-          "id": "AC-25.7",
-          "ac_status": "v2",
-          "description": "Active SSE streams not interrupted by rate limiting (needs stream-aware middleware)"
-        },
-        {
-          "id": "AC-25.8",
-          "ac_status": "done",
-          "description": "Escalating cooldowns for repeated violations"
-        }
-      ],
-      "compliance_pct": 87.5
+      "warnings": []
     },
     {
       "file": "26-admin-and-operator-tooling.md",
@@ -1893,11 +1097,12 @@
         "Dependencies & Integration Boundaries",
         "Open Questions",
         "Out of Scope",
-        "Appendix"
+        "Appendix",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3126,
+      "word_count": 3423,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 8,
+      "acceptance_criteria_count": 16,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
@@ -1905,50 +1110,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 8,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-26.1",
-          "ac_status": "done",
-          "description": "Admin endpoints require valid API key (Bearer token)"
-        },
-        {
-          "id": "AC-26.2",
-          "ac_status": "done",
-          "description": "Player search by handle returns matching results"
-        },
-        {
-          "id": "AC-26.3",
-          "ac_status": "done",
-          "description": "Player lookup returns profile, suspension status, game count"
-        },
-        {
-          "id": "AC-26.4",
-          "ac_status": "done",
-          "description": "GET /admin/games/{id} returns full game state with turns and flags"
-        },
-        {
-          "id": "AC-26.5",
-          "ac_status": "done",
-          "description": "POST /admin/games/{id}/terminate force-ends active/paused game; 409 if already terminated"
-        },
-        {
-          "id": "AC-26.6",
-          "ac_status": "done",
-          "description": "POST /admin/moderation/flags/{id}/review marks flag and optionally suspends player"
-        },
-        {
-          "id": "AC-26.7",
-          "ac_status": "done",
-          "description": "Rate-limit reset clears player counters and IP blocks with audit trail"
-        },
-        {
-          "id": "AC-26.8",
-          "ac_status": "done",
-          "description": "GET /admin/audit-log returns all write actions with admin_id, action, target, reason, timestamp"
-        }
-      ],
-      "compliance_pct": 100.0
+      "warnings": []
     },
     {
       "file": "27-save-load-and-game-management.md",
@@ -1975,11 +1137,12 @@
         "Dependencies & Integration Boundaries",
         "Open Questions",
         "Out of Scope",
-        "Appendix"
+        "Appendix",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3222,
+      "word_count": 3604,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 10,
+      "acceptance_criteria_count": 20,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
@@ -1987,60 +1150,7 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 10,
-      "warnings": [],
-      "acceptance_criteria": [
-        {
-          "id": "AC-27.1",
-          "ac_status": "done",
-          "description": "Game creation with genesis pipeline"
-        },
-        {
-          "id": "AC-27.2",
-          "ac_status": "done",
-          "description": "Maximum active game limit enforcement"
-        },
-        {
-          "id": "AC-27.3",
-          "ac_status": "done",
-          "description": "Game listing with proper sorting and fields"
-        },
-        {
-          "id": "AC-27.4",
-          "ac_status": "done",
-          "description": "Game resume with context summary"
-        },
-        {
-          "id": "AC-27.5",
-          "ac_status": "done",
-          "description": "Automatic persistence after each turn"
-        },
-        {
-          "id": "AC-27.6",
-          "ac_status": "done",
-          "description": "Soft deletion with confirmation"
-        },
-        {
-          "id": "AC-27.7",
-          "ac_status": "done",
-          "description": "Delete confirmation requirement"
-        },
-        {
-          "id": "AC-27.8",
-          "ac_status": "done",
-          "description": "Context summary regeneration after absence"
-        },
-        {
-          "id": "AC-27.9",
-          "ac_status": "done",
-          "description": "Failed persistence recovery"
-        },
-        {
-          "id": "AC-27.10",
-          "ac_status": "done",
-          "description": "Completed game is read-only"
-        }
-      ],
-      "compliance_pct": 100.0
+      "warnings": []
     },
     {
       "file": "28-performance-and-scaling.md",
@@ -2067,9 +1177,315 @@
         "Dependencies & Integration Boundaries",
         "Open Questions",
         "Out of Scope",
-        "Appendix"
+        "Appendix",
+        "v1 Closeout (Non-normative)"
       ],
-      "word_count": 2948,
+      "word_count": 3247,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 16,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 8,
+      "warnings": []
+    },
+    {
+      "file": "29-universe-as-first-class-entity.md",
+      "number": "S29",
+      "title": "Universe as First-Class Entity",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
+      "dependencies": [
+        "v1 S04",
+        "v1 S11",
+        "v1 S12",
+        "v1 S13"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope",
+        "Appendix",
+        "Changelog"
+      ],
+      "word_count": 3669,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 13,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 13,
+      "warnings": []
+    },
+    {
+      "file": "30-session-universe-binding.md",
+      "number": "S30",
+      "title": "Session↔Universe Binding",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
+      "dependencies": [
+        "v2 S29",
+        "v1 S11"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope",
+        "Appendix",
+        "Changelog"
+      ],
+      "word_count": 2907,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 10,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 10,
+      "warnings": []
+    },
+    {
+      "file": "31-actor-identity-portability.md",
+      "number": "S31",
+      "title": "Actor Identity Portability",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
+      "dependencies": [
+        "v2 S29",
+        "v1 S06",
+        "v1 S11"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope",
+        "Changelog"
+      ],
+      "word_count": 2982,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 9,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 9,
+      "warnings": []
+    },
+    {
+      "file": "32-transport-abstraction.md",
+      "number": "S32",
+      "title": "Transport Abstraction",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
+      "dependencies": [
+        "v1 S10"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope",
+        "Changelog"
+      ],
+      "word_count": 2733,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 10,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 10,
+      "warnings": []
+    },
+    {
+      "file": "33-universe-persistence-schema.md",
+      "number": "S33",
+      "title": "Universe Persistence Schema",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
+      "dependencies": [
+        "v2 S29",
+        "v2 S31",
+        "v1 S12",
+        "v1 S13"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope",
+        "Changelog",
+        "Appendix A — Recommended Backfill Approach (Mapping Table)",
+        "Appendix B — Schema Change Summary (v1 → v2)"
+      ],
+      "word_count": 3937,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 10,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 10,
+      "warnings": []
+    },
+    {
+      "file": "34-diegetic-time.md",
+      "number": "S34",
+      "title": "Diegetic Time",
+      "status": "📝 Draft",
+      "level": "2 — Simulation",
+      "dependencies": [
+        "S29 (Universe Identity)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — WorldTime Fields (Reference Implementation Shape)",
+        "Appendix B — Default TimeConfig Values"
+      ],
+      "word_count": 2764,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 10,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 10,
+      "warnings": []
+    },
+    {
+      "file": "35-npc-autonomy-between-turns.md",
+      "number": "S35",
+      "title": "NPC Autonomy Between Turns",
+      "status": "📝 Draft",
+      "level": "2 — Simulation",
+      "dependencies": [
+        "S34 (Diegetic Time)",
+        "S29 (Universe Identity)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — Salience Filter Decision Table",
+        "Appendix B — AutonomyProcessor Data Flow"
+      ],
+      "word_count": 3718,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 10,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 10,
+      "warnings": []
+    },
+    {
+      "file": "36-consequence-propagation.md",
+      "number": "S36",
+      "title": "Consequence Propagation",
+      "status": "📝 Draft",
+      "level": "2 — Simulation",
+      "dependencies": [
+        "S34 (Diegetic Time)",
+        "S35 (NPC Autonomy)",
+        "v1 S04 (World Simulation)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — PropagationSource Type",
+        "Appendix B — Distortion Fidelity Decision Table",
+        "Appendix C — Pipeline Position"
+      ],
+      "word_count": 2643,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 8,
       "has_user_stories": true,
@@ -2080,6 +1496,998 @@
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 8,
       "warnings": []
+    },
+    {
+      "file": "37-world-memory-model.md",
+      "number": "S37",
+      "title": "World Memory Model",
+      "status": "📝 Draft",
+      "level": "2 — Simulation",
+      "dependencies": [
+        "v1 S03 (Narrative)",
+        "v1 S08 (Turn Pipeline)",
+        "v1 S12 (Persistence)",
+        "v1 S13 (World Graph)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — MemoryRecord Dataclass Shape",
+        "Appendix B — Importance Scoring Reference",
+        "Appendix C — Three-Tier Memory Architecture Diagram",
+        "Appendix D — Pipeline Position"
+      ],
+      "word_count": 3383,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 8,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 8,
+      "warnings": []
+    },
+    {
+      "file": "38-npc-memory-and-social-model.md",
+      "number": "S38",
+      "title": "NPC Memory & Social Model",
+      "status": "📝 Draft",
+      "level": "2 — Simulation",
+      "dependencies": [
+        "v1 S06 (Characters & Relationships)",
+        "S33 (Universe Persistence)",
+        "S35 (NPC Autonomy)",
+        "S37 (World Memory Model)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — Type Shapes",
+        "Appendix B — Gossip Propagation Flowchart",
+        "Appendix C — Persistence by Tier",
+        "Appendix D — Pipeline Position"
+      ],
+      "word_count": 3421,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 8,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 8,
+      "warnings": []
+    },
+    {
+      "file": "39-universe-composition-model.md",
+      "number": "S39",
+      "title": "Universe Composition Model",
+      "status": "📝 Draft",
+      "level": "2 — Simulation",
+      "dependencies": [
+        "S29 (Universe as First-Class Entity)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — UniverseComposition Dataclass Shape",
+        "Appendix B — Config Namespace Reference",
+        "Appendix C — Relationship to S41 (Scenario Seed Library)"
+      ],
+      "word_count": 3067,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 8,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 8,
+      "warnings": []
+    },
+    {
+      "file": "40-genesis-v2-real-to-strange.md",
+      "number": "S40",
+      "title": "Genesis v2: Real→Strange",
+      "status": "📝 Draft",
+      "level": "2 — Simulation",
+      "dependencies": [
+        "S29 (Universe as First-Class Entity)",
+        "S39 (Universe Composition Model)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Structural Relationship to v1 S02",
+        "Design Philosophy",
+        "User Stories",
+        "Functional Requirements — The 7 Phases",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — Phase Summary Table",
+        "Appendix B — v1 AC Disposition",
+        "Appendix C — Pipeline Position"
+      ],
+      "word_count": 3520,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 8,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 8,
+      "warnings": []
+    },
+    {
+      "file": "41-scenario-seed-library.md",
+      "number": "S41",
+      "title": "Scenario Seed Library",
+      "status": "📝 Draft",
+      "level": "2 — Content",
+      "dependencies": [
+        "S39 (Universe Composition Model)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Data Contract — Seed Manifest",
+        "Canonical Initial Library",
+        "Functional Requirements",
+        "SeedRegistry Contract",
+        "Validation Rules",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — Canonical Seed Sketches"
+      ],
+      "word_count": 2121,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 6,
+      "has_user_stories": true,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 7,
+      "warnings": [
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "42-llm-playtester-agent-harness.md",
+      "number": "S42",
+      "title": "LLM Playtester Agent Harness",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "S41 (Scenario Seed Library)",
+        "v1 S07 (LLM Integration)",
+        "v1 S16 (Testing Strategy)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Philosophy",
+        "User Stories",
+        "Persona & Taste Profile",
+        "Functional Requirements",
+        "PlaytesterAgent Contract",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 1506,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 5,
+      "has_user_stories": true,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "43-human-playtester-program.md",
+      "number": "S43",
+      "title": "Human Playtester Program",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "S41 (Scenario Seed Library)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Scope and Scale",
+        "Roles",
+        "Recruitment",
+        "Consent and Privacy",
+        "Session Structure",
+        "Feedback Intake Form",
+        "Triage Pipeline",
+        "Acceptance Criteria",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 1542,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": true,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "44-narrative-quality-evaluation.md",
+      "number": "S44",
+      "title": "Narrative Quality Evaluation",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "S42 (LLM Playtester Agent Harness)",
+        "S43 (Human Playtester Program)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Quality Categories",
+        "Scoring Methods",
+        "NarrativeQualityReport",
+        "Composite Score and Verdicts",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions",
+        "Appendix A — Scoring Rubric"
+      ],
+      "word_count": 1501,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 5,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "45-evaluation-pipeline.md",
+      "number": "S45",
+      "title": "Evaluation Pipeline",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "S42 (LLM Playtester)",
+        "S43 (Human Playtester Program)",
+        "S44 (Narrative Quality Evaluation)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Principles",
+        "Pipeline Architecture",
+        "Functional Requirements",
+        "GitHub Actions Integration",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 1376,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 5,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "46-cloud-deployment-target.md",
+      "number": "S46",
+      "title": "Cloud Deployment Target",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "v1 S14 (Deployment — local Docker Compose)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Decisions",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 1227,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 5,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "47-live-neo4j-in-ci.md",
+      "number": "S47",
+      "title": "Live Neo4j in CI",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "v1 S13 (World Graph Schema)",
+        "v1 S16 (Testing Infrastructure)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Decisions",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 1032,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 5,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "48-async-job-runner.md",
+      "number": "S48",
+      "title": "Async Job Runner",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "v1 S17 (Data Privacy / GDPR)",
+        "v1 S26 (Admin Tooling)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Decisions",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 1211,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 6,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 6,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "49-horizontal-scaling.md",
+      "number": "S49",
+      "title": "Horizontal Scaling & Multi-Instance Sessions",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "v1 S11 (Player Identity & Sessions)",
+        "v1 S12 (Persistence Strategy)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Decisions",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 1279,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 6,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 6,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "50-concurrent-universe-loading.md",
+      "number": "S50",
+      "title": "Concurrent Universe Loading",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
+      "dependencies": [
+        "S29 (Universe Spec)",
+        "S33 (Universe Persistence Schema)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Design Principles",
+        "Universe Lifecycle",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 877,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 5,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "51-cross-universe-travel-protocol.md",
+      "number": "S51",
+      "title": "Cross-Universe Travel Protocol",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S31 (Actor Identity Portability)",
+        "S50 (Concurrent Universe Loading)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Character State Transfer Model",
+        "Trigger Conditions",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 1073,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 5,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "52-nexus-as-special-universe.md",
+      "number": "S52",
+      "title": "Nexus as Special Universe",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S50 (Concurrent Universe Loading)",
+        "S51 (Cross-Universe Travel)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Nexus Composition",
+        "Nexus Inhabitants (NPCs)",
+        "Default Locations",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 992,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "53-nexus-access-rules.md",
+      "number": "S53",
+      "title": "Nexus Access Rules",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S52 (Nexus)",
+        "S51 (Cross-Universe Travel)",
+        "S50 (Concurrent Universe Loading)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Access Gate",
+        "Trigger Paths",
+        "Resonance Fragment",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 993,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "54-inter-universe-event-substrate.md",
+      "number": "S54",
+      "title": "Inter-Universe Event Substrate",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
+      "dependencies": [
+        "S49 (Horizontal Scaling / Redis PubSub)",
+        "S50 (Concurrent Universe Loading)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Channel Naming Convention",
+        "Event Schema",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 730,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "55-bleedthrough-propagation-rules.md",
+      "number": "S55",
+      "title": "Bleedthrough Propagation Rules",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S54 (Inter-Universe Event Substrate)",
+        "S05 (Narrative Engine)",
+        "S39 (Universe Composition)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Bleedthrough Pipeline",
+        "Eligibility Filter",
+        "Thematic Distortion",
+        "Injection into Receiving Universe",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 911,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "56-resonance-correlation-engine.md",
+      "number": "S56",
+      "title": "Resonance Correlation Engine",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S54 (Inter-Universe Event Substrate)",
+        "S39 (Universe Composition)",
+        "S37 (Memory Records)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Resonance Vocabulary",
+        "Resonance Lifecycle",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 913,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "57-multi-actor-universe-model.md",
+      "number": "S57",
+      "title": "Multi-Actor Universe Model",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S50 (Concurrent Universe Loading)",
+        "S31 (Actor Identity Portability)",
+        "S05 (Narrative Engine)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Actor Roster",
+        "Per-Actor Narrative Streams",
+        "Shared World-State",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 872,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "58-turn-conflict-resolution.md",
+      "number": "S58",
+      "title": "Turn Conflict Resolution",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S57 (Multi-Actor Universe Model)",
+        "S05 (Narrative Engine)",
+        "S08 (Turn Pipeline)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Conflict Classification",
+        "Resolution Strategies",
+        "Conflict Detection",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 948,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "59-multiplayer-transport.md",
+      "number": "S59",
+      "title": "Multiplayer Transport",
+      "status": "📝 Draft",
+      "level": "3 — Platform",
+      "dependencies": [
+        "S57 (Multi-Actor Universe Model)",
+        "S58 (Turn Conflict Resolution)",
+        "S10 (API and Streaming)",
+        "S49 (Horizontal Scaling)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Library Choice",
+        "WebSocket Endpoint",
+        "Message Schema",
+        "Connection Lifecycle",
+        "Horizontal Scaling",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 993,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "60-crisis-safety-protocol.md",
+      "number": "S60",
+      "title": "Crisis Safety Protocol",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "S08 (Turn Pipeline)",
+        "S24 (Content Moderation)",
+        "S07 (LLM Integration)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Detection Approach",
+        "Safety Response",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 856,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "61-therapeutic-framework.md",
+      "number": "S61",
+      "title": "Therapeutic Framework",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S60 (Crisis Safety — required gate)",
+        "S08 (Turn Pipeline)",
+        "S09 (Prompt Management)",
+        "S37 (Memory Records)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Techniques in MVP Scope",
+        "Annotation Hook",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 805,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "62-story-sharing.md",
+      "number": "S62",
+      "title": "Story Sharing",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S37 (Memory Records)",
+        "S17 (Privacy and Data Retention)",
+        "S27 (Save/Load and Game Management)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Export Formats",
+        "Story Structure",
+        "Privacy Safeguards",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 791,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
+    },
+    {
+      "file": "63-community-and-user-generated-worlds.md",
+      "number": "S63",
+      "title": "Community and User-Generated Worlds",
+      "status": "📝 Draft",
+      "level": "1 — Core Game",
+      "dependencies": [
+        "S41 (Scenario Seed Library)",
+        "S39 (Universe Composition Model)",
+        "S24 (Content Moderation)",
+        "S17 (Privacy)"
+      ],
+      "last_updated": "2026-04-21",
+      "sections": [
+        "Purpose",
+        "Template Authoring",
+        "Moderation Pipeline",
+        "Functional Requirements",
+        "Acceptance Criteria (Gherkin)",
+        "Out of Scope",
+        "Open Questions"
+      ],
+      "word_count": 778,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 4,
+      "has_user_stories": false,
+      "has_edge_cases": false,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 4,
+      "warnings": [
+        "No user stories found",
+        "No edge cases section"
+      ]
     }
   ]
 }

@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
@@ -112,6 +113,7 @@ def _make_pg(session: AsyncMock) -> MagicMock:
 # ── AC-26.1 / AC-26.2: Admin authentication ──────────────────────
 
 
+@pytest.mark.spec("AC-26.01")
 class TestAC261AdminAuth:
     """AC-26.1: Admin endpoints require a valid API key.
     AC-26.2: Requests without a key get 401; wrong key gets 403.
@@ -152,6 +154,7 @@ class TestAC261AdminAuth:
 # ── AC-26.3: Player search / lookup ──────────────────────────────
 
 
+@pytest.mark.spec("AC-26.03")
 class TestAC263PlayerSearch:
     """AC-26.3: Player lookup returns profile, game counts, rate-limit state.
 
@@ -197,6 +200,7 @@ class TestAC263PlayerSearch:
 # ── AC-26.4: Player suspend / unsuspend ──────────────────────────
 
 
+@pytest.mark.spec("AC-26.04")
 class TestAC264PlayerSuspend:
     """AC-26.4: Suspend/unsuspend toggles player status with audit trail.
 
@@ -259,6 +263,7 @@ class TestAC264PlayerSuspend:
 # ── AC-26.4 (game) / AC-26.5 (game): Game inspect & terminate ───
 
 
+@pytest.mark.spec("AC-26.04")
 class TestAC264AdminGameInspect:
     """AC-26.4 (game): GET /admin/games/{id} returns full game state.
 
@@ -303,6 +308,7 @@ class TestAC264AdminGameInspect:
         assert resp.status_code == 404
 
 
+@pytest.mark.spec("AC-26.05")
 class TestAC265GameTerminate:
     """AC-26.5: POST /admin/games/{id}/terminate force-ends a game.
 
@@ -378,6 +384,7 @@ class TestAC265GameTerminate:
 # ── AC-26.6 / AC-26.5 (flags): Moderation ────────────────────────
 
 
+@pytest.mark.spec("AC-26.06")
 class TestAC266ModerationReview:
     """AC-26.6: Flag review updates verdict and optionally suspends player.
     AC-26.5 (mod): Moderation queue returns paginated flags with filtering.
@@ -413,6 +420,7 @@ class TestAC266ModerationReview:
 # ── AC-26.7 / AC-26.8: Audit log ─────────────────────────────────
 
 
+@pytest.mark.spec("AC-26.07")
 class TestAC267AuditLog:
     """AC-26.7: Audit log is append-only, queryable by time/action/admin.
     AC-26.8: All admin write operations produce entries with required fields.

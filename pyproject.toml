@@ -62,6 +62,10 @@ target-version = "py312"
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
 ignore = ["B008"]  # Depends() in defaults is idiomatic FastAPI
 
+[tool.ruff.lint.per-file-ignores]
+"specs/index_specs.py" = ["E501"]  # embedded CSS/HTML strings exceed 88 chars
+"specs/trace_acs.py" = ["E501"]  # embedded HTML template and argparse strings exceed 88 chars
+
 # ---------------------------------------------------------------------------
 # Pyright — type checking
 # ---------------------------------------------------------------------------
@@ -91,6 +95,7 @@ markers = [
     "llm_live: Tests that call real LLM APIs",
     "hypothesis: Property-based tests",
     "bdd: BDD acceptance tests",
+    "spec: Links test to one or more spec AC IDs (format: AC-NN.NN)",
 ]
 
 # ---------------------------------------------------------------------------

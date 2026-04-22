@@ -66,6 +66,7 @@ def _fresh_svc() -> InMemoryRelationshipService:
 # ── AC-6.4: Relationship dimensions increase when player helps an NPC ─────────
 
 
+@pytest.mark.spec("AC-06.04")
 class TestAC604RelationshipHelp:
     """AC-6.4: Helping an NPC increases Trust, Affinity, Respect by appropriate amounts.
 
@@ -294,6 +295,7 @@ class TestAC604RelationshipHelp:
 # ── AC-6.8: NPC references shared history on return visit ─────────────────────
 
 
+@pytest.mark.spec("AC-06.08")
 class TestAC608SharedHistory:
     """AC-6.8: NPC references shared history appropriately after a session break.
 
@@ -368,6 +370,7 @@ class TestAC608SharedHistory:
 # ── AC-6.9: NPC acknowledges knowledge gap authentically ──────────────────────
 
 
+@pytest.mark.spec("AC-06.09")
 class TestAC609KnowledgeBoundary:
     """AC-6.9: NPC response acknowledges knowledge gap (not generic 'I don't know').
 

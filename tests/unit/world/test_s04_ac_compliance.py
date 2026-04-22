@@ -115,6 +115,7 @@ def _make_seed(
 # ── AC-4.1: WorldContext structure on "look around" ───────────────────────────
 
 
+@pytest.mark.spec("AC-04.01")
 class TestAC401WorldContextAssembly:
     """AC-4.1 (partial v1): "Look around" populates the available WorldContext fields.
 
@@ -212,6 +213,7 @@ class TestAC401WorldContextAssembly:
 # ── AC-4.3: Diff query returns state changes since last visit ─────────────────
 
 
+@pytest.mark.spec("AC-04.03")
 class TestAC403StateDiffOnReturn:
     """AC-4.3: Returning to a location yields a diff of changes since absence.
 
@@ -316,6 +318,7 @@ class TestAC403StateDiffOnReturn:
 # ── AC-4.6: Each region has distinct identity ─────────────────────────────────
 
 
+@pytest.mark.spec("AC-04.06")
 class TestAC406DistinctRegionIdentity:
     """AC-4.6: Five distinct regions each have a unique archetype.
 
@@ -397,6 +400,7 @@ class TestAC406DistinctRegionIdentity:
 # ── AC-4.8: World state restored after crash (atomic changes) ─────────────────
 
 
+@pytest.mark.spec("AC-04.08")
 class TestAC408AtomicStateRestoration:
     """AC-4.8: World state is consistent after applying a batch of changes.
 

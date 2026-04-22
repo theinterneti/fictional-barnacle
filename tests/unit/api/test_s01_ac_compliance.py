@@ -135,6 +135,7 @@ def client(app: FastAPI) -> TestClient:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-01.02")
 class TestAC102EmptyInput:
     """AC-1.2: Empty input returns 400 input_invalid at the API layer.
 
@@ -177,6 +178,7 @@ class TestAC102EmptyInput:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-01.03")
 class TestAC103SaveCommand:
     """AC-1.3: /save command updates game state and returns a confirmation."""
 
@@ -212,6 +214,7 @@ class TestAC103SaveCommand:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-01.05")
 class TestAC105CharacterFailure:
     """AC-1.5: Game continues after failure — no hard game-over state enforced.
 
@@ -275,6 +278,7 @@ class TestAC105CharacterFailure:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-01.06")
 class TestAC106StoryCompletion:
     """AC-1.6: /end command transitions game to completed; response indicates ending."""
 
@@ -317,6 +321,7 @@ class TestAC106StoryCompletion:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-01.07")
 class TestAC107IdleTimeout:
     """AC-1.7: Active game idle >30 min → lifecycle pass transitions it to 'paused'.
 
@@ -390,6 +395,7 @@ class TestAC107IdleTimeout:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-01.08")
 class TestAC108SecondPlaythrough:
     """AC-1.8: Creating a new game after a completed game generates a distinct world.
 
@@ -431,6 +437,7 @@ class TestAC108SecondPlaythrough:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-01.10")
 class TestAC110UnknownCommand:
     """AC-1.10: Unknown /command → help message listing available commands."""
 

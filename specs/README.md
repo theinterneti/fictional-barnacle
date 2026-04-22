@@ -99,30 +99,31 @@ S00 (Charter)
  └── S18-S22 (Future) ← Stubs, boundary constraints only
 ```
 
-## Reserved Spec IDs — v2+ (Post-v1 Roadmap)
+## v2+ Specs (Post-v1 Roadmap)
 
-IDs S29–S63 are allocated to post-v1 releases. Specs S29–S39 are now published
-as full specs in this repository. IDs S40–S63 remain reserved roadmap slots and
-will be drafted via individual brainstorm sessions following the SDD workflow.
-The full roadmap rationale, dependency graph, and open questions per spec are
-documented in an internal planning artifact that is not part of this repository.
+S29–S63 are drafted across v2.0 / v2.1 / v3 / v4+ / v5+ release baselines, with
+tiered depth matching roadmap §9 (S29–S45 full structure; S46–S63 thinner stubs
+that lock scope for later elaboration).
+See [`docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md`](../docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md)
+for the full roadmap rationale, dependency graph, and open questions per spec.
+The v2 technical plan (covering S29–S40) lives at [`plans/v2-universe-and-simulation.md`](../plans/v2-universe-and-simulation.md).
 
 ### v2.0 — "Believable Simulation" (S29–S40)
 
-| # | Name | Description |
-|---|------|-------------|
-| S29 | [Universe as First-Class Entity](29-universe-as-first-class-entity.md) | Universe identity, config, persistent state — not a session appendage |
-| [S30](30-session-universe-binding.md) | Session↔Universe Binding | Explicit 1:1 binding contract; schema permits n:1 for v4+ |
-| [S31](31-actor-identity-portability.md) | Actor Identity Portability | Actor IDs universe-agnostic; unblocks cross-universe travel |
-| [S32](32-transport-abstraction.md) | Transport Abstraction | `NarrativeTransport` interface; SSE as first impl, WebSocket-ready |
-| [S33](33-universe-persistence-schema.md) | Universe Persistence Schema | Versioned forward-compat state envelope; enables universe reload |
-| [S34](34-diegetic-time.md) | Diegetic Time | In-world clock; day/night cycles, scene transitions, skip-ahead |
-| [S35](35-npc-autonomy-between-turns.md) | NPC Autonomy Between Turns | Off-screen NPC goals, routines, salience filter (no LangGraph) |
-| [S36](36-consequence-propagation.md) | Consequence Propagation | Effect ripple via graph-walk, bounded depth, rumor distortion |
-| [S37](37-world-memory-model.md) | World Memory Model | Canon events, decay, compression, structured attributed memory |
-| [S38](38-npc-memory-and-social-model.md) | NPC Memory & Social Model | Per-NPC episodic memory; relationship-graph arcs; gossip propagation; v4+ multiplayer hook |
-| [S39](39-universe-composition-model.md) | Universe Composition Model | Themes, tropes, archetypes, genre-twists; composable, seedable, deterministic from (seed, config) |
-| [S40](40-genesis-v2-real-to-strange.md) | Genesis v2 | 7-phase Real→Strange arc; narrator-as-void-entity; supersedes v1 S02; closes AC-2.3; consumes S39 composition |
+| # | Name | Status | Description |
+|---|------|--------|-------------|
+| [S29](29-universe-as-first-class-entity.md) | Universe as First-Class Entity | 📝 Draft | Universe identity, config, persistent state — not a session appendage |
+| [S30](30-session-universe-binding.md) | Session↔Universe Binding | 📝 Draft | Explicit 1:1 binding contract; schema permits n:1 for v4+ |
+| [S31](31-actor-identity-portability.md) | Actor Identity Portability | 📝 Draft | Actor IDs universe-agnostic; unblocks cross-universe travel |
+| [S32](32-transport-abstraction.md) | Transport Abstraction | 📝 Draft | `NarrativeTransport` interface; SSE as first impl, WebSocket-ready |
+| [S33](33-universe-persistence-schema.md) | Universe Persistence Schema | 📝 Draft | Versioned forward-compat state envelope; enables universe reload |
+| [S34](34-diegetic-time.md) | Diegetic Time | 📝 Draft | In-world clock; day/night cycles, scene transitions, skip-ahead |
+| [S35](35-npc-autonomy-between-turns.md) | NPC Autonomy Between Turns | 📝 Draft | Off-screen NPC goals, routines, salience filter (no LangGraph) |
+| [S36](36-consequence-propagation.md) | Consequence Propagation | 📝 Draft | Effect ripple via graph-walk, bounded depth, rumor distortion |
+| [S37](37-world-memory-model.md) | World Memory Model | 📝 Draft | Canon events, decay, compression, structured attributed memory |
+| [S38](38-npc-memory-and-social-model.md) | NPC Memory & Social Model | 📝 Draft | Per-NPC episodic memory; relationship-graph arcs; gossip propagation; v4+ multiplayer hook |
+| [S39](39-universe-composition-model.md) | Universe Composition Model | 📝 Draft | Themes, tropes, archetypes, genre-twists; composable, seedable, deterministic from (seed, config) |
+| [S40](40-genesis-v2-real-to-strange.md) | Genesis v2 | 📝 Draft | 7-phase Real→Strange arc; narrator-as-void-entity; supersedes v1 S02; closes AC-2.3; consumes S39 composition |
 
 ### v2.1 — "Prove It's Fun" (S41–S45)
 
