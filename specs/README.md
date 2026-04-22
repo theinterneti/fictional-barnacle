@@ -128,10 +128,10 @@ for the full roadmap rationale, dependency graph, and open questions per spec.
 
 | # | Name | Description |
 |---|------|-------------|
-| [S41](41-scenario-seed-library.md) | Scenario Seed Library | Curated/community scenario seeds; YAML/JSON format; discovery registry |
+| [S41](41-scenario-seed-library.md) | Scenario Seed Library | Curated/community scenario seeds; YAML format; discovery registry |
 | [S42](42-llm-playtester-agent-harness.md) | LLM Playtester Agent Harness | LLM-persona agents; semi-randomized taste profiles; end-to-end session runs; transcript + commentary |
-| [S43](43-human-playtester-program.md) | Human Playtester Program | Recruitment, consent, NDA; structured feedback protocol |
-| [S44](44-narrative-quality-evaluation.md) | Narrative Quality Evaluation | Scoring rubric; 0–1 normalisation; LLM + human signal weighting |
+| [S43](43-human-playtester-program.md) | Human Playtester Program | Recruitment, consent; structured feedback protocol |
+| [S44](44-narrative-quality-evaluation.md) | Narrative Quality Evaluation | Scoring rubric; 0–1 normalization; LLM + human signal weighting |
 | [S45](45-evaluation-pipeline.md) | Evaluation Pipeline | Orchestration of parallel LLM-playtester runs; human-playtester intake; result aggregation; CI thresholds |
 
 ### v3 — "Ship It" (S46–S49)

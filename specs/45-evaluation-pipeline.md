@@ -158,7 +158,9 @@ batch medians per category:
 
 If any `batch_category_medians[cat] < baseline[cat] - 0.10`, the pipeline
 marks the comparison as **regression** and includes the category and delta
-in the verdict output.
+in the verdict output. Categories with `status == "not_evaluated"` (i.e.,
+absent from `batch_category_medians`) are **skipped** during baseline
+comparison — they do not trigger a regression.
 
 The baseline MUST be updated manually after a human-reviewed release pass.
 Automated CI runs MUST NOT update the baseline.
@@ -180,6 +182,9 @@ the session's trace:
 - Score name: `narrative_quality_{category_id.lower()}` (e.g., `narrative_quality_qc_01`)
 - Score value: category score (float)
 - Score comment: category notes
+
+Categories with `score == None` (i.e., `status == "not_evaluated"`) are
+**omitted** from the Langfuse export — no score is emitted for them.
 
 Langfuse export is fire-and-forget: failure to export MUST NOT block the
 pipeline verdict.
@@ -212,7 +217,7 @@ jobs:
   evaluate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@<SHA>
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Run evaluation pipeline
         run: |
           uv run python -m tta.eval.pipeline --mode ${{ inputs.mode || 'ci' }}
@@ -222,7 +227,7 @@ jobs:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
       - name: Upload eval report
         if: always()
-        uses: actions/upload-artifact@<SHA>
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: eval-report
           path: eval_output/

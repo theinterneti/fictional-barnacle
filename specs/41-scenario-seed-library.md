@@ -367,7 +367,7 @@ slip, unreliable narrator. Prose: second-person present tense, literary.
 **cafe-with-strange-symbols**: A café the player has been coming to for years.
 Today the symbols in the menu are wrong. Or were they always like that?
 Themes: hidden world, sacred ordinary. Tropes: occult signs, knowledge that
-cannot be unknowed. Prose: intimate, first impressions, literary.
+cannot be unknown. Prose: intimate, first impressions, literary.
 
 **library-forbidden-book**: A public library. A book that shouldn't be there.
 The call number is wrong. The catalog doesn't show it. But the player can

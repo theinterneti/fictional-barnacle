@@ -186,8 +186,8 @@ Feature: Narrative Quality Evaluation
     Given a session with only S42 data (no S43 data)
     And QC-03 Wonder requires S43
     When evaluated
-    Then if 3+ categories are not_evaluated
-    Then verdict = "inconclusive"
+    Then 3 or more categories have status "not_evaluated"
+    And verdict = "inconclusive"
 ```
 
 ---
