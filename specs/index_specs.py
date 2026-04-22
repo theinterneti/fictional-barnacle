@@ -440,13 +440,11 @@ def format_html(specs: list[SpecMeta]) -> str:
             bar_w = score
             warns_html = ""
             if s.warnings:
-                chips = "".join(
-                    f'<span class="chip">{w}</span>' for w in s.warnings
-                )
+                chips = "".join(f'<span class="chip">{w}</span>' for w in s.warnings)
                 warns_html = chips
             else:
                 warns_html = '<span class="badge-clean">✓ clean</span>'
-            stub_cls = ' stub' if 'Stub' in s.status else ''
+            stub_cls = " stub" if "Stub" in s.status else ""
             row = (
                 f'<tr class="spec-row{stub_cls}">'
                 f'<td class="num">{s.number}</td>'
@@ -454,14 +452,14 @@ def format_html(specs: list[SpecMeta]) -> str:
                 f'<td class="bar-cell">'
                 f'  <div class="bar-wrap">'
                 f'    <div class="bar-fill" style="width:{bar_w}%;background:{color}"></div>'
-                f'  </div>'
+                f"  </div>"
                 f'  <span class="score-label">{score}</span>'
-                f'</td>'
+                f"</td>"
                 f'<td class="num-cell">{s.word_count:,}</td>'
                 f'<td class="num-cell">{s.acceptance_criteria_count}</td>'
                 f'<td class="num-cell">{s.gherkin_scenario_count}</td>'
                 f'<td class="warns">{warns_html}</td>'
-                f'</tr>'
+                f"</tr>"
             )
             rows.append(row)
         rows_html = "\n".join(rows)
@@ -469,32 +467,30 @@ def format_html(specs: list[SpecMeta]) -> str:
         return (
             f'<div class="group" id="grp-{slug}">'
             f'<div class="group-header">'
-            f'  <h2>{level}</h2>'
+            f"  <h2>{level}</h2>"
             f'  <div class="grp-meta">'
             f'    <span class="grp-count">{len(real)} specs</span>'
             f'    <span class="grp-clean-pct">{grp_pct}% clean</span>'
             f'    <div class="grp-bar-wrap">'
             f'      <div class="grp-bar-fill" style="width:{grp_pct}%"></div>'
-            f'    </div>'
-            f'  </div>'
-            f'</div>'
-            f'<table>'
-            f'<thead><tr>'
-            f'  <th>#</th><th>Title</th>'
+            f"    </div>"
+            f"  </div>"
+            f"</div>"
+            f"<table>"
+            f"<thead><tr>"
+            f"  <th>#</th><th>Title</th>"
             f'  <th class="th-score">Score</th>'
             f'  <th class="num-cell">Words</th>'
             f'  <th class="num-cell">ACs</th>'
             f'  <th class="num-cell">Gherkin</th>'
-            f'  <th>Warnings</th>'
-            f'</tr></thead>'
-            f'<tbody>{rows_html}</tbody>'
-            f'</table>'
-            f'</div>'
+            f"  <th>Warnings</th>"
+            f"</tr></thead>"
+            f"<tbody>{rows_html}</tbody>"
+            f"</table>"
+            f"</div>"
         )
 
-    groups_html = "\n".join(
-        make_group_html(lvl, grp) for lvl, grp in levels.items()
-    )
+    groups_html = "\n".join(make_group_html(lvl, grp) for lvl, grp in levels.items())
 
     css = """
 :root {
@@ -572,8 +568,8 @@ footer { text-align: center; color: var(--muted); font-size: .78rem;
         "<body>",
         "<header>",
         "  <h1>TTA Spec Completeness Dashboard</h1>",
-        f'  <p>Generated {generated} &nbsp;·&nbsp; {len(real_specs)} specs &nbsp;·&nbsp;'
-        f' <code>specs/index_specs.py --html</code></p>',
+        f"  <p>Generated {generated} &nbsp;·&nbsp; {len(real_specs)} specs &nbsp;·&nbsp;"
+        f" <code>specs/index_specs.py --html</code></p>",
         "</header>",
         '<section class="stats">',
         f'  <div class="stat-card"><div class="val">{len(real_specs)}</div>'

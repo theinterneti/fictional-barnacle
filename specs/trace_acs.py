@@ -59,10 +59,10 @@ def is_canonical(ac_id: str) -> bool:
 #   ### AC-07.1  (group heading)
 #   Scenario: AC-10.01   (Gherkin)
 _AC_DEF_RE = re.compile(
-    r"^\s*-\s*\[[x ]\]\s*\*?\*?AC-(\d+)\.(\d+)"   # - [ ] **AC-N.M
-    r"|^\s*-\s+\*?\*?AC-(\d+)\.(\d+)\*?\*?:"       # - **AC-N.M**:
-    r"|^###\s+AC-(\d+)\.(\d+)\b"                    # ### AC-N.M
-    r"|\bScenario:\s+AC-(\d+)\.(\d+)",              # Scenario: AC-N.M
+    r"^\s*-\s*\[[x ]\]\s*\*?\*?AC-(\d+)\.(\d+)"  # - [ ] **AC-N.M
+    r"|^\s*-\s+\*?\*?AC-(\d+)\.(\d+)\*?\*?:"  # - **AC-N.M**:
+    r"|^###\s+AC-(\d+)\.(\d+)\b"  # ### AC-N.M
+    r"|\bScenario:\s+AC-(\d+)\.(\d+)",  # Scenario: AC-N.M
     re.MULTILINE | re.IGNORECASE,
 )
 
@@ -315,7 +315,9 @@ def write_html(report: dict, ac_map: dict[str, str], out_path: Path) -> None:
 
     rows_html = "\n".join(rows)
     coverage = report["coverage_pct"]
-    bar_color = "#28a745" if coverage >= 80 else "#ffc107" if coverage >= 40 else "#dc3545"
+    bar_color = (
+        "#28a745" if coverage >= 80 else "#ffc107" if coverage >= 40 else "#dc3545"
+    )
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -349,13 +351,13 @@ def write_html(report: dict, ac_map: dict[str, str], out_path: Path) -> None:
 </head>
 <body>
 <h1>TTA AC Traceability Report</h1>
-<div class="meta">Generated: {report['generated']}</div>
+<div class="meta">Generated: {report["generated"]}</div>
 
 <div class="summary">
-  <div class="card"><div class="label">Total ACs</div><div class="value">{report['total_acs']}</div></div>
-  <div class="card"><div class="label">Covered</div><div class="value" style="color:#28a745">{report['covered_acs']}</div></div>
-  <div class="card"><div class="label">Uncovered</div><div class="value" style="color:#dc3545">{report['uncovered_acs']}</div></div>
-  <div class="card"><div class="label">Orphans</div><div class="value" style="color:#fd7e14">{report['orphan_citations']}</div></div>
+  <div class="card"><div class="label">Total ACs</div><div class="value">{report["total_acs"]}</div></div>
+  <div class="card"><div class="label">Covered</div><div class="value" style="color:#28a745">{report["covered_acs"]}</div></div>
+  <div class="card"><div class="label">Uncovered</div><div class="value" style="color:#dc3545">{report["uncovered_acs"]}</div></div>
+  <div class="card"><div class="label">Orphans</div><div class="value" style="color:#fd7e14">{report["orphan_citations"]}</div></div>
   <div class="card"><div class="label">Coverage</div><div class="value">{coverage}%</div></div>
 </div>
 
@@ -389,18 +391,30 @@ function filterTable(q) {{
 # main
 # ---------------------------------------------------------------------------
 def main() -> int:
-    parser = argparse.ArgumentParser(description="AC traceability scanner for TTA specs.")
-    parser.add_argument("--validate", action="store_true", help="Print text summary; exit 1 on orphans")
+    parser = argparse.ArgumentParser(
+        description="AC traceability scanner for TTA specs."
+    )
+    parser.add_argument(
+        "--validate", action="store_true", help="Print text summary; exit 1 on orphans"
+    )
     parser.add_argument("--json", action="store_true", help="Write specs/trace.json")
     parser.add_argument("--html", action="store_true", help="Write specs/trace.html")
-    parser.add_argument("--threshold", type=float, default=None, metavar="N",
-                        help="Exit 1 if uncovered AC%% exceeds N")
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        metavar="N",
+        help="Exit 1 if uncovered AC%% exceeds N",
+    )
     parser.add_argument("--tests-dir", type=Path, default=TESTS_DIR)
     parser.add_argument("--specs-index", type=Path, default=INDEX_PATH)
     args = parser.parse_args()
 
     if not args.specs_index.exists():
-        print(f"ERROR: {args.specs_index} not found. Run `make regen-indexes` first.", file=sys.stderr)
+        print(
+            f"ERROR: {args.specs_index} not found. Run `make regen-indexes` first.",
+            file=sys.stderr,
+        )
         return 1
 
     ac_map, stub_ac_ids = load_known_acs(args.specs_index)
