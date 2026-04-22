@@ -101,7 +101,8 @@ S00 (Charter)
 
 ## Reserved Spec IDs — v2+ (Post-v1 Roadmap)
 
-IDs S29–S63 are reserved for post-v1 releases. They are not yet full specs; they
+IDs S29–S63 are allocated to post-v1 releases. Specs S29–S39 are now published
+as full specs in this repository. IDs S40–S63 remain reserved roadmap slots and
 will be drafted via individual brainstorm sessions following the SDD workflow.
 See [`docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md`](../docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md)
 for the full roadmap rationale, dependency graph, and open questions per spec.

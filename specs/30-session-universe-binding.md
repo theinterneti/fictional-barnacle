@@ -368,7 +368,7 @@ Feature: Session↔Universe Binding
 | Column | Change | Notes |
 |---|---|---|
 | `world_seed` (v1 JSONB) | Deprecated, kept for migration | v1 world configuration; superseded by `universe_id` FK + S33 snapshot mechanism |
-| `universe_id` (new UUID FK) | Added — NOT NULL after backfill | References `universes.universe_id` |
+| `universe_id` (new TEXT FK; ULID) | Added — NOT NULL after backfill | Stores ULID text; references `universes.universe_id` |
 | `actors` (new JSONB) | Added — default `'[]'::jsonb` | List of ActorId strings; length=1 in v2 |
 
 Full migration DDL is in S33.

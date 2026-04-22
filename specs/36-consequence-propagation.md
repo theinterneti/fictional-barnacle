@@ -100,7 +100,7 @@ The propagator walks the Neo4j world graph outward from the **source location**.
 
 - **FR-36.02a**: Starting from `source_location_id`, the propagator queries all
   locations reachable via `CONNECTS_TO` edges within `max_propagation_depth` hops.
-  (Default: 3; configurable via `universes.config["propagation"]["max_depth"]`.)
+  (Default: 3; configurable via `universes.config["propagation"]["max_propagation_depth"]`.)
 - **FR-36.02b**: Queries MUST use the parameterized graph depth pattern already
   established in v1 `_location_context_query`. No new Neo4j driver connection is
   opened; the existing session is reused.

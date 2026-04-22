@@ -108,15 +108,26 @@ The migration MUST create the `universes` table with the following columns:
 | Column | Type | Required | Notes |
 |---|---|---|---|
 | `universe_id` | TEXT | Yes | ULID, PK; 26-char format |
+| `display_name` | TEXT | Yes | Human-readable universe name required by S29 FR-29.01 |
+| `owner_id` | UUID | Yes | FK → `players.id`; owning player required by S29 FR-29.01 |
 | `config` | JSONB | Yes | World parameters (migrated from `world_seed`) |
 | `status` | TEXT | Yes | `created` / `active` / `paused` / `archived`; default `paused` |
 | `created_at` | TIMESTAMPTZ | Yes | Defaults to `now()` |
 | `updated_at` | TIMESTAMPTZ | Yes | Updated on status change |
 
-No FK columns reference other tables. `universe_id` is the root of the v2 object graph.
+`universe_id` is the root of the v2 object graph. `owner_id` records universe
+ownership consistent with S29 FR-29.01.
 
 The `status` default for backfilled rows is `paused` (because v1 sessions are all
 historical — none are currently active).
+
+For backfilled rows, `display_name` MUST be populated deterministically from the
+legacy session/world metadata so that every migrated universe has a stable,
+human-readable identity.
+
+For backfilled rows, `owner_id` MUST be populated from the owning session/user
+record. If ownership cannot be determined unambiguously during migration, the
+migration MUST fail closed rather than creating an unowned universe row.
 
 #### FR-33.01b: `actors` table
 

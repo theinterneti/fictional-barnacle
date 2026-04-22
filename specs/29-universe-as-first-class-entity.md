@@ -96,7 +96,7 @@ A Universe MUST carry the following fields:
 |-------|------|----------|-------------|
 | `universe_id` | ULID | No | Globally unique identifier. Primary key. |
 | `display_name` | String (1–100 chars) | No | Human-readable name set by the owner. |
-| `owner_id` | ULID | No | The `player_id` of the owning player. |
+| `owner_id` | UUID | No | The `player_id` of the owning player. References `players.id`. |
 | `status` | Enum | No | One of: `created`, `active`, `paused`, `archived`. |
 | `config` | JSON object | No | Opaque config blob. Schema defined by S39. Default: `{}`. |
 | `created_at` | Datetime (UTC) | No | Set at creation. Immutable thereafter. |

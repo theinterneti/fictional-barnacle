@@ -123,7 +123,7 @@ player in v4+ is an additive migration.
   | Field | Type | Required | Notes |
   |---|---|---|---|
   | `actor_id` | ULID FK | Yes | References `actors.actor_id` |
-  | `universe_id` | UUID FK | Yes | References `universes.universe_id` |
+  | `universe_id` | ULID FK (TEXT) | Yes | References `universes.universe_id` |
   | `character_name` | String | Yes | In-world name in this universe; may differ from `actor.display_name` |
   | `traits` | JSONB | Yes | From S06 FR-1.1; evolves through play |
   | `inventory` | JSONB | Yes | From S06 FR-1.1 |

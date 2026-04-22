@@ -82,6 +82,7 @@ Config keys under reserved namespaces are consumed by specific subsystems:
 | `config["propagation"]` | S36 (Consequence Propagation) |
 | `config["social"]` | S38 (NPC Social) |
 | `config["time"]` | S34 (Diegetic Time) |
+| `config["autonomy"]` | S35 (NPC Autonomy) |
 | `config["genesis"]` | S40 (Genesis v2) |
 | `config["composition"]` | S39 (this spec) |
 
@@ -114,12 +115,13 @@ Config keys under reserved namespaces are consumed by specific subsystems:
 
 ### FR-39.01 — UniverseComposition Type
 
-The parsed, validated representation of a universe's `config["composition"]` block:
+The parsed, validated representation of a universe's `config["composition"]` block.
+The deterministic universe seed is defined separately at top-level `config["seed"]`
+and is not part of `UniverseComposition`.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `composition_version` | str | `"1.0"` | Schema version for forward-compat migration. |
-| `seed` | int (uint64) | random | Deterministic generation seed. Set at creation; immutable. |
 | `primary_genre` | str | `"fantasy"` | The baseline genre of the universe. |
 | `themes` | list[ThemeSpec] | `[]` | Thematic qualities. Up to 5. |
 | `tropes` | list[TropeSpec] | `[]` | Narrative patterns. Up to 10. |
@@ -194,7 +196,7 @@ The full `universes.config` object has this top-level structure:
   "memory": { "working_memory_size": 5, "compression_threshold_tokens": 4000, ... },
   "propagation": { "max_propagation_depth": 3, "min_propagation_severity": "notable", ... },
   "social": { "gossip_familiarity_threshold": 30, "max_gossip_hops": 2 },
-  "time": { "ticks_per_turn": 1, "seconds_per_tick": 3600, ... },
+  "time": { "ticks_per_turn": 1, "minutes_per_tick": 60, ... },
   "genesis": { "narrator_phase": "void", ... }
 }
 ```
