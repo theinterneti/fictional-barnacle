@@ -18,7 +18,7 @@ from tta.llm.testing import MockLLMClient
 _AC_CANONICAL = re.compile(r"^AC-\d{2}\.\d{2}$")
 
 
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+def pytest_collection_modifyitems(session, config, items: list[pytest.Item]) -> None:
     """Warn when @pytest.mark.spec carries a non-canonical AC ID (e.g., AC-7.1)."""
     for item in items:
         marker = item.get_closest_marker("spec")

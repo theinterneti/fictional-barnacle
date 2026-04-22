@@ -3,8 +3,8 @@
 > **Phase**: SDD Phase 2 — Component Technical Plan
 > **Scope**: Universe entity, Session↔Universe binding, Actor identity, Transport
 >   abstraction, Simulation layer (Diegetic Time, NPC Autonomy, Consequence Propagation,
->   World Memory, NPC Social), Universe Composition
-> **Input specs**: S29, S30, S31, S32, S33, S34, S35, S36, S37, S38, S39
+>   World Memory, NPC Social), Universe Composition, Genesis v2
+> **Input specs**: S29, S30, S31, S32, S33, S34, S35, S36, S37, S38, S39, S40
 > **Parent plan**: `plans/system.md` (authoritative — all decisions here must be compatible)
 > **Status**: 📝 Draft
 > **Last Updated**: 2026-04-22
@@ -778,9 +778,7 @@ The following waves are recommended. Each wave maps to one or more GitHub issues
 | **v2-Wave-09** | S37 | `MemoryWriter`, three-tier model, token budget tracking, compression |
 | **v2-Wave-10** | S38 | `SocialMemoryWriter`, `GossipPropagator`, `NPCSocialEdge` graph edges |
 | **v2-Wave-11** | — | `SimulationStage` wiring into pipeline; BDD tests for full simulation path |
-
-> S40 (Genesis v2) is referenced by S39 and S34 but not yet drafted. It is not
-> assigned to a wave until its spec is complete.
+| **v2-Wave-12** | S40 | Genesis v2 7-phase arc (Void → Building World → Slip → Building Character → First Light → Becoming → Threshold); narrator-as-void-entity; consumes S39 composition and S34 time config; supersedes v1 S02 onboarding flow |
 
 ---
 
@@ -788,7 +786,7 @@ The following waves are recommended. Each wave maps to one or more GitHub issues
 
 ### Specs Covered
 
-S29, S30, S31, S32, S33, S34, S35, S36, S37, S38, S39
+S29, S30, S31, S32, S33, S34, S35, S36, S37, S38, S39, S40
 
 ### Normative Sections
 

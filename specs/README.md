@@ -101,11 +101,12 @@ S00 (Charter)
 
 ## v2+ Specs (Post-v1 Roadmap)
 
-S29–S39 are fully drafted v2.0 specs. S40 and beyond are reserved for future
-drafting sessions.
+S29–S63 are drafted across v2.0 / v2.1 / v3 / v4+ / v5+ release baselines, with
+tiered depth matching roadmap §9 (S29–S45 full structure; S46–S63 thinner stubs
+that lock scope for later elaboration).
 See [`docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md`](../docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md)
 for the full roadmap rationale, dependency graph, and open questions per spec.
-The v2 technical plan lives at [`plans/v2-universe-and-simulation.md`](../plans/v2-universe-and-simulation.md).
+The v2 technical plan (covering S29–S40) lives at [`plans/v2-universe-and-simulation.md`](../plans/v2-universe-and-simulation.md).
 
 ### v2.0 — "Believable Simulation" (S29–S40)
 
@@ -122,7 +123,7 @@ The v2 technical plan lives at [`plans/v2-universe-and-simulation.md`](../plans/
 | [S37](37-world-memory-model.md) | World Memory Model | 📝 Draft | Canon events, decay, compression, structured attributed memory |
 | [S38](38-npc-memory-and-social-model.md) | NPC Memory & Social Model | 📝 Draft | Per-NPC episodic memory; relationship-graph arcs; gossip propagation; v4+ multiplayer hook |
 | [S39](39-universe-composition-model.md) | Universe Composition Model | 📝 Draft | Themes, tropes, archetypes, genre-twists; composable, seedable, deterministic from (seed, config) |
-| [S40](40-genesis-v2-real-to-strange.md) | Genesis v2 | 🔮 Reserved | 7-phase Real→Strange arc; narrator-as-void-entity; supersedes v1 S02; closes AC-2.3; consumes S39 composition |
+| [S40](40-genesis-v2-real-to-strange.md) | Genesis v2 | 📝 Draft | 7-phase Real→Strange arc; narrator-as-void-entity; supersedes v1 S02; closes AC-2.3; consumes S39 composition |
 
 ### v2.1 — "Prove It's Fun" (S41–S45)
 
