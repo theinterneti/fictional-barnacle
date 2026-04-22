@@ -5,16 +5,16 @@
 > **Implementation Fit**: ❌ Not Started
 > **Level**: 2 — Simulation
 > **Supersedes**: v1 S02 (Genesis Onboarding)
-> **Dependencies**: S29 (Universe as First-Class Entity), S39 (Universe Composition Model)
-> **Related**: S34 (Diegetic Time), S37 (World Memory Model), S41 (Scenario Seed Library, v2.1+)
+> **Dependencies**: S29 (Universe as First-Class Entity), S34 (Diegetic Time), S37 (World Memory Model), S39 (Universe Composition Model)
+> **Related**: S06 (NPC System), S36 (Consequence Propagation), S41 (Scenario Seed Library, v2.1+)
 > **Last Updated**: 2026-04-21
 
 ---
 
 ## 1. Purpose
 
-v1 Genesis (S02) follows a 5-act structure: Building World → Slip Phase →
-Building Character → First Light → The Becoming. It works, but the narrator
+v1 Genesis (S02) follows a 5-act structure (The Void → The Shaping →
+The Stranger → The Ripple → The Threshold — FR-1.1–FR-1.5). It works, but the narrator
 is a voice without a presence — it exists outside the world, observing.
 One of v1's deferred acceptance criteria (AC-2.3) requires that the first
 post-Genesis turn references Genesis-established elements by name; this was
@@ -40,12 +40,14 @@ Universe's `config["composition"]` block.
 | v1 S02 Act | v2 S40 Phase | Changes |
 |------------|-------------|---------|
 | *(none)* | Phase 1: Void | New. Establishes narrator as void entity. Seeds the universe. |
-| Act I: Building World | Phase 2: Building World | Expanded. Now seeds `UniverseComposition` (S39). |
-| Act II: Slip Phase | Phase 3: Slip | Unchanged structurally. Still the real→strange transition. |
-| Act III: The Stranger | Phase 4: Building Character | Unchanged. Character emerges from reactions. |
-| Act IV: The Ripple | Phase 5: First Light | Renamed. Added: narrator takes partial form. |
-| Act V: The Threshold | Phase 6: Becoming | Narrator takes full in-world form. Player names character. |
+| Act I: The Void (World Seeding) | Phase 2: Building World | Renamed and expanded. Void-entity framing moves to Phase 1; Phase 2 now seeds UniverseComposition (S39). |
+| Act II: The Shaping (World Building) | Phase 3: Slip | Extracted. The real→strange transition was embedded in Act II (The Shaping); S40 extracts it as its own phase. |
+| Act III: The Stranger (Character Emergence) | Phase 4: Building Character | Unchanged. Character emerges from reactions. |
+| Act IV: The Ripple (World Reacts to Character) | Phase 5: First Light | Renamed. Added: narrator takes partial form. |
+| Act V: The Threshold (Transition to Gameplay) | Phase 6: Becoming | Split. Becoming focuses on narrator form; player names character. |
 | *(none)* | Phase 7: Threshold | New. Explicit handoff. First post-Genesis turn seeded. |
+
+> *Act names follow S02 FR-1.1–FR-1.5. S40 phase names (Building World, Slip, etc.) preserve the design vocabulary predating S02 and describe functional intent.*
 
 **v1 S02 remains closed**. Its 5-act normative content is preserved as historical
 record. At v2.0 release, the Genesis orchestrator loads S40's 7-phase config.
@@ -220,8 +222,9 @@ breaks the mundane and pulls the player into something stranger.
 2. "What do they call you?" — the player names the character. The system stores
    the name. If the player provides no name, a name is offered based on traits.
 3. The narrator says the player's name once, anchoring the identity.
-4. **Output**: genesis_state["character_name"] = player_name; character NPC
-   created in the world graph with confirmed traits and genesis start location.
+4. **Output**: genesis_state["character_name"] = player_name; player actor
+   `CharacterState` created or updated with confirmed traits; session/player
+   node placed in the genesis start location in the world graph.
 
 ### FR-40.08 — Phase 7: Threshold
 
@@ -229,7 +232,7 @@ breaks the mundane and pulls the player into something stranger.
 
 **Goal**: Explicit handoff. Enforce AC-2.3. Seed the first gameplay turn.
 
-1. A brief closing scene (1-2 interactions) brings the player to the story's
+1. A brief closing scene (at least 2 interactions, typically 2) brings the player to the story's
    opening moment. The scene MUST be set at the Phase 2 starting location.
 2. The genesis orchestrator constructs a **first-turn seed** that MUST include:
    - Character name (Phase 6)
@@ -441,8 +444,8 @@ Player opens new session (no existing game):
      ─── Phase 4: Building Character (2-3 interactions)
      ─── Phase 5: First Light (2+ interactions)
      ─── Phase 6: Becoming (2+ interactions)
-          └─► Character NPC created in world graph
-     ─── Phase 7: Threshold (1-2 interactions)
+          └─► Player actor CharacterState created or updated
+     ─── Phase 7: Threshold (2+ interactions)
           └─► MemoryRecord turn-0 seed written (S37, importance=1.0)
   3. Genesis complete → GameState.game_phase = "gameplay"
   4. First gameplay turn: standard turn pipeline (S08) with
