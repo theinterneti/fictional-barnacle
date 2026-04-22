@@ -97,7 +97,7 @@ A Universe MUST carry the following fields:
 | `universe_id` | ULID | No | Globally unique identifier. Primary key. |
 | `display_name` | String (1–100 chars) | No | Human-readable name set by the owner. |
 | `owner_id` | UUID | No | The `player_id` of the owning player. References `players.id`. |
-| `status` | Enum | No | One of: `created`, `active`, `paused`, `archived`. |
+| `status` | Enum | No | One of: `dormant`, `active`, `paused`, `archived`. Default: `dormant`. |
 | `config` | JSON object | No | Opaque config blob. Schema defined by S39. Default: `{}`. |
 | `created_at` | Datetime (UTC) | No | Set at creation. Immutable thereafter. |
 | `updated_at` | Datetime (UTC) | No | Updated on every status or config change. |
@@ -123,7 +123,7 @@ Universe status transitions are:
 ```
           ┌────────────────────────────────────┐
           │                                    │
-(new) ──► created ──► active ──► paused ──► active  (resume loop)
+(new) ──► dormant ──► active ──► paused ──► active  (resume loop)
                          │         │
                          │         ▼
                          └───► archived ◄─── paused
@@ -134,11 +134,11 @@ Universe status transitions are:
 
 | Transition | From | To | Trigger |
 |---|---|---|---|
-| Creation | _(none)_ | `created` | Universe entity is created (before any session). |
-| First open | `created` | `active` | A session is opened in this universe (see S30). |
+| Creation | _(none)_ | `dormant` | Universe entity is created (before any session). |
+| First open | `dormant` | `active` | A session is opened in this universe (see S30). |
 | Session end | `active` | `paused` | The active session ends (completed or abandoned). |
 | Resume | `paused` | `active` | A new session is opened in this universe. |
-| Archive | `created` or `paused` | `archived` | Explicit archival by the owner. |
+| Archive | `dormant` or `paused` | `archived` | Explicit archival by the owner. |
 | Unarchive | `archived` | `paused` | Explicit unarchival by the owner. |
 
 - **FR-29.04a**: Ending a session MUST NOT delete the universe or any of its world
@@ -290,7 +290,7 @@ Feature: Universe as First-Class Entity
     Given a player is authenticated
     When the player creates a universe with display_name "The Iron Coast"
     Then a universe entity is created with a unique ULID universe_id
-    And the universe status is "created"
+    And the universe status is "dormant"
     And the universe config is {}
     And created_at is set and is immutable
     And the universe is persisted independently of any session
@@ -448,7 +448,7 @@ concept:
 | `world_id` (S13) | `universe_id` | Renamed; semantically equivalent; migration DDL in S33 |
 | Implicit per-session scope | Explicitly owned by a player; session is a visitor | Ownership and independent lifecycle added |
 | No config | `config: JSON` | Config field reserved; schema defined in S39 |
-| Status: "draft", "active", "archived" | Status: "created", "active", "paused", "archived" | Added `paused` to distinguish "session ended" from "explicitly archived" |
+| Status: "draft", "active", "archived" | Status: "dormant", "active", "paused", "archived" | Added `dormant` (pre-first-session) and `paused` (session ended) to distinguish lifecycle states from explicit archival |
 
 ### B — Forward-compat design rationale
 

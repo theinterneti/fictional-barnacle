@@ -104,9 +104,13 @@ player in v4+ is an additive migration.
 
 - **FR-31.01b**: `actor_id` MUST be a ULID (Universally Unique Lexicographically
   Sortable Identifier), independent of and not derived from `player_id`.
-- **FR-31.01c**: In v2, the system MUST create exactly one `Actor` record per player at
-  player registration time. If actor creation fails, player registration MUST be rolled
-  back entirely.
+- **FR-31.01c**: In v2, the system MUST ensure exactly one `Actor` record per player.
+  Creation occurs either at player registration (for new players) or lazily at first
+  universe bind (for v1 players predating v2 and for any player whose actor row is
+  absent). Both paths MUST flow through an idempotent `ActorService.get_or_create_for_player()`
+  call. If actor creation fails at registration time, player registration MUST be
+  rolled back entirely; if it fails during a lazy-create at bind time, the bind
+  attempt MUST fail with `actor_not_available` and the session MUST NOT be created.
 - **FR-31.01d**: The database schema MUST NOT enforce a uniqueness constraint on
   `actors.player_id`. The v2 "one actor per player" policy is enforced at application
   level only. (v4+ allows multiple actors per player without schema migration.)
@@ -122,6 +126,7 @@ player in v4+ is an additive migration.
 
   | Field | Type | Required | Notes |
   |---|---|---|---|
+  | `id` | ULID | Yes | Surrogate PK. ULID-formatted. |
   | `actor_id` | ULID FK | Yes | References `actors.actor_id` |
   | `universe_id` | ULID FK (TEXT) | Yes | References `universes.universe_id` |
   | `character_name` | String | Yes | In-world name in this universe; may differ from `actor.display_name` |
@@ -130,16 +135,20 @@ player in v4+ is an additive migration.
   | `conditions` | JSONB | Yes | From S06 FR-1.1 (active states: injured, cursed, etc.) |
   | `emotional_state` | JSONB | Yes | From S06 FR-1.1 |
   | `reputation` | JSONB | Yes | From S06 FR-1.1 |
+  | `relationships` | JSONB | Yes | `{npc_id: RelationshipDimensions}`; used by S38 NPC social layer |
   | `last_active_at` | Timestamp | Yes | When this CharacterState was last updated |
 
-  The content structure of `traits`, `inventory`, `conditions`, `emotional_state`, and
-  `reputation` is governed by v1 S06. S31 governs where they are stored, not what they
-  contain.
+  The content structure of `traits`, `inventory`, `conditions`, `emotional_state`,
+  `reputation`, and `relationships` is governed by v1 S06 and v2 S38. S31 governs where
+  they are stored, not what they contain.
 
-- **FR-31.02c**: The composite key `(actor_id, universe_id)` MUST be enforced by a
-  database UNIQUE constraint. (Unlike the session↔universe binding in S30, this IS a
-  hard uniqueness constraint — one character state per actor per universe is always true,
-  regardless of the number of sessions that have occurred in that universe.)
+- **FR-31.02c**: Primary key is the surrogate ULID `id`. The pair `(actor_id,
+  universe_id)` MUST be enforced by a database UNIQUE constraint. (Unlike the
+  session↔universe binding in S30, this IS a hard uniqueness constraint — one
+  character state per actor per universe is always true, regardless of the number of
+  sessions that have occurred in that universe.) The surrogate PK preserves forward
+  compatibility with v4+ multi-identity extensions that may add additional identity
+  dimensions without requiring a primary-key migration.
 - **FR-31.02d**: `CharacterState` is created lazily at the start of the actor's first
   session in a given universe. It is NOT created at actor registration time.
 - **FR-31.02e**: `CharacterState` is updated after each turn completes. The turn
@@ -255,7 +264,7 @@ player in v4+ is an additive migration.
 | EC-31.03 | Duplicate `CharacterState` creation attempt (race or retry) | DB UNIQUE constraint on `(actor_id, universe_id)` rejects the duplicate. System returns existing `CharacterState` (idempotent). |
 | EC-31.04 | Actor referenced in `game_sessions.actors` but actor record deleted | Integrity violation: `actor_not_found`. Operator action required. |
 | EC-31.05 | Player deleted (GDPR) — cascades | All actor records deleted; all `CharacterState` records for each actor deleted. `game_sessions.actors` JSONB is not FK-constrained (JSONB array); clean-up verified by GDPR job (S17). |
-| EC-31.06 | v1 player with no actor record (pre-migration) | Migration (S33) creates actor records for all existing players. If a v1 player accesses the system post-migration before actor row exists, system returns `actor_not_found`. This state should not occur after migration completes. |
+| EC-31.06 | v1 player with no actor record | The S33 migration (FR-33.03 Step 3) backfills one actor row per existing player at upgrade time. If an actor row is nonetheless absent for a given player — e.g. registrations that race the migration, a partial re-run, or greenfield deployments where the backfill steps are not applicable — `ActorService.get_or_create_for_player()` creates the row lazily and idempotently on first access. Both the eager migration path and the lazy service-layer path MUST produce identical actor records for the same `player_id`. |
 | EC-31.07 | Two universes share the same actor's CharacterState (impossible by unique constraint) | Cannot occur. If detected, constitutes DB corruption. |
 
 ---
@@ -333,7 +342,7 @@ Feature: Actor Identity Portability
 | Player identity | v1 S11 | `Actor.player_id` FK references `players.id` (S11). Player registration and deletion lifecycles drive actor creation (FR-31.01c) and deletion (FR-31.05a). |
 | GDPR deletion | v1 S17 | S17's right-to-erasure pipeline must cover actor and character_state records for deleted players. FR-31.05a cascade handles database-level removal; S17 governs any audit trail requirements. |
 | Cross-universe travel | v4+ S51 | S31 creates the data model that S51 will use when defining which character state fields transfer, reset, or translate between universes. S51 is out of scope for v2. |
-| Persistence migration | v2 S33 | S33 contains the migration DDL that creates the `actors` and `character_states` tables and backfills actor records for all v1 players. |
+| Persistence migration | v2 S33 | S33 contains the migration DDL that creates the `actors` and `character_states` tables and backfills actor records for all existing players at upgrade time (FR-33.03 Step 3). `ActorService.get_or_create_for_player()` remains as an idempotent lazy-creation fallback for edge cases (see EC-31.06). |
 
 ---
 

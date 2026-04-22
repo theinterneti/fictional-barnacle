@@ -26,6 +26,9 @@ class GameSession(BaseModel):
     player_id: UUID
     status: GameStatus = GameStatus.created
     world_seed: dict = Field(default_factory=dict)
+    # v2 fields (nullable for v1 sessions, S30 FR-30.03 / S29)
+    universe_id: UUID | None = None
+    actors: list[UUID] = Field(default_factory=list)
     title: str | None = Field(default=None, max_length=80)
     summary: str | None = Field(default=None, max_length=200)
     turn_count: int = 0
