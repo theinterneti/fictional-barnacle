@@ -110,6 +110,7 @@ def _minimal_seed(**overrides: Any) -> WorldSeed:
 # ── AC-13.01: Referential integrity ──────────────────────────────
 
 
+@pytest.mark.spec("AC-13.01")
 class TestAC1301ReferentialIntegrity:
     """AC-13.01: A Location's region_key must reference an existing Region.key.
     Seeds with dangling region_key references must be rejected.
@@ -148,6 +149,7 @@ class TestAC1301ReferentialIntegrity:
 # ── AC-13.02: Region key uniqueness ──────────────────────────────
 
 
+@pytest.mark.spec("AC-13.02")
 class TestAC1302RegionKeyUniqueness:
     """AC-13.02: Two regions with the same key must be rejected.
 
@@ -187,6 +189,7 @@ class TestAC1302RegionKeyUniqueness:
 # ── AC-13.03: Required properties ────────────────────────────────
 
 
+@pytest.mark.spec("AC-13.03")
 class TestAC1303RequiredProperties:
     """AC-13.03: TemplateRegion and TemplateLocation require key and archetype.
     Omitting these fields must raise a ValidationError.
@@ -241,6 +244,7 @@ class TestAC1303RequiredProperties:
 # ── AC-13.10: Valid seed materialises graph ───────────────────────
 
 
+@pytest.mark.spec("AC-13.10")
 class TestAC1310ValidSeedMaterialises:
     """AC-13.10: create_world_graph with a valid WorldSeed runs Cypher transactions.
 
@@ -301,6 +305,7 @@ class TestAC1310ValidSeedMaterialises:
 # ── AC-13.11: Invalid seed rejected before Cypher ────────────────
 
 
+@pytest.mark.spec("AC-13.11")
 class TestAC1311InvalidSeedRejected:
     """AC-13.11: An invalid WorldSeed must fail at construction (Pydantic).
     No Cypher should be executed for invalid seeds.
@@ -331,6 +336,7 @@ class TestAC1311InvalidSeedRejected:
 # ── AC-13.12: Duplicate session rejected ─────────────────────────
 
 
+@pytest.mark.spec("AC-13.12")
 class TestAC1312DuplicateSessionRejected:
     """AC-13.12: A second create_world_graph for the same session_id should
     fail (duplicate constraint). The Neo4j MERGE / CREATE on World ensures
@@ -372,6 +378,7 @@ class TestAC1312DuplicateSessionRejected:
 # ── AC-13.14: Change detection / apply_world_changes ─────────────
 
 
+@pytest.mark.spec("AC-13.14")
 class TestAC1314ChangeDetection:
     """AC-13.14: apply_world_changes dispatches one Cypher call per WorldChange.
 

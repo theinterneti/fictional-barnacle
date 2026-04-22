@@ -89,6 +89,7 @@ def _make_context_deps(
 # ── AC-3.1: Sensory / environmental guidance in generation prompt ─────────────
 
 
+@pytest.mark.spec("AC-03.01")
 class TestAC301SensoryGuidance:
     """AC-3.1: Each standard gameplay turn prompt carries sensory/env guidance.
 
@@ -154,6 +155,7 @@ class TestAC301SensoryGuidance:
 # ── AC-3.2: Revisit signal presence in context ───────────────────────────────
 
 
+@pytest.mark.spec("AC-03.02")
 class TestAC302RevisitContext:
     """AC-3.2: Revisited locations produce shorter, delta-focused descriptions.
 
@@ -208,6 +210,7 @@ class TestAC302RevisitContext:
 # ── AC-3.4: Fantasy genre vocabulary / tone wired through context ─────────────
 
 
+@pytest.mark.spec("AC-03.04")
 class TestAC304FantasyGenreTone:
     """AC-3.4: Fantasy WorldSeed drives vocabulary, metaphor, and sentence rhythm.
 
@@ -275,6 +278,7 @@ class TestAC304FantasyGenreTone:
 # ── AC-3.5: Fallback narrative is in-world (no technical language) ────────────
 
 
+@pytest.mark.spec("AC-03.05")
 class TestAC305FallbackNarrativeContent:
     """AC-3.5: Graceful fallback narrative exposes no error language to the player.
 
@@ -316,6 +320,7 @@ class TestAC305FallbackNarrativeContent:
 # ── AC-3.6: Context assembly performance ─────────────────────────────────────
 
 
+@pytest.mark.spec("AC-03.06")
 class TestAC306ContextAssemblyPerformance:
     """AC-3.6: context_stage completes within 500ms and context stays within limits.
 
@@ -388,6 +393,7 @@ class TestAC306ContextAssemblyPerformance:
 # ── AC-3.8: INTENT_WORD_RANGES contract ──────────────────────────────────────
 
 
+@pytest.mark.spec("AC-03.08")
 class TestAC308IntentWordRanges:
     """AC-3.8: INTENT_WORD_RANGES maps intents to correct word-count windows.
 
@@ -463,6 +469,7 @@ class TestAC308IntentWordRanges:
 # that it marks a turn complete when narrative is present.
 
 
+@pytest.mark.spec("AC-03.09")
 class TestAC309DeliverStageContract:
     """AC-3.9 (v1 proxy): deliver_stage marks turns correctly; streaming is v2.
 
@@ -510,6 +517,7 @@ class TestAC309DeliverStageContract:
 # ── AC-3.10: Context assembly determinism ────────────────────────────────────
 
 
+@pytest.mark.spec("AC-03.10")
 class TestAC310ContextDeterminism:
     """AC-3.10: Same inputs produce identical context payloads on repeated runs.
 

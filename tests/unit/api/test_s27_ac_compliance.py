@@ -122,6 +122,7 @@ def client(app: FastAPI) -> TestClient:
 # ── AC-27.1: Game creation ────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-27.01")
 class TestAC271GameCreation:
     """AC-27.1: POST /api/v1/games returns 201 with game_id, player_id,
     status="active", and turn_count=0.
@@ -179,6 +180,7 @@ class TestAC271GameCreation:
 # ── AC-27.2: Game listing ─────────────────────────────────────────
 
 
+@pytest.mark.spec("AC-27.02")
 class TestAC272GameListing:
     """AC-27.2: GET /api/v1/games returns a paginated list of games for the
     authenticated player.
@@ -215,6 +217,7 @@ class TestAC272GameListing:
 # ── AC-27.3: Get single game ──────────────────────────────────────
 
 
+@pytest.mark.spec("AC-27.03")
 class TestAC273GetGame:
     """AC-27.3: GET /api/v1/games/{id} returns the game state or 404 if
     not found / not owned by the player.
@@ -256,6 +259,7 @@ class TestAC273GetGame:
 # ── AC-27.4: Soft-delete / abandon game ──────────────────────────
 
 
+@pytest.mark.spec("AC-27.04")
 class TestAC274DeleteGame:
     """AC-27.4: DELETE /api/v1/games/{id} soft-deletes (abandons) the game.
 
@@ -287,6 +291,7 @@ class TestAC274DeleteGame:
 # ── AC-27.5: Save / resume (session persistence) ─────────────────
 
 
+@pytest.mark.spec("AC-27.05")
 class TestAC275GameResume:
     """AC-27.5: A previously created game retains its state across sessions
     (turn count, title, summary, world_seed).
@@ -334,6 +339,7 @@ class TestAC275GameResume:
 # ── AC-27.6: Turn count increments ───────────────────────────────
 
 
+@pytest.mark.spec("AC-27.06")
 class TestAC276TurnCountIncrement:
     """AC-27.6: turn_count in the game record increments with each
     completed turn.
@@ -362,6 +368,7 @@ class TestAC276TurnCountIncrement:
 # ── AC-27.7: State transition — active → completed ────────────────
 
 
+@pytest.mark.spec("AC-27.07")
 class TestAC277StateTransitions:
     """AC-27.7: Games transition through valid states:
     active → completed, active → abandoned (via soft-delete).
@@ -406,6 +413,7 @@ class TestAC277StateTransitions:
 # ── AC-27.8: Read-only after completion ──────────────────────────
 
 
+@pytest.mark.spec("AC-27.08")
 class TestAC278ReadOnlyCompleted:
     """AC-27.8: Completed or abandoned games cannot receive new turns.
 
@@ -445,6 +453,7 @@ class TestAC278ReadOnlyCompleted:
 # ── AC-27.9: Title and summary persistence ────────────────────────
 
 
+@pytest.mark.spec("AC-27.09")
 class TestAC279TitleAndSummary:
     """AC-27.9: Games store and return a human-readable title and summary.
     These are set by the narrative pipeline and persist in the DB.
@@ -496,6 +505,7 @@ class TestAC279TitleAndSummary:
 # ── AC-27.10: List only own games ────────────────────────────────
 
 
+@pytest.mark.spec("AC-27.10")
 class TestAC2710ListOwnGames:
     """AC-27.10: The games list is scoped to the authenticated player.
     Other players' games are never returned.

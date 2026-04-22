@@ -117,7 +117,13 @@ def load_known_acs(index_path: Path) -> tuple[dict[str, str], set[str]]:
 # Scan tests/ for @pytest.mark.spec(...) markers
 # ---------------------------------------------------------------------------
 def scan_markers(tests_dir: Path) -> dict[str, list[str]]:
-    """Return {normalized_AC_ID: [node_id, ...]} for all @pytest.mark.spec markers."""
+    """Return {normalized_AC_ID: [node_id, ...]} for all @pytest.mark.spec markers.
+
+    Handles two forms:
+    - @pytest.mark.spec(...) on a function/method → counted directly
+    - @pytest.mark.spec(...) on a class → counted once per test method in the class
+      (mirrors pytest's own marker inheritance behaviour)
+    """
     matrix: dict[str, list[str]] = {}
 
     for py_file in sorted(tests_dir.rglob("*.py")):
@@ -127,16 +133,60 @@ def scan_markers(tests_dir: Path) -> dict[str, list[str]]:
         except (SyntaxError, UnicodeDecodeError):
             continue
 
+        rel = py_file.relative_to(REPO_ROOT)
+
+        # Build a map of class → inherited AC IDs from class-level @pytest.mark.spec
+        class_ac_ids: dict[str, list[str]] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for decorator in node.decorator_list:
+                ids = _extract_spec_ids(decorator)
+                if ids:
+                    existing = class_ac_ids.setdefault(node.name, [])
+                    existing.extend(ids)
+
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
+
+            # Collect AC IDs from direct markers on the function
+            direct_ids: list[str] = []
             for decorator in node.decorator_list:
-                ac_ids = _extract_spec_ids(decorator)
-                if ac_ids is None:
-                    continue
-                rel = py_file.relative_to(REPO_ROOT)
+                ids = _extract_spec_ids(decorator)
+                if ids:
+                    direct_ids.extend(ids)
+
+            # Collect inherited IDs from parent class(es)
+            inherited_ids: list[str] = []
+            for cls_name, ids in class_ac_ids.items():
+                # Check if this function is a direct method of the class by looking
+                # at the parent node — ast.walk doesn't give parent context, so we
+                # check whether the function name appears as a method of any marked
+                # class body.  We re-walk class bodies to match correctly.
+                pass  # handled separately below
+
+            all_ids = direct_ids
+            if all_ids:
                 node_id = f"{rel}::{node.name}"
-                for raw_id in ac_ids:
+                for raw_id in all_ids:
+                    norm = normalize_ac_id(raw_id)
+                    matrix.setdefault(norm, []).append(node_id)
+
+        # Walk class bodies to pick up inherited markers
+        for class_node in ast.walk(tree):
+            if not isinstance(class_node, ast.ClassDef):
+                continue
+            inherited = class_ac_ids.get(class_node.name)
+            if not inherited:
+                continue
+            for item in class_node.body:
+                if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if not item.name.startswith("test_"):
+                    continue
+                node_id = f"{rel}::{class_node.name}::{item.name}"
+                for raw_id in inherited:
                     norm = normalize_ac_id(raw_id)
                     matrix.setdefault(norm, []).append(node_id)
 
