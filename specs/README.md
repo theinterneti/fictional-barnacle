@@ -119,7 +119,7 @@ for the full roadmap rationale, dependency graph, and open questions per spec.
 | [S35](35-npc-autonomy-between-turns.md) | NPC Autonomy Between Turns | Off-screen NPC goals, routines, salience filter (no LangGraph) |
 | [S36](36-consequence-propagation.md) | Consequence Propagation | Effect ripple via graph-walk, bounded depth, rumor distortion |
 | [S37](37-world-memory-model.md) | World Memory Model | Canon events, decay, compression, structured attributed memory |
-| S38 | NPC Memory Model | Per-NPC episodic memory; relationship-graph arcs; v4+ multiplayer hook |
+| [S38](38-npc-memory-and-social-model.md) | NPC Memory & Social Model | Per-NPC episodic memory; relationship-graph arcs; gossip propagation; v4+ multiplayer hook |
 | S39 | Universe Composition Model | Themes, tropes, archetypes, genre-twists; composable, seedable, deterministic from (seed, config) |
 | S40 | Genesis v2 | 7-phase world-creation; consumes S39 composition vocabulary |
 
