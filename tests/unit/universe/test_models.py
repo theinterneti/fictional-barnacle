@@ -43,7 +43,7 @@ def test_universe_has_required_fields():
 @pytest.mark.spec("AC-29.02")
 def test_universe_status_accepts_all_valid_values():
     base = {"owner_id": uuid4(), "name": "W"}
-    for status in ("dormant", "created", "active", "paused", "archived"):
+    for status in ("dormant", "active", "paused", "archived"):
         u = Universe(**base, status=status)
         assert u.status == status
 

@@ -14,7 +14,7 @@ class Universe(BaseModel):
     owner_id: UUID
     name: str
     description: str = ""
-    status: Literal["dormant", "created", "active", "paused", "archived"] = "dormant"
+    status: Literal["dormant", "active", "paused", "archived"] = "dormant"
     config: dict = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

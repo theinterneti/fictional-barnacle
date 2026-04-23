@@ -63,7 +63,7 @@ async def test_get_or_create_returns_existing_actor() -> None:
 
     assert isinstance(actor, Actor)
     assert actor.player_id == player_id
-    pg.execute.assert_called_once()  # only the SELECT, no INSERT
+    assert pg.execute.call_count == 2  # INSERT ON CONFLICT DO NOTHING + re-SELECT
 
 
 @pytest.mark.spec("AC-31.01", "AC-31.02")
@@ -89,7 +89,7 @@ async def test_get_or_create_inserts_when_absent() -> None:
 
     assert actor.player_id == player_id
     assert actor.display_name == "New Hero"
-    assert pg.execute.call_count == 2  # SELECT + INSERT
+    assert pg.execute.call_count == 2  # INSERT ON CONFLICT DO NOTHING + re-SELECT
 
 
 # ---------------------------------------------------------------------------
