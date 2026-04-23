@@ -311,6 +311,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.autonomy_processor = DefaultAutonomyProcessor()
     app.state.consequence_propagator = DefaultConsequencePropagator()
 
+    # v2 Memory Services (S37, S38)
+    from tta.simulation.npc_memory import InMemorySocialMemoryWriter
+    from tta.simulation.world_memory import InMemoryMemoryWriter
+
+    app.state.memory_writer = InMemoryMemoryWriter()
+    app.state.social_memory_writer = InMemorySocialMemoryWriter()
+
     app.state.pipeline_deps = PipelineDeps(
         llm=app.state.llm_client,
         world=app.state.world_service,
@@ -331,6 +338,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         world_time_service=app.state.world_time_service,
         autonomy_processor=app.state.autonomy_processor,
         consequence_propagator=app.state.consequence_propagator,
+        memory_writer=app.state.memory_writer,
+        social_memory_writer=app.state.social_memory_writer,
     )
 
     # Redact credentials from DSN before logging

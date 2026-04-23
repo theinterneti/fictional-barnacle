@@ -30,6 +30,7 @@ dependencies = [
     "opentelemetry-api>=1.40.0",
     "opentelemetry-sdk>=1.40.0",
     "opentelemetry-exporter-otlp-proto-grpc>=1.40.0",
+    "python-ulid>=3.0",
     "pyjwt>=2.9",
     "bcrypt>=4.2",
 ]

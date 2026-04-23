@@ -129,6 +129,46 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                     for r in propagation_results
                 ]
 
+            # v2 S37 — World Memory Recording
+            if deps.memory_writer is not None:
+                try:
+                    _mem_content = str(
+                        world_context.get("location_description", "")
+                        or world_context.get("game_state", "")
+                    )
+                    _mem_cfg = (
+                        state.game_state.get("memory_config", {})
+                        if isinstance(state.game_state, dict)
+                        else {}
+                    )
+                    await deps.memory_writer.record(
+                        universe_id=universe_id,
+                        session_id=state.session_id,
+                        turn_number=state.turn_number,
+                        world_time=tick_delta.world_time,
+                        source="narrator",
+                        content=_mem_content,
+                        attributed_to=None,
+                        tags=[],
+                        consequence_ids=[],
+                        npc_tier=None,
+                        max_consequence_severity=None,
+                    )
+                    _mem_ctx = await deps.memory_writer.get_context(
+                        universe_id=universe_id,
+                        session_id=state.session_id,
+                        current_tick=tick_delta.world_time.total_ticks,
+                        budget_tokens=2000,
+                        memory_config=_mem_cfg,
+                    )
+                    world_context["memory_context"] = {
+                        "working": [r.content for r in _mem_ctx.working],
+                        "active": [r.content for r in _mem_ctx.active],
+                        "compressed": [r.content for r in _mem_ctx.compressed],
+                    }
+                except Exception:
+                    log.warning("memory_writer_failed", exc_info=True)
+
     # Inject tone/genre from world seed (S03 FR-6.1)
     world_context = _inject_tone(world_context, state)
 
