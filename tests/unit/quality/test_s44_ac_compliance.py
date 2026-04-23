@@ -41,7 +41,9 @@ def _mock_llm(score: int = 4) -> AsyncMock:
         return_value=LLMResponse(
             content=json.dumps({"score": score, "rationale": "good"}),
             model_used="mock-model",
-            token_count=TokenCount(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            token_count=TokenCount(
+                prompt_tokens=10, completion_tokens=5, total_tokens=15
+            ),
             latency_ms=1.0,
         )
     )
