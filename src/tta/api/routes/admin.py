@@ -1001,3 +1001,99 @@ async def patch_universe_config(
             "config": universe.config,
         }
     )
+
+
+# ==================================================================
+# §3.8  Async job management (S48 — FR-48.05–FR-48.07)
+# ==================================================================
+#
+# ROUTING ORDER: /admin/jobs/dead MUST appear before /admin/jobs/{job_id}/status
+# to prevent FastAPI routing "dead" as a job_id path parameter.
+
+
+@router.get("/jobs/dead")
+async def list_dead_letter_jobs(
+    request: Request,
+    admin: AdminIdentity = Depends(require_admin),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> JSONResponse:
+    """Return up to ``limit`` entries from the dead-letter queue (FR-48.06)."""
+    redis: Redis = request.app.state.redis
+    raw = await redis.lrange("tta:jobs:dead", 0, limit - 1)  # type: ignore[misc]
+    import json
+
+    entries = [json.loads(item) for item in raw]
+    return JSONResponse(content={"dead_letters": entries, "count": len(entries)})
+
+
+@router.get("/jobs/{job_id}/status")
+async def get_job_status(
+    job_id: str,
+    request: Request,
+    admin: AdminIdentity = Depends(require_admin),
+) -> JSONResponse:
+    """Return the current status of a job (FR-48.05)."""
+    queue = request.app.state.job_queue
+    status = await queue.job_status(job_id)
+    if status is None:
+        raise AppError(
+            ErrorCategory.NOT_FOUND,
+            "JOB_NOT_FOUND",
+            f"Job {job_id!r} not found",
+        )
+    return JSONResponse(content={"job_id": job_id, "status": str(status)})
+
+
+@router.post("/jobs/{job_fn_name}/enqueue", status_code=201)
+async def enqueue_job(
+    job_fn_name: str,
+    request: Request,
+    admin: AdminIdentity = Depends(require_admin),
+) -> JSONResponse:
+    """Manually enqueue a job by function name (FR-48.07).
+
+    Body: optional JSON ``{"args": [...], "kwargs": {...}}``.
+    Returns 201 + ``{"job_id": "<uuid>"}`` on success.
+    """
+    allowed_functions = {
+        "gdpr_delete_player",
+        "retention_sweep",
+        "session_cleanup",
+        "game_backfill",
+    }
+    if job_fn_name not in allowed_functions:
+        raise AppError(
+            ErrorCategory.INPUT_INVALID,
+            "JOB_FUNCTION_NOT_ALLOWED",
+            f"Unknown job function {job_fn_name!r}. "
+            f"Allowed: {sorted(allowed_functions)}",
+        )
+
+    body: dict = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+
+    args = body.get("args", [])
+    kwargs = body.get("kwargs", {})
+
+    queue = request.app.state.job_queue
+    job_id = await queue.enqueue(job_fn_name, *args, **kwargs)
+
+    await _audit(
+        request,
+        admin,
+        action="manual_job_enqueue",
+        target_type="job",
+        target_id=job_id,
+        reason=f"job_fn={job_fn_name}",
+    )
+
+    log.info(
+        "admin_job_enqueued", job_fn=job_fn_name, job_id=job_id, admin=admin.admin_id
+    )
+    return JSONResponse(
+        status_code=201,
+        content={"job_id": job_id, "job_fn": job_fn_name},
+    )

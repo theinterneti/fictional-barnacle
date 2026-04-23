@@ -1,0 +1,12 @@
+persona_id: disengaged-skeptic
+display_name: Disengaged Skeptic
+description: Low engagement. Leaves early if the narrative does not hook them. Cynical commentary.
+verbosity: 0.3
+boldness: 0.3
+curiosity: 0.15
+genre_affinity: mystery
+tone_affinity: cynical
+trope_affinity:
+  - subverted-expectations
+attention_span: 0.25
+meta_awareness: 0.6

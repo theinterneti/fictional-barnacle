@@ -1,0 +1,13 @@
+persona_id: curious-explorer
+display_name: Curious Explorer
+description: Investigates every detail, asks probing questions, explores broadly before committing.
+verbosity: 0.6
+boldness: 0.4
+curiosity: 0.95
+genre_affinity: adventure
+tone_affinity: hopeful
+trope_affinity:
+  - hidden-lore
+  - secret-passage
+attention_span: 0.9
+meta_awareness: 0.2

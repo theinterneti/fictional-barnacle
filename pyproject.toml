@@ -33,6 +33,7 @@ dependencies = [
     "python-ulid>=3.0",
     "pyjwt>=2.9",
     "bcrypt>=4.2",
+    "arq>=0.25",
 ]
 
 [dependency-groups]

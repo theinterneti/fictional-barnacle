@@ -1,0 +1,11 @@
+persona_id: terse-minimalist
+display_name: Terse Minimalist
+description: Says little. One-word inputs common. High attention span but communicates tersely.
+verbosity: 0.05
+boldness: 0.5
+curiosity: 0.4
+genre_affinity: noir
+tone_affinity: dark
+trope_affinity: []
+attention_span: 0.85
+meta_awareness: 0.05

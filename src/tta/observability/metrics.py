@@ -368,6 +368,24 @@ SSE_BUFFER_SIZE = Gauge(
 )
 
 
+# -- S48 async job runner metrics ------------------------------------------
+
+JOB_RUNS = Counter(
+    "tta_job_runs_total",
+    "Async job execution results",
+    ["job_fn", "status"],
+    registry=REGISTRY,
+)
+
+JOB_DURATION = Histogram(
+    "tta_job_duration_seconds",
+    "Async job execution duration",
+    ["job_fn"],
+    buckets=DURATION_BUCKETS,
+    registry=REGISTRY,
+)
+
+
 def metrics_output() -> bytes:
     """Generate Prometheus metrics output from the registry."""
     return generate_latest(REGISTRY)

@@ -1,0 +1,14 @@
+persona_id: verbose-narrator
+display_name: Verbose Narrator
+description: Provides richly detailed inputs, describes context, offers elaborate reasoning.
+verbosity: 0.95
+boldness: 0.45
+curiosity: 0.7
+genre_affinity: literary
+tone_affinity: melancholic
+trope_affinity:
+  - unreliable-narrator
+  - found-family
+  - slow-burn
+attention_span: 0.9
+meta_awareness: 0.4
