@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from tta.prompts.loader import FilePromptRegistry
     from tta.resilience.circuit_breaker import CircuitBreaker
     from tta.safety.hooks import SafetyHook
+    from tta.simulation.consequence import ConsequencePropagator
+    from tta.simulation.npc_autonomy import AutonomyProcessor
     from tta.simulation.world_time import WorldTimeService
     from tta.transport.protocol import NarrativeTransport
     from tta.universe.actor_service import ActorService
@@ -62,6 +64,8 @@ class PipelineDeps:
     actor_service: ActorService | None = None  # v2 S31
     transport: NarrativeTransport | None = None  # v2 S32 FR-32.06a
     world_time_service: WorldTimeService | None = None  # v2 S34
+    autonomy_processor: AutonomyProcessor | None = None  # v2 S35
+    consequence_propagator: ConsequencePropagator | None = None  # v2 S36
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState
