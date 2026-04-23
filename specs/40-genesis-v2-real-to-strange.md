@@ -378,6 +378,45 @@ Feature: Genesis v2 — Real→Strange
     When the input is processed
     Then the harmful content is not stored in genesis_state
     And the Phase 2 interaction is replayed from the last safe point
+
+  Scenario: AC-40.09 — universe_id stored in GenesisState from start()
+    Given a genesis session is started with a known universe_id
+    When start() is called
+    Then state.universe_id equals the provided universe_id
+
+  Scenario: AC-40.10 — Single genesis_phase_boundary event replaces dual log calls
+    Given genesis phase advances from VOID to ANCHOR
+    When _maybe_advance_phase() is called
+    Then exactly one structlog event "genesis_phase_boundary" is emitted
+    And the event carries from_phase and to_phase fields
+
+  Scenario: AC-40.11 — state.completed set when advancing to COMPLETE phase
+    Given genesis is at the final phase before COMPLETE
+    When _maybe_advance_phase() advances to COMPLETE
+    Then state.completed is True
+    And state.completed is not set by any individual phase handler
+
+  Scenario: AC-40.12 — genesis_state JSONB column uses CAST on write
+    Given a genesis state to persist
+    When _save_state() executes the UPDATE SQL
+    Then the SQL includes "CAST(:gs AS jsonb)"
+
+  Scenario: AC-40.13 — Universe seed stored as uint64 integer
+    Given ensure_seed() is called with no existing seed
+    When a new seed is generated
+    Then config["seed"] is a non-negative integer
+    And the returned value is a string representation of that integer
+
+  Scenario: AC-40.14 — ToneProfile primary/secondary round-trips through serialisation
+    Given a composition with stored tone.primary = "melancholic"
+    When from_config() is called followed by to_dict()
+    Then the resulting dict contains tone.primary = "melancholic"
+    And tone.warmth and tone.intensity are absent from the dict
+
+  Scenario: AC-40.15 — Theme weights appear in composition context fragment
+    Given a composition with theme "cosmic_horror" weight=0.8
+    When get_context_fragment() is called
+    Then the fragment line contains "cosmic_horror (0.8)"
 ```
 
 ---
