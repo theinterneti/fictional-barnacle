@@ -69,58 +69,65 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         }
         context_partial = True
 
-    # v2 S35 — NPC Autonomy (guarded: no-op for v1 sessions)
+    # v2 S35 — NPC Autonomy (guarded: no-op for v1 sessions without universe_id)
     if deps.autonomy_processor is not None and deps.world_time_service is not None:
-        universe_id = str(state.session_id)
-        npcs = world_context.get("npcs_present", [])
-        current_ticks = (
-            state.game_state.get("tick", 0) if isinstance(state.game_state, dict) else 0
+        universe_id = world_context.get("universe_id") or (
+            state.game_state.get("universe_id")
+            if isinstance(state.game_state, dict)
+            else None
         )
-        tick_delta = deps.world_time_service.tick(current_ticks)
-        autonomy_delta = deps.autonomy_processor.process(
-            universe_id=universe_id,
-            world_time=tick_delta.world_time,
-            npcs=npcs,
-        )
-        world_context["autonomous_changes"] = [
-            {"npc_id": c.npc_id, "action_type": c.action_type, "after": c.after}
-            for c in autonomy_delta.changes
-        ]
-        world_context["autonomous_events"] = [
-            {
-                "event_id": e.event_id,
-                "description": e.description,
-                "severity": e.severity,
-            }
-            for e in autonomy_delta.events
-        ]
-        # v2 S36 — Consequence Propagation
-        if deps.consequence_propagator is not None and autonomy_delta.events:
-            from tta.simulation.types import PropagationSource
-
-            sources = [
-                PropagationSource(
-                    source_event_id=e.event_id,
-                    source_type="npc_autonomy",
-                    source_location_id=e.location_id or universe_id,
-                    original_severity=e.severity,
-                    description=e.description,
-                )
-                for e in autonomy_delta.events
-            ]
-            propagation_results = await deps.consequence_propagator.propagate(
-                source_events=sources,
+        if universe_id:
+            npcs = world_context.get("npcs_present", [])
+            current_ticks = (
+                state.game_state.get("world_time", {}).get("total_ticks", 0)
+                if isinstance(state.game_state, dict)
+                else 0
+            )
+            tick_delta = deps.world_time_service.tick(current_ticks)
+            autonomy_delta = deps.autonomy_processor.process(
                 universe_id=universe_id,
                 world_time=tick_delta.world_time,
+                npcs=npcs,
             )
-            world_context["propagated_consequences"] = [
-                {
-                    "source_event_id": r.source_event_id,
-                    "total_records": r.total_records,
-                    "depth": r.propagation_depth_reached,
-                }
-                for r in propagation_results
+            world_context["autonomous_changes"] = [
+                {"npc_id": c.npc_id, "action_type": c.action_type, "after": c.after}
+                for c in autonomy_delta.changes
             ]
+            world_context["autonomous_events"] = [
+                {
+                    "event_id": e.event_id,
+                    "description": e.description,
+                    "severity": e.severity,
+                }
+                for e in autonomy_delta.events
+            ]
+            # v2 S36 — Consequence Propagation
+            if deps.consequence_propagator is not None and autonomy_delta.events:
+                from tta.simulation.types import PropagationSource
+
+                sources = [
+                    PropagationSource(
+                        source_event_id=e.event_id,
+                        source_type="npc_autonomy",
+                        source_location_id=e.location_id or universe_id,
+                        original_severity=e.severity,
+                        description=e.description,
+                    )
+                    for e in autonomy_delta.events
+                ]
+                propagation_results = await deps.consequence_propagator.propagate(
+                    source_events=sources,
+                    universe_id=universe_id,
+                    world_time=tick_delta.world_time,
+                )
+                world_context["propagated_consequences"] = [
+                    {
+                        "source_event_id": r.source_event_id,
+                        "total_records": r.total_records,
+                        "depth": r.propagation_depth_reached,
+                    }
+                    for r in propagation_results
+                ]
 
     # Inject tone/genre from world seed (S03 FR-6.1)
     world_context = _inject_tone(world_context, state)

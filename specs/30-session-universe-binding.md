@@ -240,8 +240,8 @@ session.
 ```gherkin
 Feature: Session↔Universe Binding
 
-  Scenario: AC-30.01 — Session creation with universe in created status succeeds
-    Given a universe in "created" status
+  Scenario: AC-30.01 — Session creation with universe in dormant status succeeds
+    Given a universe in "dormant" status
     When a player creates a new session bound to that universe with 1 actor
     Then the session is created successfully
     And the universe status transitions to "active"

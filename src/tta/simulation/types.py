@@ -55,6 +55,14 @@ class TimeConfig:
 # ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class DeferredNPC:
+    """An NPC skipped during autonomy processing (AC-35.07/35.08)."""
+
+    npc_id: str
+    reason: str
+
+
 @dataclass
 class NPCStateChange:
     """A single state mutation produced by NPC autonomous action."""
@@ -101,7 +109,7 @@ class WorldDelta:
     tick: int = 0
     changes: list[NPCStateChange] = field(default_factory=list)
     events: list[WorldEvent] = field(default_factory=list)
-    deferred_npcs: list[str] = field(default_factory=list)
+    deferred_npcs: list[DeferredNPC] = field(default_factory=list)
     deferred_changes: list[NPCStateChange] = field(default_factory=list)
 
 

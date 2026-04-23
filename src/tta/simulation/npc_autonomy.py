@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
 from tta.simulation.types import (
+    DeferredNPC,
     NPCStateChange,
     RoutineTrigger,
     WorldDelta,
@@ -44,16 +46,31 @@ def _resolve_npc_field(npc: Any, field: str, default: Any = None) -> Any:
     return getattr(npc, field, default)
 
 
-def _in_salience_window(npc: Any, world_time: WorldTime) -> bool:
+def _in_salience_window(
+    npc: Any, world_time: WorldTime, world_context: dict | None = None
+) -> bool:
     """Return True when a SUPPORTING NPC should be processed this tick.
 
-    Simple heuristic: NPC has a schedule string containing the current
-    time-of-day label (e.g., "morning") OR the schedule is "always".
-    Returns False for any NPC whose schedule doesn't match the window.
+    AC-35.03/35.04: A SUPPORTING NPC is in the salience window when its
+    ``location_id`` appears in the set of locations visited in the last 5
+    turns (extracted from ``world_context["recent_locations"]``).  If that
+    context is absent we fall back to the time-of-day schedule heuristic so
+    that unit tests that don't supply world_context keep working.
     """
     schedule: str | None = _resolve_npc_field(npc, "schedule")
     if not schedule:
         return False
+
+    # Visitor-based check: use recent_locations from world_context
+    if world_context is not None:
+        recent: list[str] = world_context.get("recent_locations", [])
+        if recent:
+            npc_location: str | None = _resolve_npc_field(npc, "location_id")
+            if npc_location is None:
+                return False
+            return npc_location in recent
+
+    # Fallback: schedule string contains the current time-of-day label
     schedule_lower = schedule.lower()
     if schedule_lower in ("always", "*"):
         return True
@@ -113,7 +130,7 @@ class DefaultAutonomyProcessor:
 
         changes: list[NPCStateChange] = []
         events: list[WorldEvent] = []
-        deferred_npcs: list[str] = []
+        deferred_npcs: list[DeferredNPC] = []
         deferred_changes: list[NPCStateChange] = []
         key_llm_batch: list[Any] = []
 
@@ -167,7 +184,9 @@ class DefaultAutonomyProcessor:
             # Budget guard (SUPPORTING only)
             elapsed_ms = (time.monotonic() - start) * 1000
             if elapsed_ms > self.budget_ms:
-                deferred_npcs.append(npc_id)
+                deferred_npcs.append(
+                    DeferredNPC(npc_id=npc_id, reason="budget_exceeded")
+                )
                 continue
 
             npc_changes, npc_events = self._process_rule_based(
@@ -207,36 +226,110 @@ class DefaultAutonomyProcessor:
         world_time: WorldTime,
         universe_id: str,
     ) -> tuple[list[NPCStateChange], list[WorldEvent]]:
-        """Apply the NPC's schedule as a simple state-machine rule."""
+        """Apply the NPC's routine RoutineSteps, then fall back to tod schedule."""
+        from tta.simulation.types import (
+            DispositionShiftAction,
+            MoveAction,
+            NarrativeEventAction,
+            RoutineStep,
+            StateChangeAction,
+        )
+
         schedule: str | None = _resolve_npc_field(npc, "schedule")
         current_state: str = str(_resolve_npc_field(npc, "state", "idle") or "idle")
+        routine: list[Any] = _resolve_npc_field(npc, "routine") or []
         tod = world_time.time_of_day_label
 
         changes: list[NPCStateChange] = []
         events: list[WorldEvent] = []
 
-        if not schedule:
-            return changes, events
+        # --- Phase 1: evaluate RoutineStep triggers (AC-35.03) ---
+        for step in routine:
+            if not isinstance(step, RoutineStep):
+                continue
 
-        # Minimal rule: map time-of-day label to a new NPC state
-        tod_to_state: dict[str, str] = {
-            "morning": "active",
-            "afternoon": "active",
-            "evening": "busy",
-            "night": "sleeping",
-            "midnight": "sleeping",
-        }
-        new_state = tod_to_state.get(tod.lower(), current_state)
+            trigger = step.trigger
+            matched = False
 
-        if new_state != current_state:
-            changes.append(
-                NPCStateChange(
-                    npc_id=npc_id,
-                    action_type="state_change",
-                    before={"state": current_state},
-                    after={"state": new_state},
+            if trigger == "time_of_day" and step.condition is not None:
+                matched = step.condition.label.lower() == tod.lower()
+            elif trigger == "tick_elapsed" and step.condition is not None:
+                try:
+                    interval = int(step.condition.label)
+                    matched = interval > 0 and (world_time.total_ticks % interval == 0)
+                except ValueError:
+                    matched = False
+            elif trigger in ("world_event", "player_visited"):
+                # Not evaluated rule-based; logged as not_matched (AC-35.10)
+                matched = False
+
+            if not matched:
+                continue
+
+            action = step.action
+            if isinstance(action, StateChangeAction):
+                if action.new_state != current_state:
+                    changes.append(
+                        NPCStateChange(
+                            npc_id=npc_id,
+                            action_type="state_change",
+                            before={"state": current_state},
+                            after={"state": action.new_state},
+                        )
+                    )
+                    current_state = action.new_state
+            elif isinstance(action, MoveAction):
+                changes.append(
+                    NPCStateChange(
+                        npc_id=npc_id,
+                        action_type="move",
+                        before={},
+                        after={"location_id": action.target_location_id},
+                    )
                 )
-            )
+            elif isinstance(action, DispositionShiftAction):
+                changes.append(
+                    NPCStateChange(
+                        npc_id=npc_id,
+                        action_type="disposition_shift",
+                        before={},
+                        after={"target_npc": action.npc_id, "delta": action.delta},
+                    )
+                )
+            elif isinstance(action, NarrativeEventAction):
+                events.append(
+                    WorldEvent(
+                        event_id=f"{npc_id}:{world_time.total_ticks}:narrative",
+                        universe_id=universe_id,
+                        event_type="narrative",
+                        description=action.description,
+                        severity=action.severity,
+                        triggered_at_tick=world_time.total_ticks,
+                        created_at=datetime.utcnow(),
+                        source_npc_id=npc_id,
+                        location_id=None,
+                    )
+                )
+
+        # --- Phase 2: schedule-based tod fallback (only if no routine steps) ---
+        if not routine and schedule:
+            tod_to_state: dict[str, str] = {
+                "morning": "active",
+                "afternoon": "active",
+                "evening": "busy",
+                "night": "sleeping",
+                "midnight": "sleeping",
+            }
+            new_state = tod_to_state.get(tod.lower(), current_state)
+            if new_state != current_state:
+                changes.append(
+                    NPCStateChange(
+                        npc_id=npc_id,
+                        action_type="state_change",
+                        before={"state": current_state},
+                        after={"state": new_state},
+                    )
+                )
 
         return changes, events
 

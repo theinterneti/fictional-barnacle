@@ -68,10 +68,11 @@ def _fidelity_description(description: str, hop: int) -> str:
     if hop <= 1:
         return description
     if hop == 2:
-        truncated = description[:80]
-        return truncated if len(description) <= 80 else truncated + "…"
+        if len(description) <= 60:
+            return description
+        return "Word has reached here that " + description[:60].rstrip() + "…"
     # hop >= 3
-    return f"Word spread that {description[:60].rstrip()}…"
+    return "There are vague rumors of " + description[:40].rstrip() + "…"
 
 
 # ---------------------------------------------------------------------------
@@ -166,17 +167,31 @@ class DefaultConsequencePropagator:
             seen_entity_ids.add(source.affected_entity_id)
 
         # Simulated BFS hop walk — production Neo4j query replaces this stub.
-        # In Wave E (MVP), we produce synthetic hop-1 and hop-2 records using
-        # whatever neighbouring entities the world_context provides.  Wave F
-        # wires the real Neo4j NEAR / KNOWS edge traversal.
+        # In Wave E (MVP), we produce synthetic hop-1/2/3 records for a
+        # placeholder "nearby" physical entity.  Wave F wires real Neo4j
+        # NEAR / KNOWS edge traversal.
         max_hop_reached = 0
-        if not budget_exceeded:
+        if not budget_exceeded and source.affected_entity_id:
             for hop in range(1, self.max_depth + 1):
                 decayed = _decay_severity(source.original_severity, hop)
                 if decayed is None:
                     break
                 max_hop_reached = hop
-                # placeholder: no real neighbour graph in Wave E MVP
+                # Physical hop stubs (AC-36.02/36.03): synthetic nearby entity
+                physical_entity_id = f"physical:{source.source_location_id}:hop{hop}"
+                if physical_entity_id not in seen_entity_ids:
+                    prec = self._make_record(
+                        source=source,
+                        universe_id=universe_id,
+                        entity_id=physical_entity_id,
+                        entity_type="location",
+                        hop=hop,
+                        severity=decayed,
+                        description=_fidelity_description(source.description, hop),
+                        tick=world_time.total_ticks,
+                    )
+                    records.append(prec)
+                    seen_entity_ids.add(physical_entity_id)
                 # faction shortcut: create faction hop-1 record
                 if hop == 1 and source.faction_id:
                     faction_entity_id = f"faction:{source.faction_id}"

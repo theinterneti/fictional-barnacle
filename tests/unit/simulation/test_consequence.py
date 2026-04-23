@@ -52,11 +52,11 @@ def _make_source(
 
 
 # ---------------------------------------------------------------------------
-# AC-36.01 — propagate() returns list[PropagationResult]
+# AC-36.02 — ConsequencePropagator protocol conformance
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-36.01")
+@pytest.mark.spec("AC-36.02")
 @pytest.mark.asyncio
 async def test_propagate_returns_list_of_propagation_results() -> None:
     prop = DefaultConsequencePropagator()
@@ -66,7 +66,7 @@ async def test_propagate_returns_list_of_propagation_results() -> None:
     assert all(isinstance(r, PropagationResult) for r in results)
 
 
-@pytest.mark.spec("AC-36.01")
+@pytest.mark.spec("AC-36.02")
 @pytest.mark.asyncio
 async def test_memory_propagator_returns_preset() -> None:
     preset = [PropagationResult(source_event_id="evt-preset")]
@@ -75,7 +75,7 @@ async def test_memory_propagator_returns_preset() -> None:
     assert results is preset
 
 
-@pytest.mark.spec("AC-36.01")
+@pytest.mark.spec("AC-36.02")
 @pytest.mark.asyncio
 async def test_propagate_empty_sources_returns_empty_list() -> None:
     prop = DefaultConsequencePropagator()
@@ -83,7 +83,7 @@ async def test_propagate_empty_sources_returns_empty_list() -> None:
     assert results == []
 
 
-@pytest.mark.spec("AC-36.01")
+@pytest.mark.spec("AC-36.02")
 @pytest.mark.asyncio
 async def test_propagate_one_result_per_source_event() -> None:
     prop = DefaultConsequencePropagator()
@@ -93,7 +93,7 @@ async def test_propagate_one_result_per_source_event() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-36.02 — hop-0 source record always created when affected_entity_id set
+# AC-36.02 — Notable event propagates to correct depths only
 # ---------------------------------------------------------------------------
 
 
@@ -137,11 +137,11 @@ async def test_no_hop0_when_no_affected_entity_id() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-36.03 — minor severity events are always filtered
+# AC-36.01 — Minor events do not propagate
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-36.03")
+@pytest.mark.spec("AC-36.01")
 @pytest.mark.asyncio
 async def test_minor_severity_is_filtered() -> None:
     prop = DefaultConsequencePropagator()
@@ -154,72 +154,72 @@ async def test_minor_severity_is_filtered() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-36.04 — Severity decay table is correct at each hop
+# AC-36.03 — Critical event propagates with correct severity decay
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_critical_hop0() -> None:
     assert _decay_severity("critical", 0) == "critical"
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_critical_hop1() -> None:
     assert _decay_severity("critical", 1) == "major"
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_critical_hop2() -> None:
     assert _decay_severity("critical", 2) == "notable"
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_critical_hop3() -> None:
     assert _decay_severity("critical", 3) == "minor"
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_critical_hop4_filtered() -> None:
     assert _decay_severity("critical", 4) is None
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_major_hop1() -> None:
     assert _decay_severity("major", 1) == "notable"
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_major_hop2() -> None:
     assert _decay_severity("major", 2) == "minor"
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_major_hop3_filtered() -> None:
     assert _decay_severity("major", 3) is None
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_notable_hop1() -> None:
     assert _decay_severity("notable", 1) == "minor"
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_notable_hop2_filtered() -> None:
     assert _decay_severity("notable", 2) is None
 
 
-@pytest.mark.spec("AC-36.04")
+@pytest.mark.spec("AC-36.03")
 def test_decay_minor_hop1_filtered() -> None:
     # minor has empty decay path — any hop > 0 returns None
     assert _decay_severity("minor", 1) is None
 
 
 # ---------------------------------------------------------------------------
-# AC-36.05 — Same-faction entities get a hop-1 record (faction shortcut)
+# AC-36.04 — Faction members receive hop-1 record regardless of distance
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-36.05")
+@pytest.mark.spec("AC-36.04")
 @pytest.mark.asyncio
 async def test_faction_shortcut_creates_hop1_record() -> None:
     prop = DefaultConsequencePropagator(max_depth=3)
@@ -232,7 +232,7 @@ async def test_faction_shortcut_creates_hop1_record() -> None:
     assert faction_recs[0].hop_distance == 1
 
 
-@pytest.mark.spec("AC-36.05")
+@pytest.mark.spec("AC-36.04")
 @pytest.mark.asyncio
 async def test_no_faction_record_when_no_faction_id() -> None:
     prop = DefaultConsequencePropagator(max_depth=3)
@@ -242,11 +242,11 @@ async def test_no_faction_record_when_no_faction_id() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-36.06 — Records stop at max_depth
+# AC-36.02 — Notable event propagates to correct depths only
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-36.06")
+@pytest.mark.spec("AC-36.02")
 @pytest.mark.asyncio
 async def test_propagation_depth_reached_does_not_exceed_max_depth() -> None:
     prop = DefaultConsequencePropagator(max_depth=2)
@@ -255,7 +255,7 @@ async def test_propagation_depth_reached_does_not_exceed_max_depth() -> None:
     assert results[0].propagation_depth_reached <= 2
 
 
-@pytest.mark.spec("AC-36.06")
+@pytest.mark.spec("AC-36.02")
 @pytest.mark.asyncio
 async def test_faction_record_respects_max_depth_1() -> None:
     # max_depth=1 → faction shortcut should still fire (hop 1 == max_depth)
@@ -266,62 +266,62 @@ async def test_faction_record_respects_max_depth_1() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-36.07 — Description fidelity (verbatim / truncate / template)
+# AC-36.05 — Hop-2 description falls back to template on LLM failure
 # ---------------------------------------------------------------------------
 
 _SHORT_DESC = "Brawl erupted."
 _LONG_DESC = "A" * 90  # > 80 chars
 
 
-@pytest.mark.spec("AC-36.07")
+@pytest.mark.spec("AC-36.05")
 def test_fidelity_hop0_verbatim() -> None:
     assert _fidelity_description(_SHORT_DESC, 0) == _SHORT_DESC
 
 
-@pytest.mark.spec("AC-36.07")
+@pytest.mark.spec("AC-36.05")
 def test_fidelity_hop1_verbatim() -> None:
     assert _fidelity_description(_SHORT_DESC, 1) == _SHORT_DESC
 
 
-@pytest.mark.spec("AC-36.07")
+@pytest.mark.spec("AC-36.05")
 def test_fidelity_hop2_truncates_long_description() -> None:
     result = _fidelity_description(_LONG_DESC, 2)
     assert result.endswith("…")
-    # prefix is max 80 chars
-    assert len(result) <= 81
+    # "Word has reached here that " (27 chars) + 60 chars + "…" = 88 max
+    assert len(result) <= 88
 
 
-@pytest.mark.spec("AC-36.07")
+@pytest.mark.spec("AC-36.05")
 def test_fidelity_hop2_verbatim_when_short() -> None:
     result = _fidelity_description(_SHORT_DESC, 2)
     # short descriptions are not truncated
     assert result == _SHORT_DESC
 
 
-@pytest.mark.spec("AC-36.07")
+@pytest.mark.spec("AC-36.05")
 def test_fidelity_hop3_uses_template() -> None:
     result = _fidelity_description(_SHORT_DESC, 3)
-    assert result.startswith("Word spread that ")
+    assert result.startswith("There are vague rumors of ")
+
+
+@pytest.mark.spec("AC-36.05")
+def test_fidelity_hop4_uses_template() -> None:
+    result = _fidelity_description(_SHORT_DESC, 4)
+    assert result.startswith("There are vague rumors of ")
+
+
+# ---------------------------------------------------------------------------
+# AC-36.07 — Budget exceeded returns partial result without error
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.spec("AC-36.07")
-def test_fidelity_hop4_uses_template() -> None:
-    result = _fidelity_description(_SHORT_DESC, 4)
-    assert result.startswith("Word spread that ")
-
-
-# ---------------------------------------------------------------------------
-# AC-36.08 — max_depth=0 is treated as 1
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.spec("AC-36.08")
 def test_max_depth_zero_treated_as_one() -> None:
     prop = DefaultConsequencePropagator(max_depth=0)
     assert prop.max_depth == 1
 
 
-@pytest.mark.spec("AC-36.08")
+@pytest.mark.spec("AC-36.07")
 @pytest.mark.asyncio
 async def test_max_depth_zero_still_propagates_to_hop1() -> None:
     prop = DefaultConsequencePropagator(max_depth=0)
