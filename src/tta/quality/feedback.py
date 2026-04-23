@@ -13,8 +13,8 @@ from dataclasses import dataclass
 
 
 def _normalize(rating: float) -> float:
-    """Normalize a 1–5 human rating to 0.0–1.0."""
-    return max(0.0, min(1.0, (rating - 1.0) / 4.0))
+    """Normalize a 1–5 human rating to 0.0–1.0 (S44 score/5 rule)."""
+    return max(0.0, min(1.0, rating / 5.0))
 
 
 @dataclass

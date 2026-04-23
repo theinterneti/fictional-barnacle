@@ -184,13 +184,18 @@ class EvaluationPipeline:
                 continue
 
             feedback: FeedbackRecord | None = None
-            if human_feedback and result.run_id in human_feedback:
-                feedback = human_feedback[result.run_id].to_feedback_record()
+            if human_feedback and result.playtest_report.run_id in human_feedback:
+                feedback = human_feedback[
+                    result.playtest_report.run_id
+                ].to_feedback_record()
 
             try:
                 quality_report = await evaluator.evaluate(
                     result.playtest_report,
                     feedback=feedback,
+                    # seed=None: SeedRegistry is not injected into the pipeline.
+                    # QC-05 will be not_evaluated; compute_batch_medians omits
+                    # empty categories so this propagates correctly downstream.
                     seed=None,
                 )
                 reports.append(quality_report)
@@ -219,7 +224,8 @@ class EvaluationPipeline:
 
         medians: dict[str, float] = {}
         for cat, scores in by_cat.items():
-            medians[cat] = statistics.median(scores) if scores else 0.0
+            if scores:
+                medians[cat] = statistics.median(scores)
         return medians
 
     # ------------------------------------------------------------------

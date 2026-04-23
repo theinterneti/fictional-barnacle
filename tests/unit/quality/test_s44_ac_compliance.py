@@ -408,9 +408,10 @@ async def test_feedback_record_normalization() -> None:
         run_id="r", q_wonder=3.0, q_consequence=3.0, q_character=3.0
     )
 
-    assert fb_min.wonder_normalized == 0.0
+    # S44: score/5 normalization — 1→0.2, 5→1.0, 3→0.6
+    assert abs(fb_min.wonder_normalized - 0.2) < 1e-6
     assert fb_max.wonder_normalized == 1.0
-    assert abs(fb_mid.wonder_normalized - 0.5) < 1e-6
+    assert abs(fb_mid.wonder_normalized - 0.6) < 1e-6
 
 
 @pytest.mark.asyncio
