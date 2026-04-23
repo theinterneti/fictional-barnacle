@@ -1,0 +1,51 @@
+schema_version: "1.0"
+id: dirty-frodo
+name: "City of Thorns"
+version: "1.0.0"
+description: >-
+  A city built on the ruins of an ancient kingdom. Thieves,
+  brokers of information, a corrupt ruling council. You are a
+  fixer. One job will go wrong. Hardboiled noir meets epic stakes.
+tags:
+  - portal
+  - urban-fantasy
+  - dark
+  - mechanics-heavy
+composition:
+  primary_genre: hardboiled_fantasy
+  themes:
+    - name: moral_ambiguity
+      weight: 0.9
+    - name: fallen_glory
+      weight: 0.7
+    - name: loyalty
+      weight: 0.6
+  tropes:
+    - name: reluctant_hero
+      weight: 0.8
+    - name: corrupt_institution
+      weight: 0.7
+    - name: job_gone_wrong
+      weight: 0.6
+  archetypes:
+    - name: the_fixer
+      npc_tier: key
+      weight: 0.9
+    - name: the_informant
+      npc_tier: supporting
+      weight: 0.7
+  genre_twists:
+    - name: hardboiled_overlay
+      strength: 0.8
+  prose:
+    voice: default
+    pacing: fast
+    description_density: sparse
+    second_person: false
+  tone:
+    primary: dark
+    secondary: melancholic
+genesis_hints:
+  slip_type: portal
+  starting_location: "The lower city, before dawn."
+  opening_mood: "Everyone in this city is guilty of something."

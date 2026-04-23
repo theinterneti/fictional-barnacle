@@ -21,7 +21,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import sqlalchemy as sa
@@ -31,7 +31,45 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from tta.llm.client import LLMClient, Message, MessageRole
 from tta.llm.roles import ModelRole
 
+if TYPE_CHECKING:
+    from tta.seeds.registry import SeedRegistry
+
 log = structlog.get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Seed composition helper (AC-41.06)
+# ---------------------------------------------------------------------------
+
+
+def apply_seed_composition(config: dict[str, Any], registry: SeedRegistry) -> None:
+    """Overlay *config* with the composition data from a scenario seed.
+
+    Reads ``config["genesis"]["seed_id"]``. If absent, returns silently.
+    If the seed exists in *registry* its composition is merged into
+    ``config["composition"]`` with ``seed_id`` and ``seed_version`` injected.
+
+    Args:
+        config: Mutable genesis config dict (modified in-place).
+        registry: The :class:`~tta.seeds.registry.SeedRegistry` to look up.
+    """
+    seed_id: str | None = config.get("genesis", {}).get("seed_id")
+    if not seed_id:
+        return
+    manifest = registry.get(seed_id)
+    if manifest is None:
+        log.warning("apply_seed_composition_not_found", seed_id=seed_id)
+        return
+    comp_dict = manifest.composition.to_dict()
+    comp_dict["seed_id"] = manifest.id
+    comp_dict["seed_version"] = manifest.version
+    config["composition"] = comp_dict
+    log.info(
+        "apply_seed_composition_applied",
+        seed_id=manifest.id,
+        seed_version=manifest.version,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Phase enum

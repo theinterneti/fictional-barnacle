@@ -1,0 +1,47 @@
+schema_version: "1.0"
+id: bus-stop-shimmer
+name: "Bus Stop Shimmer"
+version: "1.0.0"
+description: >-
+  A lonely bus stop on an ordinary evening. Time slips.
+  The mundane becomes strange. A real-to-strange slip entry
+  point, perfect for first-time players.
+tags:
+  - strange-mundane
+  - urban
+  - slow-burn
+  - beginner-friendly
+intended_audience:
+  - first-time players
+composition:
+  primary_genre: urban_fantasy
+  themes:
+    - name: liminal_space
+      weight: 0.9
+    - name: mundane_mystery
+      weight: 0.7
+  tropes:
+    - name: time_slip
+      weight: 0.8
+    - name: unreliable_narrator
+      weight: 0.6
+  archetypes:
+    - name: the_witness
+      npc_tier: key
+      weight: 0.8
+    - name: the_recurring_stranger
+      npc_tier: supporting
+      weight: 0.6
+  genre_twists: []
+  prose:
+    voice: default
+    pacing: slow
+    description_density: rich
+    second_person: true
+  tone:
+    primary: melancholic
+    secondary: wonder
+genesis_hints:
+  slip_type: mundane
+  starting_location: "A bus stop at dusk, Route 12."
+  opening_mood: "Everything is ordinary. That is the problem."
