@@ -1,0 +1,44 @@
+schema_version: "1.0"
+id: library-forbidden-book
+name: "The Library with a Forbidden Book"
+version: "1.0.0"
+description: >-
+  A public library. A book that should not be there. The call
+  number is wrong. The catalog does not show it. But you can hold
+  it. Themes of forbidden knowledge and the institutional uncanny.
+tags:
+  - strange-mundane
+  - discovery
+  - narrative-dense
+composition:
+  primary_genre: dark_fantasy
+  themes:
+    - name: forbidden_knowledge
+      weight: 0.9
+    - name: institutional_uncanny
+      weight: 0.7
+  tropes:
+    - name: cursed_object
+      weight: 0.8
+    - name: the_archivist
+      weight: 0.7
+  archetypes:
+    - name: the_researcher
+      npc_tier: key
+      weight: 0.8
+    - name: the_keeper
+      npc_tier: supporting
+      weight: 0.9
+  genre_twists: []
+  prose:
+    voice: default
+    pacing: slow
+    description_density: rich
+    second_person: true
+  tone:
+    primary: melancholic
+    secondary: wonder
+genesis_hints:
+  slip_type: discovery
+  starting_location: "A public library, late afternoon."
+  opening_mood: "The book should not be here. But here it is."

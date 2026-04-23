@@ -1,0 +1,45 @@
+schema_version: "1.0"
+id: cafe-with-strange-symbols
+name: "The Cafe with Strange Symbols"
+version: "1.0.0"
+description: >-
+  A cafe the player has visited for years. Today the symbols in the
+  menu are wrong. Or were they always like that? Themes of the
+  hidden world and the sacred ordinary.
+tags:
+  - strange-mundane
+  - urban
+  - mystery
+  - wonder
+composition:
+  primary_genre: weird_fiction
+  themes:
+    - name: hidden_world
+      weight: 0.8
+    - name: sacred_ordinary
+      weight: 0.9
+  tropes:
+    - name: occult_signs
+      weight: 0.9
+    - name: forbidden_knowledge
+      weight: 0.7
+  archetypes:
+    - name: the_initiate
+      npc_tier: key
+      weight: 0.8
+    - name: the_keeper
+      npc_tier: supporting
+      weight: 0.7
+  genre_twists: []
+  prose:
+    voice: default
+    pacing: balanced
+    description_density: rich
+    second_person: true
+  tone:
+    primary: wonder
+    secondary: melancholic
+genesis_hints:
+  slip_type: mundane
+  starting_location: "A familiar cafe, mid-afternoon."
+  opening_mood: "The menu is the same as always. Except it is not."
