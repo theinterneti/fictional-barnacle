@@ -39,7 +39,7 @@ class TurnRecord:
     phase: str
     player_input: str
     narrative: str
-    commentary: Commentary
+    commentary: Commentary | None = None
     timed_out: bool = False
 
     def to_dict(self) -> dict:
@@ -48,7 +48,9 @@ class TurnRecord:
             "phase": self.phase,
             "player_input": self.player_input,
             "narrative": self.narrative,
-            "commentary": self.commentary.to_dict(),
+            "commentary": self.commentary.to_dict()
+            if self.commentary is not None
+            else None,
             "timed_out": self.timed_out,
         }
 
