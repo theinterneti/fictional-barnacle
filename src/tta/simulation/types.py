@@ -3,7 +3,8 @@
 WorldTime and TimeConfig are the S34 contracts.
 WorldDelta, NPCStateChange, WorldEvent support S35 (NPC Autonomy).
 ConsequenceRecord, PropagationSource, PropagationResult support S36.
-MemoryRecord is a Wave F forward stub.
+MemoryRecord, MemoryContext, CompressionResult support S37.
+NPCEpisodicMemory, NPCSocialEdge, GossipEvent, NPCSocialContext support S38.
 """
 
 from __future__ import annotations
@@ -221,14 +222,127 @@ class PropagationResult:
 
 
 # ---------------------------------------------------------------------------
-# Wave F forward stub
+# S37 — World Memory Model
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class MemoryRecord:
-    """Stub: world/NPC memory entry (S37–S38, implemented in Wave F)."""
+    """A single world-scoped memory entry (S37 FR-37.01).
 
-    tick: int = 0
-    content: str = ""
-    entities: list[str] = field(default_factory=list)
+    Tier is assigned at write time and updated during compression.
+    """
+
+    memory_id: str  # ULID
+    universe_id: str  # ULID
+    session_id: str  # UUID
+    turn_number: int
+    world_time_tick: int  # WorldTime.total_ticks (S34)
+    source: Literal["player", "narrator", "npc", "world"]
+    attributed_to: str | None
+    content: str
+    summary: str | None
+    importance_score: float
+    tier: Literal["working", "active", "compressed", "archived"]
+    is_compressed: bool
+    compressed_from: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    consequence_ids: list[str] = field(default_factory=list)
+    created_at: datetime = field(default_factory=datetime.now)
+
+    def current_importance(self, current_tick: int, half_life_ticks: int) -> float:
+        """Decayed importance score per S37 FR-37.05 and Appendix A."""
+        ticks_elapsed = max(0, current_tick - self.world_time_tick)
+        if ticks_elapsed == 0 or half_life_ticks <= 0:
+            return self.importance_score
+        return self.importance_score * (0.5 ** (ticks_elapsed / half_life_ticks))
+
+
+@dataclass
+class MemoryContext:
+    """Assembled context returned by MemoryWriter.get_context() (S37 FR-37.03)."""
+
+    working: list[MemoryRecord] = field(default_factory=list)
+    active: list[MemoryRecord] = field(default_factory=list)
+    compressed: list[MemoryRecord] = field(default_factory=list)
+    total_tokens: int = 0
+    dropped_count: int = 0
+
+
+@dataclass
+class CompressionResult:
+    """Result of one compression pass (S37 FR-37.06)."""
+
+    compressed_count: int
+    new_record: MemoryRecord | None = None
+    skipped: bool = False
+
+
+# ---------------------------------------------------------------------------
+# S38 — NPC Memory & Social Model
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class NPCEpisodicMemory:
+    """A single episodic memory record held by one NPC (S38 FR-38.01)."""
+
+    episode_id: str  # ULID
+    npc_id: str
+    universe_id: str
+    session_id: str  # UUID
+    turn_number: int
+    world_time_tick: int
+    source_memory_id: str | None
+    consequence_id: str | None
+    player_id: str
+    content: str
+    emotional_valence: float  # [-1.0, 1.0]
+    relationship_delta: object | None  # RelationshipChange from models.world
+    importance_score: float  # [0.0, 1.0]
+    is_gossip: bool
+    gossip_source_npc_id: str | None
+    created_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class NPCSocialEdge:
+    """A directed social relationship in the NPC graph (S38 FR-38.02)."""
+
+    edge_id: str  # ULID
+    source_npc_id: str
+    target_id: str  # NPC ID or player ID
+    universe_id: str
+    dimensions: object  # RelationshipDimensions from models.world
+    gossip_weight: float = 0.0  # familiarity / 100.0 by default
+    updated_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class GossipEvent:
+    """A single unit of gossip traveling through the social graph (S38 FR-38.03)."""
+
+    gossip_id: str  # ULID
+    universe_id: str
+    originating_episode_id: str
+    sender_npc_id: str
+    receiver_npc_id: str
+    content: str
+    hop_count: int
+    reliability: float  # [0.0, 1.0]; decrements 0.2 per hop
+    session_id: str
+    world_time_tick: int
+    created_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class NPCSocialContext:
+    """NPC social context returned by SocialMemoryWriter.get_npc_context()."""
+
+    relationship: NPCSocialEdge | None = None
+    episodes: list[NPCEpisodicMemory] = field(default_factory=list)
+    gossip_received: list[GossipEvent] = field(default_factory=list)
+    npc_id: str = ""
+    player_id: str = ""
+    total_tokens: int = 0
+    dropped_count: int = 0

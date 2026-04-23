@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     from tta.safety.hooks import SafetyHook
     from tta.simulation.consequence import ConsequencePropagator
     from tta.simulation.npc_autonomy import AutonomyProcessor
+    from tta.simulation.npc_memory import SocialMemoryWriter
+    from tta.simulation.world_memory import MemoryWriter
     from tta.simulation.world_time import WorldTimeService
     from tta.transport.protocol import NarrativeTransport
     from tta.universe.actor_service import ActorService
@@ -66,6 +68,8 @@ class PipelineDeps:
     world_time_service: WorldTimeService | None = None  # v2 S34
     autonomy_processor: AutonomyProcessor | None = None  # v2 S35
     consequence_propagator: ConsequencePropagator | None = None  # v2 S36
+    memory_writer: MemoryWriter | None = None  # v2 S37
+    social_memory_writer: SocialMemoryWriter | None = None  # v2 S38
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState
