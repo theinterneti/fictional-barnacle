@@ -22,6 +22,7 @@ class SeedRegistry:
 
     def __init__(self, seeds_dir: Path) -> None:
         self._seeds: dict[str, SeedManifest] = {}
+        self._known_tags: set[str] = set()
         self._load(seeds_dir)
 
     # ------------------------------------------------------------------
@@ -31,6 +32,9 @@ class SeedRegistry:
     def _load(self, directory: Path) -> None:
         if not directory.exists():
             log.warning("seed_registry_dir_missing", path=str(directory))
+            return
+        if not directory.is_dir():
+            log.warning("seed_registry_not_a_directory", path=str(directory))
             return
         validator = SeedValidator()
         collisions: set[str] = set()
@@ -66,6 +70,7 @@ class SeedRegistry:
             pending[manifest.id] = manifest
             path_map[manifest.id] = path
         self._seeds = pending
+        self._known_tags = {t for m in self._seeds.values() for t in m.tags}
         if not self._seeds:  # FR-41.02: critical when zero seeds loaded
             log.critical("seed_registry_empty", directory=str(directory))
         else:
@@ -87,7 +92,8 @@ class SeedRegistry:
         """Return seeds matching any of *tags* and/or *genre*."""
         results = list(self._seeds.values())
         if tags:
-            results = [s for s in results if any(t in s.tags for t in tags)]
+            indexed = [t for t in tags if t in self._known_tags]
+            results = [s for s in results if any(t in s.tags for t in indexed)]
         if genre:
             results = [s for s in results if s.composition.primary_genre == genre]
         return sorted(results, key=lambda s: s.id)  # AC-41.03: alphabetical

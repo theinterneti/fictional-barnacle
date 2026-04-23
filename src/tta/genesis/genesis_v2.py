@@ -46,8 +46,8 @@ def apply_seed_composition(config: dict[str, Any], registry: SeedRegistry) -> No
     """Overlay *config* with the composition data from a scenario seed.
 
     Reads ``config["genesis"]["seed_id"]``. If absent, returns silently.
-    If the seed exists in *registry* its composition is merged into
-    ``config["composition"]`` with ``seed_id`` and ``seed_version`` injected.
+    If the seed exists in *registry* its composition is used to overwrite
+    ``config["composition"]`` entirely, with ``seed_id`` and ``seed_version`` injected.
 
     Args:
         config: Mutable genesis config dict (modified in-place).
