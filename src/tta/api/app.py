@@ -223,7 +223,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # 5c. Seed registry — loads scenario seeds (S41)
     from tta.seeds.registry import SeedRegistry
 
-    seeds_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "seeds"
+    seeds_dir = Path(__file__).resolve().parents[3] / "data" / "seeds"
     app.state.seed_registry = SeedRegistry(seeds_dir)
     log.info("seed_registry_initialised", count=app.state.seed_registry.loaded_count())
 
