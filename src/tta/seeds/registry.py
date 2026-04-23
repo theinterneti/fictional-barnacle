@@ -87,7 +87,7 @@ class SeedRegistry:
         """Return seeds matching any of *tags* and/or *genre*."""
         results = list(self._seeds.values())
         if tags:
-            results = [s for s in results if any(t in s.tags for t in tags)]
+            results = [s for s in results if all(t in s.tags for t in tags)]
         if genre:
             results = [s for s in results if s.composition.primary_genre == genre]
         return sorted(results, key=lambda s: s.id)  # AC-41.03: alphabetical

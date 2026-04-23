@@ -122,7 +122,7 @@ async def test_ac42_04_verbosity_brevity_constraint() -> None:
     assert len(player_input_calls) >= PLAYTEST_MIN_TURNS
     for call in player_input_calls:
         system_content = call["messages"][0].content
-        assert "8 words" in system_content
+        assert "under 20 characters" in system_content
 
 
 # ---------------------------------------------------------------------------

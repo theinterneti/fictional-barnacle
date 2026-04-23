@@ -99,7 +99,8 @@ class SeedValidator:
             )
         if len(seed_id) > _MAX_ID_LEN:
             raise SeedSchemaError(
-                f"Seed at {path}: id must be ≤{_MAX_ID_LEN} chars, got {len(seed_id)}"
+                f"Seed at {path}: id must be at most {_MAX_ID_LEN} chars,"
+                f" got {len(seed_id)}"
             )
 
     def _check_tags(self, raw: dict[str, Any], path: Path) -> None:

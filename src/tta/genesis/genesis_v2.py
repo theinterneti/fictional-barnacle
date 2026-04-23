@@ -52,6 +52,9 @@ def apply_seed_composition(config: dict[str, Any], registry: SeedRegistry) -> No
     Args:
         config: Mutable genesis config dict (modified in-place).
         registry: The :class:`~tta.seeds.registry.SeedRegistry` to look up.
+
+    .. TODO(wiring): This function is not yet called from any genesis route.
+       Wire into genesis_v2 run() once S42 playtester integration is complete.
     """
     seed_id: str | None = config.get("genesis", {}).get("seed_id")
     if not seed_id:

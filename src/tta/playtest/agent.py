@@ -39,7 +39,7 @@ class PlaytesterAgent:
         self,
         api_base_url: str,
         llm_client: LLMClient,
-        llm_model: str = "gpt-4o-mini",
+        llm_model: str = os.environ.get("PLAYTEST_LLM_MODEL", "gpt-4o-mini"),
         api_key: str | None = None,
     ) -> None:
         self._api_base_url = api_base_url.rstrip("/")
@@ -51,6 +51,7 @@ class PlaytesterAgent:
         self._run_seed: int = 0
         self._persona_jitter_seed: int = 0
         self._scenario_seed_id: str = ""
+        self._genesis_phases_completed: int = 0
         self._rng: random.Random = random.Random(0)
         self._turns: list[TurnRecord] = []
         self._game_id: str | None = None
@@ -96,17 +97,25 @@ class PlaytesterAgent:
         ) as client:
             resp = await client.post(
                 "/api/v1/games",
-                json={"world_id": None, "preferences": {}},
+                json={
+                    "world_id": None,
+                    "preferences": {},
+                    "scenario_seed_id": self._scenario_seed_id or None,
+                },
             )
             resp.raise_for_status()
             game_data = resp.json()["data"]
             self._game_id = game_data["game_id"]
+            self._genesis_phases_completed = game_data.get(
+                "genesis_phases_completed", 7
+            )
             current_narrative = game_data.get("narrative_intro", "")
 
             consecutive_timeouts = 0
             turn_index = 0
+            gameplay_turns_completed = 0
 
-            while turn_index < PLAYTEST_MIN_TURNS:
+            while gameplay_turns_completed < PLAYTEST_MIN_TURNS:
                 # Consume RNG once per turn for reproducibility (FR-42.06)
                 rng_value = self._rng.random()
                 try:
@@ -129,6 +138,7 @@ class PlaytesterAgent:
                         )
                     )
                     current_narrative = narrative_output
+                    gameplay_turns_completed += 1
                     turn_index += 1
                 except TimeoutError:
                     consecutive_timeouts += 1
@@ -210,7 +220,7 @@ class PlaytesterAgent:
             system_parts.append("You sometimes comment on game mechanics.")
         # AC-42.04: enforce brevity constraint for very terse personas
         if profile.verbosity <= 0.1:
-            system_parts.append("Keep your response under 8 words.")
+            system_parts.append("Keep your response under 20 characters.")
 
         messages = [
             Message(role=MessageRole.SYSTEM, content=" ".join(system_parts)),
@@ -294,7 +304,7 @@ class PlaytesterAgent:
             persona_jitter_seed=self._persona_jitter_seed,
             model=self._llm_model,
             status=status,
-            genesis_phases_completed=7,
+            genesis_phases_completed=self._genesis_phases_completed,
             gameplay_turns_completed=len(completed),
             turns=list(self._turns),
             overall_agent_rating=round(overall_rating, 4),
@@ -309,7 +319,7 @@ class PlaytesterAgent:
 
 def _verbosity_description(verbosity: float) -> str:
     if verbosity <= 0.1:
-        return "You are extremely terse. One or two words only."
+        return "You are extremely terse."
     if verbosity <= 0.35:
         return "You are very brief, using short sentences."
     if verbosity <= 0.65:
@@ -352,9 +362,11 @@ def _parse_commentary(turn_index: int, content: str) -> Commentary:
         return Commentary(
             turn_index=turn_index,
             agent_intent=str(data.get("agent_intent", "")),
-            surprise_level=float(data.get("surprise_level", 0.5)),
+            surprise_level=max(0.0, min(1.0, float(data.get("surprise_level", 0.5)))),
             surprise_note=str(data.get("surprise_note", "")),
-            coherence_rating=float(data.get("coherence_rating", 0.5)),
+            coherence_rating=max(
+                0.0, min(1.0, float(data.get("coherence_rating", 0.5)))
+            ),
             coherence_note=str(data.get("coherence_note", "")),
         )
     except (json.JSONDecodeError, KeyError, ValueError):
