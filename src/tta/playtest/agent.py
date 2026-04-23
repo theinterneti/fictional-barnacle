@@ -292,7 +292,9 @@ class PlaytesterAgent:
 
     def _build_report(self, status: RunStatus) -> PlaytestReport:
         completed = [t for t in self._turns if not t.timed_out]
-        coherence_scores = [t.commentary.coherence_rating for t in completed]
+        coherence_scores = [
+            t.commentary.coherence_rating for t in completed if t.commentary is not None
+        ]
         overall_rating = (
             sum(coherence_scores) / len(coherence_scores) if coherence_scores else 0.0
         )
