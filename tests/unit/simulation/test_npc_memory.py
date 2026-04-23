@@ -91,7 +91,7 @@ async def test_record_episode_returns_npc_episodic_memory():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-38.02")
+@pytest.mark.spec("AC-38.02", "AC-38.04")
 @pytest.mark.asyncio
 async def test_gossip_propagates_max_two_hops():
     writer = InMemorySocialMemoryWriter()
@@ -119,7 +119,7 @@ async def test_gossip_propagates_max_two_hops():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-38.03")
+@pytest.mark.spec("AC-38.03", "AC-38.05")
 @pytest.mark.asyncio
 async def test_reliability_floor_stops_propagation():
     writer = InMemorySocialMemoryWriter()
@@ -150,7 +150,7 @@ async def test_reliability_floor_stops_propagation():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-38.04")
+@pytest.mark.spec("AC-38.02")
 @pytest.mark.asyncio
 async def test_gossip_idempotency_same_episode_not_re_recorded():
     writer = InMemorySocialMemoryWriter()
@@ -175,7 +175,7 @@ async def test_gossip_idempotency_same_episode_not_re_recorded():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-38.05")
+@pytest.mark.spec("AC-38.01")
 @pytest.mark.asyncio
 async def test_get_npc_context_sorted_by_importance_desc():
     writer = InMemorySocialMemoryWriter()
@@ -198,7 +198,7 @@ async def test_get_npc_context_sorted_by_importance_desc():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-38.06")
+@pytest.mark.spec("AC-38.02")
 @pytest.mark.asyncio
 async def test_get_relationship_returns_edge():
     writer = InMemorySocialMemoryWriter()
@@ -211,7 +211,7 @@ async def test_get_relationship_returns_edge():
     assert result.target_id == "npc-beta"
 
 
-@pytest.mark.spec("AC-38.06")
+@pytest.mark.spec("AC-38.02")
 @pytest.mark.asyncio
 async def test_get_relationship_returns_none_when_missing():
     writer = InMemorySocialMemoryWriter()
@@ -224,7 +224,7 @@ async def test_get_relationship_returns_none_when_missing():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-38.07")
+@pytest.mark.spec("AC-38.02")
 @pytest.mark.asyncio
 async def test_update_relationship_persists_changes():
     writer = InMemorySocialMemoryWriter()
@@ -252,7 +252,7 @@ async def test_update_relationship_persists_changes():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.spec("AC-38.08")
+@pytest.mark.spec("AC-38.07")
 @pytest.mark.asyncio
 async def test_background_npc_episodes_scoped_to_session():
     writer = InMemorySocialMemoryWriter()
@@ -288,3 +288,58 @@ def test_distort_content_cycles_templates():
     results = {_distort_content("x", hop_count=i) for i in range(4)}
     # Different hops should produce different template wrappings
     assert len(results) > 1
+
+
+# ---------------------------------------------------------------------------
+# AC-38.06: KEY-tier NPC episodes visible across sessions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-38.06")
+@pytest.mark.asyncio
+async def test_key_npc_episodes_persist_cross_session():
+    writer = InMemorySocialMemoryWriter()
+    # Record episode in session 1
+    await _episode(
+        writer,
+        npc_id="npc-key",
+        content="Survived the great fire",
+        importance=0.9,
+        session_id=_SESSION_ID,
+    )
+
+    # KEY-tier context request for session 2 must still see the episode
+    ctx = await writer.get_npc_context(
+        npc_id="npc-key",
+        universe_id=_UNIVERSE_ID,
+        session_id=_SESSION_ID_2,
+        npc_tier="KEY",
+    )
+    assert len(ctx.episodes) == 1
+    assert ctx.episodes[0].content == "Survived the great fire"
+
+
+# ---------------------------------------------------------------------------
+# AC-38.08: consequence_id and emotional_valence preserved
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-38.08")
+@pytest.mark.asyncio
+async def test_consequence_triggers_episode_with_emotional_valence():
+    writer = InMemorySocialMemoryWriter()
+    ep = await writer.record_episode(
+        npc_id="npc-alpha",
+        universe_id=_UNIVERSE_ID,
+        session_id=_SESSION_ID,
+        turn_number=5,
+        world_time=_WORLD_TIME,
+        content="Witnessed heroic act",
+        importance_score=0.85,
+        is_gossip=False,
+        gossip_source_npc_id=None,
+        consequence_id="consequence-001",
+        emotional_valence=0.8,
+    )
+    assert ep.consequence_id == "consequence-001"
+    assert ep.emotional_valence == pytest.approx(0.8)

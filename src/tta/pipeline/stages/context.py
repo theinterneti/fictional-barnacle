@@ -132,10 +132,18 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             # v2 S37 — World Memory Recording
             if deps.memory_writer is not None:
                 try:
-                    _mem_content = str(
-                        world_context.get("location_description", "")
-                        or world_context.get("game_state", "")
-                    )
+                    _location_description = world_context.get("location_description")
+                    _event_descriptions = [
+                        str(event.get("description", "")).strip()
+                        for event in world_context.get("autonomous_events", [])
+                        if isinstance(event, dict) and event.get("description")
+                    ]
+                    _mem_content = (
+                        _location_description.strip()
+                        if isinstance(_location_description, str)
+                        and _location_description.strip()
+                        else " ".join(_event_descriptions) or "World state updated."
+                    )[:1000]
                     _mem_cfg = (
                         state.game_state.get("memory_config", {})
                         if isinstance(state.game_state, dict)

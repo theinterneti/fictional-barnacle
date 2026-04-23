@@ -17,6 +17,7 @@ from uuid import UUID
 
 from ulid import ULID
 
+from tta.llm.context_budget import count_tokens
 from tta.simulation.types import (
     CompressionResult,
     MemoryContext,
@@ -74,8 +75,8 @@ def _score_importance(
 
 
 def _estimate_tokens(text: str) -> int:
-    """Rough token estimate (4 chars ≈ 1 token)."""
-    return max(1, len(text) // 4)
+    """Token estimate using the LLM tokenizer."""
+    return max(1, count_tokens(text))
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +150,12 @@ class InMemoryMemoryWriter:
 
         # Determine tier: last 5 turns is "working" (default working_memory_size)
         working_memory_size = 5
-        recent_turns = {r.turn_number for r in self._records}
+        session_str = str(session_id)
+        recent_turns = {
+            r.turn_number
+            for r in self._records
+            if r.universe_id == universe_id and r.session_id == session_str
+        }
         sorted_recent = sorted(recent_turns, reverse=True)[:working_memory_size]
         tier = (
             "working"
@@ -216,8 +222,21 @@ class InMemoryMemoryWriter:
             key=lambda r: r.current_importance(current_tick, half_life), reverse=True
         )
 
+        # E4 edge case: working alone exceeds budget — return without active/compressed
+        working_tokens = sum(_estimate_tokens(r.content) for r in working)
+        if working_tokens > budget_tokens:
+            return MemoryContext(
+                working=working,
+                active=[],
+                compressed=[],
+                total_tokens=working_tokens,
+                dropped_count=len(active_candidates) + len(compressed),
+            )
+
         # Fill budget
-        used_tokens = sum(_estimate_tokens(r.content) for r in working + compressed)
+        used_tokens = working_tokens + sum(
+            _estimate_tokens(r.content) for r in compressed
+        )
         remaining = budget_tokens - used_tokens
         active: list[MemoryRecord] = []
         dropped = 0
@@ -249,20 +268,34 @@ class InMemoryMemoryWriter:
         importance_threshold: float = cfg.get("compression_importance_threshold", 0.5)
 
         session_str = str(session_id)
-        active = [
+        session_records = [
             r
             for r in self._records
             if r.universe_id == universe_id
             and r.session_id == session_str
             and not r.is_compressed
-            and r.tier == "active"
         ]
+        active = [r for r in session_records if r.tier == "active"]
+        if not active and session_records:
+            working_memory_turns: int = cfg.get("working_memory_size", 5)
+            latest_turn = max(r.turn_number for r in session_records)
+            oldest_working_turn = latest_turn - working_memory_turns + 1
+            active = [r for r in session_records if r.turn_number < oldest_working_turn]
         token_count = sum(_estimate_tokens(r.content) for r in active)
         if token_count <= threshold:
             return CompressionResult(compressed_count=0, skipped=True)
 
-        # Compress low-importance active records
-        to_compress = [r for r in active if r.importance_score < importance_threshold]
+        # Compress oldest low-importance active records using time-decayed importance
+        current_tick = max((r.world_time_tick for r in active), default=0)
+        half_life = int(cfg.get("memory_half_life_ticks", 50))
+        to_compress = sorted(
+            [
+                r
+                for r in active
+                if r.current_importance(current_tick, half_life) < importance_threshold
+            ],
+            key=lambda r: r.turn_number,
+        )
         if not to_compress:
             return CompressionResult(compressed_count=0, skipped=True)
 

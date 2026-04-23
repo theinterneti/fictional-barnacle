@@ -10,6 +10,7 @@ InMemorySocialMemoryWriter is the injectable test double.
 from __future__ import annotations
 
 import logging
+from collections import deque
 from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
@@ -85,6 +86,9 @@ class SocialMemoryWriter(Protocol):
         npc_id: str,
         universe_id: str,
         session_id: UUID,
+        player_id: str = "",
+        budget_tokens: int = 8000,
+        npc_tier: str = "BACKGROUND",
     ) -> NPCSocialContext: ...
 
     async def get_relationship(
@@ -165,12 +169,12 @@ class InMemorySocialMemoryWriter:
         new_events: list[GossipEvent] = []
 
         # BFS queue: (sender_npc_id, content, hop_count, reliability, source_ep_id)
-        queue: list[tuple[str, str, int, float, str]] = [
-            (episode.npc_id, episode.content, 0, 1.0, episode.episode_id)
-        ]
+        queue: deque[tuple[str, str, int, float, str]] = deque(
+            [(episode.npc_id, episode.content, 0, 1.0, episode.episode_id)]
+        )
 
         while queue:
-            sender_id, content, hop_count, reliability, origin_ep_id = queue.pop(0)
+            sender_id, content, hop_count, reliability, origin_ep_id = queue.popleft()
 
             if hop_count >= max_hops:
                 continue
@@ -210,6 +214,29 @@ class InMemorySocialMemoryWriter:
                 )
                 self._gossip.append(event)
                 new_events.append(event)
+
+                # Receiver gets their own episodic memory of the gossip
+                receiver_ep = NPCEpisodicMemory(
+                    episode_id=str(ULID()),
+                    npc_id=receiver_id,
+                    universe_id=episode.universe_id,
+                    session_id=episode.session_id,
+                    turn_number=episode.turn_number,
+                    world_time_tick=episode.world_time_tick,
+                    source_memory_id=None,
+                    consequence_id=None,
+                    player_id="",
+                    content=next_content,
+                    importance_score=max(
+                        0.1, episode.importance_score * next_reliability
+                    ),
+                    emotional_valence=0.0,
+                    relationship_delta=None,
+                    is_gossip=True,
+                    gossip_source_npc_id=sender_id,
+                )
+                self._episodes.append(receiver_ep)
+
                 queue.append(
                     (
                         receiver_id,
@@ -227,6 +254,9 @@ class InMemorySocialMemoryWriter:
         npc_id: str,
         universe_id: str,
         session_id: UUID,
+        player_id: str = "",
+        budget_tokens: int = 8000,
+        npc_tier: str = "BACKGROUND",
     ) -> NPCSocialContext:
         session_str = str(session_id)
         episodes = [
@@ -234,7 +264,7 @@ class InMemorySocialMemoryWriter:
             for ep in self._episodes
             if ep.npc_id == npc_id
             and ep.universe_id == universe_id
-            and ep.session_id == session_str
+            and (npc_tier == "KEY" or ep.session_id == session_str)
         ]
         episodes.sort(key=lambda e: e.importance_score, reverse=True)
 
@@ -246,10 +276,19 @@ class InMemorySocialMemoryWriter:
             and g.session_id == session_str
         ]
 
-        # Pick the first outgoing edge as the primary relationship (simplified)
-        relationship = self._edges.get((npc_id, npc_id, universe_id)) or None
+        # Pick first outgoing edge as the primary relationship
+        relationship = next(
+            (
+                edge
+                for edge in self._edges.values()
+                if edge.source_npc_id == npc_id and edge.universe_id == universe_id
+            ),
+            None,
+        )
 
         return NPCSocialContext(
+            npc_id=npc_id,
+            player_id=player_id,
             relationship=relationship,
             episodes=episodes,
             gossip_received=gossip,

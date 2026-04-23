@@ -339,6 +339,10 @@ class GossipEvent:
 class NPCSocialContext:
     """NPC social context returned by SocialMemoryWriter.get_npc_context()."""
 
-    relationship: NPCSocialEdge | None
+    relationship: NPCSocialEdge | None = None
     episodes: list[NPCEpisodicMemory] = field(default_factory=list)
     gossip_received: list[GossipEvent] = field(default_factory=list)
+    npc_id: str = ""
+    player_id: str = ""
+    total_tokens: int = 0
+    dropped_count: int = 0

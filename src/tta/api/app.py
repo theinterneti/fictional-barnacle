@@ -33,6 +33,7 @@ from tta.api.routes.games import router as games_router
 from tta.api.routes.metrics import router as metrics_router
 from tta.api.routes.players import router as players_router
 from tta.api.security_headers import SecurityHeadersMiddleware
+from tta.config import Environment
 from tta.logging import configure_logging
 
 if TYPE_CHECKING:
@@ -311,12 +312,20 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.autonomy_processor = DefaultAutonomyProcessor()
     app.state.consequence_propagator = DefaultConsequencePropagator()
 
-    # v2 Memory Services (S37, S38)
+    # v2 Memory Services (S37, S38) — only in development/test
     from tta.simulation.npc_memory import InMemorySocialMemoryWriter
     from tta.simulation.world_memory import InMemoryMemoryWriter
 
-    app.state.memory_writer = InMemoryMemoryWriter()
-    app.state.social_memory_writer = InMemorySocialMemoryWriter()
+    allow_inmemory = (
+        settings.environment == Environment.DEVELOPMENT or settings.llm_mock
+    )
+    if allow_inmemory:
+        app.state.memory_writer = InMemoryMemoryWriter()
+        app.state.social_memory_writer = InMemorySocialMemoryWriter()
+        log.warning("memory_writers_inmemory_enabled")
+    else:
+        app.state.memory_writer = None
+        app.state.social_memory_writer = None
 
     app.state.pipeline_deps = PipelineDeps(
         llm=app.state.llm_client,
