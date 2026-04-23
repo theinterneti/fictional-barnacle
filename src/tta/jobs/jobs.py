@@ -116,7 +116,6 @@ async def gdpr_delete_player(ctx: dict, player_id: str) -> str:
         log.info(
             "player_erased",
             player_id=player_id,
-            event="player_erased",
         )
 
         duration = time.monotonic() - start
@@ -255,7 +254,9 @@ async def game_backfill(ctx: dict, game_id: str | None = None) -> dict:
         job_try = ctx.get("job_try", 1)
         if job_try >= 3:
             JOB_RUNS.labels(job_fn=job_fn, status="failed").inc()
-            await _write_dead_letter(ctx, job_fn, (game_id,) if game_id else (), str(exc))
+            await _write_dead_letter(
+                ctx, job_fn, (game_id,) if game_id else (), str(exc)
+            )
         else:
             JOB_RUNS.labels(job_fn=job_fn, status="retry").inc()
         raise

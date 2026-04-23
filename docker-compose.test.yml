@@ -19,7 +19,7 @@ services:
       timeout: 3s
       retries: 5
 
-  test-neo4j:
+  neo4j:
     image: neo4j:5-community
     ports:
       - "7475:7474"
@@ -30,10 +30,10 @@ services:
       - /data
     healthcheck:
       test: ["CMD-SHELL", "cypher-shell 'RETURN 1' || exit 1"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 6
+      start_period: 20s
 
   test-redis:
     image: redis:7-alpine

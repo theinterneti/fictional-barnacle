@@ -1019,7 +1019,7 @@ async def list_dead_letter_jobs(
 ) -> JSONResponse:
     """Return up to ``limit`` entries from the dead-letter queue (FR-48.06)."""
     redis: Redis = request.app.state.redis
-    raw = await redis.lrange("tta:jobs:dead", 0, limit - 1)
+    raw = await redis.lrange("tta:jobs:dead", 0, limit - 1)  # type: ignore[misc]
     import json
 
     entries = [json.loads(item) for item in raw]
@@ -1038,8 +1038,8 @@ async def get_job_status(
     if status is None:
         raise AppError(
             ErrorCategory.NOT_FOUND,
+            "JOB_NOT_FOUND",
             f"Job {job_id!r} not found",
-            status_code=404,
         )
     return JSONResponse(content={"job_id": job_id, "status": str(status)})
 
@@ -1064,9 +1064,9 @@ async def enqueue_job(
     if job_fn_name not in allowed_functions:
         raise AppError(
             ErrorCategory.INPUT_INVALID,
+            "JOB_FUNCTION_NOT_ALLOWED",
             f"Unknown job function {job_fn_name!r}. "
             f"Allowed: {sorted(allowed_functions)}",
-            status_code=400,
         )
 
     body: dict = {}
@@ -1090,9 +1090,10 @@ async def enqueue_job(
         reason=f"job_fn={job_fn_name}",
     )
 
-    log.info("admin_job_enqueued", job_fn=job_fn_name, job_id=job_id, admin=admin.admin_id)
+    log.info(
+        "admin_job_enqueued", job_fn=job_fn_name, job_id=job_id, admin=admin.admin_id
+    )
     return JSONResponse(
         status_code=201,
         content={"job_id": job_id, "job_fn": job_fn_name},
     )
-

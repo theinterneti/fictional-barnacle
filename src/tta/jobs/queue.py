@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import structlog
 
@@ -25,9 +26,9 @@ class ArqQueue:
 
     def __init__(self, redis_url: str) -> None:
         self._redis_url = redis_url
-        self._pool: object | None = None
+        self._pool: Any = None
 
-    async def _get_pool(self) -> object:
+    async def _get_pool(self) -> Any:
         if self._pool is None:
             from arq import create_pool
             from arq.connections import RedisSettings
@@ -56,7 +57,8 @@ class ArqQueue:
     async def job_status(self, job_id: str) -> JobStatus | None:
         """Return current status of a job, or None if not found."""
         try:
-            from arq.jobs import Job, JobStatus as ArqJobStatus
+            from arq.jobs import Job
+            from arq.jobs import JobStatus as ArqJobStatus
 
             pool = await self._get_pool()
             job = Job(job_id, pool)

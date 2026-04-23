@@ -218,14 +218,12 @@ async def neo4j_db(
         pytest.skip(f"Neo4j unavailable: {exc}", allow_module_level=True)
 
     # Load world_full.cypher once per session to create constraints/indexes
-    fixture_path = (
-        os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "fixtures",
-            "neo4j",
-            "world_full.cypher",
-        )
+    fixture_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "fixtures",
+        "neo4j",
+        "world_full.cypher",
     )
     with open(fixture_path) as fh:
         cypher = fh.read()

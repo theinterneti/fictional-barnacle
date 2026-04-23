@@ -6,14 +6,12 @@ ACs: 47.01 – 47.05
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 import yaml
 
-
-REPO_ROOT = Path(__file__).parents[4]
+REPO_ROOT = Path(__file__).parents[3]
 COMPOSE_FILE = REPO_ROOT / "docker-compose.test.yml"
 FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "neo4j"
 INTEGRATION_CONFTEST = REPO_ROOT / "tests" / "integration" / "conftest.py"
@@ -36,7 +34,9 @@ def test_neo4j_service_healthcheck_configured():
     assert hc is not None, "neo4j service has no healthcheck"
 
     test_cmd = " ".join(hc["test"]) if isinstance(hc["test"], list) else hc["test"]
-    assert "cypher-shell" in test_cmd, f"Expected cypher-shell in healthcheck, got: {test_cmd}"
+    assert "cypher-shell" in test_cmd, (
+        f"Expected cypher-shell in healthcheck, got: {test_cmd}"
+    )
 
     timeout = int(hc.get("timeout", "0s").rstrip("s"))
     start = int(hc.get("start_period", "0s").rstrip("s"))
@@ -53,9 +53,7 @@ def test_neo4j_service_no_auth():
     with open(COMPOSE_FILE) as fh:
         compose = yaml.safe_load(fh)
 
-    neo4j_env = (
-        compose.get("services", {}).get("neo4j", {}).get("environment", {})
-    )
+    neo4j_env = compose.get("services", {}).get("neo4j", {}).get("environment", {})
     if isinstance(neo4j_env, list):
         neo4j_env = dict(item.split("=", 1) for item in neo4j_env if "=" in item)
 
@@ -72,7 +70,8 @@ def test_conftest_has_teardown_delete_all():
     """Integration conftest neo4j_session fixture includes DETACH DELETE n teardown."""
     conftest_text = INTEGRATION_CONFTEST.read_text()
     assert "MATCH (n) DETACH DELETE n" in conftest_text, (
-        "conftest.py neo4j_session fixture must include 'MATCH (n) DETACH DELETE n' teardown"
+        "conftest.py neo4j_session fixture must include"
+        " 'MATCH (n) DETACH DELETE n' teardown"
     )
 
 
@@ -85,9 +84,10 @@ def test_conftest_has_function_scoped_neo4j_session():
     )
     # Ensure it's function-scoped (default scope, not session)
     # The neo4j_db is session-scoped; neo4j_session must NOT be
-    assert 'scope="session"' not in conftest_text.split("async def neo4j_session(")[1][:200], (
-        "neo4j_session fixture must be function-scoped (default)"
-    )
+    assert (
+        'scope="session"'
+        not in conftest_text.split("async def neo4j_session(")[1][:200]
+    ), "neo4j_session fixture must be function-scoped (default)"
 
 
 # -- AC-47.03: No mock Neo4j drivers in integration tests -------------------
@@ -110,9 +110,8 @@ def test_no_mock_neo4j_in_integration_tests():
             for line in text.splitlines():
                 if line.strip().startswith("#"):
                     continue
-                if (
-                    ("AsyncMock" in line or "MagicMock" in line)
-                    and ("driver" in line.lower() or "neo4j" in line.lower())
+                if ("AsyncMock" in line or "MagicMock" in line) and (
+                    "driver" in line.lower() or "neo4j" in line.lower()
                 ):
                     mocked_driver_files.append(str(py_file.relative_to(REPO_ROOT)))
                     break
@@ -127,7 +126,7 @@ def test_no_mock_neo4j_in_integration_tests():
 
 @pytest.mark.spec("AC-47.04")
 def test_conftest_has_session_scoped_neo4j_db():
-    """Integration conftest defines a session-scoped neo4j_db fixture with skip-on-miss."""
+    """Integration conftest: session-scoped neo4j_db fixture with skip-on-miss."""
     conftest_text = INTEGRATION_CONFTEST.read_text()
     assert "async def neo4j_db(" in conftest_text, (
         "conftest.py must define a neo4j_db session-scoped fixture"
@@ -191,7 +190,12 @@ def test_world_full_cypher_contains_s13_constraints():
 @pytest.mark.spec("AC-47.05")
 def test_all_neo4j_fixtures_exist():
     """All four Neo4j fixture files are present."""
-    expected = ["empty.cypher", "world_minimal.cypher", "world_with_npcs.cypher", "world_full.cypher"]
+    expected = [
+        "empty.cypher",
+        "world_minimal.cypher",
+        "world_with_npcs.cypher",
+        "world_full.cypher",
+    ]
     for fname in expected:
         assert (FIXTURES_DIR / fname).is_file(), (
             f"Missing Neo4j fixture: tests/fixtures/neo4j/{fname}"
