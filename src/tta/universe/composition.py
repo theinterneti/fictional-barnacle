@@ -232,12 +232,12 @@ class CompositionValidator:
                 f"got {comp.prose.description_density!r}"
             )
 
-        if not errors:
-            log.info(
-                "composition_validated",
-                universe_id=str(universe_id) if universe_id else None,
-                errors=[],
-            )
+        log.info(
+            "composition_validated",
+            universe_id=str(universe_id) if universe_id else None,
+            composition_version=comp.composition_version,
+            validation_result="ok" if not errors else "error",
+        )
         return errors
 
 
@@ -320,10 +320,14 @@ class UniverseComposition:
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a plain dict suitable for storing as JSONB.
 
-        ``tone`` is excluded — it is derived at read time.
+        ``warmth`` and ``intensity`` are derived at load time and excluded.
+        ``primary`` and ``secondary`` are stored so explicit FR-39.07a author
+        overrides survive a save→load round-trip.
         """
         d = asdict(self)
-        d.pop("tone", None)
+        tone = d.pop("tone", None)
+        if tone and tone.get("primary"):
+            d["tone"] = {"primary": tone["primary"], "secondary": tone.get("secondary")}
         return d
 
     # ------------------------------------------------------------------

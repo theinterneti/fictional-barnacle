@@ -11,6 +11,7 @@ Validates:
 from __future__ import annotations
 
 import pytest
+import structlog.testing
 
 from tta.universe.composition import (
     CompositionValidator,
@@ -286,12 +287,17 @@ def test_context_fragment_excludes_low_weight_themes() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-39.10 — to_dict excludes tone (derived field)
+# AC-39.10 — to_dict preserves tone.primary/secondary; warmth/intensity excluded
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.spec("AC-39.10")
-def test_to_dict_excludes_tone() -> None:
+def test_to_dict_preserves_tone_primary_secondary() -> None:
+    """to_dict stores primary/secondary so explicit overrides survive round-trips.
+
+    warmth and intensity are always derived at load time (FR-39.07a) and must
+    never appear in the serialised blob.
+    """
     config = {
         "composition": {
             "themes": [{"name": "dread", "weight": 0.9}],
@@ -299,7 +305,25 @@ def test_to_dict_excludes_tone() -> None:
     }
     comp = UniverseComposition.from_config(config)
     d = comp.to_dict()
-    assert "tone" not in d
+    assert "tone" in d
+    assert "primary" in d["tone"]
+    assert "warmth" not in d["tone"]
+    assert "intensity" not in d["tone"]
+
+
+@pytest.mark.spec("AC-39.10")
+def test_tone_override_survives_round_trip() -> None:
+    """Explicit tone.primary override must survive to_dict() → from_config()."""
+    from tta.universe.composition import ToneProfile
+
+    config = {"composition": {"primary_genre": "cosmic_horror"}}
+    comp = UniverseComposition.from_config(config)
+    comp.tone = ToneProfile(primary="whimsical", secondary="absurd")
+
+    blob = comp.to_dict()
+    comp2 = UniverseComposition.from_config({"composition": blob})
+    assert comp2.tone.primary == "whimsical"
+    assert comp2.tone.secondary == "absurd"
 
 
 # ---------------------------------------------------------------------------
@@ -323,7 +347,41 @@ def test_validator_does_not_reject_subsystem_namespaces() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-39.12 — Weight and strength range validation
+# NFR-39.03 — validate() emits structured log on every call (success + failure)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-39.11")
+def test_validate_emits_log_on_success() -> None:
+    """validate() logs composition_validated with validation_result=ok (NFR-39.03)."""
+    comp = UniverseComposition.from_config({})
+    validator = CompositionValidator()
+    with structlog.testing.capture_logs() as cap:
+        errors = validator.validate(comp)
+    assert errors == []
+    assert len(cap) == 1
+    assert cap[0]["event"] == "composition_validated"
+    assert cap[0]["validation_result"] == "ok"
+    assert cap[0]["composition_version"] == comp.composition_version
+
+
+@pytest.mark.spec("AC-39.11")
+def test_validate_emits_log_on_failure() -> None:
+    """validate() logs composition_validated with validation_result=error.
+
+    Covers NFR-39.03: log on every call (not just success).
+    """
+    config = {"composition": {"themes": [{"name": "Bad Theme", "weight": 1.5}]}}
+    comp = UniverseComposition.from_config(config)
+    validator = CompositionValidator()
+    with structlog.testing.capture_logs() as cap:
+        errors = validator.validate(comp)
+    assert errors
+    assert len(cap) == 1
+    assert cap[0]["event"] == "composition_validated"
+    assert cap[0]["validation_result"] == "error"
+
+
 # ---------------------------------------------------------------------------
 
 
