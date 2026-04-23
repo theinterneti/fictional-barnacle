@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
+import structlog
 
 from tta.genesis.genesis_v2 import (
     GenesisOrchestrator,
@@ -190,26 +191,15 @@ async def test_state_is_saved_on_advance(monkeypatch: pytest.MonkeyPatch) -> Non
 
 @pytest.mark.spec("AC-40.04")
 @pytest.mark.asyncio
-async def test_start_emits_structlog_event(caplog: pytest.LogCaptureFixture) -> None:
+async def test_start_emits_structlog_event() -> None:
     llm = _make_llm()
     pg = _make_pg()
     orch = GenesisOrchestrator(llm)
 
-    import logging
+    with structlog.testing.capture_logs() as cap_logs:
+        response, state = await orch.start(SESSION_ID, UNIVERSE_ID, pg)
 
-    with caplog.at_level(logging.INFO, logger="tta.genesis.genesis_v2"):
-        await orch.start(SESSION_ID, UNIVERSE_ID, pg)
-
-    # structlog writes to the standard logging system in tests
-    assert (
-        any(
-            "genesis_phase_start" in r.message or "phase_start" in r.message
-            for r in caplog.records
-        )
-        or True
-    )
-    # At minimum, verify start() returns a string response
-    response, state = await orch.start(SESSION_ID, UNIVERSE_ID, pg)
+    assert any(e.get("event") == "genesis_phase_boundary" for e in cap_logs)
     assert isinstance(response, str)
     assert len(response) > 0
 
@@ -364,7 +354,7 @@ async def test_threshold_marks_completed() -> None:
     llm = _make_llm("Genesis complete.")
     initial = {
         "current_phase": "threshold",
-        "phase_interaction_count": 0,
+        "phase_interaction_count": 1,  # at min-1 so advance() triggers phase transition
         "interactions": [],
         "character_name": "Elara",
         "confirmed_traits": [],

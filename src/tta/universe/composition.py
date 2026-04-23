@@ -16,6 +16,11 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
+from uuid import UUID
+
+import structlog
+
+log = structlog.get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Leaf dataclasses (Appendix A of S39 spec)
@@ -136,6 +141,12 @@ _VALID_NPC_TIER = frozenset({"key", "supporting"})
 # Subsystem namespaces that CompositionValidator must never touch
 _RESERVED_NAMESPACES = frozenset({"memory", "time", "npc"})
 
+_DEFAULT_MAX_LIMITS = {"themes": 5, "tropes": 10, "archetypes": 8, "genre_twists": 3}
+
+
+def _max_limit(field_max: int | None, key: str) -> int:
+    return field_max if field_max is not None else _DEFAULT_MAX_LIMITS[key]
+
 
 class CompositionValidator:
     """Validates a ``UniverseComposition`` against S39 rules (AC-39.07/08).
@@ -143,19 +154,34 @@ class CompositionValidator:
     NFR-39.01: validation < 5ms.
     """
 
-    def validate(self, comp: UniverseComposition) -> list[str]:
+    def validate(
+        self, comp: UniverseComposition, universe_id: UUID | None = None
+    ) -> list[str]:
         """Return a list of validation error strings (empty = valid)."""
+        if comp.composition_version != "1.0":
+            return [
+                f"composition_version {comp.composition_version!r} is not supported"
+            ]
+
         errors: list[str] = []
 
-        # Count limits (AC-39.08)
-        if len(comp.themes) > 5:
-            errors.append(f"themes: max 5, got {len(comp.themes)}")
-        if len(comp.tropes) > 10:
-            errors.append(f"tropes: max 10, got {len(comp.tropes)}")
-        if len(comp.archetypes) > 8:
-            errors.append(f"archetypes: max 8, got {len(comp.archetypes)}")
-        if len(comp.genre_twists) > 3:
-            errors.append(f"genre_twists: max 3, got {len(comp.genre_twists)}")
+        # Count limits (AC-39.08/39.09)
+        lim_themes = _max_limit(comp.max_themes, "themes")
+        if len(comp.themes) > lim_themes:
+            errors.append(f"themes: max {lim_themes}, got {len(comp.themes)}")
+        lim_tropes = _max_limit(comp.max_tropes, "tropes")
+        if len(comp.tropes) > lim_tropes:
+            errors.append(f"tropes: max {lim_tropes}, got {len(comp.tropes)}")
+        lim_archetypes = _max_limit(comp.max_archetypes, "archetypes")
+        if len(comp.archetypes) > lim_archetypes:
+            errors.append(
+                f"archetypes: max {lim_archetypes}, got {len(comp.archetypes)}"
+            )
+        lim_twists = _max_limit(comp.max_genre_twists, "genre_twists")
+        if len(comp.genre_twists) > lim_twists:
+            errors.append(
+                f"genre_twists: max {lim_twists}, got {len(comp.genre_twists)}"
+            )
 
         # Name pattern
         for theme in comp.themes:
@@ -183,6 +209,8 @@ class CompositionValidator:
                 errors.append(
                     f"archetypes[{arch.name!r}]: npc_tier must be 'key' or 'supporting'"
                 )
+            if not 0.0 <= arch.weight <= 1.0:
+                errors.append(f"archetypes[{arch.name!r}]: weight must be 0.0–1.0")
 
         for twist in comp.genre_twists:
             if not _NAME_RE.match(twist.name):
@@ -204,6 +232,12 @@ class CompositionValidator:
                 f"got {comp.prose.description_density!r}"
             )
 
+        if not errors:
+            log.info(
+                "composition_validated",
+                universe_id=str(universe_id) if universe_id else None,
+                errors=[],
+            )
         return errors
 
 
@@ -225,6 +259,10 @@ class UniverseComposition:
     genre_twists: list[GenreTwist] = field(default_factory=list)
     prose: ProseConfig = field(default_factory=ProseConfig)
     tone: ToneProfile = field(default_factory=ToneProfile)
+    max_themes: int | None = None
+    max_tropes: int | None = None
+    max_archetypes: int | None = None
+    max_genre_twists: int | None = None
 
     # ------------------------------------------------------------------
     # Factory
@@ -256,12 +294,23 @@ class UniverseComposition:
             archetypes=archetypes,
             genre_twists=genre_twists,
             prose=prose,
+            max_themes=blob.get("max_themes"),
+            max_tropes=blob.get("max_tropes"),
+            max_archetypes=blob.get("max_archetypes"),
+            max_genre_twists=blob.get("max_genre_twists"),
         )
-        # Tone is always derived — never persisted
-        kw_sources: list[str] = [comp.primary_genre]
-        kw_sources += [t.name for t in themes]
-        kw_sources += [t.name for t in tropes]
-        comp.tone = derive_tone_profile(kw_sources)
+        # Preserve stored primary/secondary if present; otherwise derive from keywords
+        tone_blob = blob.get("tone", {})
+        if tone_blob.get("primary"):
+            comp.tone = ToneProfile(
+                primary=tone_blob["primary"],
+                secondary=tone_blob.get("secondary"),
+            )
+        else:
+            kw_sources: list[str] = [comp.primary_genre]
+            kw_sources += [t.name for t in themes]
+            kw_sources += [t.name for t in tropes]
+            comp.tone = derive_tone_profile(kw_sources)
         return comp
 
     # ------------------------------------------------------------------
@@ -274,7 +323,7 @@ class UniverseComposition:
         ``tone`` is excluded — it is derived at read time.
         """
         d = asdict(self)
-        d.pop("tone", None)  # derived field — never persisted
+        d.pop("tone", None)
         return d
 
     # ------------------------------------------------------------------
@@ -299,8 +348,14 @@ class UniverseComposition:
             + (f" / {self.tone.secondary}" if self.tone.secondary else "")
         )
 
-        heavy_themes = [t.name for t in self.themes if t.weight >= 0.4]
+        heavy_themes = [
+            f"{t.name} ({t.weight:.1f})" for t in self.themes if t.weight >= 0.4
+        ]
         if heavy_themes:
             lines.append("Themes: " + ", ".join(heavy_themes))
+
+        req_tropes = [t.name for t in self.tropes if t.required]
+        if req_tropes:
+            lines.append("Required tropes: " + ", ".join(req_tropes))
 
         return "\n".join(lines)
