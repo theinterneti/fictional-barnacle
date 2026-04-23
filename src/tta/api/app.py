@@ -304,6 +304,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.world_time_service = WorldTimeService()
 
+    # v2 NPC Autonomy + Consequence Propagation (S35, S36)
+    from tta.simulation.consequence import DefaultConsequencePropagator
+    from tta.simulation.npc_autonomy import DefaultAutonomyProcessor
+
+    app.state.autonomy_processor = DefaultAutonomyProcessor()
+    app.state.consequence_propagator = DefaultConsequencePropagator()
+
     app.state.pipeline_deps = PipelineDeps(
         llm=app.state.llm_client,
         world=app.state.world_service,
@@ -322,6 +329,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         universe_service=app.state.universe_service,
         actor_service=app.state.actor_service,
         world_time_service=app.state.world_time_service,
+        autonomy_processor=app.state.autonomy_processor,
+        consequence_propagator=app.state.consequence_propagator,
     )
 
     # Redact credentials from DSN before logging

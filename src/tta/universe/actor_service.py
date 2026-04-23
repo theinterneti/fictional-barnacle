@@ -91,7 +91,7 @@ class ActorService:
         row = result.one_or_none()
         if row is not None:
             return _row_to_actor(row)
-        return actor  # unreachable in practice; satisfies type-checker
+        raise ActorNotFoundError(str(player_id))  # unreachable; satisfies type-checker
 
     async def get_by_player(self, player_id: UUID, pg: AsyncSession) -> list[Actor]:
         """Return all actors for a player (AC-31.08)."""

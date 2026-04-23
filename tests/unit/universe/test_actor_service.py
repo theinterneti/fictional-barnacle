@@ -72,6 +72,8 @@ async def test_get_or_create_inserts_when_absent() -> None:
     player_id = uuid4()
 
     call_count = 0
+    actor_row = _make_actor_row(player_id=player_id)
+    actor_row.display_name = "New Hero"
 
     pg = AsyncMock()
 
@@ -79,7 +81,9 @@ async def test_get_or_create_inserts_when_absent() -> None:
         nonlocal call_count
         call_count += 1
         result = MagicMock()
-        result.one_or_none.return_value = None  # first SELECT returns nothing
+        # Call 1 = INSERT ... ON CONFLICT (rowcount result, one_or_none unused)
+        # Call 2 = re-SELECT to fetch the inserted row
+        result.one_or_none.return_value = actor_row if call_count == 2 else None
         return result
 
     pg.execute.side_effect = side_effect

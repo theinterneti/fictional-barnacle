@@ -83,6 +83,11 @@ def _make_context_deps(
     deps.consequence_service = None
     deps.relationship_service = None
     deps.turn_repo = None
+    # v2 Wave E: null out so the NPC-autonomy / consequence code path is skipped
+    # for these v1-only context stage tests.
+    deps.autonomy_processor = None
+    deps.world_time_service = None
+    deps.consequence_propagator = None
     return deps
 
 
