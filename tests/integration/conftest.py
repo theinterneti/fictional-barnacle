@@ -36,8 +36,8 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
     env_overrides = {
         "TTA_DATABASE_URL": "postgresql+asyncpg://tta_test:tta_test@localhost:5433/tta_test",
         "TTA_REDIS_URL": "redis://localhost:6380/1",
-        "TTA_NEO4J_URI": "",
-        "TTA_NEO4J_PASSWORD": "test_password",
+        "TTA_NEO4J_URI": "bolt://localhost:7688",
+        "TTA_NEO4J_PASSWORD": "",
         "TTA_LLM_MOCK": "true",
         "TTA_ENVIRONMENT": "development",
         "TTA_LOG_LEVEL": "DEBUG",
@@ -54,8 +54,8 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
     settings = Settings(
         database_url="postgresql+asyncpg://tta_test:tta_test@localhost:5433/tta_test",
         redis_url="redis://localhost:6380/1",
-        neo4j_uri="",
-        neo4j_password="test_password",
+        neo4j_uri="bolt://localhost:7688",
+        neo4j_password="",
         llm_mock=True,
         environment=Environment.DEVELOPMENT,
         log_level=LogLevel.DEBUG,
@@ -188,40 +188,89 @@ def pg_dsn(integration_settings: Settings) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Neo4j (kept for future use, skips when unavailable)
+# Neo4j (S47 — live test instance at bolt://localhost:7688, no-auth)
 # ---------------------------------------------------------------------------
-@pytest.fixture()
-async def neo4j_driver(
+@pytest.fixture(scope="session")
+async def neo4j_db(
     integration_settings: Settings,
 ) -> AsyncIterator[Any]:
-    """Async Neo4j driver connected to the test instance.
+    """Session-scoped async Neo4j driver.
 
-    Skips the test when Neo4j is unreachable.
+    Connects to the test Neo4j at bolt://localhost:7688 (no-auth mode).
+    Loads the world_full.cypher fixture once to establish S13 constraints
+    and indexes. Skips the entire test session when Neo4j is unreachable.
     """
-    try:
-        from neo4j import AsyncGraphDatabase
-    except ImportError:
-        pytest.skip("neo4j driver not installed")
+    import os
 
-    if not integration_settings.neo4j_uri:
-        pytest.skip("Neo4j not configured for integration tests")
+    from neo4j import AsyncGraphDatabase
 
+    uri = integration_settings.neo4j_uri or "bolt://localhost:7688"
     driver = AsyncGraphDatabase.driver(
-        integration_settings.neo4j_uri,
-        auth=(
-            integration_settings.neo4j_user,
-            integration_settings.neo4j_password,
-        ),
+        uri,
+        auth=None,
+        connection_acquisition_timeout=2.0,
     )
 
     try:
         await driver.verify_connectivity()
     except Exception as exc:
         await driver.close()
-        pytest.skip(f"Neo4j unavailable: {exc}")
+        pytest.skip(f"Neo4j unavailable: {exc}", allow_module_level=True)
+
+    # Load world_full.cypher once per session to create constraints/indexes
+    fixture_path = (
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "fixtures",
+            "neo4j",
+            "world_full.cypher",
+        )
+    )
+    with open(fixture_path) as fh:
+        cypher = fh.read()
+
+    async with driver.session() as session:
+        for stmt in cypher.split(";"):
+            stmt = stmt.strip()
+            if stmt and not stmt.startswith("//"):
+                await session.run(stmt)
 
     yield driver
     await driver.close()
+
+
+@pytest.fixture()
+async def neo4j_session(
+    neo4j_db: Any,
+) -> AsyncIterator[Any]:
+    """Function-scoped factory that yields a clean Neo4j session.
+
+    Seeds from empty.cypher by default (no nodes). Tears down by deleting
+    all nodes after each test.
+    """
+    import os
+
+    seed_file = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "fixtures",
+        "neo4j",
+        "empty.cypher",
+    )
+    with open(seed_file) as fh:
+        seed_cypher = fh.read()
+
+    async with neo4j_db.session() as session:
+        for stmt in seed_cypher.split(";"):
+            stmt = stmt.strip()
+            if stmt and not stmt.startswith("//"):
+                await session.run(stmt)
+
+        yield session
+
+        # Teardown — clear all data
+        await session.run("MATCH (n) DETACH DELETE n")
 
 
 # ---------------------------------------------------------------------------

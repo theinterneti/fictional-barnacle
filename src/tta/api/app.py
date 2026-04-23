@@ -85,6 +85,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         decode_responses=True,
     )
 
+    # 2z. Async job queue (S48 — ARQ-backed)
+    from tta.jobs.queue import ArqQueue
+
+    app.state.job_queue = ArqQueue(settings.redis_url)
+
     # 2a. Turn result store (Redis-backed in prod, in-memory for tests)
     from tta.api.turn_results import (
         InMemoryTurnResultStore,
@@ -189,7 +194,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         driver = AsyncGraphDatabase.driver(
             settings.neo4j_uri,
-            auth=(settings.neo4j_user, settings.neo4j_password),
+            auth=(settings.neo4j_user, settings.neo4j_password)
+            if settings.neo4j_password
+            else None,
         )
         try:
             await driver.verify_connectivity()
@@ -435,6 +442,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     shutdown_tracing()
     if app.state.neo4j_driver is not None:
         await app.state.neo4j_driver.close()
+    await app.state.job_queue.close()
     await app.state.redis.aclose()
     await engine.dispose()
     log.info("app_shutdown_complete")

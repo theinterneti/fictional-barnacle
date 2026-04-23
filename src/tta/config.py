@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     # Neo4j
     neo4j_uri: str = ""
     neo4j_user: str = "neo4j"
-    neo4j_password: str
+    neo4j_password: str = ""
 
     # LiteLLM
     litellm_model: str = "openai/gpt-4o-mini"
