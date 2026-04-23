@@ -1,0 +1,13 @@
+persona_id: impulsive-actor
+display_name: Impulsive Actor
+description: Acts first, asks questions later. High boldness, little planning, lots of momentum.
+verbosity: 0.5
+boldness: 0.95
+curiosity: 0.5
+genre_affinity: action
+tone_affinity: intense
+trope_affinity:
+  - dramatic-entrance
+  - fighting-spirit
+attention_span: 0.6
+meta_awareness: 0.1
