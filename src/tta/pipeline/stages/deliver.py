@@ -39,9 +39,11 @@ async def deliver_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
 
     # --- v2 S34: advance diegetic time -----------------------------------
     game_state = state.game_state
-    if deps.world_time_service is not None and game_state.get("world_time") is not None:
-        current_ticks: int = game_state["world_time"].get("total_ticks", 0)
-        time_cfg_data: dict = game_state.get("time_config") or {}
+    if deps.world_time_service is not None:
+        current_ticks: int = game_state.get("world_time", {}).get("total_ticks", 0)
+        time_cfg_data: dict = (
+            game_state.get("universe", {}).get("config", {}).get("time") or {}
+        )
         time_cfg = WorldTimeService.config_from_universe(time_cfg_data)
         delta = deps.world_time_service.tick(current_ticks, time_cfg)
         game_state = {**game_state, "world_time": dataclasses.asdict(delta.world_time)}

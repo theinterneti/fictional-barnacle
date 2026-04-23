@@ -20,13 +20,12 @@ from tta.universe.models import Universe
 # Valid status transitions: {from_status: allowed_to_statuses}
 _TRANSITIONS: dict[str, set[str]] = {
     "dormant": {"active", "archived"},
-    "created": {"active", "archived"},
     "active": {"paused", "archived"},
     "paused": {"active", "archived"},
     "archived": set(),
 }
 
-UniverseStatus = Literal["dormant", "created", "active", "paused", "archived"]
+UniverseStatus = Literal["dormant", "active", "paused", "archived"]
 
 
 def _row_to_universe(row: sa.Row) -> Universe:  # type: ignore[type-arg]

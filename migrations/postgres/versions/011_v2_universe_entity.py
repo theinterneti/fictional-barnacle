@@ -57,7 +57,7 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.CheckConstraint(
-            "status IN ('dormant','created','active','paused','archived')",
+            "status IN ('dormant','active','paused','archived')",
             name="ck_universes_status",
         ),
     )
@@ -95,7 +95,7 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
     )
-    op.create_index("ix_actors_player", "actors", ["player_id"])
+    op.create_unique_constraint("uq_actors_player_id", "actors", ["player_id"])
 
     # ── character_states ──────────────────────────────────────────
     op.create_table(
@@ -223,11 +223,12 @@ def upgrade() -> None:
     conn = op.get_bind()
 
     # AC-33.01: one universe per game_session, config = world_seed, status = 'paused'
+    # Use gs.id as the universe id so the linking UPDATE below is deterministic.
     conn.execute(
         sa.text("""
         INSERT INTO universes (id, owner_id, name, description, status, config)
         SELECT
-            gen_random_uuid(),
+            gs.id,
             gs.player_id,
             COALESCE(gs.title, 'Legacy Universe ' || gs.id::text),
             '',
@@ -237,22 +238,18 @@ def upgrade() -> None:
                 ELSE '{}'::jsonb
             END
         FROM game_sessions gs
-        WHERE NOT EXISTS (
-            SELECT 1 FROM universes u WHERE u.id = gs.universe_id
-        )
-        AND gs.universe_id IS NULL
+        WHERE gs.universe_id IS NULL
+        ON CONFLICT (id) DO NOTHING
         """)
     )
 
-    # Temp mapping: game_session_id → new universe_id (for idempotent linking)
-    # Uses the fact that universe name contains session id for legacy sessions
+    # Link game_sessions → their new universe (always joins on gs.id = u.id).
     conn.execute(
         sa.text("""
         UPDATE game_sessions gs
-        SET universe_id = u.id
-        FROM universes u
+        SET universe_id = gs.id
         WHERE gs.universe_id IS NULL
-        AND u.name = 'Legacy Universe ' || gs.id::text
+          AND EXISTS (SELECT 1 FROM universes u WHERE u.id = gs.id)
         """)
     )
 
@@ -302,7 +299,7 @@ def downgrade() -> None:
     op.drop_index("ix_character_states_actor", table_name="character_states")
     op.drop_table("character_states")
 
-    op.drop_index("ix_actors_player", table_name="actors")
+    op.drop_constraint("uq_actors_player_id", "actors", type_="unique")
     op.drop_table("actors")
 
     op.drop_index("ix_universes_status", table_name="universes")

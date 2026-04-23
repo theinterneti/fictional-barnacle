@@ -8,6 +8,8 @@ Public surface:
 
 from __future__ import annotations
 
+import math
+
 from tta.simulation.types import TimeConfig, WorldDelta, WorldTime
 
 # ---------------------------------------------------------------------------
@@ -126,6 +128,37 @@ class WorldTimeService:
         """
         cfg = config or TimeConfig()
         return compute_world_time(0, cfg)
+
+    def ticks_to_next_dawn(
+        self,
+        current_ticks: int,
+        config: TimeConfig | None = None,
+    ) -> int:
+        """Return the number of ticks to the next dawn boundary (S34 FR-34.05d).
+
+        Uses the ``dawn`` key from ``tod_boundaries`` (default 0.208 ≈ 05:00 in
+        a 24-hour day).  Always returns ≥ 1 — if the caller is *exactly* at
+        dawn they are advanced to the *next* day's dawn.
+        """
+        cfg = config or TimeConfig()
+        minutes_per_day = cfg.hours_per_day * 60
+        boundaries = cfg.tod_boundaries or DEFAULT_TOD_BOUNDARIES
+        dawn_fraction = boundaries.get("dawn", DEFAULT_TOD_BOUNDARIES["dawn"])
+        dawn_minute_in_day = int(dawn_fraction * minutes_per_day)
+
+        offset_minutes = cfg.starting_day * minutes_per_day + cfg.starting_hour * 60
+        total_minutes = current_ticks * cfg.minutes_per_tick + offset_minutes
+        current_minute_in_day = total_minutes % minutes_per_day
+
+        if current_minute_in_day < dawn_minute_in_day:
+            minutes_to_dawn = dawn_minute_in_day - current_minute_in_day
+        else:
+            # Already past (or exactly at) dawn — advance to next day's dawn.
+            minutes_to_dawn = (
+                minutes_per_day - current_minute_in_day + dawn_minute_in_day
+            )
+
+        return max(1, math.ceil(minutes_to_dawn / cfg.minutes_per_tick))
 
     @staticmethod
     def config_from_universe(data: dict) -> TimeConfig:

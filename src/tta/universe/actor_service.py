@@ -58,8 +58,28 @@ class ActorService:
     ) -> Actor:
         """Return existing actor for player, or create one (AC-31.01).
 
-        Idempotent: multiple calls for the same player_id return the same actor.
+        Idempotent: concurrent calls for the same player_id are safe.
+        Uses INSERT … ON CONFLICT DO NOTHING backed by the uq_actors_player_id
+        unique constraint to eliminate the SELECT→INSERT TOCTOU race.
         """
+        actor = Actor(player_id=player_id, display_name=display_name)
+        await pg.execute(
+            sa.text(
+                "INSERT INTO actors (id, player_id, display_name, avatar_config, "
+                "created_at, updated_at) "
+                "VALUES (:id, :pid, :display_name, '{}', :created_at, :updated_at) "
+                "ON CONFLICT (player_id) DO NOTHING"
+            ),
+            {
+                "id": actor.id,
+                "pid": actor.player_id,
+                "display_name": actor.display_name,
+                "created_at": actor.created_at,
+                "updated_at": actor.updated_at,
+            },
+        )
+        # Re-SELECT: on conflict the pre-existing row is returned; on insert
+        # we get the row we just created.  Both paths produce a valid Actor.
         result = await pg.execute(
             sa.text(
                 "SELECT id, player_id, display_name, avatar_config, "
@@ -71,23 +91,7 @@ class ActorService:
         row = result.one_or_none()
         if row is not None:
             return _row_to_actor(row)
-
-        actor = Actor(player_id=player_id, display_name=display_name)
-        await pg.execute(
-            sa.text(
-                "INSERT INTO actors (id, player_id, display_name, avatar_config, "
-                "created_at, updated_at) "
-                "VALUES (:id, :pid, :display_name, '{}', :created_at, :updated_at)"
-            ),
-            {
-                "id": actor.id,
-                "pid": actor.player_id,
-                "display_name": actor.display_name,
-                "created_at": actor.created_at,
-                "updated_at": actor.updated_at,
-            },
-        )
-        return actor
+        return actor  # unreachable in practice; satisfies type-checker
 
     async def get_by_player(self, player_id: UUID, pg: AsyncSession) -> list[Actor]:
         """Return all actors for a player (AC-31.08)."""

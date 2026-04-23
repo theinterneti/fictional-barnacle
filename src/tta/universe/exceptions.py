@@ -10,7 +10,7 @@ class UniverseNotFoundError(UniverseError):
 
 
 class UniverseAlreadyActiveError(UniverseError):
-    """Raised when attempting to activate an already-active Universe (AC-30.10)."""
+    """Raised when attempting to activate an already-active Universe (AC-29.09)."""
 
 
 class UniverseArchivedError(UniverseError):
