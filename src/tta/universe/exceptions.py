@@ -34,3 +34,20 @@ class ActorNotFoundError(UniverseError):
 
 class CharacterStateNotFoundError(UniverseError):
     """Raised when a CharacterState for (actor_id, universe_id) does not exist."""
+
+
+class CompositionValidationError(UniverseError):
+    """Raised when a UniverseComposition payload fails validation (S39)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+class SeedImmutabilityError(UniverseError):
+    """Raised when a PATCH attempts to overwrite an already-set seed (AC-39.05).
+
+    Note: AC-39.05 Gherkin text says ``error category is "state_conflict"`` but
+    the actual ``ErrorCategory`` StrEnum value is ``"conflict"``.  Tests should
+    assert ``"conflict"`` — the Gherkin wording is a spec artefact.
+    """

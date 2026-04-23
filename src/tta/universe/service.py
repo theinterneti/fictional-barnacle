@@ -10,6 +10,8 @@ import sqlalchemy as sa
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.universe.exceptions import (
+    CompositionValidationError,
+    SeedImmutabilityError,
     UniverseAlreadyActiveError,
     UniverseArchivedError,
     UniverseNotFoundError,
@@ -220,3 +222,85 @@ class UniverseService:
             {"status": status, "id": universe_id},
         )
         return await self.get(universe_id, pg)
+
+    # ------------------------------------------------------------------
+    # S39 — Universe Composition & seed management
+    # ------------------------------------------------------------------
+
+    async def patch_config(
+        self,
+        universe_id: UUID,
+        config_patch: dict,
+        pg: AsyncSession,
+    ) -> Universe:
+        """Merge *config_patch* into ``universes.config`` (FR-39.09).
+
+        Rules:
+        - ``"seed"`` key in the patch → raise :exc:`SeedImmutabilityError`
+          if the universe already has a seed (AC-39.05 / FR-39.11).
+        - ``"composition"`` key validated by :class:`CompositionValidator`
+          before being merged (AC-39.07/08).
+        - Subsystem namespaces (``memory``, ``time``, ``npc``) are passed
+          through untouched — the validator must not reject them.
+        """
+        from tta.universe.composition import CompositionValidator, UniverseComposition
+
+        universe = await self._lock_row(universe_id, pg)
+        current_config: dict = universe.config or {}
+
+        # Reject seed overwrites
+        if "seed" in config_patch:
+            if current_config.get("seed") is not None:
+                raise SeedImmutabilityError(
+                    f"Universe {universe_id} already has a seed — it cannot be changed."
+                )
+
+        # Validate composition block if present
+        if "composition" in config_patch:
+            blob = config_patch["composition"] or {}
+            # Parse into dataclass to normalise, then validate
+            test_config = {"composition": blob}
+            comp = UniverseComposition.from_config(test_config)
+            validator = CompositionValidator()
+            errors = validator.validate(comp)
+            if errors:
+                raise CompositionValidationError(
+                    "Composition validation failed: " + "; ".join(errors)
+                )
+
+        # Merge (shallow merge at top level — subsystem namespaces are preserved)
+        merged = {**current_config, **config_patch}
+
+        await pg.execute(
+            sa.text(
+                "UPDATE universes SET config = :cfg, updated_at = now() WHERE id = :id"
+            ),
+            {"cfg": json.dumps(merged), "id": universe_id},
+        )
+        await pg.commit()
+        return await self.get(universe_id, pg)
+
+    async def ensure_seed(self, universe_id: UUID, pg: AsyncSession) -> str:
+        """Return the universe seed, generating one if absent (AC-39.02).
+
+        The seed is stored at ``config["seed"]`` and is immutable once set.
+        """
+        import secrets
+
+        universe = await self._lock_row(universe_id, pg)
+        config: dict = universe.config or {}
+
+        if config.get("seed") is not None:
+            return str(config["seed"])
+
+        seed = secrets.token_hex(16)
+        config["seed"] = seed
+
+        await pg.execute(
+            sa.text(
+                "UPDATE universes SET config = :cfg, updated_at = now() WHERE id = :id"
+            ),
+            {"cfg": json.dumps(config), "id": universe_id},
+        )
+        await pg.commit()
+        return seed

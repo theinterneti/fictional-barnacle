@@ -924,3 +924,80 @@ async def run_consistency_check(
         result = await audit_cache_consistency(redis, pg, sample_limit=sample_limit)
 
     return JSONResponse(content=result)
+
+
+# ==================================================================
+# §3.8  Universe configuration (S39)
+# ==================================================================
+
+
+class UniverseConfigPatchRequest(BaseModel):
+    """Payload for ``PATCH /admin/universes/{universe_id}``."""
+
+    config: dict = Field(default_factory=dict)
+
+
+@router.patch("/universes/{universe_id}")
+async def patch_universe_config(
+    universe_id: UUID,
+    body: UniverseConfigPatchRequest,
+    request: Request,
+    admin: AdminIdentity = Depends(require_admin),
+) -> JSONResponse:
+    """Merge a partial config patch into a universe (FR-39.09).
+
+    Raises:
+    - 404 if the universe does not exist.
+    - 409 with code ``seed_immutable`` if the patch tries to overwrite an
+      existing seed (AC-39.05 / FR-39.11).
+    - 422 if the ``composition`` block fails validation (AC-39.07/08).
+    """
+    from tta.universe.exceptions import (
+        CompositionValidationError,
+        SeedImmutabilityError,
+        UniverseNotFoundError,
+    )
+    from tta.universe.service import UniverseService
+
+    svc = UniverseService()
+
+    async with request.app.state.pg() as pg:
+        try:
+            universe = await svc.patch_config(universe_id, body.config, pg)
+        except UniverseNotFoundError as exc:
+            raise AppError(
+                ErrorCategory.NOT_FOUND,
+                "universe_not_found",
+                str(exc),
+            ) from exc
+        except SeedImmutabilityError as exc:
+            # AC-39.05: spec says "state_conflict" but ErrorCategory.CONFLICT
+            # serialises as "conflict" — tests should assert "conflict".
+            raise AppError(
+                ErrorCategory.CONFLICT,
+                "seed_immutable",
+                str(exc),
+            ) from exc
+        except CompositionValidationError as exc:
+            raise AppError(
+                ErrorCategory.SCHEMA_INVALID,
+                "composition_invalid",
+                exc.message,
+            ) from exc
+
+    await _audit(
+        request,
+        admin,
+        action="patch_universe_config",
+        target_type="universe",
+        target_id=str(universe_id),
+        reason="config patch applied",
+    )
+
+    return JSONResponse(
+        content={
+            "universe_id": str(universe.id),
+            "status": universe.status,
+            "config": universe.config,
+        }
+    )
