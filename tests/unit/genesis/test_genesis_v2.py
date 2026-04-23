@@ -15,11 +15,13 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 import structlog
+
+import tta.genesis.genesis_v2 as _genesis_v2_module
 
 from tta.genesis.genesis_v2 import (
     GenesisOrchestrator,
@@ -196,10 +198,11 @@ async def test_start_emits_structlog_event() -> None:
     pg = _make_pg()
     orch = GenesisOrchestrator(llm)
 
-    with structlog.testing.capture_logs() as cap_logs:
+    with patch.object(_genesis_v2_module, "log") as mock_log:
         response, state = await orch.start(SESSION_ID, UNIVERSE_ID, pg)
 
-    assert any(e.get("event") == "genesis_phase_boundary" for e in cap_logs)
+    called_events = [call.args[0] for call in mock_log.info.call_args_list]
+    assert "genesis_phase_boundary" in called_events
     assert isinstance(response, str)
     assert len(response) > 0
 
