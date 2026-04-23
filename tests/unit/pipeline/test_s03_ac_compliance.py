@@ -485,6 +485,7 @@ class TestAC309DeliverStageContract:
             narrative_output="The tavern hums with quiet conversation.",
         )
         deps = MagicMock()
+        deps.world_time_service = None  # v2 S34 path disabled in v1 tests
 
         result = await deliver_stage(state, deps)
 
@@ -496,6 +497,7 @@ class TestAC309DeliverStageContract:
         """deliver_stage returns TurnStatus.failed when no narrative_output."""
         state = _make_state(narrative_output=None)
         deps = MagicMock()
+        deps.world_time_service = None
 
         result = await deliver_stage(state, deps)
 
@@ -508,6 +510,7 @@ class TestAC309DeliverStageContract:
         text = "A cold wind howls through the broken window."
         state = _make_state(narrative_output=text)
         deps = MagicMock()
+        deps.world_time_service = None
 
         result = await deliver_stage(state, deps)
 

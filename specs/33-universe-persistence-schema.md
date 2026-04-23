@@ -111,15 +111,17 @@ The migration MUST create the `universes` table with the following columns:
 | `display_name` | TEXT | Yes | Human-readable universe name required by S29 FR-29.01 |
 | `owner_id` | UUID | Yes | FK → `players.id`; owning player required by S29 FR-29.01 |
 | `config` | JSONB | Yes | World parameters (migrated from `world_seed`) |
-| `status` | TEXT | Yes | `created` / `active` / `paused` / `archived`; default `paused` |
+| `status` | TEXT | Yes | CHECK IN (`dormant`, `active`, `paused`, `archived`); column DEFAULT `dormant` (new universes). |
 | `created_at` | TIMESTAMPTZ | Yes | Defaults to `now()` |
 | `updated_at` | TIMESTAMPTZ | Yes | Updated on status change |
 
 `universe_id` is the root of the v2 object graph. `owner_id` records universe
 ownership consistent with S29 FR-29.01.
 
-The `status` default for backfilled rows is `paused` (because v1 sessions are all
-historical — none are currently active).
+Backfilled rows are inserted with an explicit `status = 'paused'` (because v1 sessions
+are all historical — none are currently active). New universes created post-migration
+fall through to the column DEFAULT `dormant` and transition to `active` on first
+session bind per S29 FR-29.04.
 
 For backfilled rows, `display_name` MUST be populated deterministically from the
 legacy session/world metadata so that every migrated universe has a stable,
@@ -149,18 +151,22 @@ The migration MUST create the `character_states` table with the following column
 
 | Column | Type | Required | Notes |
 |---|---|---|---|
-| `actor_id` | TEXT | Yes | FK → `actors.actor_id` ON DELETE CASCADE; part of PK |
-| `universe_id` | TEXT | Yes | FK → `universes.universe_id` ON DELETE CASCADE; part of PK |
+| `id` | TEXT | Yes | ULID, PK; 26-char format (surrogate key) |
+| `actor_id` | TEXT | Yes | FK → `actors.actor_id` ON DELETE CASCADE; part of UNIQUE(actor_id, universe_id) |
+| `universe_id` | TEXT | Yes | FK → `universes.universe_id` ON DELETE CASCADE; part of UNIQUE(actor_id, universe_id) |
 | `character_name` | TEXT | Yes | In-world name; default `'Traveler'` for backfilled v1 rows |
 | `traits` | JSONB | Yes | From S06; default `'{}'::jsonb` for v1 rows |
 | `inventory` | JSONB | Yes | Default `'[]'::jsonb` for v1 rows |
 | `conditions` | JSONB | Yes | Default `'[]'::jsonb` for v1 rows |
 | `emotional_state` | JSONB | Yes | Default `'{}'::jsonb` for v1 rows |
 | `reputation` | JSONB | Yes | Default `'{}'::jsonb` for v1 rows |
+| `relationships` | JSONB | Yes | `{npc_id: RelationshipDimensions}`; consumed by S38; default `'{}'::jsonb` for v1 rows |
 | `last_active_at` | TIMESTAMPTZ | Yes | From `game_sessions.updated_at` during backfill |
 
-Primary key: `(actor_id, universe_id)` — enforces the S31 FR-31.02c uniqueness
-constraint.
+Primary key: surrogate ULID `id`. UNIQUE constraint on `(actor_id, universe_id)`
+enforces the S31 FR-31.02c uniqueness guarantee. The surrogate PK preserves forward
+compatibility with v4+ multi-identity extensions that may add additional identity
+dimensions without requiring a primary-key migration.
 
 #### FR-33.01d: `universe_snapshots` table
 
@@ -280,9 +286,10 @@ WHERE a.player_id = gs.player_id;
 
 ```
 INSERT INTO character_states
-  (actor_id, universe_id, character_name, traits, inventory,
-   conditions, emotional_state, reputation, last_active_at)
+  (id, actor_id, universe_id, character_name, traits, inventory,
+   conditions, emotional_state, reputation, relationships, last_active_at)
 SELECT
+  ulid_generate(),     -- surrogate PK
   a.actor_id,
   gs.universe_id,
   'Traveler',          -- default name; v1 had no character name concept
@@ -291,6 +298,7 @@ SELECT
   '[]'::jsonb,
   '{}'::jsonb,
   '{}'::jsonb,
+  '{}'::jsonb,         -- relationships (S38); empty for backfilled rows
   gs.updated_at
 FROM game_sessions gs
 JOIN actors a ON a.player_id = gs.player_id
@@ -298,9 +306,10 @@ WHERE gs.universe_id IS NOT NULL;
 ```
 
 The `character_states.traits` etc. are left empty for v1 rows because v1 did not persist
-character state as a separate entity. The character state exists in the `game_snapshots`
-blob; an optional v2.1 backfill job may extract and populate these fields from the last
-snapshot per session.
+character state as a separate entity. `character_states.relationships` is likewise left
+empty — S38 populates it on first NPC interaction. The v1 character state exists in the
+`game_snapshots` blob; an optional v2.1 backfill job may extract and populate these
+fields from the last snapshot per session.
 
 ### FR-33.04 — Neo4j Schema Additions
 
@@ -604,7 +613,7 @@ embedded PL/pgSQL implementation.
 |---|---|---|
 | `universes` | **CREATE TABLE** | New root entity for S29 |
 | `actors` | **CREATE TABLE** | New entity for S31 |
-| `character_states` | **CREATE TABLE** | New entity for S31; PK is (actor_id, universe_id) |
+| `character_states` | **CREATE TABLE** | New entity for S31; surrogate ULID PK `id`, UNIQUE(actor_id, universe_id); includes `relationships` JSONB for S38 |
 | `universe_snapshots` | **CREATE TABLE** | Cross-session world durability; distinct from `game_snapshots` |
 | `game_sessions.universe_id` | **ADD COLUMN** (TEXT, nullable → NOT NULL in v2.1) | FK → `universes.universe_id` ON DELETE SET NULL |
 | `game_sessions.actors` | **ADD COLUMN** (JSONB, default `[]`) | Actor list per S30 FR-30.03 |

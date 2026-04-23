@@ -26,6 +26,9 @@ class GameSession(BaseModel):
     player_id: UUID
     status: GameStatus = GameStatus.created
     world_seed: dict = Field(default_factory=dict)
+    # v2 fields (nullable for v1 sessions, S30 FR-30.03 / S29)
+    universe_id: UUID | None = None
+    actors: list[UUID] = Field(default_factory=list)
     title: str | None = Field(default=None, max_length=80)
     summary: str | None = Field(default=None, max_length=200)
     turn_count: int = 0
@@ -46,3 +49,6 @@ class GameState(BaseModel):
     turn_number: int = 0
     current_location_id: str = "start"
     narrative_history: list[dict] = Field(default_factory=list)
+    world_time: dict = Field(
+        default_factory=lambda: {"total_ticks": 0}
+    )  # v2 S34 — serialised WorldTime; default is tick-0 (FR-34.06a)
