@@ -19,10 +19,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
-import structlog
 
 import tta.genesis.genesis_v2 as _genesis_v2_module
-
 from tta.genesis.genesis_v2 import (
     GenesisOrchestrator,
     GenesisPhase,
