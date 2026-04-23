@@ -85,6 +85,7 @@ class GenesisState:
     composition_committed: bool = False
     first_turn_seed: str | None = None
     completed: bool = False
+    universe_id: UUID | None = None
 
     # ------------------------------------------------------------------
     # (De)serialisation helpers
@@ -105,6 +106,7 @@ class GenesisState:
             "composition_committed": self.composition_committed,
             "first_turn_seed": self.first_turn_seed,
             "completed": self.completed,
+            "universe_id": str(self.universe_id) if self.universe_id else None,
         }
 
     @classmethod
@@ -123,6 +125,7 @@ class GenesisState:
             composition_committed=d.get("composition_committed", False),
             first_turn_seed=d.get("first_turn_seed"),
             completed=d.get("completed", False),
+            universe_id=UUID(d["universe_id"]) if d.get("universe_id") else None,
         )
 
 
@@ -171,13 +174,15 @@ class GenesisOrchestrator:
     ) -> tuple[str, GenesisState]:
         """Initialise genesis state and return the opening narrator message."""
         state = GenesisState()
+        state.universe_id = universe_id
         await self._save_state(session_id, state, pg)
 
         log.info(
-            "genesis_phase_start",
+            "genesis_phase_boundary",
             universe_id=str(universe_id),
             session_id=str(session_id),
-            phase_name=state.current_phase,
+            from_phase=None,
+            to_phase=state.current_phase,
         )
 
         response = await self._phase_prompt(state, player_input=None)
@@ -467,7 +472,6 @@ class GenesisOrchestrator:
         result = await self._llm.generate(ModelRole.GENERATION, messages)
         response = result.content.strip()
 
-        state.completed = True
         return response
 
     # ------------------------------------------------------------------
@@ -590,15 +594,14 @@ class GenesisOrchestrator:
         state.current_phase = _PHASE_ORDER[current_idx + 1]
         state.phase_interaction_count = 0
 
+        if state.current_phase == GenesisPhase.COMPLETE:
+            state.completed = True
         log.info(
-            "genesis_phase_end",
+            "genesis_phase_boundary",
             session_id=str(session_id),
-            phase_name=old_phase,
-        )
-        log.info(
-            "genesis_phase_start",
-            session_id=str(session_id),
-            phase_name=state.current_phase,
+            from_phase=old_phase,
+            to_phase=state.current_phase,
+            universe_id=str(state.universe_id) if state.universe_id else None,
         )
 
     # ------------------------------------------------------------------
@@ -609,7 +612,10 @@ class GenesisOrchestrator:
         self, session_id: UUID, state: GenesisState, pg: AsyncSession
     ) -> None:
         await pg.execute(
-            sa.text("UPDATE game_sessions SET genesis_state = :gs WHERE id = :sid"),
+            sa.text(
+                "UPDATE game_sessions SET genesis_state = CAST(:gs AS jsonb)"
+                " WHERE id = :sid"
+            ),
             {"gs": json.dumps(state.to_dict()), "sid": session_id},
         )
         await pg.commit()

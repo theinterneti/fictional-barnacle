@@ -413,6 +413,28 @@ Feature: Universe Composition Model
     Given a universe with config["memory"]["compression_threshold_tokens"] = 6000
     When the universe config is retrieved
     Then config["memory"]["compression_threshold_tokens"] equals 6000
+
+  Scenario: AC-39.09 — Per-universe max limits override global defaults
+    Given a composition with max_themes = 10
+    When CompositionValidator.validate() is called
+    Then up to 10 themes are accepted without error
+
+  Scenario: AC-39.10 — Unsupported composition_version is rejected immediately
+    Given a composition with composition_version = "2.0"
+    When CompositionValidator.validate() is called
+    Then errors includes "composition_version '2.0' is not supported"
+    And no other validation is performed
+
+  Scenario: AC-39.11 — Successful validation emits structured log event
+    Given a valid composition
+    When CompositionValidator.validate() is called with universe_id
+    Then a structlog event "composition_validated" is emitted
+    And the event carries universe_id and errors=[]
+
+  Scenario: AC-39.12 — Archetype weight must be in range 0.0–1.0
+    Given an archetype spec with weight = 1.5
+    When CompositionValidator.validate() is called
+    Then errors includes a message containing "weight must be 0.0–1.0"
 ```
 
 ---

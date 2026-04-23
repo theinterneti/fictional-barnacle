@@ -273,7 +273,8 @@ class UniverseService:
 
         await pg.execute(
             sa.text(
-                "UPDATE universes SET config = :cfg, updated_at = now() WHERE id = :id"
+                "UPDATE universes SET config = CAST(:cfg AS jsonb),"
+                " updated_at = now() WHERE id = :id"
             ),
             {"cfg": json.dumps(merged), "id": universe_id},
         )
@@ -293,14 +294,15 @@ class UniverseService:
         if config.get("seed") is not None:
             return str(config["seed"])
 
-        seed = secrets.token_hex(16)
+        seed = int.from_bytes(secrets.token_bytes(8), "big")
         config["seed"] = seed
 
         await pg.execute(
             sa.text(
-                "UPDATE universes SET config = :cfg, updated_at = now() WHERE id = :id"
+                "UPDATE universes SET config = CAST(:cfg AS jsonb),"
+                " updated_at = now() WHERE id = :id"
             ),
             {"cfg": json.dumps(config), "id": universe_id},
         )
         await pg.commit()
-        return seed
+        return str(seed)
