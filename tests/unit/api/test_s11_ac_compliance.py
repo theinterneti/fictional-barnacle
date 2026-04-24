@@ -690,6 +690,10 @@ class TestAC1107ExpiredGameCanBeResumed:
             f"AC-11.07: resume expired game expected 2xx, "
             f"got {resp.status_code}: {resp.text}"
         )
-        assert resp.json()["data"]["status"] == "active", (
+        data = resp.json()["data"]
+        assert data["status"] == "active", (
             "AC-11.07: expired game status should transition to 'active' upon resume"
+        )
+        assert data["recap"] and "welcome back" in data["recap"].lower(), (
+            "AC-11.07: expired game resume must include 'welcome back' narrative"
         )

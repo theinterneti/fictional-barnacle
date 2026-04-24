@@ -1949,6 +1949,7 @@ async def resume_game(
         )
 
     recovery_warning: str | None = None
+    previous_status = row.status  # AC-11.07: capture for welcome back narrative
 
     # FR-27.15: attempt recovery if previous save failed
     if row.needs_recovery:
@@ -2038,6 +2039,10 @@ async def resume_game(
             intro = genesis.get("narrative_intro")
             if intro:
                 recap = str(intro)
+
+    # AC-11.07: Prepend "welcome back" for expired game resumes
+    if previous_status == "expired" and recap:
+        recap = f"Welcome back! It's been a while. {recap}"
 
     # Use actual timestamps — only reflect `now` when we updated.
     resp_updated = now.isoformat() if status_updated else row.updated_at.isoformat()
