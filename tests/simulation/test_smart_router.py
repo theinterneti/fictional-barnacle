@@ -11,9 +11,12 @@ from tta.models.turn import TurnState
 from tta.models.world import WorldSeed
 from tta.pipeline.orchestrator import run_pipeline
 from tta.pipeline.types import PipelineDeps
+from tta.prompts.loader import FilePromptRegistry
 from tta.safety.hooks import PassthroughHook
 from tta.world.memory_service import InMemoryWorldService
 from tta.world.template_registry import TemplateRegistry
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 async def test_with_smart_router():
@@ -23,14 +26,14 @@ async def test_with_smart_router():
 
     # Setup
     session_id = uuid4()
-    llm = SmartRouterLLMClient(task_type="simple")
+    llm = SmartRouterLLMClient()
     world_service = InMemoryWorldService()
     template_registry = TemplateRegistry(
-        directory=Path(__file__).resolve().parents[2]
-        / "src"
-        / "tta"
-        / "world"
-        / "templates"
+        directory=_REPO_ROOT / "src" / "tta" / "world" / "templates"
+    )
+    prompt_registry = FilePromptRegistry(
+        templates_dir=_REPO_ROOT / "prompts" / "templates",
+        fragments_dir=_REPO_ROOT / "prompts" / "fragments",
     )
 
     from unittest.mock import AsyncMock
@@ -44,6 +47,7 @@ async def test_with_smart_router():
         safety_pre_gen=PassthroughHook(),
         safety_post_gen=PassthroughHook(),
         consequence_service=InMemoryConsequenceService(),
+        prompt_registry=prompt_registry,
     )
 
     # Genesis
@@ -83,7 +87,7 @@ async def test_with_smart_router():
 
     # Turn 2: coding task
     print("\n3. Running turn 2 (coding task)...")
-    llm_coding = SmartRouterLLMClient(task_type="coding")
+    llm_coding = SmartRouterLLMClient()
     pipeline_deps_coding = PipelineDeps(
         llm=llm_coding,
         world=world_service,
@@ -93,6 +97,7 @@ async def test_with_smart_router():
         safety_pre_gen=PassthroughHook(),
         safety_post_gen=PassthroughHook(),
         consequence_service=InMemoryConsequenceService(),
+        prompt_registry=prompt_registry,
     )
 
     state2 = TurnState(
@@ -110,6 +115,4 @@ async def test_with_smart_router():
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     asyncio.run(test_with_smart_router())

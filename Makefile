@@ -7,7 +7,7 @@
         lint format typecheck test test-unit test-integration test-watch \
         test-bdd test-hypothesis \
         test-up test-down quality check check-format \
-        dev playtest up down build logs shell \
+        dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
 
@@ -112,8 +112,11 @@ dev: ## Start dependency services and run API locally with reload
 	docker compose up -d postgres neo4j redis
 	uv run uvicorn tta.api.app:create_app --factory --reload --host 0.0.0.0 --port 8000
 
-playtest: ## Interactive CLI playtest (server must be running via 'make dev')
+play: ## Interactive CLI playtest (server must be running via 'make dev')
 	uv run python scripts/playtest.py
+
+playtest: ## Run automated LLM playtester + evaluation pipeline (server must be running via 'make dev')
+	uv run python -m tta.eval --mode local --api-base-url "$${TTA_API_BASE_URL:-http://localhost:8000}" --output-dir data/eval_output
 
 playtest-web: ## Serve web playtest client on http://localhost:8080 (server must be running via 'make dev')
 	@echo "Open http://localhost:8080/playtest.html in your browser"

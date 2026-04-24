@@ -39,12 +39,14 @@ class PlaytesterAgent:
         self,
         api_base_url: str,
         llm_client: LLMClient,
-        llm_model: str = os.environ.get("PLAYTEST_LLM_MODEL", "gpt-4o-mini"),
+        llm_model: str | None = None,
         api_key: str | None = None,
     ) -> None:
         self._api_base_url = api_base_url.rstrip("/")
         self._llm = llm_client
-        self._llm_model = llm_model
+        self._llm_model = llm_model or os.environ.get(
+            "PLAYTEST_LLM_MODEL", "gpt-4o-mini"
+        )
         self._api_key = api_key
         self._profile: TasteProfile | None = None
         self._persona_id: str = ""

@@ -663,15 +663,23 @@ A single HTML file with vanilla JS:
 
 ### 6.7 — Measuring Fun
 
-**Decision: Structured playtesting with a `make playtest` command.**
+**Decision: Structured playtesting with automated (`make playtest`) and interactive (`make play`) commands.**
 
-The playtest harness:
-1. Starts a game session
+The **automated playtest** harness (S42/S45):
+1. Uses an LLM playtester agent to play sessions end-to-end
+2. Records the full transcript (input + output + metadata)
+3. Generates evaluation scores and commentary
+4. Saves results to `data/eval_output/`
+
+This is automated and scalable, but does not replace human judgment on emotional resonance.
+
+The **interactive playtest** harness:
+1. Starts a game session with manual input
 2. Records the full transcript (input + output + metadata)
 3. After the session, prompts for ratings (1-5 on: fun, coherence, agency, surprise)
 4. Saves transcript + ratings to `playtests/` directory
 
-This is not automated — fun is a human judgment. But the infrastructure to capture feedback must be built alongside the game, not after.
+Infrastructure to capture both automated and human feedback is built alongside the game.
 
 ---
 
@@ -698,7 +706,8 @@ make typecheck          # uv run pyright src/
 make check              # lint + typecheck + test (full CI gate)
 
 # Playtesting
-make playtest           # Start interactive session with transcript recording
+make playtest           # Run automated LLM playtester + evaluation pipeline
+make play               # Run interactive session with transcript recording
 ```
 
 ### 7.2 — CI Pipeline (GitHub Actions)

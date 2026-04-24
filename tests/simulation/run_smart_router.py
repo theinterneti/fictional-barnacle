@@ -12,9 +12,12 @@ from tta.models.turn import TurnState, TurnStatus
 from tta.models.world import WorldSeed
 from tta.pipeline.orchestrator import run_pipeline
 from tta.pipeline.types import PipelineDeps
+from tta.prompts.loader import FilePromptRegistry
 from tta.safety.hooks import PassthroughHook
 from tta.world.memory_service import InMemoryWorldService
 from tta.world.template_registry import TemplateRegistry
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 async def run_simulation_with_smart_router():
@@ -24,12 +27,14 @@ async def run_simulation_with_smart_router():
 
     # Setup
     session_id = uuid4()
-    llm = SmartRouterLLMClient(task_type="simple")
+    llm = SmartRouterLLMClient()
     world_service = InMemoryWorldService()
     template_registry = TemplateRegistry(
-        directory=Path(
-            "/home/theinterneti/Repos/fictional-barnacle/src/tta/world/templates"
-        )
+        directory=_REPO_ROOT / "src" / "tta" / "world" / "templates"
+    )
+    prompt_registry = FilePromptRegistry(
+        templates_dir=_REPO_ROOT / "prompts" / "templates",
+        fragments_dir=_REPO_ROOT / "prompts" / "fragments",
     )
 
     pipeline_deps = PipelineDeps(
@@ -41,6 +46,7 @@ async def run_simulation_with_smart_router():
         safety_pre_gen=PassthroughHook(),
         safety_post_gen=PassthroughHook(),
         consequence_service=InMemoryConsequenceService(),
+        prompt_registry=prompt_registry,
     )
 
     # Genesis
