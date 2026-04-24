@@ -12,67 +12,67 @@
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S00 | [Project Charter](00-project-charter.md) | 📝 Draft | 2345 | 7 | 0 | ❌ | ❌ | No user stories found, No edge cases section |
+| S00 | [Project Charter](00-project-charter.md) | ✅ Approved | 2355 | 7 | 0 | ❌ | ❌ | No user stories found, No edge cases section |
 
 ## 1 — Core Game Experience
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S01 | [Gameplay Loop & Progression](01-gameplay-loop.md) | 📝 Draft | 3682 | 10 | 0 | ✅ | ✅ | — |
-| S02 | [Genesis Onboarding](02-genesis-onboarding.md) | 📝 Draft | 3702 | 10 | 0 | ✅ | ✅ | — |
-| S03 | [Narrative Engine](03-narrative-engine.md) | 📝 Draft | 4026 | 9 | 0 | ✅ | ✅ | — |
-| S04 | [World Model](04-world-model.md) | 📝 Draft | 4712 | 4 | 0 | ✅ | ✅ | — |
-| S05 | [Choice & Consequence](05-choice-and-consequence.md) | 📝 Draft | 4020 | 10 | 0 | ✅ | ✅ | — |
-| S06 | [Character System](06-character-system.md) | 📝 Draft | 4679 | 10 | 0 | ✅ | ✅ | — |
-| S27 | [Save/Load & Game Management](27-save-load-and-game-management.md) | 📝 Draft | 3604 | 20 | 10 | ✅ | ✅ | — |
+| S01 | [Gameplay Loop & Progression](01-gameplay-loop.md) | ✅ Approved | 3682 | 10 | 0 | ✅ | ✅ | — |
+| S02 | [Genesis Onboarding](02-genesis-onboarding.md) | ✅ Approved | 3702 | 10 | 0 | ✅ | ✅ | — |
+| S03 | [Narrative Engine](03-narrative-engine.md) | ✅ Approved | 4026 | 9 | 0 | ✅ | ✅ | — |
+| S04 | [World Model](04-world-model.md) | ✅ Approved | 4712 | 4 | 0 | ✅ | ✅ | — |
+| S05 | [Choice & Consequence](05-choice-and-consequence.md) | ✅ Approved | 4020 | 10 | 0 | ✅ | ✅ | — |
+| S06 | [Character System](06-character-system.md) | ✅ Approved | 4679 | 10 | 0 | ✅ | ✅ | — |
+| S27 | [Save/Load & Game Management](27-save-load-and-game-management.md) | ✅ Approved | 3604 | 20 | 10 | ✅ | ✅ | — |
 
 ## 2 — AI & Content
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S07 | [LLM Integration](07-llm-integration.md) | 📝 Draft | 4293 | 24 | 0 | ✅ | ✅ | — |
-| S08 | [Turn Processing Pipeline](08-turn-processing-pipeline.md) | 📝 Draft | 6673 | 7 | 24 | ✅ | ✅ | — |
-| S09 | [Prompt & Content Management](09-prompt-and-content.md) | 📝 Draft | 5757 | 35 | 1 | ✅ | ✅ | — |
-| S24 | [Content Moderation v1](24-content-moderation-v1.md) | 📝 Draft | 4086 | 20 | 10 | ✅ | ✅ | — |
+| S07 | [LLM Integration](07-llm-integration.md) | ✅ Approved | 4293 | 24 | 0 | ✅ | ✅ | — |
+| S08 | [Turn Processing Pipeline](08-turn-processing-pipeline.md) | ✅ Approved | 6673 | 7 | 24 | ✅ | ✅ | — |
+| S09 | [Prompt & Content Management](09-prompt-and-content.md) | ✅ Approved | 5757 | 35 | 1 | ✅ | ✅ | — |
+| S24 | [Content Moderation v1](24-content-moderation-v1.md) | ✅ Approved | 4086 | 20 | 10 | ✅ | ✅ | — |
 
 ## 3 — Platform
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S10 | [API & Streaming](10-api-and-streaming.md) | 📝 Draft | 3978 | 13 | 0 | ✅ | ✅ | — |
-| S11 | [Player Identity & Sessions](11-player-identity-and-sessions.md) | 📝 Draft | 4318 | 14 | 4 | ✅ | ✅ | — |
-| S12 | [Persistence Strategy](12-persistence-strategy.md) | 📝 Draft | 4142 | 12 | 0 | ✅ | ✅ | — |
-| S13 | [World Graph Schema](13-world-graph-schema.md) | 📝 Draft | 5928 | 16 | 0 | ✅ | ✅ | — |
-| S23 | [Error Handling & Resilience](23-error-handling-and-resilience.md) | 📝 Draft | 4659 | 24 | 12 | ✅ | ✅ | — |
-| S25 | [Rate Limiting & Anti-Abuse](25-rate-limiting-and-anti-abuse.md) | 📝 Draft | 3212 | 16 | 8 | ✅ | ✅ | — |
-| S29 | [Universe as First-Class Entity](29-universe-as-first-class-entity.md) | 📝 Draft | 3669 | 13 | 13 | ✅ | ✅ | — |
-| S30 | [Session↔Universe Binding](30-session-universe-binding.md) | 📝 Draft | 2907 | 10 | 10 | ✅ | ✅ | — |
-| S31 | [Actor Identity Portability](31-actor-identity-portability.md) | 📝 Draft | 2982 | 9 | 9 | ✅ | ✅ | — |
-| S32 | [Transport Abstraction](32-transport-abstraction.md) | 📝 Draft | 2733 | 10 | 10 | ✅ | ✅ | — |
-| S33 | [Universe Persistence Schema](33-universe-persistence-schema.md) | 📝 Draft | 3937 | 10 | 10 | ✅ | ✅ | — |
+| S10 | [API & Streaming](10-api-and-streaming.md) | ✅ Approved | 3978 | 13 | 0 | ✅ | ✅ | — |
+| S11 | [Player Identity & Sessions](11-player-identity-and-sessions.md) | ✅ Approved | 4318 | 14 | 4 | ✅ | ✅ | — |
+| S12 | [Persistence Strategy](12-persistence-strategy.md) | ✅ Approved | 4142 | 12 | 0 | ✅ | ✅ | — |
+| S13 | [World Graph Schema](13-world-graph-schema.md) | ✅ Approved | 5928 | 16 | 0 | ✅ | ✅ | — |
+| S23 | [Error Handling & Resilience](23-error-handling-and-resilience.md) | ✅ Approved | 4659 | 24 | 12 | ✅ | ✅ | — |
+| S25 | [Rate Limiting & Anti-Abuse](25-rate-limiting-and-anti-abuse.md) | ✅ Approved | 3212 | 16 | 8 | ✅ | ✅ | — |
+| S29 | [Universe as First-Class Entity](29-universe-as-first-class-entity.md) | ✅ Approved | 3678 | 13 | 13 | ✅ | ✅ | — |
+| S30 | [Session↔Universe Binding](30-session-universe-binding.md) | ✅ Approved | 2911 | 10 | 10 | ✅ | ✅ | — |
+| S31 | [Actor Identity Portability](31-actor-identity-portability.md) | ✅ Approved | 3163 | 9 | 9 | ✅ | ✅ | — |
+| S32 | [Transport Abstraction](32-transport-abstraction.md) | ✅ Approved | 2733 | 10 | 10 | ✅ | ✅ | — |
+| S33 | [Universe Persistence Schema](33-universe-persistence-schema.md) | ✅ Approved | 4147 | 10 | 10 | ✅ | ✅ | — |
 | S50 | [Concurrent Universe Loading](50-concurrent-universe-loading.md) | 📝 Draft | 877 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
-| S54 | [Inter-Universe Event Substrate](54-inter-universe-event-substrate.md) | 📝 Draft | 730 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
-| S59 | [Multiplayer Transport](59-multiplayer-transport.md) | 📝 Draft | 993 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
+| S54 | [Inter-Universe Event Substrate](54-inter-universe-event-substrate.md) | 📝 Draft | 738 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
+| S59 | [Multiplayer Transport](59-multiplayer-transport.md) | 📝 Draft | 1129 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
 
 ## 4 — Operations
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S14 | [Deployment & Infrastructure](14-deployment.md) | 📝 Draft | 3563 | 34 | 4 | ✅ | ✅ | — |
-| S15 | [Observability](15-observability.md) | 📝 Draft | 3743 | 32 | 4 | ✅ | ✅ | — |
-| S16 | [Testing Infrastructure](16-testing-infrastructure.md) | 📝 Draft | 5072 | 48 | 8 | ✅ | ✅ | — |
-| S17 | [Data Privacy](17-data-privacy.md) | 📝 Draft | 4576 | 44 | 4 | ✅ | ✅ | — |
-| S26 | [Admin & Operator Tooling](26-admin-and-operator-tooling.md) | 📝 Draft | 3423 | 16 | 8 | ✅ | ✅ | — |
-| S28 | [Performance & Scaling](28-performance-and-scaling.md) | 📝 Draft | 3247 | 16 | 8 | ✅ | ✅ | — |
-| S42 | [LLM Playtester Agent Harness](42-llm-playtester-agent-harness.md) | 📝 Draft | 1506 | 5 | 5 | ✅ | ❌ | No edge cases section |
-| S43 | [Human Playtester Program](43-human-playtester-program.md) | 📝 Draft | 1542 | 4 | 5 | ✅ | ❌ | No edge cases section |
-| S44 | [Narrative Quality Evaluation](44-narrative-quality-evaluation.md) | 📝 Draft | 1501 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
-| S45 | [Evaluation Pipeline](45-evaluation-pipeline.md) | 📝 Draft | 1376 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
-| S46 | [Cloud Deployment Target](46-cloud-deployment-target.md) | 📝 Draft | 1227 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
-| S47 | [Live Neo4j in CI](47-live-neo4j-in-ci.md) | 📝 Draft | 1032 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
-| S48 | [Async Job Runner](48-async-job-runner.md) | 📝 Draft | 1211 | 6 | 6 | ❌ | ❌ | No user stories found, No edge cases section |
-| S49 | [Horizontal Scaling & Multi-Instance Sessions](49-horizontal-scaling.md) | 📝 Draft | 1279 | 6 | 6 | ❌ | ❌ | No user stories found, No edge cases section |
-| S60 | [Crisis Safety Protocol](60-crisis-safety-protocol.md) | 📝 Draft | 856 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
+| S14 | [Deployment & Infrastructure](14-deployment.md) | ✅ Approved | 3563 | 34 | 4 | ✅ | ✅ | — |
+| S15 | [Observability](15-observability.md) | ✅ Approved | 3743 | 32 | 4 | ✅ | ✅ | — |
+| S16 | [Testing Infrastructure](16-testing-infrastructure.md) | ✅ Approved | 5072 | 48 | 8 | ✅ | ✅ | — |
+| S17 | [Data Privacy](17-data-privacy.md) | ✅ Approved | 4576 | 44 | 4 | ✅ | ✅ | — |
+| S26 | [Admin & Operator Tooling](26-admin-and-operator-tooling.md) | ✅ Approved | 3423 | 16 | 8 | ✅ | ✅ | — |
+| S28 | [Performance & Scaling](28-performance-and-scaling.md) | ✅ Approved | 3247 | 16 | 8 | ✅ | ✅ | — |
+| S42 | [LLM Playtester Agent Harness](42-llm-playtester-agent-harness.md) | ✅ Approved | 1506 | 5 | 5 | ✅ | ❌ | No edge cases section |
+| S43 | [Human Playtester Program](43-human-playtester-program.md) | ✅ Approved | 1542 | 4 | 5 | ✅ | ❌ | No edge cases section |
+| S44 | [Narrative Quality Evaluation](44-narrative-quality-evaluation.md) | ✅ Approved | 1503 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
+| S45 | [Evaluation Pipeline](45-evaluation-pipeline.md) | ✅ Approved | 1423 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
+| S46 | [Cloud Deployment Target](46-cloud-deployment-target.md) | 📝 Draft | 1229 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
+| S47 | [Live Neo4j in CI](47-live-neo4j-in-ci.md) | 📝 Draft | 1042 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
+| S48 | [Async Job Runner](48-async-job-runner.md) | 📝 Draft | 1216 | 6 | 6 | ❌ | ❌ | No user stories found, No edge cases section |
+| S49 | [Horizontal Scaling & Multi-Instance Sessions](49-horizontal-scaling.md) | 📝 Draft | 1327 | 6 | 6 | ❌ | ❌ | No user stories found, No edge cases section |
+| S60 | [Crisis Safety Protocol](60-crisis-safety-protocol.md) | 📝 Draft | 880 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
 
 ## 5 — Future Vision
 
@@ -88,19 +88,19 @@
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S34 | [Diegetic Time](34-diegetic-time.md) | 📝 Draft | 2764 | 10 | 10 | ✅ | ✅ | — |
-| S35 | [NPC Autonomy Between Turns](35-npc-autonomy-between-turns.md) | 📝 Draft | 3718 | 10 | 10 | ✅ | ✅ | — |
-| S36 | [Consequence Propagation](36-consequence-propagation.md) | 📝 Draft | 2643 | 8 | 8 | ✅ | ✅ | — |
-| S37 | [World Memory Model](37-world-memory-model.md) | 📝 Draft | 3383 | 8 | 8 | ✅ | ✅ | — |
-| S38 | [NPC Memory & Social Model](38-npc-memory-and-social-model.md) | 📝 Draft | 3421 | 8 | 8 | ✅ | ✅ | — |
-| S39 | [Universe Composition Model](39-universe-composition-model.md) | 📝 Draft | 3067 | 8 | 8 | ✅ | ✅ | — |
-| S40 | [Genesis v2: Real→Strange](40-genesis-v2-real-to-strange.md) | 📝 Draft | 3520 | 8 | 8 | ✅ | ✅ | — |
+| S34 | [Diegetic Time](34-diegetic-time.md) | ✅ Approved | 2764 | 10 | 10 | ✅ | ✅ | — |
+| S35 | [NPC Autonomy Between Turns](35-npc-autonomy-between-turns.md) | ✅ Approved | 3718 | 10 | 10 | ✅ | ✅ | — |
+| S36 | [Consequence Propagation](36-consequence-propagation.md) | ✅ Approved | 2643 | 8 | 8 | ✅ | ✅ | — |
+| S37 | [World Memory Model](37-world-memory-model.md) | ✅ Approved | 3383 | 8 | 8 | ✅ | ✅ | — |
+| S38 | [NPC Memory & Social Model](38-npc-memory-and-social-model.md) | ✅ Approved | 3421 | 8 | 8 | ✅ | ✅ | — |
+| S39 | [Universe Composition Model](39-universe-composition-model.md) | ✅ Approved | 3201 | 12 | 12 | ✅ | ✅ | — |
+| S40 | [Genesis v2: Real→Strange](40-genesis-v2-real-to-strange.md) | ✅ Approved | 3840 | 15 | 15 | ✅ | ✅ | — |
 
 ## 2 — Content
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S41 | [Scenario Seed Library](41-scenario-seed-library.md) | 📝 Draft | 2121 | 6 | 7 | ✅ | ❌ | No edge cases section |
+| S41 | [Scenario Seed Library](41-scenario-seed-library.md) | ✅ Approved | 2121 | 6 | 7 | ✅ | ❌ | No edge cases section |
 
 ## 1 — Core Game
 
@@ -111,18 +111,18 @@
 | S53 | [Nexus Access Rules](53-nexus-access-rules.md) | 📝 Draft | 993 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
 | S55 | [Bleedthrough Propagation Rules](55-bleedthrough-propagation-rules.md) | 📝 Draft | 911 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
 | S56 | [Resonance Correlation Engine](56-resonance-correlation-engine.md) | 📝 Draft | 913 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
-| S57 | [Multi-Actor Universe Model](57-multi-actor-universe-model.md) | 📝 Draft | 872 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
-| S58 | [Turn Conflict Resolution](58-turn-conflict-resolution.md) | 📝 Draft | 948 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
-| S61 | [Therapeutic Framework](61-therapeutic-framework.md) | 📝 Draft | 805 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
-| S62 | [Story Sharing](62-story-sharing.md) | 📝 Draft | 791 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
-| S63 | [Community and User-Generated Worlds](63-community-and-user-generated-worlds.md) | 📝 Draft | 778 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
+| S57 | [Multi-Actor Universe Model](57-multi-actor-universe-model.md) | 📝 Draft | 889 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
+| S58 | [Turn Conflict Resolution](58-turn-conflict-resolution.md) | 📝 Draft | 950 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
+| S61 | [Therapeutic Framework](61-therapeutic-framework.md) | 📝 Draft | 828 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
+| S62 | [Story Sharing](62-story-sharing.md) | 📝 Draft | 821 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
+| S63 | [Community and User-Generated Worlds](63-community-and-user-generated-worlds.md) | 📝 Draft | 782 | 4 | 4 | ❌ | ❌ | No user stories found, No edge cases section |
 
 ## Summary
 
 - **Total specs**: 65
-- **Total words**: 168,566
-- **Total acceptance criteria**: 668
+- **Total words**: 169,792
+- **Total acceptance criteria**: 679
 - **Specs with warnings**: 30/65
 - **Specs with Gherkin scenarios**: 61/65
-- **Total Gherkin scenarios**: 324
+- **Total Gherkin scenarios**: 335
 - **Specs with Given/When/Then**: 60/65

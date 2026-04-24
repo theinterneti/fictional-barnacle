@@ -1,7 +1,7 @@
 {
   "spec_count": 65,
-  "total_words": 168566,
-  "total_acceptance_criteria": 668,
+  "total_words": 169792,
+  "total_acceptance_criteria": 679,
   "specs": [
     {
       "file": "CLOSEOUT_TEMPLATE.md",
@@ -40,7 +40,7 @@
       "file": "00-project-charter.md",
       "number": "S00",
       "title": "Project Charter",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "0 — Foundation",
       "dependencies": [
         "None (this is the root)"
@@ -64,7 +64,7 @@
         "v1 Closeout (Non-normative)",
         "v2+ Roadmap Pointer (Non-normative)"
       ],
-      "word_count": 2345,
+      "word_count": 2355,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 7,
       "has_user_stories": false,
@@ -83,7 +83,7 @@
       "file": "01-gameplay-loop.md",
       "number": "S01",
       "title": "Gameplay Loop & Progression",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
@@ -119,7 +119,7 @@
       "file": "02-genesis-onboarding.md",
       "number": "S02",
       "title": "Genesis Onboarding",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
@@ -154,7 +154,7 @@
       "file": "03-narrative-engine.md",
       "number": "S03",
       "title": "Narrative Engine",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
@@ -189,7 +189,7 @@
       "file": "04-world-model.md",
       "number": "S04",
       "title": "World Model",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
@@ -224,7 +224,7 @@
       "file": "05-choice-and-consequence.md",
       "number": "S05",
       "title": "Choice & Consequence",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
@@ -259,7 +259,7 @@
       "file": "06-character-system.md",
       "number": "S06",
       "title": "Character System",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "1 — Core Game Experience",
       "dependencies": [
         "S00"
@@ -294,7 +294,7 @@
       "file": "07-llm-integration.md",
       "number": "S07",
       "title": "LLM Integration",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — AI & Content",
       "dependencies": [
         "S01 (Core Game Loop)",
@@ -337,7 +337,7 @@
       "file": "08-turn-processing-pipeline.md",
       "number": "S08",
       "title": "Turn Processing Pipeline",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — AI & Content",
       "dependencies": [
         "S01 (Core Game Loop)",
@@ -382,7 +382,7 @@
       "file": "09-prompt-and-content.md",
       "number": "S09",
       "title": "Prompt & Content Management",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — AI & Content",
       "dependencies": [
         "S07 (LLM Integration)",
@@ -429,7 +429,7 @@
       "file": "10-api-and-streaming.md",
       "number": "S10",
       "title": "API & Streaming",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "S04 (World Model)",
@@ -473,7 +473,7 @@
       "file": "11-player-identity-and-sessions.md",
       "number": "S11",
       "title": "Player Identity & Sessions",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "S12 (Persistence Strategy)"
@@ -513,7 +513,7 @@
       "file": "12-persistence-strategy.md",
       "number": "S12",
       "title": "Persistence Strategy",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "S04 (World Model)",
@@ -556,7 +556,7 @@
       "file": "13-world-graph-schema.md",
       "number": "S13",
       "title": "World Graph Schema",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "S04 (World Model)"
@@ -598,7 +598,7 @@
       "file": "14-deployment.md",
       "number": "S14",
       "title": "Deployment & Infrastructure",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S01 (Gameplay Loop)",
@@ -640,7 +640,7 @@
       "file": "15-observability.md",
       "number": "S15",
       "title": "Observability",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S08 (Turn Pipeline)",
@@ -680,7 +680,7 @@
       "file": "16-testing-infrastructure.md",
       "number": "S16",
       "title": "Testing Infrastructure",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S00 (Testing Charter)",
@@ -725,7 +725,7 @@
       "file": "17-data-privacy.md",
       "number": "S17",
       "title": "Data Privacy",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S01 (Gameplay Loop)",
@@ -955,7 +955,7 @@
       "file": "23-error-handling-and-resilience.md",
       "number": "S23",
       "title": "Error Handling & Resilience",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "S07 (LLM Integration)",
@@ -996,7 +996,7 @@
       "file": "24-content-moderation-v1.md",
       "number": "S24",
       "title": "Content Moderation v1",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — AI & Content",
       "dependencies": [
         "S07 (LLM Integration)",
@@ -1036,7 +1036,7 @@
       "file": "25-rate-limiting-and-anti-abuse.md",
       "number": "S25",
       "title": "Rate Limiting & Anti-Abuse",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "S10 (API & Streaming)",
@@ -1076,7 +1076,7 @@
       "file": "26-admin-and-operator-tooling.md",
       "number": "S26",
       "title": "Admin & Operator Tooling",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S10 (API)",
@@ -1116,7 +1116,7 @@
       "file": "27-save-load-and-game-management.md",
       "number": "S27",
       "title": "Save/Load & Game Management",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "1 — Core Game Experience",
       "dependencies": [
         "S01 (Gameplay Loop)",
@@ -1156,7 +1156,7 @@
       "file": "28-performance-and-scaling.md",
       "number": "S28",
       "title": "Performance & Scaling",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S07 (LLM Integration)",
@@ -1196,7 +1196,7 @@
       "file": "29-universe-as-first-class-entity.md",
       "number": "S29",
       "title": "Universe as First-Class Entity",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "v1 S04",
@@ -1220,7 +1220,7 @@
         "Appendix",
         "Changelog"
       ],
-      "word_count": 3669,
+      "word_count": 3678,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 13,
       "has_user_stories": true,
@@ -1236,7 +1236,7 @@
       "file": "30-session-universe-binding.md",
       "number": "S30",
       "title": "Session↔Universe Binding",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "v2 S29",
@@ -1258,7 +1258,7 @@
         "Appendix",
         "Changelog"
       ],
-      "word_count": 2907,
+      "word_count": 2911,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 10,
       "has_user_stories": true,
@@ -1274,7 +1274,7 @@
       "file": "31-actor-identity-portability.md",
       "number": "S31",
       "title": "Actor Identity Portability",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "v2 S29",
@@ -1296,7 +1296,7 @@
         "Out of Scope",
         "Changelog"
       ],
-      "word_count": 2982,
+      "word_count": 3163,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 9,
       "has_user_stories": true,
@@ -1312,7 +1312,7 @@
       "file": "32-transport-abstraction.md",
       "number": "S32",
       "title": "Transport Abstraction",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "v1 S10"
@@ -1348,7 +1348,7 @@
       "file": "33-universe-persistence-schema.md",
       "number": "S33",
       "title": "Universe Persistence Schema",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
         "v2 S29",
@@ -1373,7 +1373,7 @@
         "Appendix A — Recommended Backfill Approach (Mapping Table)",
         "Appendix B — Schema Change Summary (v1 → v2)"
       ],
-      "word_count": 3937,
+      "word_count": 4147,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 10,
       "has_user_stories": true,
@@ -1389,7 +1389,7 @@
       "file": "34-diegetic-time.md",
       "number": "S34",
       "title": "Diegetic Time",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — Simulation",
       "dependencies": [
         "S29 (Universe Identity)"
@@ -1425,7 +1425,7 @@
       "file": "35-npc-autonomy-between-turns.md",
       "number": "S35",
       "title": "NPC Autonomy Between Turns",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — Simulation",
       "dependencies": [
         "S34 (Diegetic Time)",
@@ -1462,7 +1462,7 @@
       "file": "36-consequence-propagation.md",
       "number": "S36",
       "title": "Consequence Propagation",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — Simulation",
       "dependencies": [
         "S34 (Diegetic Time)",
@@ -1501,7 +1501,7 @@
       "file": "37-world-memory-model.md",
       "number": "S37",
       "title": "World Memory Model",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — Simulation",
       "dependencies": [
         "v1 S03 (Narrative)",
@@ -1542,7 +1542,7 @@
       "file": "38-npc-memory-and-social-model.md",
       "number": "S38",
       "title": "NPC Memory & Social Model",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — Simulation",
       "dependencies": [
         "v1 S06 (Characters & Relationships)",
@@ -1583,7 +1583,7 @@
       "file": "39-universe-composition-model.md",
       "number": "S39",
       "title": "Universe Composition Model",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — Simulation",
       "dependencies": [
         "S29 (Universe as First-Class Entity)"
@@ -1604,26 +1604,28 @@
         "Appendix B — Config Namespace Reference",
         "Appendix C — Relationship to S41 (Scenario Seed Library)"
       ],
-      "word_count": 3067,
+      "word_count": 3201,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 8,
+      "acceptance_criteria_count": 12,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
-      "gherkin_scenario_count": 8,
+      "gherkin_scenario_count": 12,
       "warnings": []
     },
     {
       "file": "40-genesis-v2-real-to-strange.md",
       "number": "S40",
       "title": "Genesis v2: Real→Strange",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — Simulation",
       "dependencies": [
         "S29 (Universe as First-Class Entity)",
+        "S34 (Diegetic Time)",
+        "S37 (World Memory Model)",
         "S39 (Universe Composition Model)"
       ],
       "last_updated": "2026-04-21",
@@ -1643,23 +1645,23 @@
         "Appendix B — v1 AC Disposition",
         "Appendix C — Pipeline Position"
       ],
-      "word_count": 3520,
+      "word_count": 3840,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 8,
+      "acceptance_criteria_count": 15,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
-      "gherkin_scenario_count": 8,
+      "gherkin_scenario_count": 15,
       "warnings": []
     },
     {
       "file": "41-scenario-seed-library.md",
       "number": "S41",
       "title": "Scenario Seed Library",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "2 — Content",
       "dependencies": [
         "S39 (Universe Composition Model)"
@@ -1697,7 +1699,7 @@
       "file": "42-llm-playtester-agent-harness.md",
       "number": "S42",
       "title": "LLM Playtester Agent Harness",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S41 (Scenario Seed Library)",
@@ -1734,7 +1736,7 @@
       "file": "43-human-playtester-program.md",
       "number": "S43",
       "title": "Human Playtester Program",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S41 (Scenario Seed Library)"
@@ -1771,7 +1773,7 @@
       "file": "44-narrative-quality-evaluation.md",
       "number": "S44",
       "title": "Narrative Quality Evaluation",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S42 (LLM Playtester Agent Harness)",
@@ -1789,7 +1791,7 @@
         "Open Questions",
         "Appendix A — Scoring Rubric"
       ],
-      "word_count": 1501,
+      "word_count": 1503,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 5,
       "has_user_stories": false,
@@ -1808,7 +1810,7 @@
       "file": "45-evaluation-pipeline.md",
       "number": "S45",
       "title": "Evaluation Pipeline",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
         "S42 (LLM Playtester)",
@@ -1826,7 +1828,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 1376,
+      "word_count": 1423,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 5,
       "has_user_stories": false,
@@ -1859,7 +1861,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 1227,
+      "word_count": 1229,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 5,
       "has_user_stories": false,
@@ -1893,7 +1895,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 1032,
+      "word_count": 1042,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 5,
       "has_user_stories": false,
@@ -1927,7 +1929,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 1211,
+      "word_count": 1216,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 6,
       "has_user_stories": false,
@@ -1961,7 +1963,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 1279,
+      "word_count": 1327,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 6,
       "has_user_stories": false,
@@ -2139,7 +2141,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 730,
+      "word_count": 738,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": false,
@@ -2250,7 +2252,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 872,
+      "word_count": 889,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": false,
@@ -2287,7 +2289,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 948,
+      "word_count": 950,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": false,
@@ -2312,7 +2314,8 @@
         "S57 (Multi-Actor Universe Model)",
         "S58 (Turn Conflict Resolution)",
         "S10 (API and Streaming)",
-        "S49 (Horizontal Scaling)"
+        "S49 (Horizontal Scaling)",
+        "S32 (NarrativeTransport)"
       ],
       "last_updated": "2026-04-21",
       "sections": [
@@ -2327,7 +2330,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 993,
+      "word_count": 1129,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": false,
@@ -2363,7 +2366,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 856,
+      "word_count": 880,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": false,
@@ -2400,7 +2403,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 805,
+      "word_count": 828,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": false,
@@ -2437,7 +2440,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 791,
+      "word_count": 821,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": false,
@@ -2474,7 +2477,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 778,
+      "word_count": 782,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 4,
       "has_user_stories": false,
