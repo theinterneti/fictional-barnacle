@@ -60,7 +60,11 @@ class TestCalculateCooldown:
 class TestInMemoryAbuseDetector:
     """AC-25.6: Abuse pattern detection, AC-25.7/AC-25.8: Escalation."""
 
-    pytestmark = [pytest.mark.spec("AC-25.06"), pytest.mark.spec("AC-25.07"), pytest.mark.spec("AC-25.08")]
+    pytestmark = [
+        pytest.mark.spec("AC-25.06"),
+        pytest.mark.spec("AC-25.07"),
+        pytest.mark.spec("AC-25.08"),
+    ]
 
     @pytest.fixture
     def detector(self) -> InMemoryAbuseDetector:
@@ -232,7 +236,11 @@ class TestInMemoryAbuseDetector:
 class TestAntiAbuseMiddleware:
     """Integration tests for anti-abuse in RateLimitMiddleware."""
 
-    pytestmark = [pytest.mark.spec("AC-25.06"), pytest.mark.spec("AC-25.07"), pytest.mark.spec("AC-25.08")]
+    pytestmark = [
+        pytest.mark.spec("AC-25.06"),
+        pytest.mark.spec("AC-25.07"),
+        pytest.mark.spec("AC-25.08"),
+    ]
 
     @pytest.fixture
     def app(self) -> FastAPI:
