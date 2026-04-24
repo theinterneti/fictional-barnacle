@@ -11,7 +11,7 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
   issues: write  # required to update issue comments via REST API
 
 jobs:
@@ -85,9 +85,10 @@ git merge origin/main   # or: git rebase origin/main
 This comment will update automatically once the branch is up-to-date with main."
 
             # Find an existing bot comment to update (avoids repeated noise).
+            # --paginate handles PRs with >30 comments; filter to bot author only.
             EXISTING_ID=$(
-              gh api "repos/$REPO/issues/$PR_NUM/comments" \
-                --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" \
+              gh api --paginate "repos/$REPO/issues/$PR_NUM/comments" \
+                --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\"))) | .id" \
                 | head -1
             )
 
