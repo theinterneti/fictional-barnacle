@@ -120,7 +120,7 @@ class TestExpireRule:
         expire_call = pg.execute.call_args_list[1]
         sql_text = str(expire_call.args[0].text)
         assert "status = 'paused'" in sql_text
-        assert "last_played_at" in sql_text
+        assert "paused_at" in sql_text
         assert "deleted_at IS NULL" in sql_text
         pg.commit.assert_awaited_once()
 
@@ -271,8 +271,8 @@ class TestAC1105PausedGameNotExpiredBefore30Days:
         assert abs((cutoff - expected_cutoff).total_seconds()) < 5
 
         sql_text = str(expire_call.args[0].text)
-        assert "< :cutoff" in sql_text and "last_played_at <" in sql_text, (
-            "AC-11.05: SQL should use strict < to exclude games "
+        assert "< :cutoff" in sql_text and "paused_at" in sql_text, (
+            "AC-11.05: SQL should use strict < on paused_at to exclude games "
             "exactly at 30-day boundary"
         )
 

@@ -697,3 +697,66 @@ class TestAC1107ExpiredGameCanBeResumed:
         assert data["recap"] and "welcome back" in data["recap"].lower(), (
             "AC-11.07: expired game resume must include 'welcome back' narrative"
         )
+
+    def test_resume_expired_no_summary_still_emits_welcome_back(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-11.07: Welcome-back is emitted even when game has no summary/recap."""
+        execute_calls: list[Any] = []
+
+        async def track_execute(stmt: Any, params: Any = None) -> MagicMock:
+            call_idx = len(execute_calls)
+            execute_calls.append((str(stmt) if hasattr(stmt, "__str__") else "", params))
+            if call_idx == 0:
+                # _get_owned_game: game in 'expired' status, no summary, 0 turns
+                return _make_result(
+                    [
+                        _game_row(
+                            status="expired",
+                            turn_count=0,
+                            summary=None,
+                            world_seed="{}",
+                            needs_recovery=False,
+                        )
+                    ]
+                )
+            elif call_idx == 1:
+                return _make_result()  # Advisory lock
+            elif call_idx == 2:
+                return _make_result()  # In-flight check
+            elif call_idx == 3:
+                return _make_result(scalar=0)  # Turn count
+            elif call_idx == 4:
+                return _make_result([])  # Recent turns
+            elif call_idx == 5:
+                result = MagicMock()
+                result.rowcount = 1
+                return result  # UPDATE status to active
+            elif call_idx == 6:
+                result = MagicMock()
+                result.rowcount = 1
+                return result  # UPDATE last_played_at
+            result = MagicMock()
+            result.scalar_one.return_value = None
+            result.one_or_none.return_value = None
+            return result
+
+        pg.execute = track_execute
+        pg.commit = AsyncMock()
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/resume",
+        )
+
+        assert resp.status_code in (200, 202), (
+            f"AC-11.07: resume expired game (no summary) expected 2xx, "
+            f"got {resp.status_code}: {resp.text}"
+        )
+        data = resp.json()["data"]
+        assert data["status"] == "active", (
+            "AC-11.07: expired game status should transition to 'active' upon resume"
+        )
+        assert data["recap"] and "welcome back" in data["recap"].lower(), (
+            "AC-11.07: expired game resume must include 'welcome back' narrative "
+            "even when no summary/genesis intro exists"
+        )
