@@ -43,6 +43,7 @@ def _make_factory(pg: AsyncMock):  # noqa: ANN201
     return factory
 
 
+@pytest.mark.spec("AC-11.08")
 class TestAbandonRule:
     """created/active + 0 turns + >24h → abandoned."""
 
@@ -86,6 +87,7 @@ class TestAbandonRule:
         assert abs((cutoff - expected).total_seconds()) < 5
 
 
+@pytest.mark.spec("AC-11.06")
 class TestExpireRule:
     """paused + last_played > 30 days → expired."""
 
@@ -210,3 +212,39 @@ class TestIdleTimeoutRule:
         idle_call = pg.execute.call_args_list[2]
         sql_text = str(idle_call.args[0].text)
         assert "turn_count > 0" in sql_text
+
+
+@pytest.mark.spec("AC-11.05")
+class TestAC1105PausedGameNotExpiredBefore30Days:
+    """Paused game within 30 days MUST NOT be expired."""
+
+    @pytest.mark.anyio
+    async def test_paused_game_not_expired_before_30_days(self) -> None:
+        """AC-11.05: Game paused 29 days ago should NOT be expired."""
+        pg = _make_pg(expire_rowcount=0)
+        factory = _make_factory(pg)
+
+        result = await run_lifecycle_pass(factory, expire_days=30)
+
+        expire_call = pg.execute.call_args_list[1]
+        params = expire_call.args[1]
+        cutoff = params["cutoff"]
+
+        now = datetime.now(UTC)
+        expected_cutoff = now - timedelta(days=30)
+        assert abs((cutoff - expected_cutoff).total_seconds()) < 5
+
+        assert result["expired"] == 0
+
+
+@pytest.mark.spec("AC-11.07")
+class TestAC1107ExpiredGameCanBeResumed:
+    """Expired game MUST be resumable."""
+
+    @pytest.mark.anyio
+    async def test_expired_status_allows_resume(self) -> None:
+        """AC-11.07: Expired games should appear in allowed statuses."""
+        from tta.api.routes.games import _VALID_TRANSITIONS
+
+        allowed_to_active = _VALID_TRANSITIONS.get("expired", set())
+        assert "active" in allowed_to_active
