@@ -1,6 +1,6 @@
 # S09 — Prompt & Content Management
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ⚠️ Partial
 > **Level**: 2 — AI & Content

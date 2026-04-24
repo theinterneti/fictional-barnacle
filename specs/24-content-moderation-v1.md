@@ -1,6 +1,6 @@
 # S24 — Content Moderation v1
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ⚠️ Partial
 > **Level**: 2 — AI & Content

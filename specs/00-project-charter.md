@@ -1,6 +1,6 @@
 # S00 — Project Charter
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ✅ Full
 > **Level**: 0 — Foundation

@@ -1,6 +1,6 @@
 # S41 — Scenario Seed Library
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🆕 v2.1
 > **Implementation Fit**: ❌ Not Started
 > **Level**: 2 — Content
