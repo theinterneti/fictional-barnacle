@@ -2,7 +2,7 @@
 
 Transitions enforced:
   - ``created``/``active``  + 0 turns + age > 24 h  →  ``abandoned``
-  - ``paused``  + last_played > 30 days  →  ``expired``
+  - ``paused``  + paused_at older than 30 days  →  ``expired``
   - ``active``  + turn_count > 0 + idle > 30 min  →  ``paused``  (AC-1.7)
   - Anonymous players with no active games + 30 d old  →  soft-deleted
     (FR-11.12, FR-11.59)
@@ -63,13 +63,17 @@ async def run_lifecycle_pass(
         )
         abandoned = abandon_result.rowcount or 0
 
-        # Rule 2: paused + last_played > 30 days → expired
+        # Rule 2: paused + paused_at < cutoff (older than 30 days) → expired
+        # NULL fallback: pre-migration rows use last_played_at instead
         expire_result = await pg.execute(
             sa.text(
                 "UPDATE game_sessions "
                 "SET status = 'expired', updated_at = :now "
                 "WHERE status = 'paused' "
-                "AND last_played_at < :cutoff "
+                "AND ("
+                "paused_at < :cutoff "
+                "OR (paused_at IS NULL AND last_played_at < :cutoff)"
+                ") "
                 "AND deleted_at IS NULL"
             ),
             {"now": now, "cutoff": expire_cutoff},
@@ -80,7 +84,7 @@ async def run_lifecycle_pass(
         idle_result = await pg.execute(
             sa.text(
                 "UPDATE game_sessions "
-                "SET status = 'paused', updated_at = :now "
+                "SET status = 'paused', paused_at = :now, updated_at = :now "
                 "WHERE status = 'active' "
                 "AND turn_count > 0 "
                 "AND updated_at < :cutoff "

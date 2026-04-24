@@ -1,17 +1,14 @@
 """S11 Player Identity & Sessions — Acceptance Criteria compliance tests.
 
-Covers AC-11.01, AC-11.02, AC-11.04, AC-11.10, AC-11.12.
+Covers AC-11.01, AC-11.02, AC-11.04, AC-11.07, AC-11.10, AC-11.12, AC-11.14.
 
-v2 ACs (deferred):
+AC-11.05, AC-11.06, AC-11.08 covered in tests/unit/lifecycle/test_cleanup.py.
+
+Deferred ACs (require login endpoint or async jobs not yet implemented):
   AC-11.03 — Multi-device login (login endpoint deferred per S11 §14)
-  AC-11.05 — Paused game resumable at 29 days (background task + time)
-  AC-11.06 — Game expired after 31 days (background task + time)
-  AC-11.07 — Expired game resume with welcome back (background task)
-  AC-11.08 — Abandoned after 25 hours (background task + time)
   AC-11.09 — Login lockout (login endpoint deferred per S11 §14)
   AC-11.11 — Deleted player cannot login (login endpoint deferred per S11 §14)
   AC-11.13 — Data not retrievable within 72h (async deletion job)
-  AC-11.14 — Deleted player_id not reassignable (DB constraint only)
 """
 
 from __future__ import annotations
@@ -618,3 +615,246 @@ class TestAC1112NoPasswordInResponses:
             f"AC-11.12: refresh expected 200, got {resp.status_code}: {resp.text}"
         )
         self._assert_no_password_fields(resp.json(), "/api/v1/auth/refresh")
+
+
+# ---------------------------------------------------------------------------
+# AC-11.07: Expired game can be resumed
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-11.07")
+class TestAC1107ExpiredGameCanBeResumed:
+    """AC-11.07: POST /games/{id}/resume allows expired status → active."""
+
+    def test_resume_endpoint_accepts_expired_status(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-11.07: Resume endpoint accepts game in 'expired' status."""
+        execute_calls: list[Any] = []
+
+        async def track_execute(stmt: Any, params: Any = None) -> MagicMock:
+            call_idx = len(execute_calls)
+            execute_calls.append(
+                (str(stmt) if hasattr(stmt, "__str__") else "", params)
+            )
+            if call_idx == 0:
+                # _get_owned_game: game in 'expired' status
+                return _make_result(
+                    [
+                        _game_row(
+                            status="expired",
+                            turn_count=2,
+                            summary="Test summary",
+                            needs_recovery=False,
+                        )
+                    ]
+                )
+            elif call_idx == 1:
+                # Advisory lock result
+                return _make_result()
+            elif call_idx == 2:
+                # Check for in-flight processing
+                return _make_result()
+            elif call_idx == 3:
+                # Get turn count for context
+                return _make_result(scalar=2)
+            elif call_idx == 4:
+                # Get recent turns for context
+                return _make_result([])
+            elif call_idx == 5:
+                # UPDATE game_sessions status to active
+                result = MagicMock()
+                result.rowcount = 1
+                return result
+            elif call_idx == 6:
+                # UPDATE game_sessions last_played_at
+                result = MagicMock()
+                result.rowcount = 1
+                return result
+            # Catch-all for other queries
+            result = MagicMock()
+            result.scalar_one.return_value = None
+            result.one_or_none.return_value = None
+            return result
+
+        pg.execute = track_execute
+        pg.commit = AsyncMock()
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/resume",
+        )
+
+        assert resp.status_code in (200, 202), (
+            f"AC-11.07: resume expired game expected 2xx, "
+            f"got {resp.status_code}: {resp.text}"
+        )
+        data = resp.json()["data"]
+        assert data["status"] == "active", (
+            "AC-11.07: expired game status should transition to 'active' upon resume"
+        )
+        assert data["recap"] and "welcome back" in data["recap"].lower(), (
+            "AC-11.07: expired game resume must include 'welcome back' narrative"
+        )
+
+    def test_resume_expired_no_summary_still_emits_welcome_back(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-11.07: Welcome-back is emitted even when game has no summary/recap."""
+        execute_calls: list[Any] = []
+
+        async def track_execute(stmt: Any, params: Any = None) -> MagicMock:
+            call_idx = len(execute_calls)
+            execute_calls.append(
+                (str(stmt) if hasattr(stmt, "__str__") else "", params)
+            )
+            if call_idx == 0:
+                # _get_owned_game: game in 'expired' status, no summary, 0 turns
+                return _make_result(
+                    [
+                        _game_row(
+                            status="expired",
+                            turn_count=0,
+                            summary=None,
+                            world_seed="{}",
+                            needs_recovery=False,
+                        )
+                    ]
+                )
+            elif call_idx == 1:
+                return _make_result()  # Advisory lock
+            elif call_idx == 2:
+                return _make_result()  # In-flight check
+            elif call_idx == 3:
+                return _make_result(scalar=0)  # Turn count
+            elif call_idx == 4:
+                return _make_result([])  # Recent turns
+            elif call_idx == 5:
+                result = MagicMock()
+                result.rowcount = 1
+                return result  # UPDATE status to active
+            elif call_idx == 6:
+                result = MagicMock()
+                result.rowcount = 1
+                return result  # UPDATE last_played_at
+            result = MagicMock()
+            result.scalar_one.return_value = None
+            result.one_or_none.return_value = None
+            return result
+
+        pg.execute = track_execute
+        pg.commit = AsyncMock()
+
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/resume",
+        )
+
+        assert resp.status_code in (200, 202), (
+            f"AC-11.07: resume expired game (no summary) expected 2xx, "
+            f"got {resp.status_code}: {resp.text}"
+        )
+        data = resp.json()["data"]
+        assert data["status"] == "active", (
+            "AC-11.07: expired game status should transition to 'active' upon resume"
+        )
+        assert data["recap"] and "welcome back" in data["recap"].lower(), (
+            "AC-11.07: expired game resume must include 'welcome back' narrative "
+            "even when no summary/genesis intro exists"
+        )
+
+
+# ---------------------------------------------------------------------------
+# AC-11.14 — Deleted player_id cannot be reassigned
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-11.14")
+class TestAC1114PlayerIdNotReassignable:
+    """AC-11.14: The deleted player's player_id cannot be reassigned to a new player.
+
+    The invariant is enforced by two complementary mechanisms:
+    1. ``players.id`` is a UUID PRIMARY KEY — the DB rejects any INSERT that reuses
+       an existing UUID while the row exists.
+    2. New player creation always generates a fresh ``uuid4()`` — client-supplied IDs
+       are never accepted, making accidental reuse negligible (~1 in 2^122 chance).
+
+    Note: the async GDPR purge job performs a hard ``DELETE FROM players`` 72 h after
+    a deletion request (S17 compliance).  After that point, the PK constraint no longer
+    applies, but uuid4() randomness provides the practical reassignment barrier.
+    """
+
+    def test_players_table_primary_key_in_migration(self) -> None:
+        """players.id is the PRIMARY KEY in the initial migration DDL.
+
+        Confirms the DB-level ``PRIMARY KEY (id)`` constraint that prevents any two
+        players from sharing the same UUID while their rows coexist in the table.
+        """
+        migration_path = "migrations/postgres/versions/001_initial_schema.py"
+        with open(migration_path) as f:
+            src = f.read()
+
+        players_start = src.index('"players"')
+        next_create = src.find("op.create_table", players_start + 1)
+        players_block = src[players_start:next_create]
+
+        assert 'PrimaryKeyConstraint("id")' in players_block, (
+            "AC-11.14: players table must have PrimaryKeyConstraint on 'id' "
+            "to prevent UUID reassignment at the DB level"
+        )
+
+    def test_immediate_deletion_route_is_soft_delete(self) -> None:
+        """DELETE /me (the synchronous deletion path) marks the player as
+        'pending_deletion' and does NOT hard-delete the row.
+
+        The asynchronous GDPR purge job performs the eventual hard delete
+        (S17 FR-17.10); that job is intentional and separate from this check.
+        This test verifies the immediate-deletion route preserves the player row
+        so that the UUID is not freed before the GDPR purge window.
+        """
+        route_path = "src/tta/api/routes/players.py"
+        with open(route_path) as f:
+            src = f.read()
+
+        assert "pending_deletion" in src, (
+            "AC-11.14: DELETE /me must set status='pending_deletion' "
+            "(soft delete) to retain the UUID row in the DB during the GDPR window"
+        )
+
+        # The route file itself must not issue a hard DELETE on the players table
+        # (the hard delete belongs exclusively to the async GDPR purge job)
+        import re
+
+        hard_deletes = re.findall(r"DELETE\s+FROM\s+players", src, re.IGNORECASE)
+        assert not hard_deletes, (
+            "AC-11.14: the synchronous DELETE /me route must not issue "
+            "DELETE FROM players — hard deletion must go through the async GDPR job"
+        )
+
+    def test_new_player_id_generated_by_uuid4(self) -> None:
+        """Player registration always generates a fresh uuid4() — callers cannot
+        supply a pre-existing id.
+
+        Verifies that ``register_player`` uses ``uuid4()`` to create the player_id,
+        making accidental collision with a previously-used (even hard-deleted) UUID
+        negligible in practice.
+        """
+        route_path = "src/tta/api/routes/players.py"
+        with open(route_path) as f:
+            src = f.read()
+
+        # The register_player function must use uuid4() to generate the player id
+        assert "player_id = uuid4()" in src, (
+            "AC-11.14: player registration must generate player_id via uuid4() "
+            "— client-supplied IDs are not accepted, preventing intentional reuse"
+        )
+
+    def test_player_model_id_is_uuid(self) -> None:
+        """Player.id is UUID; two freshly constructed instances have distinct ids."""
+        from uuid import UUID
+
+        from tta.models.player import Player
+
+        p1 = Player(handle="player-one")
+        p2 = Player(handle="player-two")
+
+        assert isinstance(p1.id, UUID), "AC-11.14: Player.id must be a UUID instance"
+        assert p1.id != p2.id, "AC-11.14: Each new Player must receive a unique UUID"

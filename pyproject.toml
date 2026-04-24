@@ -49,6 +49,7 @@ dev = [
     "ruff>=0.8",
     "pyright>=1.1",
     "locust>=2.0",
+    "openapi-spec-validator>=0.7.2",
 ]
 
 [tool.hatch.build.targets.wheel]

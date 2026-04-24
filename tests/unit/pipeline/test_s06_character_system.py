@@ -68,6 +68,8 @@ def _make_turn_state(**overrides):
 class TestCharacterDisplay:
     """Item 1: _build_character_response shows all available fields."""
 
+    pytestmark = [pytest.mark.spec("AC-06.01")]
+
     def test_all_fields_shown(self):
         from tta.api.routes.games import _build_character_response
 
@@ -117,6 +119,8 @@ class TestCharacterDisplay:
 class TestNPCDialogueSalience:
     """Item 2: NPC section rendered in generation prompt."""
 
+    pytestmark = [pytest.mark.spec("AC-06.05")]
+
     def test_npc_section_rendered(self):
         npc = {
             "npc_name": "Elder Mirren",
@@ -163,6 +167,8 @@ class TestNPCDialogueSalience:
 
 class TestCompanionPresence:
     """Item 3: Companion identification and generation injection."""
+
+    pytestmark = [pytest.mark.spec("AC-06.07")]
 
     def test_companion_injected_when_eligible(self):
         wc = {
@@ -221,6 +227,8 @@ class TestCompanionPresence:
 class TestRevealedGoalInfluence:
     """Item 4: Goals injected in NPC section when present."""
 
+    pytestmark = [pytest.mark.spec("AC-06.06")]
+
     def test_goals_injected_when_present(self):
         npc = {
             "npc_name": "Sage",
@@ -246,6 +254,8 @@ class TestRevealedGoalInfluence:
 
 class TestRuntimeRelationships:
     """Item 5: /relationships with runtime dimensions."""
+
+    pytestmark = [pytest.mark.spec("AC-06.03")]
 
     @pytest.mark.anyio
     async def test_runtime_dimensions_shown(self):

@@ -1,18 +1,16 @@
 """S10 API & Streaming — Acceptance Criteria compliance tests.
 
-Covers AC-10.01, AC-10.03, AC-10.07, AC-10.09, AC-10.10, AC-10.11, AC-10.12.
+Covers AC-10.01, AC-10.02, AC-10.03, AC-10.06, AC-10.07, AC-10.08, AC-10.09,
+AC-10.10, AC-10.11, AC-10.12, AC-10.13.
 Also covers S10 §6.2/§6.4/§6.5 canonical event taxonomy:
   FR-10.34 — narrative events with 0-indexed sequence per chunk
   FR-10.35 — narrative_end.total_chunks == number of narrative events
   FR-10.36 — error event on failure includes turn_id; stream continues (returns)
   FR-10.38 — heartbeat event (not keepalive) used for idle connections
 
-v2 ACs (deferred, require integration infra):
-  AC-10.02 — OpenAPI spec validation (openapi-spec-validator tooling)
+Unit-only ACs (require integration infra for full validation):
   AC-10.04 — SSE chunk delivery within 2 s (real-time timing, integration only)
-  AC-10.05 — Reconnect / missed events within 30 s (Redis pub/sub)
-  AC-10.06 — Keepalive heartbeats every 15 s (SSE middleware, integration only)
-  AC-10.08 — Rate-limit headers on every authenticated response (middleware)
+  AC-10.05 — Reconnect / missed events within 30 s (Redis pub/sub, integration only)
 """
 
 from __future__ import annotations
@@ -883,8 +881,13 @@ class TestS10FR1036ErrorEventTurnId:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.06")
 class TestS10FR1038HeartbeatEvent:
-    """FR-10.38: SSE stream uses 'heartbeat' event type (not legacy 'keepalive')."""
+    """FR-10.38: SSE stream uses 'heartbeat' event type (not legacy 'keepalive').
+
+    Covers the unit-testable portion of AC-10.06 (heartbeat format and emission).
+    The 15-second timing SLA requires integration tests and is deferred.
+    """
 
     def test_heartbeat_event_model_type(self) -> None:
         """HeartbeatEvent serialises with event_type 'heartbeat'."""
@@ -978,3 +981,84 @@ class TestS10FR1038HeartbeatEvent:
 
         assert "event: heartbeat\n" in body
         assert "event: keepalive" not in body
+
+
+# ---------------------------------------------------------------------------
+# AC-10.13: Empty / whitespace-only turn input → 400 input_invalid
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-10.13")
+class TestAC1013EmptyTurnInput:
+    """AC-10.13: Submitting empty or whitespace-only input returns 400 input_invalid."""
+
+    @pytest.mark.parametrize("bad_input", ["", "   ", "\t", "\n"])
+    def test_empty_or_whitespace_returns_400(
+        self, bad_input: str, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-10.13: Empty or whitespace-only input → 400 with EMPTY_TURN_INPUT code."""
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row()]),  # _get_owned_game
+                _make_result(),  # advisory lock
+                _make_result(),  # in-flight check
+            ]
+        )
+        pg.commit = AsyncMock()
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": bad_input},
+        )
+        assert resp.status_code == 400
+        assert resp.json()["error"]["code"] == "EMPTY_TURN_INPUT"
+
+
+@pytest.mark.spec("AC-10.02")
+class TestAC1002OpenAPIValidity:
+    """AC-10.02: The app's OpenAPI spec validates against the OpenAPI 3.x schema."""
+
+    def test_openapi_spec_is_valid(self) -> None:
+        """Fetch /openapi.json and validate with openapi-spec-validator."""
+        from openapi_spec_validator import validate
+
+        application = create_app(_settings())
+        with TestClient(application) as c:
+            resp = c.get("/openapi.json")
+        assert resp.status_code == 200
+        spec = resp.json()
+        # validate() raises if the spec is invalid
+        validate(spec)
+
+
+# ---------------------------------------------------------------------------
+# AC-10.08: Rate-limit headers present on responses
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-10.08")
+class TestAC1008RateLimitHeaders:
+    """AC-10.08: Server includes X-RateLimit-* headers on API responses."""
+
+    def test_rate_limit_headers_present_on_game_get(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-10.08: GET /api/v1/games/{id} includes rate-limit headers."""
+        pg.execute = AsyncMock(return_value=_make_result())
+        resp = client.get(f"/api/v1/games/{uuid4()}")
+        assert "x-ratelimit-limit" in resp.headers
+        assert "x-ratelimit-remaining" in resp.headers
+        assert "x-ratelimit-reset" in resp.headers
+
+    def test_rate_limit_headers_values_are_valid(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-10.08: Rate-limit header values are valid integers."""
+        pg.execute = AsyncMock(return_value=_make_result())
+        resp = client.get(f"/api/v1/games/{uuid4()}")
+        limit = int(resp.headers.get("x-ratelimit-limit", 0))
+        remaining = int(resp.headers.get("x-ratelimit-remaining", 0))
+        reset_at = int(resp.headers.get("x-ratelimit-reset", 0))
+
+        assert limit > 0
+        assert remaining >= 0
+        assert reset_at > 0

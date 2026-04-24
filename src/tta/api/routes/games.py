@@ -1949,6 +1949,7 @@ async def resume_game(
         )
 
     recovery_warning: str | None = None
+    previous_status = row.status  # AC-11.07: capture for welcome back narrative
 
     # FR-27.15: attempt recovery if previous save failed
     if row.needs_recovery:
@@ -2039,6 +2040,13 @@ async def resume_game(
             if intro:
                 recap = str(intro)
 
+    # AC-11.07: Always emit welcome-back narrative for expired game resumes
+    if previous_status == "expired":
+        if recap:
+            recap = f"Welcome back! It's been a while. {recap}"
+        else:
+            recap = "Welcome back! It's been a while."
+
     # Use actual timestamps — only reflect `now` when we updated.
     resp_updated = now.isoformat() if status_updated else row.updated_at.isoformat()
     resp_last_played = (
@@ -2085,13 +2093,22 @@ async def update_game(
         )
 
     now = datetime.now(UTC)
-    await pg.execute(
-        sa.text(
-            "UPDATE game_sessions SET status = :status, "
-            "updated_at = :now WHERE id = :id"
-        ),
-        {"id": game_id, "status": body.status, "now": now},
-    )
+    if body.status == "paused":
+        await pg.execute(
+            sa.text(
+                "UPDATE game_sessions SET status = :status, "
+                "paused_at = :now, updated_at = :now WHERE id = :id"
+            ),
+            {"id": game_id, "status": body.status, "now": now},
+        )
+    else:
+        await pg.execute(
+            sa.text(
+                "UPDATE game_sessions SET status = :status, "
+                "updated_at = :now WHERE id = :id"
+            ),
+            {"id": game_id, "status": body.status, "now": now},
+        )
     await pg.commit()
 
     turn_count = await _get_turn_count(pg, game_id)
