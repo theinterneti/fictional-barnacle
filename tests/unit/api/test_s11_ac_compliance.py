@@ -758,3 +758,101 @@ class TestAC1107ExpiredGameCanBeResumed:
             "AC-11.07: expired game resume must include 'welcome back' narrative "
             "even when no summary/genesis intro exists"
         )
+
+
+# ---------------------------------------------------------------------------
+# AC-11.14 — Deleted player_id cannot be reassigned
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-11.14")
+class TestAC1114PlayerIdNotReassignable:
+    """AC-11.14: The deleted player's player_id cannot be reassigned to a new player.
+
+    The invariant is enforced by two complementary mechanisms:
+    1. ``players.id`` is a UUID PRIMARY KEY — the DB rejects any INSERT that reuses
+       an existing UUID while the row exists.
+    2. New player creation always generates a fresh ``uuid4()`` — client-supplied IDs
+       are never accepted, making accidental reuse negligible (~1 in 2^122 chance).
+
+    Note: the async GDPR purge job performs a hard ``DELETE FROM players`` 72 h after
+    a deletion request (S17 compliance).  After that point, the PK constraint no longer
+    applies, but uuid4() randomness provides the practical reassignment barrier.
+    """
+
+    def test_players_table_primary_key_in_migration(self) -> None:
+        """players.id is the PRIMARY KEY in the initial migration DDL.
+
+        Confirms the DB-level ``PRIMARY KEY (id)`` constraint that prevents any two
+        players from sharing the same UUID while their rows coexist in the table.
+        """
+        migration_path = "migrations/postgres/versions/001_initial_schema.py"
+        with open(migration_path) as f:
+            src = f.read()
+
+        players_start = src.index('"players"')
+        next_create = src.find("op.create_table", players_start + 1)
+        players_block = src[players_start:next_create]
+
+        assert 'PrimaryKeyConstraint("id")' in players_block, (
+            "AC-11.14: players table must have PrimaryKeyConstraint on 'id' "
+            "to prevent UUID reassignment at the DB level"
+        )
+
+    def test_immediate_deletion_route_is_soft_delete(self) -> None:
+        """DELETE /me (the synchronous deletion path) marks the player as
+        'pending_deletion' and does NOT hard-delete the row.
+
+        The asynchronous GDPR purge job performs the eventual hard delete
+        (S17 FR-17.10); that job is intentional and separate from this check.
+        This test verifies the immediate-deletion route preserves the player row
+        so that the UUID is not freed before the GDPR purge window.
+        """
+        route_path = "src/tta/api/routes/players.py"
+        with open(route_path) as f:
+            src = f.read()
+
+        assert "pending_deletion" in src, (
+            "AC-11.14: DELETE /me must set status='pending_deletion' "
+            "(soft delete) to retain the UUID row in the DB during the GDPR window"
+        )
+
+        # The route file itself must not issue a hard DELETE on the players table
+        # (the hard delete belongs exclusively to the async GDPR purge job)
+        import re
+
+        hard_deletes = re.findall(r"DELETE\s+FROM\s+players", src, re.IGNORECASE)
+        assert not hard_deletes, (
+            "AC-11.14: the synchronous DELETE /me route must not issue "
+            "DELETE FROM players — hard deletion must go through the async GDPR job"
+        )
+
+    def test_new_player_id_generated_by_uuid4(self) -> None:
+        """Player registration always generates a fresh uuid4() — callers cannot
+        supply a pre-existing id.
+
+        Verifies that ``register_player`` uses ``uuid4()`` to create the player_id,
+        making accidental collision with a previously-used (even hard-deleted) UUID
+        negligible in practice.
+        """
+        route_path = "src/tta/api/routes/players.py"
+        with open(route_path) as f:
+            src = f.read()
+
+        # The register_player function must use uuid4() to generate the player id
+        assert "player_id = uuid4()" in src, (
+            "AC-11.14: player registration must generate player_id via uuid4() "
+            "— client-supplied IDs are not accepted, preventing intentional reuse"
+        )
+
+    def test_player_model_id_is_uuid(self) -> None:
+        """Player.id is a UUID field; two freshly constructed instances have distinct ids."""
+        from uuid import UUID
+
+        from tta.models.player import Player
+
+        p1 = Player(handle="player-one")
+        p2 = Player(handle="player-two")
+
+        assert isinstance(p1.id, UUID), "AC-11.14: Player.id must be a UUID instance"
+        assert p1.id != p2.id, "AC-11.14: Each new Player must receive a unique UUID"
