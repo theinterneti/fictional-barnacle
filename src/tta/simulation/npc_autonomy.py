@@ -114,6 +114,13 @@ class DefaultAutonomyProcessor:
         self.budget_ms = budget_ms
         self.max_llm_npcs = max_llm_npcs
         self.llm = llm
+        # AC-35.06: tracks (universe_id, npc_id, step_idx, trigger, condition_label)
+        # tuples for non-repeating steps that have already fired. Stored on the
+        # processor (not the NPC payload) because npcs_present dicts are
+        # rebuilt each turn from NPC.model_dump() in tta.world.state.
+        self._fired_non_repeating_steps: set[
+            tuple[str | None, str, int, str, str | None]
+        ] = set()
 
     # ------------------------------------------------------------------
     # Public API
@@ -244,7 +251,7 @@ class DefaultAutonomyProcessor:
         events: list[WorldEvent] = []
 
         # --- Phase 1: evaluate RoutineStep triggers (AC-35.03) ---
-        for step in routine:
+        for step_idx, step in enumerate(routine):
             if not isinstance(step, RoutineStep):
                 continue
 
@@ -265,6 +272,24 @@ class DefaultAutonomyProcessor:
 
             if not matched:
                 continue
+
+            # AC-35.06: skip non-repeating steps that have already fired.
+            # Tracked on the processor, not the NPC payload, because
+            # npcs_present dicts are rebuilt each turn from NPC.model_dump()
+            # (see tta.world.state.get_full_context). Keying by npc_id +
+            # step index + trigger + condition survives the dict rebuild and
+            # keeps the NPC payload JSON-serializable for prompt assembly.
+            if not step.repeating:
+                step_signature = (
+                    universe_id,
+                    npc_id,
+                    step_idx,
+                    trigger,
+                    step.condition.label if step.condition is not None else None,
+                )
+                if step_signature in self._fired_non_repeating_steps:
+                    continue
+                self._fired_non_repeating_steps.add(step_signature)
 
             action = step.action
             if isinstance(action, StateChangeAction):

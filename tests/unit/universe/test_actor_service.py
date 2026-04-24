@@ -275,3 +275,33 @@ async def test_upsert_updates_specified_fields() -> None:
     assert isinstance(state, CharacterState)
     # Verify UPDATE was issued (3 calls: initial SELECT, UPDATE, re-fetch SELECT)
     assert pg.execute.call_count == 3
+
+
+# ===========================================================================
+# AC-31.06 — Deleting an actor cascades to all its CharacterStates
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-31.06")
+def test_character_states_have_on_delete_cascade_to_actors() -> None:
+    """Migration 011 defines ON DELETE CASCADE from character_states to actors."""
+    import pathlib
+    import re
+
+    migration = (
+        pathlib.Path(__file__).parents[3]
+        / "migrations"
+        / "postgres"
+        / "versions"
+        / "011_v2_universe_entity.py"
+    )
+    text = migration.read_text()
+    # Find the FK block for character_states referencing actors
+    # The pattern is: character_states has actor_id FK → actors with CASCADE
+    pattern = re.compile(
+        r"character_states.*?actor_id.*?CASCADE", re.DOTALL | re.IGNORECASE
+    )
+    assert pattern.search(text), (
+        "character_states must have ON DELETE CASCADE to actors "
+        "so deleting an actor removes all its character states"
+    )

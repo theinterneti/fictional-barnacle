@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import pytest
+
 from tta.models.turn import ParsedIntent, TurnState
 from tta.models.world import (
     TemplateConnection,
@@ -342,3 +344,150 @@ async def test_fallback_on_world_service_error() -> None:
     assert result.context_partial is True
     assert result.world_context is not None
     assert "game_state" in result.world_context
+
+
+# ===========================================================================
+# AC-35.05 — Autonomous NPC changes injected into world_context
+# AC-36.06 — Propagated consequences injected into world_context
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-35.05")
+@pytest.mark.asyncio
+async def test_autonomous_changes_injected_into_world_context() -> None:
+    """When autonomy_processor + world_time_service present, world_context gains
+    autonomous_changes."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from tta.simulation.types import (
+        NPCStateChange,
+        WorldDelta,
+        WorldTime,
+    )
+
+    universe_id = str(uuid4())
+    wt = WorldTime(
+        total_ticks=5, day_count=0, hour=8, minute=0, time_of_day_label="morning"
+    )
+    empty_delta = WorldDelta(from_tick=5, to_tick=6, world_time=wt, was_capped=False)
+    change_delta = WorldDelta(
+        from_tick=5,
+        to_tick=6,
+        world_time=wt,
+        was_capped=False,
+        changes=[
+            NPCStateChange(
+                npc_id="npc-01",
+                action_type="state_change",
+                before={"state": "idle"},
+                after={"state": "working"},
+            )
+        ],
+        events=[],
+    )
+
+    world_time_service = MagicMock()
+    world_time_service.tick.return_value = empty_delta
+
+    autonomy_processor = MagicMock()
+    autonomy_processor.process.return_value = change_delta
+
+    deps = _make_deps()
+    deps = PipelineDeps(
+        llm=deps.llm,
+        world=deps.world,
+        session_repo=deps.session_repo,
+        turn_repo=deps.turn_repo,
+        safety_pre_input=deps.safety_pre_input,
+        safety_pre_gen=deps.safety_pre_gen,
+        safety_post_gen=deps.safety_post_gen,
+        world_time_service=world_time_service,
+        autonomy_processor=autonomy_processor,
+    )
+
+    state = _make_state(game_state={"location": "tavern", "universe_id": universe_id})
+    result_state = await context_stage(state, deps)
+    world_context = result_state.world_context or {}
+
+    assert "autonomous_changes" in world_context, (
+        "world_context must contain 'autonomous_changes' "
+        "when autonomy_processor is active"
+    )
+    assert len(world_context["autonomous_changes"]) == 1
+    assert world_context["autonomous_changes"][0]["npc_id"] == "npc-01"
+
+
+@pytest.mark.spec("AC-36.06")
+@pytest.mark.asyncio
+async def test_propagated_consequences_injected_into_world_context() -> None:
+    """When consequence_propagator is present and events fire, world_context gains
+    propagated_consequences."""
+    from datetime import UTC, datetime
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from tta.simulation.types import (
+        PropagationResult,
+        WorldDelta,
+        WorldEvent,
+        WorldTime,
+    )
+
+    universe_id = str(uuid4())
+    wt = WorldTime(
+        total_ticks=5, day_count=0, hour=8, minute=0, time_of_day_label="morning"
+    )
+    event = WorldEvent(
+        event_id="evt-01",
+        universe_id=universe_id,
+        event_type="narrative",
+        description="A fire breaks out",
+        severity="critical",
+        triggered_at_tick=5,
+        created_at=datetime.now(UTC),
+    )
+    autonomy_delta_with_events = WorldDelta(
+        from_tick=5, to_tick=6, world_time=wt, was_capped=False, events=[event]
+    )
+    tick_delta = WorldDelta(from_tick=5, to_tick=6, world_time=wt, was_capped=False)
+
+    world_time_service = MagicMock()
+    world_time_service.tick.return_value = tick_delta
+
+    autonomy_processor = MagicMock()
+    autonomy_processor.process.return_value = autonomy_delta_with_events
+
+    consequence_propagator = AsyncMock()
+    consequence_propagator.propagate.return_value = [
+        PropagationResult(
+            source_event_id="evt-01", total_records=2, propagation_depth_reached=1
+        )
+    ]
+
+    deps = _make_deps()
+    deps = PipelineDeps(
+        llm=deps.llm,
+        world=deps.world,
+        session_repo=deps.session_repo,
+        turn_repo=deps.turn_repo,
+        safety_pre_input=deps.safety_pre_input,
+        safety_pre_gen=deps.safety_pre_gen,
+        safety_post_gen=deps.safety_post_gen,
+        world_time_service=world_time_service,
+        autonomy_processor=autonomy_processor,
+        consequence_propagator=consequence_propagator,
+    )
+
+    state = _make_state(game_state={"location": "tavern", "universe_id": universe_id})
+    result_state = await context_stage(state, deps)
+    world_context = result_state.world_context or {}
+
+    assert "propagated_consequences" in world_context, (
+        "world_context must contain 'propagated_consequences' "
+        "when consequence_propagator is active"
+    )
+    assert len(world_context["propagated_consequences"]) == 1
+    result = world_context["propagated_consequences"][0]
+    assert result["source_event_id"] == "evt-01"
+    assert result["total_records"] == 2

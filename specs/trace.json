@@ -1,11 +1,11 @@
 {
-  "generated": "2026-04-24T16:28:40.896561+00:00",
+  "generated": "2026-04-24T18:10:32.852589+00:00",
   "total_acs": 415,
   "stub_acs": 0,
-  "covered_acs": 282,
-  "uncovered_acs": 133,
+  "covered_acs": 302,
+  "uncovered_acs": 113,
   "orphan_citations": 0,
-  "coverage_pct": 68.0,
+  "coverage_pct": 72.8,
   "matrix": {
     "AC-01.01": [],
     "AC-01.02": [
@@ -959,8 +959,12 @@
     "AC-29.03": [
       "tests/unit/universe/test_models.py::test_universe_has_required_fields"
     ],
-    "AC-29.04": [],
-    "AC-29.05": [],
+    "AC-29.04": [
+      "tests/unit/universe/test_service.py::test_character_state_requires_universe_id"
+    ],
+    "AC-29.05": [
+      "tests/unit/universe/test_service.py::test_character_states_in_different_universes_are_isolated"
+    ],
     "AC-29.06": [
       "tests/unit/universe/test_service.py::test_activate_transitions_dormant_to_active",
       "tests/unit/universe/test_service.py::test_pause_transitions_active_to_paused"
@@ -981,27 +985,49 @@
     "AC-29.09": [
       "tests/unit/universe/test_service.py::test_activate_raises_when_already_in_active_session"
     ],
-    "AC-29.10": [],
-    "AC-29.11": [],
+    "AC-29.10": [
+      "tests/unit/universe/test_service.py::test_game_sessions_universe_id_has_no_unique_constraint"
+    ],
+    "AC-29.11": [
+      "tests/unit/universe/test_service.py::test_universe_config_unchanged_after_activation"
+    ],
     "AC-29.12": [
       "tests/unit/universe/test_service.py::test_list_for_player_no_filter",
       "tests/unit/universe/test_service.py::test_list_for_player_with_status_filter"
     ],
-    "AC-29.13": [],
-    "AC-30.01": [],
-    "AC-30.02": [],
+    "AC-29.13": [
+      "tests/unit/universe/test_service.py::test_get_character_state_queries_by_universe_id"
+    ],
+    "AC-30.01": [
+      "tests/unit/universe/test_s30_session_universe_binding.py::test_dormant_universe_can_be_activated"
+    ],
+    "AC-30.02": [
+      "tests/unit/universe/test_s30_session_universe_binding.py::test_paused_universe_can_be_activated_resume"
+    ],
     "AC-30.03": [
       "tests/unit/universe/test_models.py::test_game_session_actors_defaults_to_empty_list"
     ],
-    "AC-30.04": [],
-    "AC-30.05": [],
-    "AC-30.06": [],
+    "AC-30.04": [
+      "tests/unit/universe/test_s30_session_universe_binding.py::test_archived_universe_cannot_be_activated"
+    ],
+    "AC-30.05": [
+      "tests/unit/universe/test_s30_session_universe_binding.py::test_universe_id_column_has_no_update_path_in_service"
+    ],
+    "AC-30.06": [
+      "tests/unit/universe/test_s30_session_universe_binding.py::test_migration_backfills_one_actor_per_player"
+    ],
     "AC-30.07": [
       "tests/unit/universe/test_models.py::test_game_session_actors_accepts_multiple_uuids"
     ],
-    "AC-30.08": [],
-    "AC-30.09": [],
-    "AC-30.10": [],
+    "AC-30.08": [
+      "tests/unit/universe/test_s30_session_universe_binding.py::test_pause_called_on_session_end"
+    ],
+    "AC-30.09": [
+      "tests/unit/universe/test_s30_session_universe_binding.py::test_active_universe_is_not_paused_on_game_save"
+    ],
+    "AC-30.10": [
+      "tests/unit/universe/test_s30_session_universe_binding.py::test_second_activation_raises_already_active"
+    ],
     "AC-31.01": [
       "tests/unit/universe/test_actor_service.py::test_get_or_create_returns_existing_actor",
       "tests/unit/universe/test_actor_service.py::test_get_or_create_inserts_when_absent",
@@ -1025,7 +1051,9 @@
     "AC-31.05": [
       "tests/unit/universe/test_actor_service.py::test_get_or_create_returns_existing_state"
     ],
-    "AC-31.06": [],
+    "AC-31.06": [
+      "tests/unit/universe/test_actor_service.py::test_character_states_have_on_delete_cascade_to_actors"
+    ],
     "AC-31.07": [
       "tests/unit/universe/test_actor_service.py::test_upsert_raises_when_state_absent",
       "tests/unit/universe/test_actor_service.py::test_upsert_updates_specified_fields"
@@ -1076,7 +1104,9 @@
     "AC-33.02": [
       "tests/unit/test_migration_011.py::test_backfill_inserts_actors_from_players"
     ],
-    "AC-33.03": [],
+    "AC-33.03": [
+      "tests/unit/test_migration_011.py::test_migration_backfills_game_sessions_universe_id"
+    ],
     "AC-33.04": [
       "tests/unit/test_migration_011.py::test_backfill_inserts_character_states"
     ],
@@ -1151,9 +1181,16 @@
     "AC-35.04": [
       "tests/unit/simulation/test_npc_autonomy.py::test_supporting_npc_in_salience_window_is_processed"
     ],
-    "AC-35.05": [],
-    "AC-35.06": [],
-    "AC-35.07": [],
+    "AC-35.05": [
+      "tests/unit/pipeline/test_context.py::test_autonomous_changes_injected_into_world_context"
+    ],
+    "AC-35.06": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_non_repeating_step_fires_only_once",
+      "tests/unit/simulation/test_npc_autonomy.py::test_repeating_step_fires_every_call"
+    ],
+    "AC-35.07": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_narrative_event_action_produces_world_event"
+    ],
     "AC-35.08": [
       "tests/unit/simulation/test_npc_autonomy.py::test_key_npc_never_deferred",
       "tests/unit/simulation/test_npc_autonomy.py::test_supporting_npc_deferred_when_budget_zero"
@@ -1207,12 +1244,17 @@
       "tests/unit/simulation/test_consequence.py::test_fidelity_hop3_uses_template",
       "tests/unit/simulation/test_consequence.py::test_fidelity_hop4_uses_template"
     ],
-    "AC-36.06": [],
+    "AC-36.06": [
+      "tests/unit/pipeline/test_context.py::test_propagated_consequences_injected_into_world_context"
+    ],
     "AC-36.07": [
       "tests/unit/simulation/test_consequence.py::test_max_depth_zero_treated_as_one",
       "tests/unit/simulation/test_consequence.py::test_max_depth_zero_still_propagates_to_hop1"
     ],
-    "AC-36.08": [],
+    "AC-36.08": [
+      "tests/unit/simulation/test_consequence.py::test_consequence_records_carry_universe_id",
+      "tests/unit/simulation/test_consequence.py::test_consequence_records_universe_id_matches_propagate_arg"
+    ],
     "AC-37.01": [
       "tests/unit/simulation/test_world_memory.py::test_record_returns_memory_record"
     ],

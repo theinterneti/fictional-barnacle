@@ -340,3 +340,183 @@ async def test_archive_from_paused_succeeds() -> None:
     svc = UniverseService()
     universe = await svc.archive(uid, pg)
     assert universe.status == "archived"
+
+
+# ===========================================================================
+# AC-29.04 — Entities cannot be created without a universe_id
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-29.04")
+def test_character_state_requires_universe_id() -> None:
+    """CharacterState.universe_id is a required UUID field; None is rejected."""
+    from pydantic import ValidationError
+
+    from tta.universe.models import CharacterState
+
+    with pytest.raises(ValidationError):
+        CharacterState(  # type: ignore[call-arg]
+            actor_id=uuid4(),
+            universe_id=None,
+        )
+
+
+# ===========================================================================
+# AC-29.05 — Entities across universes are isolated by universe_id
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-29.05")
+def test_character_states_in_different_universes_are_isolated() -> None:
+    """Character state isolation is enforced by a composite (actor_id, universe_id)."""
+    import pathlib
+    import re
+
+    from tta.universe.models import CharacterState
+
+    # Sanity: the model allows the same actor_id with different universe_ids.
+    actor_id = uuid4()
+    uid_a, uid_b = uuid4(), uuid4()
+    state_a = CharacterState(actor_id=actor_id, universe_id=uid_a)
+    state_b = CharacterState(actor_id=actor_id, universe_id=uid_b)
+    assert state_a.actor_id == state_b.actor_id
+    assert state_a.universe_id != state_b.universe_id
+
+    # The isolation mechanism lives in migration 011: character_states enforces
+    # a composite UNIQUE on (actor_id, universe_id), so each (actor, universe)
+    # pair has exactly one row — this is what makes cross-universe state
+    # isolation real rather than nominal.
+    migration = (
+        pathlib.Path(__file__).parents[3]
+        / "migrations"
+        / "postgres"
+        / "versions"
+        / "011_v2_universe_entity.py"
+    )
+    text = migration.read_text()
+
+    has_composite_unique = re.search(
+        r"UniqueConstraint\(\s*[\"']actor_id[\"']\s*,\s*[\"']universe_id[\"']",
+        text,
+    ) or re.search(
+        r"UniqueConstraint\(\s*[\"']universe_id[\"']\s*,\s*[\"']actor_id[\"']",
+        text,
+    )
+    assert has_composite_unique, (
+        "character_states must enforce a composite UNIQUE constraint on "
+        "(actor_id, universe_id) so actor state is isolated per universe"
+    )
+
+
+# ===========================================================================
+# AC-29.10 — Multiple game_sessions can reference the same universe_id
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-29.10")
+def test_game_sessions_universe_id_has_no_unique_constraint() -> None:
+    """game_sessions.universe_id must not be UNIQUE (many sessions per universe)."""
+    import pathlib
+    import re
+
+    migration = (
+        pathlib.Path(__file__).parents[3]
+        / "migrations"
+        / "postgres"
+        / "versions"
+        / "011_v2_universe_entity.py"
+    )
+    text = migration.read_text()
+    # Migration 011 uses Alembic / SQLAlchemy syntax (op.create_unique_constraint,
+    # sa.UniqueConstraint), not literal SQL UNIQUE tokens, so we look for those
+    # specific call forms referencing game_sessions + universe_id.
+    create_unique_constraint_match = re.search(
+        r"op\.create_unique_constraint\s*\("
+        r"(?:(?!\)).)*[\"']game_sessions[\"']"
+        r"(?:(?!\)).)*\[[^\]]*[\"']universe_id[\"'][^\]]*\]",
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    unique_constraint_match = re.search(
+        r"sa\.UniqueConstraint\s*\("
+        r"(?:(?!\)).)*[\"']universe_id[\"']"
+        r"(?:(?!\)).)*game_sessions",
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert create_unique_constraint_match is None and unique_constraint_match is None, (
+        "game_sessions.universe_id must not have a UNIQUE constraint; "
+        "multiple sessions can reference the same universe"
+    )
+
+
+# ===========================================================================
+# AC-29.11 — Universe config is preserved across lifecycle transitions
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-29.11")
+@pytest.mark.asyncio
+async def test_universe_config_unchanged_after_activation() -> None:
+    """activate() preserves universe.config from the stored row."""
+    uid = uuid4()
+    owner = uuid4()
+    config = {"theme": "arctic", "max_npcs": 10, "seed_key": "frozen-north"}
+
+    dormant_row = _make_universe_row(uid=uid, owner_id=owner, status="dormant")
+    dormant_row.config = config
+    active_row = _make_universe_row(uid=uid, owner_id=owner, status="active")
+    active_row.config = config
+
+    call_count = 0
+    pg = AsyncMock()
+
+    async def side_effect(query, params=None):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        result = MagicMock()
+        text = str(query)
+        if "FOR UPDATE" in text:
+            result.one_or_none.return_value = dormant_row
+        elif call_count >= 3:
+            result.one_or_none.return_value = active_row
+        else:
+            result.one_or_none.return_value = None
+        return result
+
+    pg.execute.side_effect = side_effect
+
+    svc = UniverseService()
+    universe = await svc.activate(uid, pg)
+    assert universe.config == config
+
+
+# ===========================================================================
+# AC-29.13 — Entities are queryable by universe_id
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-29.13")
+@pytest.mark.asyncio
+async def test_get_character_state_queries_by_universe_id() -> None:
+    """get_character_state(actor_id, universe_id) scopes the lookup by universe."""
+    from tta.universe.actor_service import ActorService
+
+    actor_id = uuid4()
+    universe_id = uuid4()
+
+    pg = AsyncMock()
+    result = MagicMock()
+    result.one_or_none.return_value = None
+    pg.execute.return_value = result
+
+    svc = ActorService()
+    state = await svc.get_character_state(actor_id, universe_id, pg)
+
+    # None is returned (no row), but the query WAS called with universe_id
+    assert state is None
+    call_args = pg.execute.call_args
+    params = (
+        call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("params", {})
+    )
+    assert params.get("uid") == universe_id

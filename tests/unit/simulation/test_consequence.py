@@ -330,3 +330,51 @@ async def test_max_depth_zero_still_propagates_to_hop1() -> None:
     # With effective max_depth=1, faction shortcut fires at hop 1
     assert results[0].propagation_depth_reached <= 1
     assert len(results[0].faction_records) == 1
+
+
+# ===========================================================================
+# AC-36.08 — Consequence records carry correct universe_id
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-36.08")
+@pytest.mark.asyncio
+async def test_consequence_records_carry_universe_id() -> None:
+    """ConsequenceRecord objects in the result have the correct universe_id."""
+    from tta.simulation.consequence import DefaultConsequencePropagator
+    from tta.simulation.types import ConsequenceRecord
+
+    prop = DefaultConsequencePropagator(max_depth=1)
+    source = _make_source(severity="critical", faction_id="faction-alpha")
+    results = await prop.propagate([source], _UNIVERSE_ID, _WORLD_TIME)
+
+    assert results, "Expected at least one PropagationResult"
+    result = results[0]
+
+    # Records are stored in faction_records or the generic records list
+    all_records = result.faction_records + result.records
+    assert all_records, "Expected ConsequenceRecord objects in result"
+
+    for record in all_records:
+        assert isinstance(record, ConsequenceRecord)
+        assert record.universe_id == _UNIVERSE_ID, (
+            f"ConsequenceRecord.universe_id must equal '{_UNIVERSE_ID}', "
+            f"got '{record.universe_id}'"
+        )
+
+
+@pytest.mark.spec("AC-36.08")
+@pytest.mark.asyncio
+async def test_consequence_records_universe_id_matches_propagate_arg() -> None:
+    """universe_id is taken from the propagate() argument, not from elsewhere."""
+    from tta.simulation.consequence import DefaultConsequencePropagator
+
+    prop = DefaultConsequencePropagator(max_depth=1)
+    custom_uid = "universe-custom-xyz"
+    source = _make_source(severity="major", faction_id="faction-beta")
+    results = await prop.propagate([source], custom_uid, _WORLD_TIME)
+
+    assert results
+    all_records = results[0].faction_records + results[0].records
+    for record in all_records:
+        assert record.universe_id == custom_uid
