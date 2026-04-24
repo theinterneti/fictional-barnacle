@@ -33,6 +33,8 @@ from tta.resilience.rate_limiter import (
 class TestInMemoryRateLimiter:
     """AC-25.1: Rate limit enforcement with sliding window."""
 
+    pytestmark = [pytest.mark.spec("AC-25.01")]
+
     @pytest.fixture
     def limiter(self) -> InMemoryRateLimiter:
         return InMemoryRateLimiter()
@@ -102,6 +104,8 @@ class TestInMemoryRateLimiter:
 class TestRedisRateLimiter:
     """Redis backend tests with mocked pipeline."""
 
+    pytestmark = [pytest.mark.spec("AC-25.01")]
+
     @pytest.fixture
     def mock_redis(self) -> MagicMock:
         redis = MagicMock()
@@ -149,6 +153,8 @@ class TestRedisRateLimiter:
 
 class TestEndpointClassification:
     """AC-25.3: Endpoint groups with correct rate limits."""
+
+    pytestmark = [pytest.mark.spec("AC-25.03")]
 
     def test_turns_endpoint(self) -> None:
         assert (
@@ -231,6 +237,8 @@ class TestRateLimitKey:
 class TestRateLimitHeaders:
     """AC-25.2: Response headers present on all responses."""
 
+    pytestmark = [pytest.mark.spec("AC-25.02")]
+
     def test_headers_from_result(self) -> None:
         result = RateLimitResult(
             allowed=True,
@@ -250,6 +258,8 @@ class TestRateLimitHeaders:
 
 class TestBuild429Response:
     """AC-25.4: 429 uses S23 error envelope with retry_after_seconds."""
+
+    pytestmark = [pytest.mark.spec("AC-25.04")]
 
     def test_envelope_format(self) -> None:
         result = RateLimitResult(
@@ -279,6 +289,8 @@ class TestBuild429Response:
 
 class TestRateLimitMiddleware:
     """End-to-end middleware tests via TestClient (AC-25.1, AC-25.2)."""
+
+    pytestmark = [pytest.mark.spec("AC-25.01"), pytest.mark.spec("AC-25.02")]
 
     @pytest.fixture
     def app(self) -> FastAPI:
@@ -393,6 +405,8 @@ class TestRateLimitMiddleware:
 
 class TestRateLimiterFallback:
     """AC-25.5: Falls back to in-memory when Redis is unavailable."""
+
+    pytestmark = [pytest.mark.spec("AC-25.05")]
 
     @pytest.fixture
     def app_no_limiter(self) -> FastAPI:

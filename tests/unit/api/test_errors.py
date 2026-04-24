@@ -115,6 +115,7 @@ class TestAppError:
         assert err.retry_after_seconds == 30
         assert err.status_code == 429
 
+    @pytest.mark.spec("AC-23.01")
     def test_category_to_status_mapping(self) -> None:
         """AC-23.1: Every error category maps to the correct HTTP status."""
         expected = {
@@ -134,6 +135,8 @@ class TestAppError:
 
 
 class TestAppErrorHandler:
+    pytestmark = [pytest.mark.spec("AC-23.01")]
+
     def test_returns_correct_status_and_envelope(self, client: TestClient) -> None:
         """AC-23.10: Standard error envelope shape."""
         resp = client.get("/app-error")
@@ -167,6 +170,8 @@ class TestAppErrorHandler:
 
 
 class TestValidationErrorHandler:
+    pytestmark = [pytest.mark.spec("AC-23.11")]
+
     def test_returns_422_with_envelope(self, client: TestClient) -> None:
         resp = client.post("/validation", json={"name": ""})
         assert resp.status_code == 422
@@ -204,8 +209,9 @@ class TestValidationErrorHandler:
 
 
 class TestUnhandledErrorHandler:
+    @pytest.mark.spec("AC-23.10")
     def test_returns_500_without_details(self, app: FastAPI) -> None:
-        """AC-23.11: No info leak for unhandled errors in production."""
+        """AC-23.10: No info leak for unhandled errors in production."""
         mock_settings = type("S", (), {"environment": Environment.PRODUCTION})()
         with (
             patch("tta.api.errors.get_settings", return_value=mock_settings),
@@ -233,6 +239,8 @@ class TestUnhandledErrorHandler:
 
 class TestStructuredErrorLogging:
     """AC-23.2: Error handlers emit structured log events with FR-23.06 fields."""
+
+    pytestmark = [pytest.mark.spec("AC-23.02")]
 
     def test_app_error_logs_structured_fields(
         self,

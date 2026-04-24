@@ -111,6 +111,8 @@ def _setup_active_game(pg: AsyncMock) -> None:
 
 
 class TestEmptyTurnInputValidation:
+    pytestmark = [pytest.mark.spec("AC-23.11")]
+
     def test_empty_string_returns_400_input_invalid(
         self, client: TestClient, pg: AsyncMock
     ) -> None:

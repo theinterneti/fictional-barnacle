@@ -3,11 +3,15 @@
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+import pytest
+
 from tta.moderation.flagging import SessionFlagTracker
 
 
 class TestSessionFlagTracker:
     """Unit tests for SessionFlagTracker."""
+
+    pytestmark = [pytest.mark.spec("AC-24.08")]
 
     def test_below_threshold_returns_false(self) -> None:
         tracker = SessionFlagTracker(threshold=3, window_minutes=5)

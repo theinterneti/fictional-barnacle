@@ -10,6 +10,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import pytest
+
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
 from tta.llm.testing import MockLLMClient
@@ -58,6 +60,8 @@ def _make_deps(*, llm: MockLLMClient | None = None) -> PipelineDeps:
 
 class TestLLMFailureGracefulDegradation:
     """AC-23.3: Pipeline degrades gracefully when LLM call fails."""
+
+    pytestmark = [pytest.mark.spec("AC-23.03")]
 
     async def test_circuit_breaker_open_returns_failed(self) -> None:
         """When circuit breaker is open, generate stage raises and

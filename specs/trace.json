@@ -1,11 +1,11 @@
 {
-  "generated": "2026-04-22T15:37:24.268116+00:00",
-  "total_acs": 404,
+  "generated": "2026-04-24T16:28:40.896561+00:00",
+  "total_acs": 415,
   "stub_acs": 0,
-  "covered_acs": 95,
-  "uncovered_acs": 309,
+  "covered_acs": 282,
+  "uncovered_acs": 133,
   "orphan_citations": 0,
-  "coverage_pct": 23.5,
+  "coverage_pct": 68.0,
   "matrix": {
     "AC-01.01": [],
     "AC-01.02": [
@@ -198,9 +198,17 @@
       "tests/unit/choices/test_s05_ac_compliance.py::TestAC510DivergenceSteering::test_zero_score_no_steering_or_replacement",
       "tests/unit/choices/test_s05_ac_compliance.py::TestAC510DivergenceSteering::test_model_validates_score_bounds"
     ],
-    "AC-06.01": [],
+    "AC-06.01": [
+      "tests/unit/pipeline/test_s06_character_system.py::TestCharacterDisplay::test_all_fields_shown",
+      "tests/unit/pipeline/test_s06_character_system.py::TestCharacterDisplay::test_missing_fields_graceful",
+      "tests/unit/pipeline/test_s06_character_system.py::TestCharacterDisplay::test_no_world_seed"
+    ],
     "AC-06.02": [],
-    "AC-06.03": [],
+    "AC-06.03": [
+      "tests/unit/pipeline/test_s06_character_system.py::TestRuntimeRelationships::test_runtime_dimensions_shown",
+      "tests/unit/pipeline/test_s06_character_system.py::TestRuntimeRelationships::test_dimension_labels",
+      "tests/unit/pipeline/test_s06_character_system.py::TestRuntimeRelationships::test_fallback_to_template"
+    ],
     "AC-06.04": [
       "tests/unit/pipeline/test_s06_ac_compliance.py::TestAC604RelationshipHelp::test_positive_trust_direction_yields_plus_five_trust",
       "tests/unit/pipeline/test_s06_ac_compliance.py::TestAC604RelationshipHelp::test_positive_affinity_direction_yields_plus_five_affinity",
@@ -218,9 +226,24 @@
       "tests/unit/pipeline/test_s06_ac_compliance.py::TestAC604RelationshipHelp::test_companion_eligible_after_sustained_help",
       "tests/unit/pipeline/test_s06_ac_compliance.py::TestAC604RelationshipHelp::test_not_companion_eligible_below_threshold"
     ],
-    "AC-06.05": [],
-    "AC-06.06": [],
-    "AC-06.07": [],
+    "AC-06.05": [
+      "tests/unit/pipeline/test_s06_character_system.py::TestNPCDialogueSalience::test_npc_section_rendered",
+      "tests/unit/pipeline/test_s06_character_system.py::TestNPCDialogueSalience::test_npc_section_omitted_when_empty",
+      "tests/unit/pipeline/test_s06_character_system.py::TestNPCDialogueSalience::test_multiple_npcs",
+      "tests/unit/pipeline/test_s06_character_system.py::TestNPCDialogueSalience::test_npc_contexts_not_in_json_dump"
+    ],
+    "AC-06.06": [
+      "tests/unit/pipeline/test_s06_character_system.py::TestRevealedGoalInfluence::test_goals_injected_when_present",
+      "tests/unit/pipeline/test_s06_character_system.py::TestRevealedGoalInfluence::test_goals_absent_when_not_provided",
+      "tests/unit/pipeline/test_s06_character_system.py::TestRevealedGoalInfluence::test_goals_absent_when_none"
+    ],
+    "AC-06.07": [
+      "tests/unit/pipeline/test_s06_character_system.py::TestCompanionPresence::test_companion_injected_when_eligible",
+      "tests/unit/pipeline/test_s06_character_system.py::TestCompanionPresence::test_companion_omitted_when_none_eligible",
+      "tests/unit/pipeline/test_s06_character_system.py::TestCompanionPresence::test_companion_boundary_at_threshold_not_eligible",
+      "tests/unit/pipeline/test_s06_character_system.py::TestCompanionPresence::test_companion_in_generation_prompt",
+      "tests/unit/pipeline/test_s06_character_system.py::TestCompanionPresence::test_no_companions_no_prompt_section"
+    ],
     "AC-06.08": [
       "tests/unit/pipeline/test_s06_ac_compliance.py::TestAC608SharedHistory::test_shared_history_appears_in_npc_section",
       "tests/unit/pipeline/test_s06_ac_compliance.py::TestAC608SharedHistory::test_shared_history_excerpt_preserved_verbatim",
@@ -364,7 +387,9 @@
     "AC-10.01": [
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1001GameplayFlow::test_full_flow_create_and_submit_turn"
     ],
-    "AC-10.02": [],
+    "AC-10.02": [
+      "tests/unit/api/test_s10_ac_compliance.py::TestAC1002OpenAPIValidity::test_openapi_spec_is_valid"
+    ],
     "AC-10.03": [
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1003ErrorShape::test_app_error_returns_standard_envelope",
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1003ErrorShape::test_unhandled_error_returns_standard_envelope",
@@ -372,13 +397,20 @@
     ],
     "AC-10.04": [],
     "AC-10.05": [],
-    "AC-10.06": [],
+    "AC-10.06": [
+      "tests/unit/api/test_s10_ac_compliance.py::TestS10FR1038HeartbeatEvent::test_heartbeat_event_model_type",
+      "tests/unit/api/test_s10_ac_compliance.py::TestS10FR1038HeartbeatEvent::test_heartbeat_sse_wire_format",
+      "tests/unit/api/test_s10_ac_compliance.py::TestS10FR1038HeartbeatEvent::test_heartbeat_not_keepalive_in_stream_on_timeout"
+    ],
     "AC-10.07": [
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1007RateLimit::test_429_with_retry_after_header",
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1007RateLimit::test_429_body_contains_retry_after_seconds",
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1007RateLimit::test_rate_limited_error_code"
     ],
-    "AC-10.08": [],
+    "AC-10.08": [
+      "tests/unit/api/test_s10_ac_compliance.py::TestAC1008RateLimitHeaders::test_rate_limit_headers_present_on_game_get",
+      "tests/unit/api/test_s10_ac_compliance.py::TestAC1008RateLimitHeaders::test_rate_limit_headers_values_are_valid"
+    ],
     "AC-10.09": [
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1009NoInternalDetails::test_unhandled_error_hides_details_in_production",
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1009NoInternalDetails::test_app_error_details_are_structured_not_tracebacks"
@@ -399,7 +431,9 @@
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1012PlayerIsolation::test_submit_turn_to_other_players_game_returns_404",
       "tests/unit/api/test_s10_ac_compliance.py::TestAC1012PlayerIsolation::test_isolation_returns_404_not_403"
     ],
-    "AC-10.13": [],
+    "AC-10.13": [
+      "tests/unit/api/test_s10_ac_compliance.py::TestAC1013EmptyTurnInput::test_empty_or_whitespace_returns_400"
+    ],
     "AC-11.01": [
       "tests/unit/api/test_s11_ac_compliance.py::TestAC1101AnonymousAuth::test_anonymous_returns_201",
       "tests/unit/api/test_s11_ac_compliance.py::TestAC1101AnonymousAuth::test_anonymous_response_contains_player_id",
@@ -414,10 +448,24 @@
       "tests/unit/api/test_s11_ac_compliance.py::TestAC1104CreatedToActiveTransition::test_submit_turn_on_created_game_updates_status_to_active",
       "tests/unit/api/test_s11_ac_compliance.py::TestAC1104CreatedToActiveTransition::test_submit_turn_on_active_game_does_not_repeat_status_update"
     ],
-    "AC-11.05": [],
-    "AC-11.06": [],
-    "AC-11.07": [],
-    "AC-11.08": [],
+    "AC-11.05": [
+      "tests/unit/lifecycle/test_cleanup.py::TestAC1105PausedGameNotExpiredBefore30Days::test_paused_game_cutoff_is_exactly_30_days"
+    ],
+    "AC-11.06": [
+      "tests/unit/lifecycle/test_cleanup.py::TestExpireRule::test_expires_stale_paused_games",
+      "tests/unit/lifecycle/test_cleanup.py::TestExpireRule::test_expire_cutoff_is_30_days",
+      "tests/unit/lifecycle/test_cleanup.py::TestExpireRule::test_expire_not_triggered_at_exactly_30_days"
+    ],
+    "AC-11.07": [
+      "tests/unit/api/test_s11_ac_compliance.py::TestAC1107ExpiredGameCanBeResumed::test_resume_endpoint_accepts_expired_status",
+      "tests/unit/api/test_s11_ac_compliance.py::TestAC1107ExpiredGameCanBeResumed::test_resume_expired_no_summary_still_emits_welcome_back"
+    ],
+    "AC-11.08": [
+      "tests/unit/lifecycle/test_cleanup.py::TestAbandonRule::test_abandons_stale_active_games",
+      "tests/unit/lifecycle/test_cleanup.py::TestAbandonRule::test_no_abandoned_means_no_commit",
+      "tests/unit/lifecycle/test_cleanup.py::TestAbandonRule::test_abandon_cutoff_is_24h",
+      "tests/unit/lifecycle/test_cleanup.py::TestAbandonRule::test_abandon_not_triggered_at_exactly_24h"
+    ],
     "AC-11.09": [],
     "AC-11.10": [
       "tests/unit/api/test_s11_ac_compliance.py::TestAC1110RefreshTokenReuseDetection::test_reused_refresh_token_returns_401",
@@ -431,7 +479,12 @@
       "tests/unit/api/test_s11_ac_compliance.py::TestAC1112NoPasswordInResponses::test_refresh_response_has_no_password_fields"
     ],
     "AC-11.13": [],
-    "AC-11.14": [],
+    "AC-11.14": [
+      "tests/unit/api/test_s11_ac_compliance.py::TestAC1114PlayerIdNotReassignable::test_players_table_primary_key_in_migration",
+      "tests/unit/api/test_s11_ac_compliance.py::TestAC1114PlayerIdNotReassignable::test_immediate_deletion_route_is_soft_delete",
+      "tests/unit/api/test_s11_ac_compliance.py::TestAC1114PlayerIdNotReassignable::test_new_player_id_generated_by_uuid4",
+      "tests/unit/api/test_s11_ac_compliance.py::TestAC1114PlayerIdNotReassignable::test_player_model_id_is_uuid"
+    ],
     "AC-12.01": [
       "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1201TurnRoundTrip::test_created_turn_is_retrievable",
       "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1201TurnRoundTrip::test_completed_turn_is_retrievable_with_narrative",
@@ -513,36 +566,288 @@
     ],
     "AC-13.15": [],
     "AC-13.16": [],
-    "AC-23.01": [],
-    "AC-23.02": [],
-    "AC-23.03": [],
-    "AC-23.04": [],
-    "AC-23.05": [],
-    "AC-23.06": [],
-    "AC-23.07": [],
-    "AC-23.08": [],
-    "AC-23.09": [],
-    "AC-23.10": [],
-    "AC-23.11": [],
-    "AC-23.12": [],
-    "AC-24.01": [],
-    "AC-24.02": [],
-    "AC-24.03": [],
-    "AC-24.04": [],
-    "AC-24.05": [],
-    "AC-24.06": [],
-    "AC-24.07": [],
-    "AC-24.08": [],
+    "AC-23.01": [
+      "tests/unit/api/test_errors.py::test_category_to_status_mapping",
+      "tests/unit/api/test_errors.py::TestAppErrorHandler::test_returns_correct_status_and_envelope",
+      "tests/unit/api/test_errors.py::TestAppErrorHandler::test_retry_after_header"
+    ],
+    "AC-23.02": [
+      "tests/unit/api/test_errors.py::TestStructuredErrorLogging::test_app_error_logs_structured_fields",
+      "tests/unit/api/test_errors.py::TestStructuredErrorLogging::test_app_error_logs_player_and_game_ids",
+      "tests/unit/api/test_errors.py::TestStructuredErrorLogging::test_validation_error_logs_structured_fields",
+      "tests/unit/api/test_errors.py::TestStructuredErrorLogging::test_unhandled_error_logs_exception_fields",
+      "tests/unit/api/test_errors.py::TestStructuredErrorLogging::test_error_logs_contain_no_pii"
+    ],
+    "AC-23.03": [
+      "tests/unit/pipeline/test_s23_graceful_degradation.py::TestLLMFailureGracefulDegradation::test_circuit_breaker_open_returns_failed",
+      "tests/unit/pipeline/test_s23_graceful_degradation.py::TestLLMFailureGracefulDegradation::test_llm_runtime_error_returns_degraded",
+      "tests/unit/pipeline/test_s23_graceful_degradation.py::TestLLMFailureGracefulDegradation::test_llm_timeout_returns_degraded",
+      "tests/unit/pipeline/test_s23_graceful_degradation.py::TestLLMFailureGracefulDegradation::test_llm_queue_full_returns_failed",
+      "tests/unit/pipeline/test_s23_graceful_degradation.py::TestLLMFailureGracefulDegradation::test_original_state_preserved_on_degraded",
+      "tests/unit/pipeline/test_s23_graceful_degradation.py::TestLLMFailureGracefulDegradation::test_normal_pipeline_still_succeeds"
+    ],
+    "AC-23.04": [
+      "tests/unit/resilience/test_retry.py::TestRetryPresets::test_db_connection_preset",
+      "tests/unit/resilience/test_retry.py::TestRetryPresets::test_db_query_preset",
+      "tests/unit/resilience/test_retry.py::TestRetryPresets::test_redis_connection_preset",
+      "tests/unit/resilience/test_retry.py::TestRetryPresets::test_redis_timeout_preset",
+      "tests/unit/resilience/test_retry.py::TestRetryPresets::test_neo4j_connection_preset",
+      "tests/unit/resilience/test_retry.py::TestRetryPresets::test_llm_call_preset",
+      "tests/unit/resilience/test_retry.py::TestRetryPresets::test_presets_are_frozen",
+      "tests/unit/resilience/test_retry.py::TestWithRetry::test_success_on_first_attempt",
+      "tests/unit/resilience/test_retry.py::TestWithRetry::test_retries_on_retryable_exception",
+      "tests/unit/resilience/test_retry.py::TestWithRetry::test_raises_app_error_after_exhaustion",
+      "tests/unit/resilience/test_retry.py::TestWithRetry::test_exhaustion_preserves_cause",
+      "tests/unit/resilience/test_retry.py::TestWithRetry::test_non_retryable_exception_propagates_immediately",
+      "tests/unit/resilience/test_retry.py::TestWithRetry::test_llm_failure_category",
+      "tests/unit/resilience/test_retry.py::TestWithRetry::test_passes_through_args_and_kwargs",
+      "tests/unit/resilience/test_retry.py::TestDbRetry::test_db_retry_succeeds_on_first_attempt",
+      "tests/unit/resilience/test_retry.py::TestDbRetry::test_db_retry_retries_on_connection_error",
+      "tests/unit/resilience/test_retry.py::TestDbRetry::test_db_retry_retries_on_oserror",
+      "tests/unit/resilience/test_retry.py::TestDbRetry::test_db_retry_raises_app_error_after_exhaustion",
+      "tests/unit/resilience/test_retry.py::TestDbRetry::test_with_db_retry_helper_retries",
+      "tests/unit/resilience/test_retry.py::TestDbRetry::test_with_db_retry_passes_args",
+      "tests/unit/resilience/test_retry.py::TestDbRetry::test_with_db_retry_raises_app_error_after_exhaustion",
+      "tests/unit/resilience/test_retry.py::TestRedisRetry::test_redis_retry_succeeds_on_first_attempt",
+      "tests/unit/resilience/test_retry.py::TestRedisRetry::test_redis_retry_retries_on_connection_error",
+      "tests/unit/resilience/test_retry.py::TestRedisRetry::test_redis_retry_raises_app_error_after_exhaustion",
+      "tests/unit/resilience/test_retry.py::TestRedisRetry::test_with_redis_retry_helper_retries",
+      "tests/unit/resilience/test_retry.py::TestRedisRetry::test_with_redis_retry_passes_args",
+      "tests/unit/resilience/test_retry.py::TestRedisRetry::test_with_redis_retry_raises_app_error_after_exhaustion",
+      "tests/unit/resilience/test_retry.py::TestRedisRetry::test_redis_retry_non_retryable_propagates"
+    ],
+    "AC-23.05": [
+      "tests/unit/resilience/test_circuit_breaker.py::TestCircuitBreakerStateMachine::test_starts_closed",
+      "tests/unit/resilience/test_circuit_breaker.py::TestCircuitBreakerStateMachine::test_stays_closed_below_threshold",
+      "tests/unit/resilience/test_circuit_breaker.py::TestCircuitBreakerStateMachine::test_opens_at_threshold",
+      "tests/unit/resilience/test_circuit_breaker.py::TestCircuitBreakerStateMachine::test_open_circuit_fails_fast",
+      "tests/unit/resilience/test_circuit_breaker.py::TestCircuitBreakerStateMachine::test_success_does_not_count_as_failure"
+    ],
+    "AC-23.06": [
+      "tests/unit/api/test_turn_atomicity.py::TestTurnAtomicity::test_dispatch_pipeline_marks_turn_failed",
+      "tests/unit/api/test_turn_atomicity.py::TestTurnAtomicity::test_dispatch_pipeline_preserves_partial_narrative",
+      "tests/unit/api/test_turn_atomicity.py::TestTurnAtomicity::test_dispatch_pipeline_failsafe_on_persist_error",
+      "tests/unit/api/test_turn_atomicity.py::TestTurnAtomicity::test_max_turn_number_counts_all_turns"
+    ],
+    "AC-23.07": [
+      "tests/unit/api/test_turn_atomicity.py::TestConcurrentTurnRejection::test_concurrent_turn_returns_409_with_envelope"
+    ],
+    "AC-23.08": [
+      "tests/unit/api/test_turn_atomicity.py::TestSSEErrorEvents::test_error_event_model_serialization",
+      "tests/unit/api/test_turn_atomicity.py::TestSSEErrorEvents::test_error_event_optional_fields_default_none",
+      "tests/unit/api/test_turn_atomicity.py::TestSSEErrorEvents::test_stream_no_turn_emits_error_event",
+      "tests/unit/api/test_turn_atomicity.py::TestSSEErrorEvents::test_stream_failed_turn_emits_error_with_retry",
+      "tests/unit/api/test_turn_atomicity.py::TestSSEErrorEvents::test_error_event_format_sse_includes_all_fields"
+    ],
+    "AC-23.09": [
+      "tests/unit/api/test_health.py::TestHealthDegraded::test_redis_down_returns_degraded",
+      "tests/unit/api/test_health.py::TestHealthDegraded::test_neo4j_down_returns_degraded",
+      "tests/unit/api/test_health.py::TestHealthDegraded::test_redis_and_neo4j_down_still_degraded"
+    ],
+    "AC-23.10": [
+      "tests/unit/api/test_errors.py::test_returns_500_without_details"
+    ],
+    "AC-23.11": [
+      "tests/unit/api/test_commands.py::TestEmptyTurnInputValidation::test_empty_string_returns_400_input_invalid",
+      "tests/unit/api/test_commands.py::TestEmptyTurnInputValidation::test_whitespace_only_returns_400_input_invalid",
+      "tests/unit/api/test_commands.py::TestEmptyTurnInputValidation::test_valid_input_not_blocked",
+      "tests/unit/api/test_errors.py::TestValidationErrorHandler::test_returns_422_with_envelope",
+      "tests/unit/api/test_errors.py::TestValidationErrorHandler::test_strips_input_field_from_errors",
+      "tests/unit/api/test_errors.py::TestValidationErrorHandler::test_strips_url_field_from_errors",
+      "tests/unit/api/test_errors.py::TestValidationErrorHandler::test_preserves_type_loc_msg_fields"
+    ],
+    "AC-23.12": [
+      "tests/unit/api/test_health.py::TestHealthUnhealthy::test_postgres_down_returns_unhealthy",
+      "tests/unit/api/test_health.py::TestHealthUnhealthy::test_all_down_returns_unhealthy"
+    ],
+    "AC-24.01": [
+      "tests/unit/moderation/test_hook.py::TestInputModeration::test_pass_returns_safe",
+      "tests/unit/moderation/test_hook.py::TestInputModeration::test_block_returns_unsafe_with_redirect",
+      "tests/unit/moderation/test_hook.py::TestInputModeration::test_flag_returns_safe_with_flag",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSafeContent::test_normal_game_input",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSafeContent::test_combat_narrative",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSafeContent::test_empty_string",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSafeContent::test_content_hash_is_sha256"
+    ],
+    "AC-24.02": [
+      "tests/unit/moderation/test_hook.py::TestInputModeration::test_pass_returns_safe",
+      "tests/unit/moderation/test_hook.py::TestInputModeration::test_block_returns_unsafe_with_redirect",
+      "tests/unit/moderation/test_hook.py::TestInputModeration::test_flag_returns_safe_with_flag",
+      "tests/unit/moderation/test_hook.py::TestOutputModeration::test_pass_returns_safe",
+      "tests/unit/moderation/test_hook.py::TestOutputModeration::test_block_returns_redirect",
+      "tests/unit/moderation/test_keyword_moderator.py::TestGraphicViolence::test_dismember",
+      "tests/unit/moderation/test_keyword_moderator.py::TestGraphicViolence::test_decapitate",
+      "tests/unit/moderation/test_keyword_moderator.py::TestGraphicViolence::test_torture",
+      "tests/unit/moderation/test_keyword_moderator.py::TestGraphicViolence::test_case_insensitive",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSexualContent::test_explicit",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSexualContent::test_pornographic",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSelfHarm::test_kill_myself",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSelfHarm::test_self_harm_keyword",
+      "tests/unit/moderation/test_keyword_moderator.py::TestSelfHarm::test_how_to_overdose",
+      "tests/unit/moderation/test_keyword_moderator.py::TestHateSpeech::test_ethnic_cleansing",
+      "tests/unit/moderation/test_keyword_moderator.py::TestHateSpeech::test_dehumanize",
+      "tests/unit/moderation/test_keyword_moderator.py::TestDangerousActivity::test_bomb_instructions",
+      "tests/unit/moderation/test_keyword_moderator.py::TestDangerousActivity::test_drug_synthesis",
+      "tests/unit/moderation/test_keyword_moderator.py::TestOffTopic::test_president",
+      "tests/unit/moderation/test_keyword_moderator.py::TestOffTopic::test_weather",
+      "tests/unit/moderation/test_keyword_moderator.py::TestOutputModeration::test_safe_output",
+      "tests/unit/moderation/test_keyword_moderator.py::TestOutputModeration::test_blocked_output"
+    ],
+    "AC-24.03": [
+      "tests/unit/moderation/test_hook.py::TestOutputModeration::test_pass_returns_safe",
+      "tests/unit/moderation/test_hook.py::TestOutputModeration::test_block_returns_redirect"
+    ],
+    "AC-24.04": [
+      "tests/unit/moderation/test_hook.py::TestRecordingIntegration::test_pass_saves_record",
+      "tests/unit/moderation/test_hook.py::TestRecordingIntegration::test_block_saves_record",
+      "tests/unit/moderation/test_hook.py::TestRecordingIntegration::test_output_moderation_saves_record",
+      "tests/unit/moderation/test_hook.py::TestRecordingIntegration::test_no_recorder_skips_persistence",
+      "tests/unit/moderation/test_recorder.py::TestModerationRecorder::test_save_executes_insert",
+      "tests/unit/moderation/test_recorder.py::TestModerationRecorder::test_save_passes_all_fields",
+      "tests/unit/moderation/test_recorder.py::TestModerationRecorder::test_save_logs_error_on_failure"
+    ],
+    "AC-24.05": [
+      "tests/unit/moderation/test_hook.py::TestFailModes::test_fail_open_on_error",
+      "tests/unit/moderation/test_hook.py::TestFailModes::test_fail_closed_on_error",
+      "tests/unit/moderation/test_hook.py::TestFailModes::test_fail_open_output",
+      "tests/unit/moderation/test_hook.py::TestFailModes::test_fail_closed_output"
+    ],
+    "AC-24.06": [
+      "tests/unit/moderation/test_s24_metadata_leakage.py::TestModerationEventNoMetadataLeakage::test_only_reason_in_payload",
+      "tests/unit/moderation/test_s24_metadata_leakage.py::TestModerationEventNoMetadataLeakage::test_no_verdict_field",
+      "tests/unit/moderation/test_s24_metadata_leakage.py::TestModerationEventNoMetadataLeakage::test_no_category_field",
+      "tests/unit/moderation/test_s24_metadata_leakage.py::TestModerationEventNoMetadataLeakage::test_no_confidence_field",
+      "tests/unit/moderation/test_s24_metadata_leakage.py::TestModerationEventNoMetadataLeakage::test_no_content_hash_field",
+      "tests/unit/moderation/test_s24_metadata_leakage.py::TestModerationEventNoMetadataLeakage::test_sse_wire_format_clean",
+      "tests/unit/moderation/test_s24_metadata_leakage.py::TestModerationEventNoMetadataLeakage::test_event_type_is_moderation"
+    ],
+    "AC-24.07": [
+      "tests/unit/moderation/test_keyword_moderator.py::TestPromptInjection::test_ignore_instructions",
+      "tests/unit/moderation/test_keyword_moderator.py::TestPromptInjection::test_dan_mode",
+      "tests/unit/moderation/test_keyword_moderator.py::TestPromptInjection::test_system_prefix",
+      "tests/unit/moderation/test_keyword_moderator.py::TestPromptInjection::test_no_restrictions"
+    ],
+    "AC-24.08": [
+      "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_below_threshold_returns_false",
+      "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_at_threshold_returns_true",
+      "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_above_threshold_does_not_retrigger",
+      "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_expired_entries_pruned",
+      "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_different_games_tracked_independently",
+      "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_reset_clears_tracking",
+      "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_default_thresholds",
+      "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_flag_emits_warning_log"
+    ],
     "AC-24.09": [],
-    "AC-24.10": [],
-    "AC-25.01": [],
-    "AC-25.02": [],
-    "AC-25.03": [],
-    "AC-25.04": [],
-    "AC-25.05": [],
-    "AC-25.06": [],
-    "AC-25.07": [],
-    "AC-25.08": [],
+    "AC-24.10": [
+      "tests/unit/moderation/test_s24_fail_closed.py::TestFailClosedPreGeneration::test_exception_blocks_in_fail_closed",
+      "tests/unit/moderation/test_s24_fail_closed.py::TestFailClosedPreGeneration::test_exception_passes_in_fail_open",
+      "tests/unit/moderation/test_s24_fail_closed.py::TestFailClosedPreGeneration::test_fail_closed_has_redirect_content"
+    ],
+    "AC-25.01": [
+      "tests/unit/resilience/test_rate_limiter.py::TestInMemoryRateLimiter::test_allows_under_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestInMemoryRateLimiter::test_rejects_over_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestInMemoryRateLimiter::test_rejected_not_counted",
+      "tests/unit/resilience/test_rate_limiter.py::TestInMemoryRateLimiter::test_window_expiry",
+      "tests/unit/resilience/test_rate_limiter.py::TestInMemoryRateLimiter::test_separate_keys_independent",
+      "tests/unit/resilience/test_rate_limiter.py::TestRedisRateLimiter::test_allows_under_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestRedisRateLimiter::test_rejects_at_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestRedisRateLimiter::test_redis_pipeline_calls",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_headers_on_successful_response",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_returns_429_when_exceeded",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_health_exempt_from_rate_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_per_ip_gets_double_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_authenticated_uses_player_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_disabled_rate_limiting",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_options_exempt_from_rate_limit"
+    ],
+    "AC-25.02": [
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitHeaders::test_headers_from_result",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_headers_on_successful_response",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_returns_429_when_exceeded",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_health_exempt_from_rate_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_per_ip_gets_double_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_authenticated_uses_player_limit",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_disabled_rate_limiting",
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimitMiddleware::test_options_exempt_from_rate_limit"
+    ],
+    "AC-25.03": [
+      "tests/unit/resilience/test_rate_limiter.py::TestEndpointClassification::test_turns_endpoint",
+      "tests/unit/resilience/test_rate_limiter.py::TestEndpointClassification::test_sse_endpoint",
+      "tests/unit/resilience/test_rate_limiter.py::TestEndpointClassification::test_auth_endpoint",
+      "tests/unit/resilience/test_rate_limiter.py::TestEndpointClassification::test_game_management",
+      "tests/unit/resilience/test_rate_limiter.py::TestEndpointClassification::test_health_exempt",
+      "tests/unit/resilience/test_rate_limiter.py::TestEndpointClassification::test_metrics_exempt",
+      "tests/unit/resilience/test_rate_limiter.py::TestEndpointClassification::test_options_exempt"
+    ],
+    "AC-25.04": [
+      "tests/unit/resilience/test_rate_limiter.py::TestBuild429Response::test_envelope_format"
+    ],
+    "AC-25.05": [
+      "tests/unit/resilience/test_rate_limiter.py::TestRateLimiterFallback::test_fallback_still_limits"
+    ],
+    "AC-25.06": [
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_no_cooldown_initially",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_violation_below_threshold_no_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_rapid_fire_triggers_above_threshold",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_cooldown_blocks_identity",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_escalation_doubles_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_credential_stuffing_threshold",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_different_identities_independent",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_different_patterns_independent",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_expired_cooldown_clears",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_max_cooldown_cap",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_blocks_request",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_rate_limit_records_rapid_fire",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_three_rate_limits_trigger_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_401_records_credential_stuffing",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_five_auth_failures_trigger_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_abuse_detector_failure_is_failopen",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_disabled_abuse_detector",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_response_format",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_response_includes_ratelimit_headers"
+    ],
+    "AC-25.07": [
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_no_cooldown_initially",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_violation_below_threshold_no_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_rapid_fire_triggers_above_threshold",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_cooldown_blocks_identity",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_escalation_doubles_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_credential_stuffing_threshold",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_different_identities_independent",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_different_patterns_independent",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_expired_cooldown_clears",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_max_cooldown_cap",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_blocks_request",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_rate_limit_records_rapid_fire",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_three_rate_limits_trigger_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_401_records_credential_stuffing",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_five_auth_failures_trigger_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_abuse_detector_failure_is_failopen",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_disabled_abuse_detector",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_response_format",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_response_includes_ratelimit_headers"
+    ],
+    "AC-25.08": [
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_no_cooldown_initially",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_violation_below_threshold_no_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_rapid_fire_triggers_above_threshold",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_cooldown_blocks_identity",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_escalation_doubles_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_credential_stuffing_threshold",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_different_identities_independent",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_different_patterns_independent",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_expired_cooldown_clears",
+      "tests/unit/resilience/test_anti_abuse.py::TestInMemoryAbuseDetector::test_max_cooldown_cap",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_blocks_request",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_rate_limit_records_rapid_fire",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_three_rate_limits_trigger_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_401_records_credential_stuffing",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_five_auth_failures_trigger_cooldown",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_abuse_detector_failure_is_failopen",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_disabled_abuse_detector",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_response_format",
+      "tests/unit/resilience/test_anti_abuse.py::TestAntiAbuseMiddleware::test_cooldown_response_includes_ratelimit_headers"
+    ],
     "AC-26.01": [
       "tests/unit/api/test_s26_ac_compliance.py::TestAC261AdminAuth::test_missing_auth_returns_401",
       "tests/unit/api/test_s26_ac_compliance.py::TestAC261AdminAuth::test_wrong_key_returns_403",
@@ -614,167 +919,641 @@
     "AC-27.10": [
       "tests/unit/api/test_s27_ac_compliance.py::TestAC2710ListOwnGames::test_list_scoped_to_authenticated_player"
     ],
-    "AC-28.01": [],
+    "AC-28.01": [
+      "tests/unit/performance/test_s28_performance.py::TestTurnSubmissionBudget::test_turn_endpoint_returns_budget_header",
+      "tests/unit/performance/test_s28_performance.py::TestTurnSubmissionBudget::test_turn_budget_remaining_is_positive",
+      "tests/unit/performance/test_s28_performance.py::TestTurnSubmissionBudget::test_turn_response_is_fast"
+    ],
     "AC-28.02": [],
-    "AC-28.03": [],
+    "AC-28.03": [
+      "tests/unit/performance/test_s28_performance.py::TestGameListingBudget::test_games_endpoint_returns_budget_header",
+      "tests/unit/performance/test_s28_performance.py::TestGameListingBudget::test_games_response_is_fast"
+    ],
     "AC-28.04": [],
-    "AC-28.05": [],
-    "AC-28.06": [],
-    "AC-28.07": [],
+    "AC-28.05": [
+      "tests/unit/performance/test_s28_performance.py::TestSemaphoreMetrics::test_metrics_update_on_execute",
+      "tests/unit/performance/test_s28_performance.py::TestSemaphoreMetrics::test_semaphore_properties_match_config",
+      "tests/unit/performance/test_s28_performance.py::TestSemaphoreMetrics::test_error_in_function_still_decrements"
+    ],
+    "AC-28.06": [
+      "tests/unit/performance/test_s28_performance.py::TestGracefulDegradation::test_semaphore_queues_under_load",
+      "tests/unit/performance/test_s28_performance.py::TestGracefulDegradation::test_queue_overflow_returns_service_unavailable",
+      "tests/unit/performance/test_s28_performance.py::TestGracefulDegradation::test_latency_budget_header_on_all_routes"
+    ],
+    "AC-28.07": [
+      "tests/unit/performance/test_s28_performance.py::TestGracefulShutdown::test_pool_metrics_task_cancels_cleanly",
+      "tests/unit/performance/test_s28_performance.py::TestGracefulShutdown::test_semaphore_in_flight_completes",
+      "tests/unit/performance/test_s28_performance.py::TestGracefulShutdown::test_observability_shutdown_functions_are_safe"
+    ],
     "AC-28.08": [],
-    "AC-29.01": [],
-    "AC-29.02": [],
-    "AC-29.03": [],
+    "AC-29.01": [
+      "tests/unit/universe/test_models.py::test_universe_default_status_is_dormant",
+      "tests/unit/universe/test_service.py::test_create_returns_dormant_universe",
+      "tests/unit/universe/test_service.py::test_create_defaults_empty_config"
+    ],
+    "AC-29.02": [
+      "tests/unit/universe/test_models.py::test_universe_status_accepts_all_valid_values",
+      "tests/unit/universe/test_models.py::test_universe_status_rejects_invalid",
+      "tests/unit/universe/test_service.py::test_create_returns_dormant_universe"
+    ],
+    "AC-29.03": [
+      "tests/unit/universe/test_models.py::test_universe_has_required_fields"
+    ],
     "AC-29.04": [],
     "AC-29.05": [],
-    "AC-29.06": [],
-    "AC-29.07": [],
-    "AC-29.08": [],
-    "AC-29.09": [],
+    "AC-29.06": [
+      "tests/unit/universe/test_service.py::test_activate_transitions_dormant_to_active",
+      "tests/unit/universe/test_service.py::test_pause_transitions_active_to_paused"
+    ],
+    "AC-29.07": [
+      "tests/unit/universe/test_service.py::test_get_raises_not_found_when_absent",
+      "tests/unit/universe/test_service.py::test_get_returns_universe"
+    ],
+    "AC-29.08": [
+      "tests/unit/universe/test_service.py::test_activate_transitions_dormant_to_active",
+      "tests/unit/universe/test_service.py::test_activate_raises_for_archived_universe",
+      "tests/unit/universe/test_service.py::test_activate_raises_for_already_active",
+      "tests/unit/universe/test_service.py::test_pause_transitions_active_to_paused",
+      "tests/unit/universe/test_service.py::test_pause_raises_for_invalid_transition",
+      "tests/unit/universe/test_service.py::test_archive_is_idempotent_when_already_archived",
+      "tests/unit/universe/test_service.py::test_archive_from_paused_succeeds"
+    ],
+    "AC-29.09": [
+      "tests/unit/universe/test_service.py::test_activate_raises_when_already_in_active_session"
+    ],
     "AC-29.10": [],
     "AC-29.11": [],
-    "AC-29.12": [],
+    "AC-29.12": [
+      "tests/unit/universe/test_service.py::test_list_for_player_no_filter",
+      "tests/unit/universe/test_service.py::test_list_for_player_with_status_filter"
+    ],
     "AC-29.13": [],
     "AC-30.01": [],
     "AC-30.02": [],
-    "AC-30.03": [],
+    "AC-30.03": [
+      "tests/unit/universe/test_models.py::test_game_session_actors_defaults_to_empty_list"
+    ],
     "AC-30.04": [],
     "AC-30.05": [],
     "AC-30.06": [],
-    "AC-30.07": [],
+    "AC-30.07": [
+      "tests/unit/universe/test_models.py::test_game_session_actors_accepts_multiple_uuids"
+    ],
     "AC-30.08": [],
     "AC-30.09": [],
     "AC-30.10": [],
-    "AC-31.01": [],
-    "AC-31.02": [],
-    "AC-31.03": [],
-    "AC-31.04": [],
-    "AC-31.05": [],
+    "AC-31.01": [
+      "tests/unit/universe/test_actor_service.py::test_get_or_create_returns_existing_actor",
+      "tests/unit/universe/test_actor_service.py::test_get_or_create_inserts_when_absent",
+      "tests/unit/universe/test_actor_service.py::test_get_raises_not_found",
+      "tests/unit/universe/test_models.py::test_actor_id_distinct_from_player_id"
+    ],
+    "AC-31.02": [
+      "tests/unit/universe/test_actor_service.py::test_get_or_create_inserts_when_absent",
+      "tests/unit/universe/test_models.py::test_actor_id_distinct_from_player_id",
+      "tests/unit/universe/test_models.py::test_actor_default_avatar_config"
+    ],
+    "AC-31.03": [
+      "tests/unit/universe/test_actor_service.py::test_get_character_state_returns_state_when_present",
+      "tests/unit/universe/test_actor_service.py::test_get_or_create_creates_state_when_absent",
+      "tests/unit/universe/test_models.py::test_character_state_carries_actor_and_universe_ids"
+    ],
+    "AC-31.04": [
+      "tests/unit/universe/test_actor_service.py::test_get_or_create_creates_state_when_absent",
+      "tests/unit/universe/test_models.py::test_character_state_defaults_all_empty"
+    ],
+    "AC-31.05": [
+      "tests/unit/universe/test_actor_service.py::test_get_or_create_returns_existing_state"
+    ],
     "AC-31.06": [],
-    "AC-31.07": [],
-    "AC-31.08": [],
-    "AC-31.09": [],
-    "AC-32.01": [],
-    "AC-32.02": [],
-    "AC-32.03": [],
-    "AC-32.04": [],
-    "AC-32.05": [],
-    "AC-32.06": [],
-    "AC-32.07": [],
-    "AC-32.08": [],
-    "AC-32.09": [],
-    "AC-32.10": [],
-    "AC-33.01": [],
-    "AC-33.02": [],
+    "AC-31.07": [
+      "tests/unit/universe/test_actor_service.py::test_upsert_raises_when_state_absent",
+      "tests/unit/universe/test_actor_service.py::test_upsert_updates_specified_fields"
+    ],
+    "AC-31.08": [
+      "tests/unit/universe/test_actor_service.py::test_get_by_player_returns_all_actors"
+    ],
+    "AC-31.09": [
+      "tests/unit/universe/test_actor_service.py::test_get_character_state_returns_none_when_absent"
+    ],
+    "AC-32.01": [
+      "tests/unit/transport/test_transport.py::test_narrative_transport_is_runtime_checkable"
+    ],
+    "AC-32.02": [
+      "tests/unit/transport/test_transport.py::test_memory_transport_send_narrative_chunks"
+    ],
+    "AC-32.03": [
+      "tests/unit/transport/test_transport.py::test_memory_transport_send_end_records_event"
+    ],
+    "AC-32.04": [
+      "tests/unit/transport/test_transport.py::test_memory_transport_send_heartbeat_records_event"
+    ],
+    "AC-32.05": [
+      "tests/unit/transport/test_transport.py::test_memory_transport_satisfies_protocol"
+    ],
+    "AC-32.06": [
+      "tests/unit/transport/test_transport.py::test_sse_transport_satisfies_protocol"
+    ],
+    "AC-32.07": [
+      "tests/unit/transport/test_transport.py::test_split_narrative_empty_returns_empty",
+      "tests/unit/transport/test_transport.py::test_split_narrative_single_sentence",
+      "tests/unit/transport/test_transport.py::test_split_narrative_multiple_sentences",
+      "tests/unit/transport/test_transport.py::test_split_narrative_strips_whitespace"
+    ],
+    "AC-32.08": [
+      "tests/unit/transport/test_transport.py::test_memory_transport_no_ops_after_close",
+      "tests/unit/transport/test_transport.py::test_sse_transport_no_ops_after_close"
+    ],
+    "AC-32.09": [
+      "tests/unit/transport/test_transport.py::test_sse_transport_send_narrative_calls_emit_once_per_chunk"
+    ],
+    "AC-32.10": [
+      "tests/unit/transport/test_transport.py::test_sse_transport_send_narrative_returns_chunk_count"
+    ],
+    "AC-33.01": [
+      "tests/unit/test_migration_011.py::test_backfill_inserts_universes_from_game_sessions"
+    ],
+    "AC-33.02": [
+      "tests/unit/test_migration_011.py::test_backfill_inserts_actors_from_players"
+    ],
     "AC-33.03": [],
-    "AC-33.04": [],
-    "AC-33.05": [],
-    "AC-33.06": [],
-    "AC-33.07": [],
-    "AC-33.08": [],
-    "AC-33.09": [],
-    "AC-33.10": [],
-    "AC-34.01": [],
-    "AC-34.02": [],
-    "AC-34.03": [],
-    "AC-34.04": [],
-    "AC-34.05": [],
-    "AC-34.06": [],
-    "AC-34.07": [],
-    "AC-34.08": [],
-    "AC-34.09": [],
-    "AC-34.10": [],
-    "AC-35.01": [],
-    "AC-35.02": [],
-    "AC-35.03": [],
-    "AC-35.04": [],
+    "AC-33.04": [
+      "tests/unit/test_migration_011.py::test_backfill_inserts_character_states"
+    ],
+    "AC-33.05": [
+      "tests/unit/test_migration_011.py::test_backfill_is_idempotent"
+    ],
+    "AC-33.06": [
+      "tests/unit/test_migration_011.py::test_world_seed_not_dropped"
+    ],
+    "AC-33.07": [
+      "tests/unit/test_migration_011.py::test_universe_id_is_nullable"
+    ],
+    "AC-33.08": [
+      "tests/unit/test_migration_011.py::test_actors_column_has_default_empty_array"
+    ],
+    "AC-33.09": [
+      "tests/unit/test_migration_011.py::test_neo4j_migration_004_exists"
+    ],
+    "AC-33.10": [
+      "tests/unit/test_migration_011.py::test_validation_script_exists"
+    ],
+    "AC-34.01": [
+      "tests/unit/simulation/test_world_time.py::test_deliver_advances_world_time_one_tick"
+    ],
+    "AC-34.02": [
+      "tests/unit/simulation/test_world_time.py::test_initial_world_time_starting_hour_8",
+      "tests/unit/simulation/test_world_time.py::test_initial_world_time_returns_WorldTime_instance"
+    ],
+    "AC-34.03": [
+      "tests/unit/simulation/test_world_time.py::test_tick_from_inherited_tick_5"
+    ],
+    "AC-34.04": [
+      "tests/unit/simulation/test_world_time.py::test_compute_world_time_deterministic",
+      "tests/unit/simulation/test_world_time.py::test_compute_world_time_different_ticks_differ"
+    ],
+    "AC-34.05": [
+      "tests/unit/simulation/test_world_time.py::test_skip_ahead_reaches_dawn"
+    ],
+    "AC-34.06": [
+      "tests/unit/simulation/test_world_time.py::test_skip_ahead_capped_at_max",
+      "tests/unit/simulation/test_world_time.py::test_skip_ahead_not_capped_when_within_limit"
+    ],
+    "AC-34.07": [
+      "tests/unit/simulation/test_world_time.py::test_skip_ahead_npc_autonomy_stub_does_not_crash"
+    ],
+    "AC-34.08": [
+      "tests/unit/simulation/test_world_time.py::test_skip_ahead_world_event_pause_stub_does_not_crash"
+    ],
+    "AC-34.09": [
+      "tests/unit/simulation/test_world_time.py::test_custom_hours_per_day_midpoint_is_midday",
+      "tests/unit/simulation/test_world_time.py::test_custom_tod_fraction_correct"
+    ],
+    "AC-34.10": [
+      "tests/unit/simulation/test_world_time.py::test_failed_turn_no_time_advance",
+      "tests/unit/simulation/test_world_time.py::test_failed_turn_game_state_unchanged"
+    ],
+    "AC-35.01": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_default_processor_returns_world_delta",
+      "tests/unit/simulation/test_npc_autonomy.py::test_empty_npcs_returns_empty_delta",
+      "tests/unit/simulation/test_npc_autonomy.py::test_key_npc_with_schedule_is_processed",
+      "tests/unit/simulation/test_npc_autonomy.py::test_key_npc_without_schedule_is_skipped",
+      "tests/unit/simulation/test_npc_autonomy.py::test_world_delta_changes_are_npc_state_changes",
+      "tests/unit/simulation/test_npc_autonomy.py::test_world_delta_events_are_world_events"
+    ],
+    "AC-35.02": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_background_npc_never_processed"
+    ],
+    "AC-35.03": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_supporting_npc_outside_salience_window_is_skipped",
+      "tests/unit/simulation/test_npc_autonomy.py::test_supporting_npc_no_schedule_skipped"
+    ],
+    "AC-35.04": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_supporting_npc_in_salience_window_is_processed"
+    ],
     "AC-35.05": [],
     "AC-35.06": [],
     "AC-35.07": [],
-    "AC-35.08": [],
-    "AC-35.09": [],
-    "AC-35.10": [],
-    "AC-36.01": [],
-    "AC-36.02": [],
-    "AC-36.03": [],
-    "AC-36.04": [],
-    "AC-36.05": [],
+    "AC-35.08": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_key_npc_never_deferred",
+      "tests/unit/simulation/test_npc_autonomy.py::test_supporting_npc_deferred_when_budget_zero"
+    ],
+    "AC-35.09": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_no_llm_falls_back_to_rule_based"
+    ],
+    "AC-35.10": [
+      "tests/unit/simulation/test_npc_autonomy.py::test_memory_processor_returns_world_delta",
+      "tests/unit/simulation/test_npc_autonomy.py::test_memory_processor_preset_is_returned",
+      "tests/unit/simulation/test_npc_autonomy.py::test_world_event_trigger_is_unmatched",
+      "tests/unit/simulation/test_npc_autonomy.py::test_player_visited_trigger_is_unmatched",
+      "tests/unit/simulation/test_npc_autonomy.py::test_active_triggers_not_in_unmatched"
+    ],
+    "AC-36.01": [
+      "tests/unit/simulation/test_consequence.py::test_minor_severity_is_filtered"
+    ],
+    "AC-36.02": [
+      "tests/unit/simulation/test_consequence.py::test_propagate_returns_list_of_propagation_results",
+      "tests/unit/simulation/test_consequence.py::test_memory_propagator_returns_preset",
+      "tests/unit/simulation/test_consequence.py::test_propagate_empty_sources_returns_empty_list",
+      "tests/unit/simulation/test_consequence.py::test_propagate_one_result_per_source_event",
+      "tests/unit/simulation/test_consequence.py::test_hop0_record_created_when_affected_entity_id_set",
+      "tests/unit/simulation/test_consequence.py::test_hop0_record_fields_match_source",
+      "tests/unit/simulation/test_consequence.py::test_no_hop0_when_no_affected_entity_id",
+      "tests/unit/simulation/test_consequence.py::test_propagation_depth_reached_does_not_exceed_max_depth",
+      "tests/unit/simulation/test_consequence.py::test_faction_record_respects_max_depth_1"
+    ],
+    "AC-36.03": [
+      "tests/unit/simulation/test_consequence.py::test_decay_critical_hop0",
+      "tests/unit/simulation/test_consequence.py::test_decay_critical_hop1",
+      "tests/unit/simulation/test_consequence.py::test_decay_critical_hop2",
+      "tests/unit/simulation/test_consequence.py::test_decay_critical_hop3",
+      "tests/unit/simulation/test_consequence.py::test_decay_critical_hop4_filtered",
+      "tests/unit/simulation/test_consequence.py::test_decay_major_hop1",
+      "tests/unit/simulation/test_consequence.py::test_decay_major_hop2",
+      "tests/unit/simulation/test_consequence.py::test_decay_major_hop3_filtered",
+      "tests/unit/simulation/test_consequence.py::test_decay_notable_hop1",
+      "tests/unit/simulation/test_consequence.py::test_decay_notable_hop2_filtered",
+      "tests/unit/simulation/test_consequence.py::test_decay_minor_hop1_filtered"
+    ],
+    "AC-36.04": [
+      "tests/unit/simulation/test_consequence.py::test_faction_shortcut_creates_hop1_record",
+      "tests/unit/simulation/test_consequence.py::test_no_faction_record_when_no_faction_id"
+    ],
+    "AC-36.05": [
+      "tests/unit/simulation/test_consequence.py::test_fidelity_hop0_verbatim",
+      "tests/unit/simulation/test_consequence.py::test_fidelity_hop1_verbatim",
+      "tests/unit/simulation/test_consequence.py::test_fidelity_hop2_truncates_long_description",
+      "tests/unit/simulation/test_consequence.py::test_fidelity_hop2_verbatim_when_short",
+      "tests/unit/simulation/test_consequence.py::test_fidelity_hop3_uses_template",
+      "tests/unit/simulation/test_consequence.py::test_fidelity_hop4_uses_template"
+    ],
     "AC-36.06": [],
-    "AC-36.07": [],
+    "AC-36.07": [
+      "tests/unit/simulation/test_consequence.py::test_max_depth_zero_treated_as_one",
+      "tests/unit/simulation/test_consequence.py::test_max_depth_zero_still_propagates_to_hop1"
+    ],
     "AC-36.08": [],
-    "AC-37.01": [],
-    "AC-37.02": [],
-    "AC-37.03": [],
-    "AC-37.04": [],
-    "AC-37.05": [],
-    "AC-37.06": [],
-    "AC-37.07": [],
-    "AC-37.08": [],
-    "AC-38.01": [],
-    "AC-38.02": [],
-    "AC-38.03": [],
-    "AC-38.04": [],
-    "AC-38.05": [],
-    "AC-38.06": [],
-    "AC-38.07": [],
-    "AC-38.08": [],
-    "AC-39.01": [],
-    "AC-39.02": [],
-    "AC-39.03": [],
-    "AC-39.04": [],
-    "AC-39.05": [],
-    "AC-39.06": [],
-    "AC-39.07": [],
-    "AC-39.08": [],
-    "AC-40.01": [],
-    "AC-40.02": [],
-    "AC-40.03": [],
-    "AC-40.04": [],
-    "AC-40.05": [],
-    "AC-40.06": [],
-    "AC-40.07": [],
-    "AC-40.08": [],
-    "AC-41.01": [],
-    "AC-41.02": [],
-    "AC-41.03": [],
-    "AC-41.04": [],
-    "AC-41.05": [],
-    "AC-41.06": [],
-    "AC-42.01": [],
-    "AC-42.02": [],
-    "AC-42.03": [],
-    "AC-42.04": [],
-    "AC-42.05": [],
-    "AC-43.01": [],
-    "AC-43.02": [],
-    "AC-43.03": [],
-    "AC-43.04": [],
-    "AC-44.01": [],
-    "AC-44.02": [],
-    "AC-44.03": [],
-    "AC-44.04": [],
-    "AC-44.05": [],
-    "AC-45.01": [],
-    "AC-45.02": [],
-    "AC-45.03": [],
-    "AC-45.04": [],
-    "AC-45.05": [],
+    "AC-37.01": [
+      "tests/unit/simulation/test_world_memory.py::test_record_returns_memory_record"
+    ],
+    "AC-37.02": [
+      "tests/unit/simulation/test_world_memory.py::test_importance_score_player_source",
+      "tests/unit/simulation/test_world_memory.py::test_importance_score_narrator_zero",
+      "tests/unit/simulation/test_world_memory.py::test_importance_score_key_npc_adds",
+      "tests/unit/simulation/test_world_memory.py::test_importance_score_critical_severity_adds",
+      "tests/unit/simulation/test_world_memory.py::test_importance_score_tags_add",
+      "tests/unit/simulation/test_world_memory.py::test_importance_score_clamped_at_one",
+      "tests/unit/simulation/test_world_memory.py::test_importance_score_unknown_source_zero"
+    ],
+    "AC-37.03": [
+      "tests/unit/simulation/test_world_memory.py::test_get_context_returns_three_tiers",
+      "tests/unit/simulation/test_world_memory.py::test_get_context_working_tier_is_most_recent"
+    ],
+    "AC-37.04": [
+      "tests/unit/simulation/test_world_memory.py::test_current_importance_no_decay_at_zero_elapsed",
+      "tests/unit/simulation/test_world_memory.py::test_current_importance_half_after_one_half_life",
+      "tests/unit/simulation/test_world_memory.py::test_current_importance_quarter_after_two_half_lives"
+    ],
+    "AC-37.05": [
+      "tests/unit/simulation/test_world_memory.py::test_budget_cap_drops_records"
+    ],
+    "AC-37.06": [
+      "tests/unit/simulation/test_world_memory.py::test_compress_if_needed_skips_below_threshold",
+      "tests/unit/simulation/test_world_memory.py::test_compress_if_needed_triggers_above_threshold"
+    ],
+    "AC-37.07": [
+      "tests/unit/simulation/test_world_memory.py::test_archived_records_excluded_from_context"
+    ],
+    "AC-37.08": [
+      "tests/unit/simulation/test_world_memory.py::test_compressed_record_references_original_ids"
+    ],
+    "AC-38.01": [
+      "tests/unit/simulation/test_npc_memory.py::test_record_episode_returns_npc_episodic_memory",
+      "tests/unit/simulation/test_npc_memory.py::test_get_npc_context_sorted_by_importance_desc"
+    ],
+    "AC-38.02": [
+      "tests/unit/simulation/test_npc_memory.py::test_gossip_propagates_max_two_hops",
+      "tests/unit/simulation/test_npc_memory.py::test_gossip_idempotency_same_episode_not_re_recorded",
+      "tests/unit/simulation/test_npc_memory.py::test_get_relationship_returns_edge",
+      "tests/unit/simulation/test_npc_memory.py::test_get_relationship_returns_none_when_missing",
+      "tests/unit/simulation/test_npc_memory.py::test_update_relationship_persists_changes"
+    ],
+    "AC-38.03": [
+      "tests/unit/simulation/test_npc_memory.py::test_reliability_floor_stops_propagation"
+    ],
+    "AC-38.04": [
+      "tests/unit/simulation/test_npc_memory.py::test_gossip_propagates_max_two_hops"
+    ],
+    "AC-38.05": [
+      "tests/unit/simulation/test_npc_memory.py::test_reliability_floor_stops_propagation"
+    ],
+    "AC-38.06": [
+      "tests/unit/simulation/test_npc_memory.py::test_key_npc_episodes_persist_cross_session"
+    ],
+    "AC-38.07": [
+      "tests/unit/simulation/test_npc_memory.py::test_background_npc_episodes_scoped_to_session"
+    ],
+    "AC-38.08": [
+      "tests/unit/simulation/test_npc_memory.py::test_consequence_triggers_episode_with_emotional_valence"
+    ],
+    "AC-39.01": [
+      "tests/unit/universe/test_composition.py::test_empty_config_is_valid",
+      "tests/unit/universe/test_composition.py::test_none_composition_block_is_valid"
+    ],
+    "AC-39.02": [
+      "tests/unit/universe/test_composition.py::test_composition_round_trips_without_seed"
+    ],
+    "AC-39.03": [
+      "tests/unit/universe/test_composition.py::test_to_dict_includes_composition_version"
+    ],
+    "AC-39.04": [
+      "tests/unit/universe/test_composition.py::test_theme_limit_exceeded_returns_error",
+      "tests/unit/universe/test_composition.py::test_trope_limit_exceeded_returns_error",
+      "tests/unit/universe/test_composition.py::test_archetype_limit_exceeded_returns_error",
+      "tests/unit/universe/test_composition.py::test_genre_twist_limit_exceeded_returns_error"
+    ],
+    "AC-39.05": [
+      "tests/unit/universe/test_composition.py::test_seed_not_in_to_dict"
+    ],
+    "AC-39.06": [
+      "tests/unit/universe/test_composition.py::test_tone_profile_dark_keywords",
+      "tests/unit/universe/test_composition.py::test_tone_profile_cozy_keywords",
+      "tests/unit/universe/test_composition.py::test_tone_profile_neutral_default",
+      "tests/unit/universe/test_composition.py::test_tone_profile_mixed_signals_defaults"
+    ],
+    "AC-39.07": [
+      "tests/unit/universe/test_composition.py::test_invalid_theme_name_rejected",
+      "tests/unit/universe/test_composition.py::test_valid_theme_name_accepted"
+    ],
+    "AC-39.08": [
+      "tests/unit/universe/test_composition.py::test_invalid_pacing_rejected",
+      "tests/unit/universe/test_composition.py::test_invalid_density_rejected",
+      "tests/unit/universe/test_composition.py::test_valid_prose_config_accepted"
+    ],
+    "AC-39.09": [
+      "tests/unit/universe/test_composition.py::test_context_fragment_includes_genre",
+      "tests/unit/universe/test_composition.py::test_context_fragment_excludes_low_weight_themes"
+    ],
+    "AC-39.10": [
+      "tests/unit/universe/test_composition.py::test_to_dict_preserves_tone_primary_secondary",
+      "tests/unit/universe/test_composition.py::test_tone_override_survives_round_trip"
+    ],
+    "AC-39.11": [
+      "tests/unit/universe/test_composition.py::test_validator_does_not_reject_subsystem_namespaces",
+      "tests/unit/universe/test_composition.py::test_validate_emits_log_on_success",
+      "tests/unit/universe/test_composition.py::test_validate_emits_log_on_failure"
+    ],
+    "AC-39.12": [
+      "tests/unit/universe/test_composition.py::test_weight_out_of_range_rejected",
+      "tests/unit/universe/test_composition.py::test_strength_out_of_range_rejected"
+    ],
+    "AC-40.01": [
+      "tests/unit/genesis/test_genesis_v2.py::test_phase_does_not_advance_before_min_interactions",
+      "tests/unit/genesis/test_genesis_v2.py::test_phase_advances_after_min_interactions"
+    ],
+    "AC-40.02": [
+      "tests/unit/genesis/test_genesis_v2.py::test_is_harmful_detects_violence",
+      "tests/unit/genesis/test_genesis_v2.py::test_is_harmful_clean_input",
+      "tests/unit/genesis/test_genesis_v2.py::test_harmful_content_does_not_advance_phase"
+    ],
+    "AC-40.03": [
+      "tests/unit/genesis/test_genesis_v2.py::test_genesis_state_round_trips",
+      "tests/unit/genesis/test_genesis_v2.py::test_state_is_saved_on_advance"
+    ],
+    "AC-40.04": [
+      "tests/unit/genesis/test_genesis_v2.py::test_start_emits_structlog_event"
+    ],
+    "AC-40.05": [
+      "tests/unit/genesis/test_genesis_v2.py::test_building_world_extracts_composition"
+    ],
+    "AC-40.06": [
+      "tests/unit/genesis/test_genesis_v2.py::test_building_character_infers_traits"
+    ],
+    "AC-40.07": [
+      "tests/unit/genesis/test_genesis_v2.py::test_first_light_sets_narrator_form"
+    ],
+    "AC-40.08": [
+      "tests/unit/genesis/test_genesis_v2.py::test_becoming_captures_character_name"
+    ],
+    "AC-40.09": [
+      "tests/unit/genesis/test_genesis_v2.py::test_threshold_sets_first_turn_seed"
+    ],
+    "AC-40.10": [
+      "tests/unit/genesis/test_genesis_v2.py::test_threshold_marks_completed"
+    ],
+    "AC-40.11": [
+      "tests/unit/genesis/test_genesis_v2.py::test_advance_on_completed_state_returns_gracefully"
+    ],
+    "AC-40.12": [
+      "tests/unit/genesis/test_genesis_v2.py::test_genesis_state_from_dict_handles_missing_keys"
+    ],
+    "AC-40.13": [
+      "tests/unit/genesis/test_genesis_v2.py::test_phase_order_is_deterministic"
+    ],
+    "AC-40.14": [
+      "tests/unit/genesis/test_genesis_v2.py::test_slip_phase_captures_slip_event"
+    ],
+    "AC-40.15": [
+      "tests/unit/genesis/test_genesis_v2.py::test_interactions_list_accumulates"
+    ],
+    "AC-41.01": [
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_all_canonical_seeds_load",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_canonical_seeds_no_error_logs"
+    ],
+    "AC-41.02": [
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_get_by_id_returns_manifest",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_get_by_id_correct_genre",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_get_unknown_id_returns_none"
+    ],
+    "AC-41.03": [
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_list_by_tag_strange_mundane",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_list_by_tag_excludes_dirty_frodo",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_list_results_are_sorted"
+    ],
+    "AC-41.04": [
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_invalid_seed_excluded",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_invalid_seed_logs_error",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_valid_seeds_survive_invalid_peer"
+    ],
+    "AC-41.05": [
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_collision_both_seeds_excluded",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_collision_logs_both_paths"
+    ],
+    "AC-41.06": [
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_apply_seed_composition_sets_composition",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_apply_seed_composition_no_seed_id_is_noop",
+      "tests/unit/seeds/test_s41_ac_compliance.py::test_apply_seed_composition_unknown_id_is_noop"
+    ],
+    "AC-42.01": [
+      "tests/unit/playtest/test_s42_ac_compliance.py::test_ac42_01_complete_session"
+    ],
+    "AC-42.02": [
+      "tests/unit/playtest/test_s42_ac_compliance.py::test_ac42_02_turn_commentary_bounds"
+    ],
+    "AC-42.03": [
+      "tests/unit/playtest/test_s42_ac_compliance.py::test_ac42_03_reproducibility"
+    ],
+    "AC-42.04": [
+      "tests/unit/playtest/test_s42_ac_compliance.py::test_ac42_04_verbosity_brevity_constraint"
+    ],
+    "AC-42.05": [
+      "tests/unit/playtest/test_s42_ac_compliance.py::test_ac42_05_consecutive_timeout_abandonment"
+    ],
+    "AC-43.01": [
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_consent_gate_not_granted_raises",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_consent_gate_granted_returns_true",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_consent_gate_withdrawn_returns_false"
+    ],
+    "AC-43.02": [
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_human_feedback_record_from_dict_roundtrip",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_text_fields_clamped_to_500",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_to_feedback_record_bridges_session_id",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_is_low_signal_all_ones_no_text",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_is_low_signal_false_when_text_present"
+    ],
+    "AC-43.03": [
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_process_withdrawal_sets_flag_and_anonymizes",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_process_withdrawal_does_not_mutate_original",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_anonymize_copy_preserves_feedback_data"
+    ],
+    "AC-43.04": [
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_not_validated_when_overall_below_threshold",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_not_validated_when_coherence_below_threshold",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_not_validated_false_when_both_above_threshold",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_aggregate_not_validated_field_reflects_threshold",
+      "tests/unit/playtester/test_s43_ac_compliance.py::test_compute_aggregate_count_and_mean"
+    ],
+    "AC-44.01": [
+      "tests/unit/quality/test_s44_ac_compliance.py::test_all_categories_scored_when_full_data_present"
+    ],
+    "AC-44.02": [
+      "tests/unit/quality/test_s44_ac_compliance.py::test_qc03_not_evaluated_when_no_feedback",
+      "tests/unit/quality/test_s44_ac_compliance.py::test_qc03_not_evaluated_weight_redistributed"
+    ],
+    "AC-44.03": [
+      "tests/unit/quality/test_s44_ac_compliance.py::test_qc04_auto_zero_when_character_name_absent_from_first_turn",
+      "tests/unit/quality/test_s44_ac_compliance.py::test_qc04_notes_mention_enforcement_miss"
+    ],
+    "AC-44.04": [
+      "tests/unit/quality/test_s44_ac_compliance.py::test_verdict_fail_when_individual_category_below_threshold",
+      "tests/unit/quality/test_s44_ac_compliance.py::test_verdict_fail_populates_fail_reasons"
+    ],
+    "AC-44.05": [
+      "tests/unit/quality/test_s44_ac_compliance.py::test_verdict_inconclusive_when_three_or_more_not_evaluated",
+      "tests/unit/quality/test_s44_ac_compliance.py::test_verdict_inconclusive_fail_reasons_empty"
+    ],
+    "AC-45.01": [
+      "tests/unit/eval/test_s45_ac_compliance.py::test_plan_runs_default_generates_20",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_plan_runs_covers_all_seeds_and_personas",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_plan_runs_run_ids_are_unique",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_batch_config_total_planned"
+    ],
+    "AC-45.02": [
+      "tests/unit/eval/test_s45_ac_compliance.py::test_regression_detected_when_delta_exceeds_threshold",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_regression_not_detected_at_exact_threshold",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_no_regression_when_above_baseline",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_regression_result_contains_correct_delta"
+    ],
+    "AC-45.03": [
+      "tests/unit/eval/test_s45_ac_compliance.py::test_langfuse_scores_shipped_for_scored_categories",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_langfuse_skips_none_score",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_langfuse_skips_not_evaluated_status",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_langfuse_failure_does_not_abort_pipeline",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_langfuse_none_client_skips_shipping"
+    ],
+    "AC-45.04": [
+      "tests/unit/eval/test_s45_ac_compliance.py::test_emit_verdict_exit_2_when_error_rate_exceeds_25_pct",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_emit_verdict_exit_2_at_exactly_26_pct",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_emit_verdict_no_abort_at_25_pct_exactly",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_emit_verdict_exit_1_on_regression",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_emit_verdict_exit_1_on_fail_verdict",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_emit_verdict_exit_0_on_pass"
+    ],
+    "AC-45.05": [
+      "tests/unit/eval/test_s45_ac_compliance.py::test_load_human_feedback_loads_granted_records",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_load_human_feedback_skips_not_granted",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_load_human_feedback_skips_withdrawn",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_load_human_feedback_empty_dir_returns_empty",
+      "tests/unit/eval/test_s45_ac_compliance.py::test_load_human_feedback_none_dir_returns_empty"
+    ],
     "AC-46.01": [],
     "AC-46.02": [],
     "AC-46.03": [],
     "AC-46.04": [],
     "AC-46.05": [],
-    "AC-47.01": [],
-    "AC-47.02": [],
-    "AC-47.03": [],
-    "AC-47.04": [],
-    "AC-47.05": [],
-    "AC-48.01": [],
-    "AC-48.02": [],
-    "AC-48.03": [],
-    "AC-48.04": [],
-    "AC-48.05": [],
-    "AC-48.06": [],
+    "AC-47.01": [
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_neo4j_service_healthcheck_configured",
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_neo4j_service_no_auth"
+    ],
+    "AC-47.02": [
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_conftest_has_teardown_delete_all",
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_conftest_has_function_scoped_neo4j_session"
+    ],
+    "AC-47.03": [
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_no_mock_neo4j_in_integration_tests"
+    ],
+    "AC-47.04": [
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_conftest_has_session_scoped_neo4j_db",
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_neo4j_driver_init_uses_no_auth"
+    ],
+    "AC-47.05": [
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_world_full_cypher_exists",
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_world_full_cypher_contains_s13_constraints",
+      "tests/unit/neo4j/test_s47_ac_compliance.py::test_all_neo4j_fixtures_exist"
+    ],
+    "AC-48.01": [
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_erase_existing_player_returns_erased",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_erase_calls_postgres_delete"
+    ],
+    "AC-48.02": [
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_already_erased_is_idempotent",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_already_erased_does_not_call_dispose"
+    ],
+    "AC-48.03": [
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_retention_batch_size_constant",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_retention_sweep_batches_until_exhausted"
+    ],
+    "AC-48.04": [
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_write_dead_letter_pushes_to_redis",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_dead_letter_on_3rd_retry",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_no_dead_letter_before_3rd_retry",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_dead_letter_no_op_without_redis"
+    ],
+    "AC-48.05": [
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_queue_name",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_max_jobs",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_job_timeout_is_30_minutes",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_keep_result_is_1_hour",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_all_four_functions_registered",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_two_cron_jobs_configured"
+    ],
+    "AC-48.06": [
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_enqueue_known_job_returns_201",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_enqueue_unknown_job_returns_400",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_get_job_status_returns_200",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_get_job_status_not_found_returns_404",
+      "tests/unit/jobs/test_s48_ac_compliance.py::test_enqueue_requires_auth"
+    ],
     "AC-49.01": [],
     "AC-49.02": [],
     "AC-49.03": [],

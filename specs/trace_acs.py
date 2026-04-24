@@ -136,15 +136,38 @@ def scan_markers(tests_dir: Path) -> dict[str, list[str]]:
         rel = py_file.relative_to(REPO_ROOT)
 
         # Build a map of class → inherited AC IDs from class-level @pytest.mark.spec
+        # Also handles the `pytestmark = [pytest.mark.spec(...)]` assignment pattern
+        # that pytest itself supports for class-level marker inheritance.
         class_ac_ids: dict[str, list[str]] = {}
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
+            # Form 1: @pytest.mark.spec(...) decorator on the class
             for decorator in node.decorator_list:
                 ids = _extract_spec_ids(decorator)
                 if ids:
                     existing = class_ac_ids.setdefault(node.name, [])
                     existing.extend(ids)
+            # Form 2: pytestmark = [pytest.mark.spec(...)] assignment in class body
+            for stmt in node.body:
+                if not isinstance(stmt, ast.Assign):
+                    continue
+                if not any(
+                    isinstance(t, ast.Name) and t.id == "pytestmark"
+                    for t in stmt.targets
+                ):
+                    continue
+                # Value may be a single call or a list of calls
+                candidates: list[ast.expr] = []
+                if isinstance(stmt.value, ast.List):
+                    candidates.extend(stmt.value.elts)
+                else:
+                    candidates.append(stmt.value)
+                for candidate in candidates:
+                    ids = _extract_spec_ids(candidate)
+                    if ids:
+                        existing = class_ac_ids.setdefault(node.name, [])
+                        existing.extend(ids)
 
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

@@ -21,6 +21,8 @@ from tta.resilience.retry import (
 
 
 class TestRetryPresets:
+    pytestmark = [pytest.mark.spec("AC-23.04")]
+
     def test_db_connection_preset(self) -> None:
         assert DB_CONNECTION.max_retries == 3
         assert DB_CONNECTION.initial_backoff == 0.5
@@ -68,6 +70,8 @@ FAST_CONFIG = RetryConfig(
 
 class TestWithRetry:
     """AC-23.4: database retry with exponential backoff + jitter."""
+
+    pytestmark = [pytest.mark.spec("AC-23.04")]
 
     async def test_success_on_first_attempt(self) -> None:
         call_count = 0
@@ -187,6 +191,8 @@ from tta.resilience.retry import (  # noqa: E402
 class TestDbRetry:
     """AC-23.4: db_retry decorator and with_db_retry helper."""
 
+    pytestmark = [pytest.mark.spec("AC-23.04")]
+
     async def test_db_retry_succeeds_on_first_attempt(self) -> None:
         call_count = 0
 
@@ -276,6 +282,8 @@ class TestDbRetry:
 
 class TestRedisRetry:
     """AC-23.4: redis_retry decorator and with_redis_retry helper."""
+
+    pytestmark = [pytest.mark.spec("AC-23.04")]
 
     async def test_redis_retry_succeeds_on_first_attempt(self) -> None:
         call_count = 0

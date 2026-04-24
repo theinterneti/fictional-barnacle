@@ -34,6 +34,8 @@ def _make_record(**overrides) -> ModerationRecord:  # noqa: ANN003
 class TestModerationRecorder:
     """Unit tests for ModerationRecorder."""
 
+    pytestmark = [pytest.mark.spec("AC-24.04")]
+
     @pytest.mark.asyncio
     async def test_save_executes_insert(self) -> None:
         mock_session = AsyncMock()
