@@ -24,12 +24,14 @@ async def run_simulation_with_smart_router():
 
     # Setup
     session_id = uuid4()
-    llm = SmartRouterLLMClient(task_type="simple")
+    llm = SmartRouterLLMClient()
     world_service = InMemoryWorldService()
     template_registry = TemplateRegistry(
-        directory=Path(
-            "/home/theinterneti/Repos/fictional-barnacle/src/tta/world/templates"
-        )
+        directory=Path(__file__).resolve().parents[3]
+        / "src"
+        / "tta"
+        / "world"
+        / "templates"
     )
 
     pipeline_deps = PipelineDeps(

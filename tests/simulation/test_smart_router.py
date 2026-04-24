@@ -23,7 +23,7 @@ async def test_with_smart_router():
 
     # Setup
     session_id = uuid4()
-    llm = SmartRouterLLMClient(task_type="simple")
+    llm = SmartRouterLLMClient()
     world_service = InMemoryWorldService()
     template_registry = TemplateRegistry(
         directory=Path(__file__).resolve().parents[2]
@@ -83,7 +83,7 @@ async def test_with_smart_router():
 
     # Turn 2: coding task
     print("\n3. Running turn 2 (coding task)...")
-    llm_coding = SmartRouterLLMClient(task_type="coding")
+    llm_coding = SmartRouterLLMClient()
     pipeline_deps_coding = PipelineDeps(
         llm=llm_coding,
         world=world_service,
