@@ -886,6 +886,8 @@ class TestS10FR1036ErrorEventTurnId:
 class TestS10FR1038HeartbeatEvent:
     """FR-10.38: SSE stream uses 'heartbeat' event type (not legacy 'keepalive')."""
 
+    pytestmark = [pytest.mark.spec("AC-10.06")]
+
     def test_heartbeat_event_model_type(self) -> None:
         """HeartbeatEvent serialises with event_type 'heartbeat'."""
         evt = HeartbeatEvent()
@@ -978,3 +980,53 @@ class TestS10FR1038HeartbeatEvent:
 
         assert "event: heartbeat\n" in body
         assert "event: keepalive" not in body
+
+
+# ---------------------------------------------------------------------------
+# AC-10.13: Empty / whitespace-only turn input → 400 input_invalid
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-10.13")
+class TestAC1013EmptyTurnInput:
+    """AC-10.13: Submitting empty or whitespace-only input returns 400 input_invalid."""
+
+    def test_empty_string_returns_400(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-10.13: Empty string input → 400."""
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row()]),  # _get_owned_game
+                _make_result(),              # advisory lock
+                _make_result(),              # in-flight check
+            ]
+        )
+        pg.commit = AsyncMock()
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": ""},
+        )
+        assert resp.status_code == 400
+        body = resp.json()
+        assert body["error"]["code"] == "EMPTY_TURN_INPUT"
+
+    def test_whitespace_only_returns_400(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-10.13: Whitespace-only input → 400."""
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row()]),
+                _make_result(),
+                _make_result(),
+            ]
+        )
+        pg.commit = AsyncMock()
+        resp = client.post(
+            f"/api/v1/games/{_GAME_ID}/turns",
+            json={"input": "   "},
+        )
+        assert resp.status_code == 400
+        body = resp.json()
+        assert body["error"]["code"] == "EMPTY_TURN_INPUT"
