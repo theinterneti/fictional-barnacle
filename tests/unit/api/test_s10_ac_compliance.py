@@ -1000,8 +1000,8 @@ class TestAC1013EmptyTurnInput:
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row()]),  # _get_owned_game
-                _make_result(),              # advisory lock
-                _make_result(),              # in-flight check
+                _make_result(),  # advisory lock
+                _make_result(),  # in-flight check
             ]
         )
         pg.commit = AsyncMock()
