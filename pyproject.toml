@@ -69,6 +69,7 @@ ignore = ["B008"]  # Depends() in defaults is idiomatic FastAPI
 [tool.ruff.lint.per-file-ignores]
 "specs/index_specs.py" = ["E501"]  # embedded CSS/HTML strings exceed 88 chars
 "specs/trace_acs.py" = ["E501"]  # embedded HTML template and argparse strings exceed 88 chars
+"scripts/run_sims.py" = ["E501"]  # print-format strings in simulation output
 
 # ---------------------------------------------------------------------------
 # Pyright — type checking

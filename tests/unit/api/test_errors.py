@@ -211,7 +211,7 @@ class TestValidationErrorHandler:
 class TestUnhandledErrorHandler:
     @pytest.mark.spec("AC-23.10")
     def test_returns_500_without_details(self, app: FastAPI) -> None:
-        """AC-23.11: No info leak for unhandled errors in production."""
+        """AC-23.10: No info leak for unhandled errors in production."""
         mock_settings = type("S", (), {"environment": Environment.PRODUCTION})()
         with (
             patch("tta.api.errors.get_settings", return_value=mock_settings),

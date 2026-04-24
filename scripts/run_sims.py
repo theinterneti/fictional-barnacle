@@ -13,17 +13,13 @@ so persona differences show up in QC output.
 from __future__ import annotations
 
 import asyncio
-import json
 import random
 import statistics
-import sys
 import uuid
+import zlib
 from dataclasses import dataclass
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-
-from tta.playtest.profile import BUILTIN_PERSONAS, get_taste_profile, TasteProfile
+from tta.playtest.profile import BUILTIN_PERSONAS, TasteProfile, get_taste_profile
 from tta.playtest.report import Commentary, PlaytestReport, TurnRecord
 from tta.quality.evaluator import NarrativeQualityEvaluator
 
@@ -206,7 +202,7 @@ async def run_tier(tier: str, target_turns: int, jitter_variants: int) -> list[R
     for seed_id in SEEDS:
         for persona_id in PERSONAS:
             for v in range(jitter_variants):
-                jitter_seed = hash(f"{tier}-{persona_id}-{seed_id}-{v}") & 0xFFFF
+                jitter_seed = zlib.crc32(f"{tier}-{persona_id}-{seed_id}-{v}".encode()) & 0xFFFF
                 rng = random.Random(jitter_seed + 1)
                 profile = get_taste_profile(persona_id, jitter_seed=jitter_seed, jitter=True)
                 report = _make_report(profile, persona_id, seed_id, target_turns, jitter_seed, rng)
@@ -218,8 +214,8 @@ async def run_tier(tier: str, target_turns: int, jitter_variants: int) -> list[R
                     consequence_count=consequence_count,
                 )
 
-                def _score(qc_id: str) -> float | None:
-                    cat = quality.category(qc_id)
+                def _score(qc_id: str, _q: object = quality) -> float | None:  # noqa: B023
+                    cat = _q.category(qc_id)  # type: ignore[union-attr]
                     return cat.score if cat and cat.is_evaluated() else None
 
                 records.append(RunRecord(
@@ -369,7 +365,7 @@ def _pearson(pairs: list[tuple[float, float]]) -> float:
     ys = [p[1] for p in pairs]
     mx, my = _mean(xs), _mean(ys)
     num = sum((x - mx) * (y - my) for x, y in pairs)
-    denom = (_stdev(xs) * _stdev(ys) * len(pairs))
+    denom = (_stdev(xs) * _stdev(ys) * (len(pairs) - 1))
     return num / denom if denom else 0.0
 
 
@@ -396,7 +392,7 @@ async def main() -> None:
     print("╚══════════════════════════════════════════════════════════╝")
     print(f"\n  Personas : {', '.join(PERSONAS)}")
     print(f"  Seeds    : {', '.join(SEEDS)}")
-    print(f"  Variants : 3 jitter seeds per persona")
+    print("  Variants : 3 jitter seeds per persona")
     total_runs = len(SEEDS) * len(PERSONAS) * 3 * len(SIM_TIERS)
     print(f"  Total    : {total_runs} simulation runs\n")
 
