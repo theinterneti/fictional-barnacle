@@ -1030,3 +1030,37 @@ class TestAC1002OpenAPIValidity:
         spec = resp.json()
         # validate() raises if the spec is invalid
         validate(spec)
+
+
+# ---------------------------------------------------------------------------
+# AC-10.08: Rate-limit headers present on responses
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-10.08")
+class TestAC1008RateLimitHeaders:
+    """AC-10.08: Server includes X-RateLimit-* headers on API responses."""
+
+    def test_rate_limit_headers_present_on_game_get(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-10.08: GET /api/v1/games/{id} includes rate-limit headers."""
+        pg.execute = AsyncMock(return_value=_make_result())
+        resp = client.get(f"/api/v1/games/{uuid4()}")
+        assert "x-ratelimit-limit" in resp.headers
+        assert "x-ratelimit-remaining" in resp.headers
+        assert "x-ratelimit-reset" in resp.headers
+
+    def test_rate_limit_headers_values_are_valid(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-10.08: Rate-limit header values are valid integers."""
+        pg.execute = AsyncMock(return_value=_make_result())
+        resp = client.get(f"/api/v1/games/{uuid4()}")
+        limit = int(resp.headers.get("x-ratelimit-limit", 0))
+        remaining = int(resp.headers.get("x-ratelimit-remaining", 0))
+        reset_at = int(resp.headers.get("x-ratelimit-reset", 0))
+
+        assert limit > 0
+        assert remaining >= 0
+        assert reset_at > 0
