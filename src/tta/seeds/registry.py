@@ -32,6 +32,9 @@ class SeedRegistry:
         if not directory.exists():
             log.warning("seed_registry_dir_missing", path=str(directory))
             return
+        if not directory.is_dir():
+            log.warning("seed_registry_dir_not_directory", path=str(directory))
+            return
         validator = SeedValidator()
         collisions: set[str] = set()
         pending: dict[str, SeedManifest] = {}
