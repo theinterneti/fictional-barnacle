@@ -2,7 +2,7 @@
 
 Transitions enforced:
   - ``created``/``active``  + 0 turns + age > 24 h  →  ``abandoned``
-  - ``paused``  + last_played > 30 days  →  ``expired``
+  - ``paused``  + paused_at older than 30 days  →  ``expired``
   - ``active``  + turn_count > 0 + idle > 30 min  →  ``paused``  (AC-1.7)
   - Anonymous players with no active games + 30 d old  →  soft-deleted
     (FR-11.12, FR-11.59)
@@ -63,7 +63,7 @@ async def run_lifecycle_pass(
         )
         abandoned = abandon_result.rowcount or 0
 
-        # Rule 2: paused + paused_at > 30 days → expired (NULL fallback for old rows)
+        # Rule 2: paused + paused_at < cutoff (>30 days ago) → expired; NULL fallback uses last_played_at
         expire_result = await pg.execute(
             sa.text(
                 "UPDATE game_sessions "

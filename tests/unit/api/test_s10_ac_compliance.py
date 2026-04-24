@@ -1,18 +1,16 @@
 """S10 API & Streaming — Acceptance Criteria compliance tests.
 
-Covers AC-10.01, AC-10.03, AC-10.07, AC-10.09, AC-10.10, AC-10.11, AC-10.12.
+Covers AC-10.01, AC-10.02, AC-10.03, AC-10.06, AC-10.07, AC-10.08, AC-10.09,
+AC-10.10, AC-10.11, AC-10.12, AC-10.13.
 Also covers S10 §6.2/§6.4/§6.5 canonical event taxonomy:
   FR-10.34 — narrative events with 0-indexed sequence per chunk
   FR-10.35 — narrative_end.total_chunks == number of narrative events
   FR-10.36 — error event on failure includes turn_id; stream continues (returns)
   FR-10.38 — heartbeat event (not keepalive) used for idle connections
 
-v2 ACs (deferred, require integration infra):
-  AC-10.02 — OpenAPI spec validation (openapi-spec-validator tooling)
+Unit-only ACs (require integration infra for full validation):
   AC-10.04 — SSE chunk delivery within 2 s (real-time timing, integration only)
-  AC-10.05 — Reconnect / missed events within 30 s (Redis pub/sub)
-  AC-10.06 — Keepalive heartbeats every 15 s (SSE middleware, integration only)
-  AC-10.08 — Rate-limit headers on every authenticated response (middleware)
+  AC-10.05 — Reconnect / missed events within 30 s (Redis pub/sub, integration only)
 """
 
 from __future__ import annotations
