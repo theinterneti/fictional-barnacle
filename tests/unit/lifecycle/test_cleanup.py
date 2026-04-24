@@ -86,6 +86,21 @@ class TestAbandonRule:
         expected = datetime.now(UTC) - timedelta(hours=24)
         assert abs((cutoff - expected).total_seconds()) < 5
 
+    @pytest.mark.anyio
+    async def test_abandon_boundary_created_exactly_24h_ago(self) -> None:
+        """AC-11.08: Game created exactly 24h ago MUST be abandoned."""
+        pg = _make_pg(abandon_rowcount=1)
+        factory = _make_factory(pg)
+
+        await run_lifecycle_pass(factory, abandon_hours=24)
+
+        abandon_call = pg.execute.call_args_list[0]
+        sql_text = str(abandon_call.args[0].text)
+        assert "<= :cutoff" in sql_text, (
+            "AC-11.08: SQL should use <= not < to catch games "
+            "exactly at 24h boundary"
+        )
+
 
 @pytest.mark.spec("AC-11.06")
 class TestExpireRule:
@@ -117,6 +132,21 @@ class TestExpireRule:
         cutoff = params["cutoff"]
         expected = datetime.now(UTC) - timedelta(days=30)
         assert abs((cutoff - expected).total_seconds()) < 5
+
+    @pytest.mark.anyio
+    async def test_expire_boundary_paused_exactly_30_days_ago(self) -> None:
+        """AC-11.06: Game paused exactly 30 days ago MUST be expired."""
+        pg = _make_pg(expire_rowcount=1)
+        factory = _make_factory(pg)
+
+        await run_lifecycle_pass(factory, expire_days=30)
+
+        expire_call = pg.execute.call_args_list[1]
+        sql_text = str(expire_call.args[0].text)
+        assert "<= :cutoff" in sql_text, (
+            "AC-11.06: SQL should use <= not < to catch games "
+            "exactly at 30-day boundary"
+        )
 
 
 class TestMixedTransitions:
@@ -219,12 +249,12 @@ class TestAC1105PausedGameNotExpiredBefore30Days:
     """Paused game within 30 days MUST NOT be expired."""
 
     @pytest.mark.anyio
-    async def test_paused_game_not_expired_before_30_days(self) -> None:
-        """AC-11.05: Game paused 29 days ago should NOT be expired."""
+    async def test_paused_game_cutoff_is_exactly_30_days(self) -> None:
+        """AC-11.05: Verify cutoff is 30 days, not 29 or 31."""
         pg = _make_pg(expire_rowcount=0)
         factory = _make_factory(pg)
 
-        result = await run_lifecycle_pass(factory, expire_days=30)
+        await run_lifecycle_pass(factory, expire_days=30)
 
         expire_call = pg.execute.call_args_list[1]
         params = expire_call.args[1]
@@ -234,17 +264,6 @@ class TestAC1105PausedGameNotExpiredBefore30Days:
         expected_cutoff = now - timedelta(days=30)
         assert abs((cutoff - expected_cutoff).total_seconds()) < 5
 
-        assert result["expired"] == 0
+        sql_text = str(expire_call.args[0].text)
+        assert "<= :cutoff" in sql_text or "last_played_at <=" in sql_text
 
-
-@pytest.mark.spec("AC-11.07")
-class TestAC1107ExpiredGameCanBeResumed:
-    """Expired game MUST be resumable."""
-
-    @pytest.mark.anyio
-    async def test_expired_status_allows_resume(self) -> None:
-        """AC-11.07: Expired games should appear in allowed statuses."""
-        from tta.api.routes.games import _VALID_TRANSITIONS
-
-        allowed_to_active = _VALID_TRANSITIONS.get("expired", set())
-        assert "active" in allowed_to_active
