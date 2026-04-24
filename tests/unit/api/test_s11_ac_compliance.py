@@ -617,7 +617,6 @@ class TestAC1112NoPasswordInResponses:
         self._assert_no_password_fields(resp.json(), "/api/v1/auth/refresh")
 
 
-
 # ---------------------------------------------------------------------------
 # AC-11.07: Expired game can be resumed
 # ---------------------------------------------------------------------------
@@ -635,7 +634,9 @@ class TestAC1107ExpiredGameCanBeResumed:
 
         async def track_execute(stmt: Any, params: Any = None) -> MagicMock:
             call_idx = len(execute_calls)
-            execute_calls.append((str(stmt) if hasattr(stmt, "__str__") else "", params))
+            execute_calls.append(
+                (str(stmt) if hasattr(stmt, "__str__") else "", params)
+            )
             if call_idx == 0:
                 # _get_owned_game: game in 'expired' status
                 return _make_result(
@@ -703,7 +704,9 @@ class TestAC1107ExpiredGameCanBeResumed:
 
         async def track_execute(stmt: Any, params: Any = None) -> MagicMock:
             call_idx = len(execute_calls)
-            execute_calls.append((str(stmt) if hasattr(stmt, "__str__") else "", params))
+            execute_calls.append(
+                (str(stmt) if hasattr(stmt, "__str__") else "", params)
+            )
             if call_idx == 0:
                 # _get_owned_game: game in 'expired' status, no summary, 0 turns
                 return _make_result(
@@ -845,7 +848,7 @@ class TestAC1114PlayerIdNotReassignable:
         )
 
     def test_player_model_id_is_uuid(self) -> None:
-        """Player.id is a UUID field; two freshly constructed instances have distinct ids."""
+        """Player.id is UUID; two freshly constructed instances have distinct ids."""
         from uuid import UUID
 
         from tta.models.player import Player

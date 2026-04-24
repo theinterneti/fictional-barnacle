@@ -63,13 +63,17 @@ async def run_lifecycle_pass(
         )
         abandoned = abandon_result.rowcount or 0
 
-        # Rule 2: paused + paused_at < cutoff (>30 days ago) → expired; NULL fallback uses last_played_at
+        # Rule 2: paused + paused_at < cutoff (older than 30 days) → expired
+        # NULL fallback: pre-migration rows use last_played_at instead
         expire_result = await pg.execute(
             sa.text(
                 "UPDATE game_sessions "
                 "SET status = 'expired', updated_at = :now "
                 "WHERE status = 'paused' "
-                "AND (paused_at < :cutoff OR (paused_at IS NULL AND last_played_at < :cutoff)) "
+                "AND ("
+                "paused_at < :cutoff "
+                "OR (paused_at IS NULL AND last_played_at < :cutoff)"
+                ") "
                 "AND deleted_at IS NULL"
             ),
             {"now": now, "cutoff": expire_cutoff},

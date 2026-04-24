@@ -89,7 +89,7 @@ class TestAbandonRule:
     @pytest.mark.anyio
     async def test_abandon_not_triggered_at_exactly_24h(self) -> None:
         """AC-11.08: Game created exactly 24h ago should NOT be abandoned.
-        
+
         Spec says "more than 24 hours" → strict `<` excludes games at boundary.
         """
         pg = _make_pg(abandon_rowcount=0)
@@ -139,7 +139,7 @@ class TestExpireRule:
     @pytest.mark.anyio
     async def test_expire_not_triggered_at_exactly_30_days(self) -> None:
         """AC-11.06: Game paused exactly 30 days ago should NOT be expired.
-        
+
         Spec says "more than 30 days" → strict `<` excludes games at boundary.
         """
         pg = _make_pg(expire_rowcount=0)
@@ -275,4 +275,3 @@ class TestAC1105PausedGameNotExpiredBefore30Days:
             "AC-11.05: SQL should use strict < on paused_at to exclude games "
             "exactly at 30-day boundary"
         )
-
