@@ -3,7 +3,8 @@
 # ---------------------------------------------------------------------------
 # Self-documenting help — parses '## ' comments after targets
 # ---------------------------------------------------------------------------
-.PHONY: help validate-specs validate-plans validate-all regen-indexes dashboard trace trace-html \
+.PHONY: help validate-specs validate-plans validate-openapi validate-all regen-indexes \
+	dashboard trace trace-html \
         lint format typecheck test test-unit test-integration test-watch \
         test-bdd test-hypothesis \
         test-up test-down quality check check-format \
@@ -24,7 +25,10 @@ validate-specs: ## Run spec indexer with validation
 validate-plans: ## Run plan indexer with validation
 	uv run python plans/index_plans.py --validate
 
-validate-all: validate-specs validate-plans trace ## Run all validators including AC traceability
+validate-openapi: ## Validate OpenAPI spec passes openapi-spec-validator
+	uv run pytest tests/unit/api/test_s10_ac_compliance.py::TestAC1002OpenAPIValidity -v
+
+validate-all: validate-specs validate-plans validate-openapi trace ## Run all validators including AC traceability
 
 regen-indexes: ## Regenerate spec and plan index files
 	uv run python specs/index_specs.py

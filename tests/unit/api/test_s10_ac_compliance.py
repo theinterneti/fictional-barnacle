@@ -1013,3 +1013,20 @@ class TestAC1013EmptyTurnInput:
         )
         assert resp.status_code == 400
         assert resp.json()["error"]["code"] == "EMPTY_TURN_INPUT"
+
+
+@pytest.mark.spec("AC-10.02")
+class TestAC1002OpenAPIValidity:
+    """AC-10.02: The app's OpenAPI spec validates against the OpenAPI 3.x schema."""
+
+    def test_openapi_spec_is_valid(self) -> None:
+        """Fetch /openapi.json and validate with openapi-spec-validator."""
+        from openapi_spec_validator import validate
+
+        application = create_app(_settings())
+        with TestClient(application) as c:
+            resp = c.get("/openapi.json")
+        assert resp.status_code == 200
+        spec = resp.json()
+        # validate() raises if the spec is invalid
+        validate(spec)
