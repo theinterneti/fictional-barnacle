@@ -41,9 +41,9 @@ BASELINE = {
 }
 
 SIM_TIERS: dict[str, dict] = {
-    "short":  {"turns": 5,  "jitter_variants": 3, "label": "Short  (5 turns)"},
+    "short": {"turns": 5, "jitter_variants": 3, "label": "Short  (5 turns)"},
     "medium": {"turns": 15, "jitter_variants": 3, "label": "Medium (15 turns)"},
-    "long":   {"turns": 30, "jitter_variants": 3, "label": "Long   (30 turns)"},
+    "long": {"turns": 30, "jitter_variants": 3, "label": "Long   (30 turns)"},
 }
 
 # character name + traits embedded in narratives for QC-01/QC-04 grounding
@@ -81,10 +81,16 @@ def _make_commentary(
 
     return Commentary(
         turn_index=turn_index,
-        agent_intent=rng.choice([
-            "explore surroundings", "question NPC", "take bold action",
-            "examine item", "seek hidden lore", "test world rules",
-        ]),
+        agent_intent=rng.choice(
+            [
+                "explore surroundings",
+                "question NPC",
+                "take bold action",
+                "examine item",
+                "seek hidden lore",
+                "test world rules",
+            ]
+        ),
         surprise_level=round(surprise, 4),
         surprise_note=note_s,
         coherence_rating=round(coherence, 4),
@@ -140,19 +146,27 @@ def _make_report(
             else:
                 narrative = f"The scene shifts. Turn {i} of {target_turns}."
 
-        turns.append(TurnRecord(
-            turn_index=i,
-            phase="gameplay",
-            player_input=f"[{profile.tone_affinity} • {int(profile.verbosity * 30 + 3)}w]",
-            narrative=narrative,
-            commentary=c,
-            timed_out=timed_out,
-        ))
+        turns.append(
+            TurnRecord(
+                turn_index=i,
+                phase="gameplay",
+                player_input=f"[{profile.tone_affinity} • {int(profile.verbosity * 30 + 3)}w]",
+                narrative=narrative,
+                commentary=c,
+                timed_out=timed_out,
+            )
+        )
 
-    overall = max(0.0, min(1.0,
-        0.55 + 0.30 * profile.curiosity - 0.08 * (1 - profile.attention_span)
-        + rng.gauss(0, 0.04)
-    ))
+    overall = max(
+        0.0,
+        min(
+            1.0,
+            0.55
+            + 0.30 * profile.curiosity
+            - 0.08 * (1 - profile.attention_span)
+            + rng.gauss(0, 0.04),
+        ),
+    )
 
     return PlaytestReport(
         run_id=uuid.uuid4().hex[:8],
@@ -195,17 +209,25 @@ class RunRecord:
     qc06: float | None
 
 
-async def run_tier(tier: str, target_turns: int, jitter_variants: int) -> list[RunRecord]:
+async def run_tier(
+    tier: str, target_turns: int, jitter_variants: int
+) -> list[RunRecord]:
     evaluator = NarrativeQualityEvaluator(llm_client=None)
     records: list[RunRecord] = []
 
     for seed_id in SEEDS:
         for persona_id in PERSONAS:
             for v in range(jitter_variants):
-                jitter_seed = zlib.crc32(f"{tier}-{persona_id}-{seed_id}-{v}".encode()) & 0xFFFF
+                jitter_seed = (
+                    zlib.crc32(f"{tier}-{persona_id}-{seed_id}-{v}".encode()) & 0xFFFF
+                )
                 rng = random.Random(jitter_seed + 1)
-                profile = get_taste_profile(persona_id, jitter_seed=jitter_seed, jitter=True)
-                report = _make_report(profile, persona_id, seed_id, target_turns, jitter_seed, rng)
+                profile = get_taste_profile(
+                    persona_id, jitter_seed=jitter_seed, jitter=True
+                )
+                report = _make_report(
+                    profile, persona_id, seed_id, target_turns, jitter_seed, rng
+                )
                 consequence_count = max(0, report.gameplay_turns_completed // 4)
                 quality = await evaluator.evaluate(
                     report,
@@ -218,23 +240,25 @@ async def run_tier(tier: str, target_turns: int, jitter_variants: int) -> list[R
                     cat = _q.category(qc_id)  # type: ignore[union-attr]
                     return cat.score if cat and cat.is_evaluated() else None
 
-                records.append(RunRecord(
-                    tier=tier,
-                    seed_id=seed_id,
-                    persona_id=persona_id,
-                    variant=v,
-                    attention_span=profile.attention_span,
-                    boldness=profile.boldness,
-                    curiosity=profile.curiosity,
-                    status=report.status,
-                    turns_completed=report.gameplay_turns_completed,
-                    composite=quality.composite_score,
-                    verdict=quality.verdict,
-                    qc01=_score("QC-01"),
-                    qc02=_score("QC-02"),
-                    qc04=_score("QC-04"),
-                    qc06=_score("QC-06"),
-                ))
+                records.append(
+                    RunRecord(
+                        tier=tier,
+                        seed_id=seed_id,
+                        persona_id=persona_id,
+                        variant=v,
+                        attention_span=profile.attention_span,
+                        boldness=profile.boldness,
+                        curiosity=profile.curiosity,
+                        status=report.status,
+                        turns_completed=report.gameplay_turns_completed,
+                        composite=quality.composite_score,
+                        verdict=quality.verdict,
+                        qc01=_score("QC-01"),
+                        qc02=_score("QC-02"),
+                        qc04=_score("QC-04"),
+                        qc06=_score("QC-06"),
+                    )
+                )
 
     return records
 
@@ -269,17 +293,31 @@ def print_tier_summary(tier: str, label: str, records: list[RunRecord]) -> None:
     for r in records:
         verdicts[r.verdict] = verdicts.get(r.verdict, 0) + 1
 
-    print(f"\n{'─'*62}")
-    print(f"  {label}  ({total} runs / {len(SEEDS)} seeds × {len(PERSONAS)} personas × 3 variants)")
-    print(f"{'─'*62}")
+    print(f"\n{'─' * 62}")
+    print(
+        f"  {label}  ({total} runs / {len(SEEDS)} seeds × {len(PERSONAS)} personas × 3 variants)"
+    )
+    print(f"{'─' * 62}")
     print(f"  Completion   : {complete}/{total} complete  ({abandoned} abandoned)")
-    print(f"  Verdicts     : ✅ pass={verdicts['pass']}  ❌ fail={verdicts['fail']}  ⚠️  inconclusive={verdicts['inconclusive']}")
+    print(
+        f"  Verdicts     : ✅ pass={verdicts['pass']}  ❌ fail={verdicts['fail']}  ⚠️  inconclusive={verdicts['inconclusive']}"
+    )
     print()
-    print(f"  Composite    : {_mean(composites):.3f} ± {_stdev(composites):.3f}   (baseline composite: ~0.77)")
-    print(f"  QC-01 Cohere : {_mean(qc01s):.3f} ± {_stdev(qc01s):.3f}   (baseline: {BASELINE['QC-01']})")
-    print(f"  QC-02 Tension: {_mean(qc02s):.3f} ± {_stdev(qc02s):.3f}   (baseline: {BASELINE['QC-02']})")
-    print(f"  QC-04 CharDep: {_mean(qc04s):.3f} ± {_stdev(qc04s):.3f}   (baseline: {BASELINE['QC-04']})")
-    print(f"  QC-06 Conseq : {_mean(qc06s):.3f} ± {_stdev(qc06s):.3f}   (baseline: {BASELINE['QC-06']})")
+    print(
+        f"  Composite    : {_mean(composites):.3f} ± {_stdev(composites):.3f}   (baseline composite: ~0.77)"
+    )
+    print(
+        f"  QC-01 Cohere : {_mean(qc01s):.3f} ± {_stdev(qc01s):.3f}   (baseline: {BASELINE['QC-01']})"
+    )
+    print(
+        f"  QC-02 Tension: {_mean(qc02s):.3f} ± {_stdev(qc02s):.3f}   (baseline: {BASELINE['QC-02']})"
+    )
+    print(
+        f"  QC-04 CharDep: {_mean(qc04s):.3f} ± {_stdev(qc04s):.3f}   (baseline: {BASELINE['QC-04']})"
+    )
+    print(
+        f"  QC-06 Conseq : {_mean(qc06s):.3f} ± {_stdev(qc06s):.3f}   (baseline: {BASELINE['QC-06']})"
+    )
 
     # Regression check
     regressions = []
@@ -293,7 +331,9 @@ def print_tier_summary(tier: str, label: str, records: list[RunRecord]) -> None:
             m = _mean(vals)
             delta = m - bl
             if delta < -0.10:
-                regressions.append(f"    ⚠️  {qc_id}: {m:.3f} (Δ{delta:+.3f} vs baseline)")
+                regressions.append(
+                    f"    ⚠️  {qc_id}: {m:.3f} (Δ{delta:+.3f} vs baseline)"
+                )
     if regressions:
         print("\n  REGRESSIONS:")
         for r in regressions:
@@ -301,18 +341,22 @@ def print_tier_summary(tier: str, label: str, records: list[RunRecord]) -> None:
 
 
 def print_persona_breakdown(all_records: list[RunRecord]) -> None:
-    print(f"\n{'═'*62}")
+    print(f"\n{'═' * 62}")
     print("  PERSONA BREAKDOWN (mean composite across all tiers + seeds)")
-    print(f"{'═'*62}")
-    print(f"  {'Persona':<22} {'Short':>7} {'Medium':>7} {'Long':>7}  {'Attn':>6}  {'Abandon%':>8}")
-    print(f"  {'─'*22} {'─'*7} {'─'*7} {'─'*7}  {'─'*6}  {'─'*8}")
+    print(f"{'═' * 62}")
+    print(
+        f"  {'Persona':<22} {'Short':>7} {'Medium':>7} {'Long':>7}  {'Attn':>6}  {'Abandon%':>8}"
+    )
+    print(f"  {'─' * 22} {'─' * 7} {'─' * 7} {'─' * 7}  {'─' * 6}  {'─' * 8}")
 
     for persona_id in PERSONAS:
         row = {}
         attn_vals = []
         total = abandon = 0
         for tier in ["short", "medium", "long"]:
-            recs = [r for r in all_records if r.persona_id == persona_id and r.tier == tier]
+            recs = [
+                r for r in all_records if r.persona_id == persona_id and r.tier == tier
+            ]
             comps = [r.composite for r in recs if r.composite > 0]
             row[tier] = f"{_mean(comps):.3f}" if comps else "—"
             attn_vals.extend(r.attention_span for r in recs)
@@ -322,13 +366,15 @@ def print_persona_breakdown(all_records: list[RunRecord]) -> None:
         attn = _mean(attn_vals)
         abandon_pct = _pct(abandon, total)
         name = BUILTIN_PERSONAS[persona_id]["display_name"]
-        print(f"  {name:<22} {row['short']:>7} {row['medium']:>7} {row['long']:>7}  {attn:>6.2f}  {abandon_pct:>8}")
+        print(
+            f"  {name:<22} {row['short']:>7} {row['medium']:>7} {row['long']:>7}  {attn:>6.2f}  {abandon_pct:>8}"
+        )
 
 
 def print_per_qc_insights(all_records: list[RunRecord]) -> None:
-    print(f"\n{'═'*62}")
+    print(f"\n{'═' * 62}")
     print("  QC SENSITIVITY: what drives score variance?")
-    print(f"{'═'*62}")
+    print(f"{'═' * 62}")
 
     for qc_id, label, getter in [
         ("QC-01", "Coherence  (curiosity-driven)", lambda r: r.qc01),
@@ -348,11 +394,15 @@ def print_per_qc_insights(all_records: list[RunRecord]) -> None:
 
         # Correlation with curiosity (QC-01) or boldness (QC-02)
         if qc_id == "QC-01":
-            pairs = [(r.curiosity, getter(r)) for r in all_records if getter(r) is not None]
+            pairs = [
+                (r.curiosity, getter(r)) for r in all_records if getter(r) is not None
+            ]
             cor = _pearson(pairs)
             print(f"    correlation(curiosity, score) = {cor:+.3f}")
         elif qc_id == "QC-02":
-            pairs = [(r.boldness, getter(r)) for r in all_records if getter(r) is not None]
+            pairs = [
+                (r.boldness, getter(r)) for r in all_records if getter(r) is not None
+            ]
             cor = _pearson(pairs)
             print(f"    correlation(boldness, score)  = {cor:+.3f}")
 
@@ -365,16 +415,16 @@ def _pearson(pairs: list[tuple[float, float]]) -> float:
     ys = [p[1] for p in pairs]
     mx, my = _mean(xs), _mean(ys)
     num = sum((x - mx) * (y - my) for x, y in pairs)
-    denom = (_stdev(xs) * _stdev(ys) * (len(pairs) - 1))
+    denom = _stdev(xs) * _stdev(ys) * (len(pairs) - 1)
     return num / denom if denom else 0.0
 
 
 def print_attention_dropout(all_records: list[RunRecord]) -> None:
-    print(f"\n{'═'*62}")
+    print(f"\n{'═' * 62}")
     print("  ATTENTION DROPOUT by tier")
-    print(f"{'═'*62}")
+    print(f"{'═' * 62}")
     print(f"  {'Tier':<8}  {'Completed':>10}  {'Abandoned':>10}  {'Dropout%':>9}")
-    print(f"  {'─'*8}  {'─'*10}  {'─'*10}  {'─'*9}")
+    print(f"  {'─' * 8}  {'─' * 10}  {'─' * 10}  {'─' * 9}")
     for tier in ["short", "medium", "long"]:
         recs = [r for r in all_records if r.tier == tier]
         c = sum(1 for r in recs if r.status == "complete")
@@ -411,9 +461,9 @@ async def main() -> None:
     print_persona_breakdown(all_records)
     print_per_qc_insights(all_records)
 
-    print(f"\n{'═'*62}")
+    print(f"\n{'═' * 62}")
     print("  INTERPRETATION")
-    print(f"{'═'*62}")
+    print(f"{'═' * 62}")
     print("""
   QC-01 Coherence (auto, ~36% of composite without LLM+human):
     Driven by curiosity. High-curiosity personas reliably track
