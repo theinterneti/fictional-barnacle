@@ -17,6 +17,8 @@ from tta.models.events import EventType, ModerationEvent
 class TestModerationEventNoMetadataLeakage:
     """AC-24.6: No internal moderation details in client SSE events."""
 
+    pytestmark = [pytest.mark.spec("AC-24.06")]
+
     def test_only_reason_in_payload(self) -> None:
         """Serialized event contains only event_type and reason."""
         evt = ModerationEvent(reason="Content was redirected.")

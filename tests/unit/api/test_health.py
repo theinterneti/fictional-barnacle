@@ -113,6 +113,8 @@ class TestHealthAllUp:
 class TestHealthDegraded:
     """AC-23.9: Degraded when non-critical service down."""
 
+    pytestmark = [pytest.mark.spec("AC-23.09")]
+
     def test_redis_down_returns_degraded(
         self,
         _settings: Settings,
@@ -156,6 +158,8 @@ class TestHealthDegraded:
 
 class TestHealthUnhealthy:
     """AC-23.12: Unhealthy when Postgres down."""
+
+    pytestmark = [pytest.mark.spec("AC-23.12")]
 
     def test_postgres_down_returns_unhealthy(
         self,

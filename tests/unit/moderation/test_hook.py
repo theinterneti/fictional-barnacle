@@ -102,6 +102,8 @@ class TestEnabled:
 
 
 class TestInputModeration:
+    pytestmark = [pytest.mark.spec("AC-24.01"), pytest.mark.spec("AC-24.02")]
+
     async def test_pass_returns_safe(self) -> None:
         svc = AsyncMock()
         svc.moderate_input.return_value = _pass_result()
@@ -133,6 +135,8 @@ class TestInputModeration:
 
 
 class TestOutputModeration:
+    pytestmark = [pytest.mark.spec("AC-24.02"), pytest.mark.spec("AC-24.03")]
+
     async def test_pass_returns_safe(self) -> None:
         svc = AsyncMock()
         svc.moderate_output.return_value = _pass_result()
@@ -156,6 +160,8 @@ class TestOutputModeration:
 
 
 class TestFailModes:
+    pytestmark = [pytest.mark.spec("AC-24.05")]
+
     async def test_fail_open_on_error(self) -> None:
         svc = AsyncMock()
         svc.moderate_input.side_effect = RuntimeError("service down")
@@ -232,6 +238,8 @@ class TestProtocolCompliance:
 
 
 class TestRecordingIntegration:
+    pytestmark = [pytest.mark.spec("AC-24.04")]
+
     async def test_pass_saves_record(self) -> None:
         svc = AsyncMock()
         svc.moderate_input.return_value = _pass_result()

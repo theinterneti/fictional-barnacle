@@ -59,6 +59,8 @@ class TestCircuitBreakerPresets:
 class TestCircuitBreakerStateMachine:
     """AC-23.5: circuit breaker opens after threshold, fails fast."""
 
+    pytestmark = [pytest.mark.spec("AC-23.05")]
+
     async def test_starts_closed(self) -> None:
         cb = CircuitBreaker(FAST_CB)
         assert cb.state == CircuitState.CLOSED

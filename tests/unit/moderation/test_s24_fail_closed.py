@@ -9,6 +9,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import pytest
+
 from tta.models.turn import TurnState
 from tta.moderation.hook import ModerationHook
 from tta.moderation.keyword_moderator import KeywordModerator
@@ -25,6 +27,8 @@ def _turn_state() -> TurnState:
 
 class TestFailClosedPreGeneration:
     """AC-24.10: fail_open=False blocks content on moderation error."""
+
+    pytestmark = [pytest.mark.spec("AC-24.10")]
 
     async def test_exception_blocks_in_fail_closed(self) -> None:
         """Service exception with fail_open=False → SafetyResult(safe=False)."""

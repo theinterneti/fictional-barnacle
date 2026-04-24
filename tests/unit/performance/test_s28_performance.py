@@ -73,6 +73,8 @@ def _app_with_middleware(
 class TestTurnSubmissionBudget:
     """AC-28.1: Turn submission responds within latency budget."""
 
+    pytestmark = [pytest.mark.spec("AC-28.01")]
+
     def test_turn_endpoint_returns_budget_header(self) -> None:
         """POST /turns includes latency budget remaining header."""
         client = TestClient(_app_with_middleware())
@@ -104,6 +106,8 @@ class TestTurnSubmissionBudget:
 class TestGameListingBudget:
     """AC-28.3: Game listing responds within latency budget."""
 
+    pytestmark = [pytest.mark.spec("AC-28.03")]
+
     def test_games_endpoint_returns_budget_header(self) -> None:
         """GET /games includes latency budget header."""
         client = TestClient(_app_with_middleware())
@@ -126,6 +130,8 @@ class TestGameListingBudget:
 
 class TestSemaphoreMetrics:
     """AC-28.5: LLM concurrency bounded with metrics integration."""
+
+    pytestmark = [pytest.mark.spec("AC-28.05")]
 
     @pytest.mark.asyncio
     async def test_metrics_update_on_execute(self) -> None:
@@ -168,6 +174,8 @@ class TestSemaphoreMetrics:
 
 class TestGracefulDegradation:
     """AC-28.6: System degrades gracefully under load."""
+
+    pytestmark = [pytest.mark.spec("AC-28.06")]
 
     @pytest.mark.asyncio
     async def test_semaphore_queues_under_load(self) -> None:
@@ -231,6 +239,8 @@ class TestGracefulDegradation:
 
 class TestGracefulShutdown:
     """AC-28.7: Application shuts down gracefully."""
+
+    pytestmark = [pytest.mark.spec("AC-28.07")]
 
     @pytest.mark.asyncio
     async def test_pool_metrics_task_cancels_cleanly(self) -> None:

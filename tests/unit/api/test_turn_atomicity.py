@@ -119,6 +119,8 @@ class TestTurnAtomicity:
     the turn as 'failed', preserve any partial narrative, and NOT advance
     the turn counter."""
 
+    pytestmark = [pytest.mark.spec("AC-23.06")]
+
     @pytest.mark.asyncio
     async def test_dispatch_pipeline_marks_turn_failed(self) -> None:
         """Pipeline exception → fail_turn called with no partial narrative."""
@@ -286,6 +288,8 @@ class TestConcurrentTurnRejection:
     """AC-23.7: Submitting a second turn while one is processing returns
     409 with the standard error envelope."""
 
+    pytestmark = [pytest.mark.spec("AC-23.07")]
+
     def test_concurrent_turn_returns_409_with_envelope(
         self, client: TestClient, pg: AsyncMock
     ) -> None:
@@ -315,6 +319,8 @@ class TestConcurrentTurnRejection:
 class TestSSEErrorEvents:
     """AC-23.8: SSE error events include code, message, correlation_id,
     retry_after_seconds, and stream closes cleanly after error."""
+
+    pytestmark = [pytest.mark.spec("AC-23.08")]
 
     def test_error_event_model_serialization(self) -> None:
         """ErrorEvent includes all standard envelope fields."""
