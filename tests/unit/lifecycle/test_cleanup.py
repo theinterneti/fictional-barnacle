@@ -87,18 +87,21 @@ class TestAbandonRule:
         assert abs((cutoff - expected).total_seconds()) < 5
 
     @pytest.mark.anyio
-    async def test_abandon_boundary_created_exactly_24h_ago(self) -> None:
-        """AC-11.08: Game created exactly 24h ago MUST be abandoned."""
-        pg = _make_pg(abandon_rowcount=1)
+    async def test_abandon_not_triggered_at_exactly_24h(self) -> None:
+        """AC-11.08: Game created exactly 24h ago should NOT be abandoned.
+        
+        Spec says "more than 24 hours" → strict `<` excludes games at boundary.
+        """
+        pg = _make_pg(abandon_rowcount=0)
         factory = _make_factory(pg)
 
         await run_lifecycle_pass(factory, abandon_hours=24)
 
         abandon_call = pg.execute.call_args_list[0]
         sql_text = str(abandon_call.args[0].text)
-        assert "<= :cutoff" in sql_text, (
-            "AC-11.08: SQL should use <= not < to catch games "
-            "exactly at 24h boundary"
+        assert "< :cutoff" in sql_text and "<=" not in sql_text, (
+            "AC-11.08: SQL must use strict < (not <=) so games "
+            "exactly at 24h boundary are not caught"
         )
 
 
@@ -134,18 +137,21 @@ class TestExpireRule:
         assert abs((cutoff - expected).total_seconds()) < 5
 
     @pytest.mark.anyio
-    async def test_expire_boundary_paused_exactly_30_days_ago(self) -> None:
-        """AC-11.06: Game paused exactly 30 days ago MUST be expired."""
-        pg = _make_pg(expire_rowcount=1)
+    async def test_expire_not_triggered_at_exactly_30_days(self) -> None:
+        """AC-11.06: Game paused exactly 30 days ago should NOT be expired.
+        
+        Spec says "more than 30 days" → strict `<` excludes games at boundary.
+        """
+        pg = _make_pg(expire_rowcount=0)
         factory = _make_factory(pg)
 
         await run_lifecycle_pass(factory, expire_days=30)
 
         expire_call = pg.execute.call_args_list[1]
         sql_text = str(expire_call.args[0].text)
-        assert "<= :cutoff" in sql_text, (
-            "AC-11.06: SQL should use <= not < to catch games "
-            "exactly at 30-day boundary"
+        assert "< :cutoff" in sql_text and "<=" not in sql_text, (
+            "AC-11.06: SQL must use strict < (not <=) so games "
+            "exactly at 30-day boundary are not caught"
         )
 
 
@@ -265,5 +271,8 @@ class TestAC1105PausedGameNotExpiredBefore30Days:
         assert abs((cutoff - expected_cutoff).total_seconds()) < 5
 
         sql_text = str(expire_call.args[0].text)
-        assert "<= :cutoff" in sql_text or "last_played_at <=" in sql_text
+        assert "< :cutoff" in sql_text and "last_played_at <" in sql_text, (
+            "AC-11.05: SQL should use strict < to exclude games "
+            "exactly at 30-day boundary"
+        )
 

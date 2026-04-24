@@ -56,7 +56,7 @@ async def run_lifecycle_pass(
                 "SET status = 'abandoned', updated_at = :now "
                 "WHERE status IN ('created', 'active') "
                 "AND turn_count = 0 "
-                "AND created_at <= :cutoff "
+                "AND created_at < :cutoff "
                 "AND deleted_at IS NULL"
             ),
             {"now": now, "cutoff": abandon_cutoff},
@@ -69,7 +69,7 @@ async def run_lifecycle_pass(
                 "UPDATE game_sessions "
                 "SET status = 'expired', updated_at = :now "
                 "WHERE status = 'paused' "
-                "AND last_played_at <= :cutoff "
+                "AND last_played_at < :cutoff "
                 "AND deleted_at IS NULL"
             ),
             {"now": now, "cutoff": expire_cutoff},
