@@ -883,10 +883,13 @@ class TestS10FR1036ErrorEventTurnId:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-10.06")
 class TestS10FR1038HeartbeatEvent:
-    """FR-10.38: SSE stream uses 'heartbeat' event type (not legacy 'keepalive')."""
+    """FR-10.38: SSE stream uses 'heartbeat' event type (not legacy 'keepalive').
 
-    pytestmark = [pytest.mark.spec("AC-10.06")]
+    Covers the unit-testable portion of AC-10.06 (heartbeat format and emission).
+    The 15-second timing SLA requires integration tests and is deferred.
+    """
 
     def test_heartbeat_event_model_type(self) -> None:
         """HeartbeatEvent serialises with event_type 'heartbeat'."""
@@ -991,10 +994,11 @@ class TestS10FR1038HeartbeatEvent:
 class TestAC1013EmptyTurnInput:
     """AC-10.13: Submitting empty or whitespace-only input returns 400 input_invalid."""
 
-    def test_empty_string_returns_400(
-        self, client: TestClient, pg: AsyncMock
+    @pytest.mark.parametrize("bad_input", ["", "   ", "\t", "\n"])
+    def test_empty_or_whitespace_returns_400(
+        self, bad_input: str, client: TestClient, pg: AsyncMock
     ) -> None:
-        """AC-10.13: Empty string input → 400."""
+        """AC-10.13: Empty or whitespace-only input → 400 with EMPTY_TURN_INPUT code."""
         pg.execute = AsyncMock(
             side_effect=[
                 _make_result([_game_row()]),  # _get_owned_game
@@ -1005,28 +1009,7 @@ class TestAC1013EmptyTurnInput:
         pg.commit = AsyncMock()
         resp = client.post(
             f"/api/v1/games/{_GAME_ID}/turns",
-            json={"input": ""},
+            json={"input": bad_input},
         )
         assert resp.status_code == 400
-        body = resp.json()
-        assert body["error"]["code"] == "EMPTY_TURN_INPUT"
-
-    def test_whitespace_only_returns_400(
-        self, client: TestClient, pg: AsyncMock
-    ) -> None:
-        """AC-10.13: Whitespace-only input → 400."""
-        pg.execute = AsyncMock(
-            side_effect=[
-                _make_result([_game_row()]),
-                _make_result(),
-                _make_result(),
-            ]
-        )
-        pg.commit = AsyncMock()
-        resp = client.post(
-            f"/api/v1/games/{_GAME_ID}/turns",
-            json={"input": "   "},
-        )
-        assert resp.status_code == 400
-        body = resp.json()
-        assert body["error"]["code"] == "EMPTY_TURN_INPUT"
+        assert resp.json()["error"]["code"] == "EMPTY_TURN_INPUT"
