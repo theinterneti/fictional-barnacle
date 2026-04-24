@@ -1,0 +1,105 @@
+name: Stale PR Notifier
+
+on:
+  push:
+    branches: [main]
+
+# Prevent concurrent runs so we don't double-post comments.
+concurrency:
+  group: stale-pr-notify
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write  # required to update issue comments via REST API
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Notify stale PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          MAIN_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MARKER="<!-- tta-stale-pr-check -->"
+
+          # Fetch open same-repo PRs only (skip forks — we can't fetch their branches).
+          # --limit 200 covers repos with many concurrent open PRs.
+          mapfile -t PR_JSONS < <(
+            gh pr list \
+              --repo "$REPO" \
+              --state open \
+              --limit 200 \
+              --json number,headRefName,headRepository,baseRepository \
+              --jq '.[] | select(.headRepository.nameWithOwner == .baseRepository.nameWithOwner)'
+          )
+
+          if [[ ${#PR_JSONS[@]} -eq 0 ]]; then
+            echo "No same-repo open PRs found."
+            exit 0
+          fi
+
+          git fetch origin main --quiet
+
+          for pr_json in "${PR_JSONS[@]}"; do
+            PR_NUM=$(echo "$pr_json" | jq -r '.number')
+            HEAD_REF=$(echo "$pr_json" | jq -r '.headRefName')
+
+            echo "Checking PR #$PR_NUM ($HEAD_REF) …"
+
+            # Skip if we can't fetch the branch (deleted or protected).
+            if ! git fetch origin "refs/heads/$HEAD_REF" --quiet 2>/dev/null; then
+              echo "  Cannot fetch branch, skipping."
+              continue
+            fi
+
+            PR_HEAD=$(git rev-parse FETCH_HEAD)
+
+            if git merge-base --is-ancestor "origin/main" "$PR_HEAD"; then
+              echo "  Up-to-date. ✓"
+              continue
+            fi
+
+            echo "  Behind main — notifying."
+
+            BODY="${MARKER}
+⚠️ **This branch is behind \`main\`** (detected at \`${MAIN_SHA:0:7}\`).
+
+Your branch is missing commit(s) that have landed on \`main\` since you last synced. Please update before merging:
+
+\`\`\`bash
+git fetch origin
+git merge origin/main   # or: git rebase origin/main
+\`\`\`
+
+This comment will update automatically once the branch is up-to-date with main."
+
+            # Find an existing bot comment to update (avoids repeated noise).
+            EXISTING_ID=$(
+              gh api "repos/$REPO/issues/$PR_NUM/comments" \
+                --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" \
+                | head -1
+            )
+
+            if [[ -n "$EXISTING_ID" ]]; then
+              echo "  Updating comment $EXISTING_ID on PR #$PR_NUM"
+              gh api --method PATCH \
+                "repos/$REPO/issues/comments/$EXISTING_ID" \
+                -f body="$BODY" > /dev/null
+            else
+              echo "  Creating comment on PR #$PR_NUM"
+              gh api --method POST \
+                "repos/$REPO/issues/$PR_NUM/comments" \
+                -f body="$BODY" > /dev/null
+            fi
+          done
