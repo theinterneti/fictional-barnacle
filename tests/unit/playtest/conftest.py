@@ -101,10 +101,8 @@ def _make_http_mock(
     game_id: str = _GAME_ID,
     intro_narrative: str = _INTRO_NARRATIVE,
     turns_to_serve: int = 5,
-    simulate_timeout_turns: set[int] | None = None,
 ) -> MagicMock:
     """Build a MagicMock that mimics httpx.AsyncClient for playtester tests."""
-    simulate_timeout_turns = simulate_timeout_turns or set()
     mock_client = MagicMock()
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=None)

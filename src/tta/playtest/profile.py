@@ -64,7 +64,7 @@ class TasteProfile:
             delta = rng.uniform(-JITTER_MAGNITUDE, JITTER_MAGNITUDE)
             return cls._clamp(v + delta)
 
-        tropes = tuple(template.get("trope_affinity", []))
+        tropes = tuple(template.get("trope_affinity", [])[:3])
         return cls(
             verbosity=maybe_jitter(float(template["verbosity"])),
             boldness=maybe_jitter(float(template["boldness"])),

@@ -33,7 +33,9 @@ jobs:
         run: |
           uv run python -m tta.eval \
             --mode "${{ inputs.mode || 'ci' }}" \
-            --output-dir data/eval_output
+            --output-dir data/eval_output \
+            --api-base-url "$TTA_API_BASE_URL" \
+            --api-key "$TTA_API_KEY"
 
       - name: Upload eval reports
         if: always()

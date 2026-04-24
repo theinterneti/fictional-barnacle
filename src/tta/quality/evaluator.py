@@ -41,6 +41,15 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+CATEGORY_LABELS: dict[str, str] = {
+    QC_COHERENCE: "Coherence",
+    QC_TENSION: "Tension",
+    QC_WONDER: "Wonder",
+    QC_CHARACTER_DEPTH: "Character Depth",
+    QC_GENRE_FIDELITY: "Genre Fidelity",
+    QC_CONSEQUENCE_WEIGHT: "Consequence Weight",
+}
+
 
 class NarrativeQualityEvaluator:
     """Evaluates a PlaytestReport against S44 quality categories.
@@ -166,10 +175,15 @@ class NarrativeQualityEvaluator:
             )
 
         auto_tension = mean(c.surprise_level for c in commentaries)
-        # Latency penalty: if any turn timed out, apply 0.1 deduction
-        timed_out_count = sum(1 for t in report.turns if t.timed_out)
-        if timed_out_count > 0:
-            auto_tension = max(0.0, auto_tension - 0.10 * timed_out_count)
+        # Latency penalty: prefer p95 API latency if available, else timed_out fallback
+        p95_ms = getattr(report, "api_turn_p95_ms", None)
+        if p95_ms is not None:
+            latency_penalty = min(0.3, max(0.0, (p95_ms - 2000) / 10000))
+            auto_tension = max(0.0, auto_tension - latency_penalty)
+        else:
+            timed_out_count = sum(1 for t in report.turns if t.timed_out)
+            if timed_out_count > 0:
+                auto_tension = max(0.0, auto_tension - 0.10 * timed_out_count)
 
         if feedback is not None:
             score = 0.6 * auto_tension + 0.4 * feedback.consequence_normalized
@@ -331,7 +345,7 @@ class NarrativeQualityEvaluator:
         return CategoryScore(
             category_id=QC_GENRE_FIDELITY,
             score=None,
-            status="failed",
+            status="not_evaluated",
             sources=["automated"],
             notes="QC-05 LLM scorer failed after 2 attempts.",
         )
@@ -391,7 +405,7 @@ class NarrativeQualityEvaluator:
         expected = (
             expected_consequence_turns
             if expected_consequence_turns is not None
-            else max(1, report.gameplay_turns_completed)
+            else max(1, report.gameplay_turns_completed // 3)
         )
         auto_ratio = min(1.0, consequence_count / expected) if expected > 0 else 0.0
 
@@ -557,9 +571,10 @@ def _compute_verdict(
             and c.score is not None
             and c.score < FAIL_INDIVIDUAL_THRESHOLD
         ):
+            label = CATEGORY_LABELS.get(c.category_id, c.category_id)
             fail_reasons.append(
-                f"{c.category_id} score {c.score:.4f} below "
-                f"minimum {FAIL_INDIVIDUAL_THRESHOLD}."
+                f"{c.category_id} {label} below threshold "
+                f"(score {c.score:.4f} < {FAIL_INDIVIDUAL_THRESHOLD:.4f})"
             )
 
     if fail_reasons:

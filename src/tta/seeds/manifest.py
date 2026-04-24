@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,5 +29,5 @@ class SeedManifest:
     description: str
     tags: tuple[str, ...]
     composition: UniverseComposition
-    genesis_hints: Mapping[str, Any]
+    genesis_hints: dict[str, Any]
     intended_audience: tuple[str, ...]

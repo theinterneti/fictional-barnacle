@@ -46,12 +46,15 @@ def apply_seed_composition(config: dict[str, Any], registry: SeedRegistry) -> No
     """Overlay *config* with the composition data from a scenario seed.
 
     Reads ``config["genesis"]["seed_id"]``. If absent, returns silently.
-    If the seed exists in *registry* its composition is used to overwrite
-    ``config["composition"]`` entirely, with ``seed_id`` and ``seed_version`` injected.
+    If the seed exists in *registry* its composition is merged into
+    ``config["composition"]`` with ``seed_id`` and ``seed_version`` injected.
 
     Args:
         config: Mutable genesis config dict (modified in-place).
         registry: The :class:`~tta.seeds.registry.SeedRegistry` to look up.
+
+    .. TODO(wiring): This function is not yet called from any genesis route.
+       Wire into genesis_v2 run() once S42 playtester integration is complete.
     """
     seed_id: str | None = config.get("genesis", {}).get("seed_id")
     if not seed_id:
