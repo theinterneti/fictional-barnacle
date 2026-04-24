@@ -1,13 +1,11 @@
 """S11 Player Identity & Sessions — Acceptance Criteria compliance tests.
 
-Covers AC-11.01, AC-11.02, AC-11.04, AC-11.10, AC-11.12.
+Covers AC-11.01, AC-11.02, AC-11.04, AC-11.07, AC-11.10, AC-11.12.
 
-v2 ACs (deferred):
+AC-11.05, AC-11.06, AC-11.08 covered in tests/unit/lifecycle/test_cleanup.py.
+
+Deferred ACs (require login endpoint or async jobs not yet implemented):
   AC-11.03 — Multi-device login (login endpoint deferred per S11 §14)
-  AC-11.05 — Paused game resumable at 29 days (background task + time)
-  AC-11.06 — Game expired after 31 days (background task + time)
-  AC-11.07 — Expired game resume with welcome back (background task)
-  AC-11.08 — Abandoned after 25 hours (background task + time)
   AC-11.09 — Login lockout (login endpoint deferred per S11 §14)
   AC-11.11 — Deleted player cannot login (login endpoint deferred per S11 §14)
   AC-11.13 — Data not retrievable within 72h (async deletion job)
