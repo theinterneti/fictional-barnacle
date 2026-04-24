@@ -132,3 +132,18 @@ def test_downgrade_drops_tables_in_order():
     pos_universes = downgrade_src.rfind("universes")  # last drop
     assert pos_snapshots < pos_chars < pos_universes
     assert pos_actors < pos_universes
+
+
+# ===========================================================================
+# AC-33.03 — Backfill sets universe_id on existing game_sessions rows
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-33.03")
+def test_migration_backfills_game_sessions_universe_id() -> None:
+    """Migration SQL contains UPDATE game_sessions SET universe_id for backfill."""
+    text = MIGRATION_PATH.read_text()
+    assert "UPDATE game_sessions" in text
+    assert "universe_id" in text
+    # The backfill sets universe_id where it was NULL (legacy sessions)
+    assert "universe_id IS NULL" in text

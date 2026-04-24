@@ -261,3 +261,121 @@ def test_world_delta_events_are_world_events() -> None:
     for e in delta.events:
         assert isinstance(e, WorldEvent)
         assert isinstance(e.event_id, str)
+
+
+# ===========================================================================
+# AC-35.06 — Non-repeating RoutineStep fires only once per NPC
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-35.06")
+def test_non_repeating_step_fires_only_once() -> None:
+    """A RoutineStep with repeating=False is skipped on subsequent process() calls."""
+    from tta.simulation.types import (
+        NarrativeEventAction,
+        RoutineCondition,
+        RoutineStep,
+    )
+
+    step = RoutineStep(
+        trigger="time_of_day",
+        action=NarrativeEventAction(description="A unique event", severity="minor"),
+        repeating=False,
+        condition=RoutineCondition(label="morning"),
+    )
+    npc = {
+        "id": "npc-once",
+        "tier": "supporting",
+        "schedule": "morning",
+        "state": "idle",
+        "routine": [step],
+    }
+
+    proc = DefaultAutonomyProcessor()
+
+    # First call: step should fire and produce an event
+    delta1 = proc.process(_UNIVERSE_ID, _WORLD_TIME, [npc])
+    events1 = [e for e in delta1.events if e.source_npc_id == "npc-once"]
+    assert len(events1) == 1
+
+    # Second call with same NPC (same dict — _fired_steps persists on the dict):
+    delta2 = proc.process(_UNIVERSE_ID, _WORLD_TIME, [npc])
+    events2 = [e for e in delta2.events if e.source_npc_id == "npc-once"]
+    assert len(events2) == 0, "Non-repeating step must not fire a second time"
+
+
+@pytest.mark.spec("AC-35.06")
+def test_repeating_step_fires_every_call() -> None:
+    """A RoutineStep with repeating=True (default) fires on every matching tick."""
+    from tta.simulation.types import (
+        NarrativeEventAction,
+        RoutineCondition,
+        RoutineStep,
+    )
+
+    step = RoutineStep(
+        trigger="time_of_day",
+        action=NarrativeEventAction(description="Recurring event", severity="minor"),
+        repeating=True,
+        condition=RoutineCondition(label="morning"),
+    )
+    npc = {
+        "id": "npc-repeat",
+        "tier": "supporting",
+        "schedule": "morning",
+        "state": "idle",
+        "routine": [step],
+    }
+
+    proc = DefaultAutonomyProcessor()
+
+    delta1 = proc.process(_UNIVERSE_ID, _WORLD_TIME, [npc])
+    delta2 = proc.process(_UNIVERSE_ID, _WORLD_TIME, [npc])
+
+    events1 = [e for e in delta1.events if e.source_npc_id == "npc-repeat"]
+    events2 = [e for e in delta2.events if e.source_npc_id == "npc-repeat"]
+    assert len(events1) == 1
+    assert len(events2) == 1, "Repeating step must fire again on next call"
+
+
+# ===========================================================================
+# AC-35.07 — NarrativeEventAction → WorldEvent appended to delta.events
+# ===========================================================================
+
+
+@pytest.mark.spec("AC-35.07")
+def test_narrative_event_action_produces_world_event() -> None:
+    """NarrativeEventAction in a routine step produces a WorldEvent in delta.events."""
+    from tta.simulation.types import (
+        NarrativeEventAction,
+        RoutineCondition,
+        RoutineStep,
+    )
+
+    step = RoutineStep(
+        trigger="time_of_day",
+        action=NarrativeEventAction(
+            description="The blacksmith announces a new sword",
+            severity="minor",
+        ),
+        condition=RoutineCondition(label="morning"),
+    )
+    npc = {
+        "id": "npc-narrator",
+        "tier": "supporting",
+        "schedule": "morning",
+        "state": "idle",
+        "routine": [step],
+    }
+
+    proc = DefaultAutonomyProcessor()
+    delta = proc.process(_UNIVERSE_ID, _WORLD_TIME, [npc])
+
+    narrative_events = [e for e in delta.events if e.source_npc_id == "npc-narrator"]
+    assert len(narrative_events) == 1
+    ev = narrative_events[0]
+    assert isinstance(ev, WorldEvent)
+    assert ev.event_type == "narrative"
+    assert ev.description == "The blacksmith announces a new sword"
+    assert ev.severity == "minor"
+    assert ev.universe_id == _UNIVERSE_ID

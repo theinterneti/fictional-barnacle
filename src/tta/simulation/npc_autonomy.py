@@ -244,7 +244,7 @@ class DefaultAutonomyProcessor:
         events: list[WorldEvent] = []
 
         # --- Phase 1: evaluate RoutineStep triggers (AC-35.03) ---
-        for step in routine:
+        for step_idx, step in enumerate(routine):
             if not isinstance(step, RoutineStep):
                 continue
 
@@ -265,6 +265,24 @@ class DefaultAutonomyProcessor:
 
             if not matched:
                 continue
+
+            # AC-35.06: skip non-repeating steps that have already fired.
+            # NPCs are dict-like; _fired_steps is stored under that key.
+            if not step.repeating:
+                if isinstance(npc, dict):
+                    fired: set[int] = npc.setdefault("_fired_steps", set())
+                    if step_idx in fired:
+                        continue
+                    fired.add(step_idx)
+                else:
+                    fired_attr: set[int] = getattr(npc, "_fired_steps", None) or set()
+                    if step_idx in fired_attr:
+                        continue
+                    fired_attr.add(step_idx)
+                    try:
+                        npc._fired_steps = fired_attr  # type: ignore[union-attr]
+                    except AttributeError:
+                        pass
 
             action = step.action
             if isinstance(action, StateChangeAction):
