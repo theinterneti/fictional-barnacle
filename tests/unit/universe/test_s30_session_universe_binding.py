@@ -131,15 +131,25 @@ async def test_archived_universe_cannot_be_activated() -> None:
 @pytest.mark.spec("AC-30.05")
 def test_universe_id_column_has_no_update_path_in_service() -> None:
     """UniverseService never issues SET universe_id = ... on universes table."""
+    import ast
     import inspect
+    import re
 
     from tta.universe import service as svc_mod
 
     src = inspect.getsource(svc_mod)
-    # There should be no UPDATE universes SET ... universe_id  fragment
-    assert "SET universe_id" not in src, (
-        "UniverseService must not have a code path that updates universe_id"
-    )
+    # Scan only SQL string literals — a plain substring check is case-sensitive
+    # and could false-trigger on comments / docstrings. The regex is
+    # case-insensitive so `set universe_id`, `SET universe_id`, etc. all match.
+    sql_assignment_pattern = re.compile(r"\bset\s+universe_id\b", re.IGNORECASE)
+    string_literals = [
+        node.value
+        for node in ast.walk(ast.parse(src))
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+    assert not any(
+        sql_assignment_pattern.search(literal) for literal in string_literals
+    ), "UniverseService must not have a code path that updates universe_id"
 
 
 # ===========================================================================

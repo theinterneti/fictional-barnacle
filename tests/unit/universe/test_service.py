@@ -368,14 +368,44 @@ def test_character_state_requires_universe_id() -> None:
 
 @pytest.mark.spec("AC-29.05")
 def test_character_states_in_different_universes_are_isolated() -> None:
-    """CharacterState.universe_id ties each state to exactly one universe."""
+    """Character state isolation is enforced by a composite (actor_id, universe_id)."""
+    import pathlib
+    import re
+
     from tta.universe.models import CharacterState
 
+    # Sanity: the model allows the same actor_id with different universe_ids.
+    actor_id = uuid4()
     uid_a, uid_b = uuid4(), uuid4()
-    state_a = CharacterState(actor_id=uuid4(), universe_id=uid_a)
-    state_b = CharacterState(actor_id=uuid4(), universe_id=uid_b)
-
+    state_a = CharacterState(actor_id=actor_id, universe_id=uid_a)
+    state_b = CharacterState(actor_id=actor_id, universe_id=uid_b)
+    assert state_a.actor_id == state_b.actor_id
     assert state_a.universe_id != state_b.universe_id
+
+    # The isolation mechanism lives in migration 011: character_states enforces
+    # a composite UNIQUE on (actor_id, universe_id), so each (actor, universe)
+    # pair has exactly one row — this is what makes cross-universe state
+    # isolation real rather than nominal.
+    migration = (
+        pathlib.Path(__file__).parents[3]
+        / "migrations"
+        / "postgres"
+        / "versions"
+        / "011_v2_universe_entity.py"
+    )
+    text = migration.read_text()
+
+    has_composite_unique = re.search(
+        r"UniqueConstraint\(\s*[\"']actor_id[\"']\s*,\s*[\"']universe_id[\"']",
+        text,
+    ) or re.search(
+        r"UniqueConstraint\(\s*[\"']universe_id[\"']\s*,\s*[\"']actor_id[\"']",
+        text,
+    )
+    assert has_composite_unique, (
+        "character_states must enforce a composite UNIQUE constraint on "
+        "(actor_id, universe_id) so actor state is isolated per universe"
+    )
 
 
 # ===========================================================================
@@ -397,11 +427,24 @@ def test_game_sessions_universe_id_has_no_unique_constraint() -> None:
         / "011_v2_universe_entity.py"
     )
     text = migration.read_text()
-    # Search for any UniqueConstraint or UNIQUE on game_sessions.universe_id
-    unique_matches = re.findall(
-        r"UNIQUE\s*[\(\[]?\s*[\'\"]?universe_id[\'\"]?", text, re.IGNORECASE
+    # Migration 011 uses Alembic / SQLAlchemy syntax (op.create_unique_constraint,
+    # sa.UniqueConstraint), not literal SQL UNIQUE tokens, so we look for those
+    # specific call forms referencing game_sessions + universe_id.
+    create_unique_constraint_match = re.search(
+        r"op\.create_unique_constraint\s*\("
+        r"(?:(?!\)).)*[\"']game_sessions[\"']"
+        r"(?:(?!\)).)*\[[^\]]*[\"']universe_id[\"'][^\]]*\]",
+        text,
+        re.IGNORECASE | re.DOTALL,
     )
-    assert not unique_matches, (
+    unique_constraint_match = re.search(
+        r"sa\.UniqueConstraint\s*\("
+        r"(?:(?!\)).)*[\"']universe_id[\"']"
+        r"(?:(?!\)).)*game_sessions",
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert create_unique_constraint_match is None and unique_constraint_match is None, (
         "game_sessions.universe_id must not have a UNIQUE constraint; "
         "multiple sessions can reference the same universe"
     )

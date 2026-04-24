@@ -283,23 +283,27 @@ def test_non_repeating_step_fires_only_once() -> None:
         repeating=False,
         condition=RoutineCondition(label="morning"),
     )
-    npc = {
-        "id": "npc-once",
-        "tier": "supporting",
-        "schedule": "morning",
-        "state": "idle",
-        "routine": [step],
-    }
+
+    def _make_npc() -> dict:
+        return {
+            "id": "npc-once",
+            "tier": "supporting",
+            "schedule": "morning",
+            "state": "idle",
+            "routine": [step],
+        }
 
     proc = DefaultAutonomyProcessor()
 
-    # First call: step should fire and produce an event
-    delta1 = proc.process(_UNIVERSE_ID, _WORLD_TIME, [npc])
+    # First call: step should fire and produce an event.
+    delta1 = proc.process(_UNIVERSE_ID, _WORLD_TIME, [_make_npc()])
     events1 = [e for e in delta1.events if e.source_npc_id == "npc-once"]
     assert len(events1) == 1
 
-    # Second call with same NPC (same dict — _fired_steps persists on the dict):
-    delta2 = proc.process(_UNIVERSE_ID, _WORLD_TIME, [npc])
+    # Second call uses a fresh-but-equivalent NPC dict — this matches the
+    # production pipeline, where npcs_present is rebuilt each turn via
+    # NPC.model_dump(). Persistence must live on the processor.
+    delta2 = proc.process(_UNIVERSE_ID, _WORLD_TIME, [_make_npc()])
     events2 = [e for e in delta2.events if e.source_npc_id == "npc-once"]
     assert len(events2) == 0, "Non-repeating step must not fire a second time"
 

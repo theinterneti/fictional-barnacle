@@ -114,6 +114,13 @@ class DefaultAutonomyProcessor:
         self.budget_ms = budget_ms
         self.max_llm_npcs = max_llm_npcs
         self.llm = llm
+        # AC-35.06: tracks (universe_id, npc_id, step_idx, trigger, condition_label)
+        # tuples for non-repeating steps that have already fired. Stored on the
+        # processor (not the NPC payload) because npcs_present dicts are
+        # rebuilt each turn from NPC.model_dump() in tta.world.state.
+        self._fired_non_repeating_steps: set[
+            tuple[str | None, str, int, str, str | None]
+        ] = set()
 
     # ------------------------------------------------------------------
     # Public API
@@ -267,22 +274,22 @@ class DefaultAutonomyProcessor:
                 continue
 
             # AC-35.06: skip non-repeating steps that have already fired.
-            # NPCs are dict-like; _fired_steps is stored under that key.
+            # Tracked on the processor, not the NPC payload, because
+            # npcs_present dicts are rebuilt each turn from NPC.model_dump()
+            # (see tta.world.state.get_full_context). Keying by npc_id +
+            # step index + trigger + condition survives the dict rebuild and
+            # keeps the NPC payload JSON-serializable for prompt assembly.
             if not step.repeating:
-                if isinstance(npc, dict):
-                    fired: set[int] = npc.setdefault("_fired_steps", set())
-                    if step_idx in fired:
-                        continue
-                    fired.add(step_idx)
-                else:
-                    fired_attr: set[int] = getattr(npc, "_fired_steps", None) or set()
-                    if step_idx in fired_attr:
-                        continue
-                    fired_attr.add(step_idx)
-                    try:
-                        npc._fired_steps = fired_attr  # type: ignore[union-attr]
-                    except AttributeError:
-                        pass
+                step_signature = (
+                    universe_id,
+                    npc_id,
+                    step_idx,
+                    trigger,
+                    step.condition.label if step.condition is not None else None,
+                )
+                if step_signature in self._fired_non_repeating_steps:
+                    continue
+                self._fired_non_repeating_steps.add(step_signature)
 
             action = step.action
             if isinstance(action, StateChangeAction):
