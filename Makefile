@@ -30,9 +30,9 @@ validate-openapi: ## Validate OpenAPI spec passes openapi-spec-validator
 
 validate-all: validate-specs validate-plans validate-openapi trace ## Run all validators including AC traceability
 
-regen-indexes: ## Regenerate spec and plan index files (writes specs/index.md + specs/index.json)
+regen-indexes: ## Regenerate spec and plan index files (writes specs/index.{md,json} + plans/index.{md,json})
 	uv run python specs/index_specs.py --out specs/index
-	uv run python plans/index_plans.py
+	uv run python plans/index_plans.py --out plans/index
 
 trace: ## Validate AC traceability (exit 1 on orphan citations)
 	uv run python specs/trace_acs.py --validate

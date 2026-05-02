@@ -85,13 +85,15 @@ def _classify_status(raw: str) -> str:
     """Map a spec's Status frontmatter value to one of: approved | draft | stub.
 
     Anything containing 'stub' → stub (excluded entirely from the audit).
-    Anything containing 'approved' → approved (counted in headline coverage).
-    Anything else (Draft / Review / Revised / Unknown) → draft (informational).
+    Anything containing 'approved' or 'revised' → approved (counted in headline
+    coverage).  'Revised' means updated after implementation feedback and is still
+    a committed source of truth.
+    Anything else (Draft / Review / Unknown) → draft (informational).
     """
     s = raw.lower()
     if "stub" in s:
         return "stub"
-    if "approved" in s:
+    if "approved" in s or "revised" in s:
         return "approved"
     return "draft"
 
@@ -289,6 +291,27 @@ def build_report(
     Approved ACs drive the headline coverage_pct. Draft ACs are tracked
     informationally — uncovered drafts do NOT fail the gate. Stub ACs are
     excluded entirely.
+
+    Output schema (written to specs/trace.json)::
+
+        {
+          "generated": "<ISO-8601 timestamp>",
+          "approved": {
+            "total_acs": int,
+            "covered_acs": int,
+            "coverage_pct": float,
+            "uncovered_acs": int,
+            "matrix": {"AC-ID": ["test_file::test_name", ...], ...}
+          },
+          "draft": { <same shape as "approved"> },
+          "stub_acs": int,
+          "orphan_citations": int,
+          "orphans": ["AC-ID", ...]
+        }
+
+    Note: prior to wave-40 the top-level keys were flat (``total_acs``,
+    ``matrix``, ``coverage_pct``, etc.).  The nested approved/draft buckets
+    replaced that schema.
     """
     all_ids = set(ac_map.keys())
     approved_ids = {a for a, s in ac_status.items() if s == "approved"}
