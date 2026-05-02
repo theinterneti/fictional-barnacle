@@ -100,3 +100,151 @@ class TestAC1306TwoHopLatency:
             f"AC-13.06/AC-12.08 FAIL: get_location_context(depth=2) "
             f"p95={p95_ms:.1f} ms >= 200 ms"
         )
+
+
+@pytest.mark.spec("AC-13.07")
+class TestAC1307PlayerMovementAtomicity:
+    """Player movement must leave exactly one LOCATED_IN edge after the move."""
+
+    @pytest.mark.asyncio
+    async def test_player_has_single_location_after_move(
+        self, neo4j_session: Any
+    ) -> None:
+        sid = str(uuid.uuid4())
+
+        # Seed: two locations, one player at start, one EXIT start→end
+        await neo4j_session.run(
+            "CREATE (start:Location {location_id: 'start', session_id: $sid})"
+            " CREATE (end:Location {location_id: 'end', session_id: $sid})"
+            " CREATE (p:Player {player_id: 'p1', session_id: $sid})"
+            " CREATE (p)-[:LOCATED_IN]->(start)"
+            " CREATE (start)-[:EXIT {direction: 'north'}]->(end)",
+            sid=sid,
+        )
+
+        # Move: delete LOCATED_IN from start, create LOCATED_IN to end atomically
+        await neo4j_session.run(
+            "MATCH (p:Player {player_id: 'p1', session_id: $sid})"
+            "-[r:LOCATED_IN]->(old:Location)"
+            " MATCH (end:Location {location_id: 'end', session_id: $sid})"
+            " DELETE r"
+            " CREATE (p)-[:LOCATED_IN]->(end)",
+            sid=sid,
+        )
+
+        # Assert exactly one LOCATED_IN edge exists
+        result = await neo4j_session.run(
+            "MATCH (p:Player {player_id: 'p1', session_id: $sid})"
+            "-[:LOCATED_IN]->(loc)"
+            " RETURN count(loc) AS cnt, loc.location_id AS loc_id",
+            sid=sid,
+        )
+        record = await result.single()
+        assert record is not None, "Expected one LOCATED_IN record"
+        assert record["cnt"] == 1, (
+            f"AC-13.07 FAIL: expected 1 LOCATED_IN edge, got {record['cnt']}"
+        )
+        assert record["loc_id"] == "end", (
+            f"AC-13.07 FAIL: player should be at 'end', got '{record['loc_id']}'"
+        )
+
+
+@pytest.mark.spec("AC-13.08")
+class TestAC1308ItemPickupAtomicity:
+    """Item pickup must transfer from AT_LOCATION to CARRIED_BY atomically."""
+
+    @pytest.mark.asyncio
+    async def test_item_moves_from_location_to_inventory(
+        self, neo4j_session: Any
+    ) -> None:
+        sid = str(uuid.uuid4())
+
+        # Seed: one location, one item AT_LOCATION, one player LOCATED_IN same location
+        await neo4j_session.run(
+            "CREATE (loc:Location {location_id: 'loc1', session_id: $sid})"
+            " CREATE (item:Item {item_id: 'sword', session_id: $sid})"
+            " CREATE (p:Player {player_id: 'p1', session_id: $sid})"
+            " CREATE (item)-[:AT_LOCATION]->(loc)"
+            " CREATE (p)-[:LOCATED_IN]->(loc)",
+            sid=sid,
+        )
+
+        # Pickup: delete AT_LOCATION, create CARRIED_BY atomically
+        await neo4j_session.run(
+            "MATCH (item:Item {item_id: 'sword', session_id: $sid})"
+            "-[r:AT_LOCATION]->(loc)"
+            " MATCH (p:Player {player_id: 'p1', session_id: $sid})"
+            " DELETE r"
+            " CREATE (item)-[:CARRIED_BY]->(p)",
+            sid=sid,
+        )
+
+        # Assert AT_LOCATION count = 0
+        at_loc_result = await neo4j_session.run(
+            "MATCH (item:Item {item_id: 'sword', session_id: $sid})"
+            "-[r:AT_LOCATION]->()"
+            " RETURN count(r) AS cnt",
+            sid=sid,
+        )
+        at_loc_record = await at_loc_result.single()
+        assert at_loc_record is not None
+        assert at_loc_record["cnt"] == 0, (
+            f"AC-13.08 FAIL: expected 0 AT_LOCATION edges, got {at_loc_record['cnt']}"
+        )
+
+        # Assert CARRIED_BY count = 1
+        carried_result = await neo4j_session.run(
+            "MATCH (item:Item {item_id: 'sword', session_id: $sid})"
+            "-[r:CARRIED_BY]->()"
+            " RETURN count(r) AS cnt",
+            sid=sid,
+        )
+        carried_record = await carried_result.single()
+        assert carried_record is not None
+        assert carried_record["cnt"] == 1, (
+            f"AC-13.08 FAIL: expected 1 CARRIED_BY edge, got {carried_record['cnt']}"
+        )
+
+
+@pytest.mark.spec("AC-13.09")
+class TestAC1309NPCSinglePresence:
+    """NPC must have exactly one PRESENT_IN edge after being moved between locations."""
+
+    @pytest.mark.asyncio
+    async def test_npc_has_single_presence_after_move(self, neo4j_session: Any) -> None:
+        sid = str(uuid.uuid4())
+
+        # Seed: two locations, one NPC PRESENT_IN loc1
+        await neo4j_session.run(
+            "CREATE (loc1:Location {location_id: 'loc1', session_id: $sid})"
+            " CREATE (loc2:Location {location_id: 'loc2', session_id: $sid})"
+            " CREATE (npc:NPC {npc_id: 'guard', session_id: $sid})"
+            " CREATE (npc)-[:PRESENT_IN]->(loc1)",
+            sid=sid,
+        )
+
+        # Move NPC: delete old PRESENT_IN, create new PRESENT_IN to loc2 atomically
+        await neo4j_session.run(
+            "MATCH (npc:NPC {npc_id: 'guard', session_id: $sid})"
+            "-[r:PRESENT_IN]->()"
+            " MATCH (loc2:Location {location_id: 'loc2', session_id: $sid})"
+            " DELETE r"
+            " CREATE (npc)-[:PRESENT_IN]->(loc2)",
+            sid=sid,
+        )
+
+        # Assert exactly one PRESENT_IN edge exists
+        result = await neo4j_session.run(
+            "MATCH (npc:NPC {npc_id: 'guard', session_id: $sid})"
+            "-[:PRESENT_IN]->(loc)"
+            " RETURN count(loc) AS cnt, loc.location_id AS loc_id",
+            sid=sid,
+        )
+        record = await result.single()
+        assert record is not None, "Expected one PRESENT_IN record"
+        assert record["cnt"] == 1, (
+            f"AC-13.09 FAIL: expected 1 PRESENT_IN edge, got {record['cnt']}"
+        )
+        assert record["loc_id"] == "loc2", (
+            f"AC-13.09 FAIL: NPC should be at 'loc2', got '{record['loc_id']}'"
+        )
