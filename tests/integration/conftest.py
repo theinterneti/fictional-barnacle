@@ -236,7 +236,10 @@ async def neo4j_db(
         for stmt in cypher.split(";"):
             stmt = stmt.strip()
             if stmt and not stmt.startswith("//"):
-                await session.run(stmt)
+                # Use literal string to satisfy Neo4j LiteralString requirement
+                await session.run(
+                    stmt  # type: ignore[arg-type]
+                )
 
     yield driver
     await driver.close()
@@ -268,7 +271,8 @@ async def neo4j_large_world(neo4j_db: Any) -> AsyncIterator[Any]:
         for stmt in cypher.split(";"):
             stmt = stmt.strip()
             if stmt and not stmt.startswith("//"):
-                await session.run(stmt)
+                # Use type: ignore to allow str from split() — safe in test fixtures
+                await session.run(stmt)  # type: ignore[arg-type]
 
     yield neo4j_db
 
@@ -305,7 +309,8 @@ async def neo4j_session(
         for stmt in seed_cypher.split(";"):
             stmt = stmt.strip()
             if stmt and not stmt.startswith("//"):
-                await session.run(stmt)
+                # Use type: ignore to allow str from split() — safe in test fixtures
+                await session.run(stmt)  # type: ignore[arg-type]
 
         yield session
 
