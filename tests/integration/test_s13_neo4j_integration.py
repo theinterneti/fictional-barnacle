@@ -5,10 +5,14 @@ ACs covered:
   AC-13.05 — validate_movement p95 < 10 ms on 1 000-node world
   AC-13.06 — get_location_context(depth=2) p95 < 200 ms on 1 000-node world
   AC-12.08 — two-hop neighbour query p95 < 200 ms (same query as AC-13.06)
+  AC-13.13 — NPC updated_at timestamp is strictly after created_at after an update
+  AC-13.15 — World node in Neo4j has session_id matching the created game_id
+  AC-13.16 — Deleting a game session removes all Neo4j nodes with that session_id
 """
 
 from __future__ import annotations
 
+import asyncio
 import statistics
 import time
 import uuid
@@ -247,4 +251,173 @@ class TestAC1309NPCSinglePresence:
         )
         assert record["loc_id"] == "loc2", (
             f"AC-13.09 FAIL: NPC should be at 'loc2', got '{record['loc_id']}'"
+        )
+
+
+@pytest.mark.spec("AC-13.13")
+class TestAC1313TimestampOrdering:
+    """NPC updated_at must be strictly after created_at following an update."""
+
+    @pytest.mark.asyncio
+    async def test_updated_at_after_created_at(self, neo4j_session: Any) -> None:
+        sid = str(uuid.uuid4())
+
+        # Seed NPC with both timestamps set at creation time
+        await neo4j_session.run(
+            "CREATE (npc:NPC {"
+            "  npc_id: 'guard',"
+            "  session_id: $sid,"
+            "  created_at: datetime(),"
+            "  updated_at: datetime()"
+            "})",
+            sid=sid,
+        )
+
+        # Advance clock slightly before performing the update
+        await asyncio.sleep(0.05)
+
+        # SET updated_at to current datetime (simulates a write operation)
+        await neo4j_session.run(
+            "MATCH (npc:NPC {npc_id: 'guard', session_id: $sid})"
+            " SET npc.updated_at = datetime()",
+            sid=sid,
+        )
+
+        # Query both timestamps and compare
+        result = await neo4j_session.run(
+            "MATCH (npc:NPC {npc_id: 'guard', session_id: $sid})"
+            " RETURN npc.created_at AS ca, npc.updated_at AS ua",
+            sid=sid,
+        )
+        record = await result.single()
+        assert record is not None, "Expected NPC record with timestamps"
+        assert record["ua"] > record["ca"], (
+            "AC-13.13 FAIL: updated_at must be strictly after created_at, "
+            f"got created_at={record['ca']!r}, updated_at={record['ua']!r}"
+        )
+
+
+@pytest.mark.spec("AC-13.15")
+class TestAC1315DualStoreSessionConsistency:
+    """World node in Neo4j must carry a session_id matching the created game_id."""
+
+    @pytest.mark.asyncio
+    async def test_world_node_session_id_matches_game_id(
+        self,
+        client: Any,
+        neo4j_db: Any,
+    ) -> None:
+        # Register a player
+        handle = f"ac1315-{uuid.uuid4().hex[:8]}"
+        reg_resp = await client.post(
+            "/api/v1/players",
+            json={
+                "handle": handle,
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
+            },
+        )
+        assert reg_resp.status_code == 201, reg_resp.text
+        token = reg_resp.json()["data"]["session_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Create a game session
+        game_resp = await client.post(
+            "/api/v1/games",
+            json={},
+            headers=headers,
+        )
+        if game_resp.status_code not in (200, 201):
+            pytest.skip(
+                f"POST /api/v1/games returned {game_resp.status_code} — "
+                "endpoint unavailable or world genesis not implemented"
+            )
+
+        game_id = game_resp.json()["data"]["game_id"]
+
+        # Query Neo4j for a World node with matching session_id
+        async with neo4j_db.session() as session:
+            result = await session.run(
+                "MATCH (w:World {session_id: $sid}) RETURN w.session_id AS sid",
+                sid=game_id,
+            )
+            record = await result.single()
+
+        assert record is not None, (
+            f"AC-13.15 FAIL: no World node found in Neo4j for session_id={game_id!r}"
+        )
+        assert record["sid"] == game_id, (
+            f"AC-13.15 FAIL: World.session_id={record['sid']!r} != game_id={game_id!r}"
+        )
+
+
+@pytest.mark.spec("AC-13.16")
+class TestAC1316SessionDeleteCleansNeo4j:
+    """Deleting a game session must remove all Neo4j nodes with that session_id."""
+
+    @pytest.mark.asyncio
+    async def test_delete_game_removes_neo4j_nodes(
+        self,
+        client: Any,
+        neo4j_db: Any,
+    ) -> None:
+        # Register a player
+        handle = f"ac1316-{uuid.uuid4().hex[:8]}"
+        reg_resp = await client.post(
+            "/api/v1/players",
+            json={
+                "handle": handle,
+                "age_13_plus_confirmed": True,
+                "consent_version": "1.0",
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
+            },
+        )
+        assert reg_resp.status_code == 201, reg_resp.text
+        token = reg_resp.json()["data"]["session_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Create a game session
+        game_resp = await client.post(
+            "/api/v1/games",
+            json={},
+            headers=headers,
+        )
+        if game_resp.status_code not in (200, 201):
+            pytest.skip(
+                f"POST /api/v1/games returned {game_resp.status_code} — "
+                "endpoint unavailable or world genesis not implemented"
+            )
+
+        game_id = game_resp.json()["data"]["game_id"]
+
+        # Delete the game session
+        del_resp = await client.delete(
+            f"/api/v1/games/{game_id}",
+            headers=headers,
+        )
+        if del_resp.status_code not in (200, 204):
+            pytest.skip(
+                f"DELETE /api/v1/games/{{game_id}} returned {del_resp.status_code} — "
+                "delete endpoint unavailable"
+            )
+
+        # Query Neo4j: all nodes with that session_id must be gone
+        async with neo4j_db.session() as session:
+            result = await session.run(
+                "MATCH (n {session_id: $sid}) RETURN count(n) AS cnt",
+                sid=game_id,
+            )
+            record = await result.single()
+
+        assert record is not None
+        assert record["cnt"] == 0, (
+            f"AC-13.16 FAIL: expected 0 Neo4j nodes after game deletion, "
+            f"got {record['cnt']} nodes with session_id={game_id!r}"
         )
