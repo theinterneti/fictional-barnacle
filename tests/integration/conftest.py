@@ -190,6 +190,10 @@ def pg_dsn(integration_settings: Settings) -> str:
 # ---------------------------------------------------------------------------
 # Neo4j (S47 — live test instance at bolt://localhost:7688, no-auth)
 # ---------------------------------------------------------------------------
+
+_LARGE_WORLD_SESSION_ID = "00000000-0000-0000-0000-000000000001"
+
+
 @pytest.fixture(scope="session")
 async def neo4j_db(
     integration_settings: Settings,
@@ -236,6 +240,44 @@ async def neo4j_db(
 
     yield driver
     await driver.close()
+
+
+@pytest.fixture(scope="session")
+async def neo4j_large_world(neo4j_db: Any) -> AsyncIterator[Any]:
+    """Session-scoped driver with the 1 000-node world loaded.
+
+    Loads world_large.cypher once per session (replacing __SESSION_ID__ with
+    _LARGE_WORLD_SESSION_ID).  Tears down by DETACH DELETE-ing all large-world
+    nodes at the end of the session.
+    """
+    import os
+
+    fixture_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "fixtures",
+        "neo4j",
+        "world_large.cypher",
+    )
+    with open(fixture_path) as fh:
+        raw = fh.read()
+
+    cypher = raw.replace("__SESSION_ID__", _LARGE_WORLD_SESSION_ID)
+
+    async with neo4j_db.session() as session:
+        for stmt in cypher.split(";"):
+            stmt = stmt.strip()
+            if stmt and not stmt.startswith("//"):
+                await session.run(stmt)
+
+    yield neo4j_db
+
+    # Teardown — remove all large-world nodes by session_id
+    async with neo4j_db.session() as session:
+        await session.run(
+            "MATCH (n {session_id: $sid}) DETACH DELETE n",
+            sid=_LARGE_WORLD_SESSION_ID,
+        )
 
 
 @pytest.fixture()
