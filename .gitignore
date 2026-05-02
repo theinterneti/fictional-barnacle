@@ -71,3 +71,5 @@ reports/
 .claude/ralph-loop.local.md
 .testmondata
 .hypothesis/
+.gitnexus
+.worktrees/
