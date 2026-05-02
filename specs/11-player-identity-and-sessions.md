@@ -1,6 +1,6 @@
 # S11 — Player Identity & Sessions
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform

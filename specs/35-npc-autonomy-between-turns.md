@@ -1,6 +1,6 @@
 # S35 — NPC Autonomy Between Turns
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🆕 v2.0
 > **Implementation Fit**: ❌ Not Started
 > **Level**: 2 — Simulation

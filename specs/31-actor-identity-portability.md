@@ -1,6 +1,6 @@
 # S31 — Actor Identity Portability
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🆕 v2.0
 > **Implementation Fit**: ❌ Not Started
 > **Level**: 3 — Platform

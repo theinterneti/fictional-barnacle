@@ -1,6 +1,6 @@
 # S40 — Genesis v2: Real→Strange
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🆕 v2.0
 > **Implementation Fit**: ❌ Not Started
 > **Level**: 2 — Simulation

@@ -1,6 +1,6 @@
 # S15 — Observability
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations

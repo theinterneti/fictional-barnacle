@@ -1,6 +1,6 @@
 # S13 — World Graph Schema
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform
