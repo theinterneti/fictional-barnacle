@@ -18,7 +18,7 @@ from pathlib import Path
 
 from tta.choices.consequence_service import InMemoryConsequenceService
 from tta.genesis.genesis_lite import run_genesis_lite
-from tta.llm.client import LLMResponse, Message, MessageRole
+from tta.llm.client import Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.llm.smart_router_client import SmartRouterLLMClient
 from tta.models.turn import TurnState
@@ -48,7 +48,11 @@ def build_player_prompt(persona: str, turn_history: list[dict]) -> str:
         history_text = "\n\n--- Previous turns ---\n"
         for h in turn_history[-3:]:
             history_text += f"You: {h['player_input']}\n"
-            narrative = h['narrative'][:200] + "..." if len(h.get('narrative', '')) > 200 else h.get('narrative', '')
+            narrative = (
+                h["narrative"][:200] + "..."
+                if len(h.get("narrative", "")) > 200
+                else h.get("narrative", "")
+            )
             history_text += f"Narrative: {narrative}\n"
 
     base = PERSONAS.get(persona, PERSONAS["curious"])
@@ -85,7 +89,10 @@ EVALUATION_QUESTIONS = [
     },
     {
         "id": "world_logic",
-        "question": "Did the world follow consistent rules? Did NPCs behave believably?",
+        "question": (
+            "Did the world follow consistent rules? "
+            "Did NPCs behave believably?"
+        ),
         "aspect": "World Consistency",
         "weight": 0.8,
     },
@@ -97,7 +104,10 @@ EVALUATION_QUESTIONS = [
     },
     {
         "id": "character",
-        "question": "Did you feel like a character in a story, or just a user typing commands?",
+        "question": (
+            "Did you feel like a character in a story, "
+            "or just a user typing commands?"
+        ),
         "aspect": "Character Investment",
         "weight": 1.0,
     },
@@ -109,7 +119,10 @@ EVALUATION_QUESTIONS = [
     },
     {
         "id": "emotion",
-        "question": "Did any moment make you feel something? (curious, tense, amused, wonder)",
+        "question": (
+            "Did any moment make you feel something? "
+            "(curious, tense, amused, wonder)"
+        ),
         "aspect": "Emotional Response",
         "weight": 1.0,
     },
@@ -128,7 +141,7 @@ async def get_llm_reflection(
     # Build questions into prompt
     questions_text = ""
     for q in EVALUATION_QUESTIONS:
-        questions_text += f'{q["id"]}: {q["question"]}\n'
+        questions_text += f"{q['id']}: {q['question']}\n"
 
     prompt = f"""You are playing a text adventure game as a {persona} player.
 
@@ -146,7 +159,9 @@ Respond in this JSON format (one entry per question):
 """
 
     messages = [
-        Message(role=MessageRole.SYSTEM, content="You are an analytical game reviewer."),
+        Message(
+            role=MessageRole.SYSTEM, content="You are an analytical game reviewer."
+        ),
         Message(role=MessageRole.USER, content=prompt),
     ]
 
@@ -165,7 +180,10 @@ Respond in this JSON format (one entry per question):
         return parsed.get("evaluations", [])
     except Exception as e:
         # Return defaults
-        return [{"id": q["id"], "score": 5, "note": f"Parse error: {e}"} for q in EVALUATION_QUESTIONS]
+        return [
+            {"id": q["id"], "score": 5, "note": f"Parse error: {e}"}
+            for q in EVALUATION_QUESTIONS
+        ]
 
 
 async def main():
@@ -174,9 +192,9 @@ async def main():
     parser.add_argument("--persona", default="curious", choices=list(PERSONAS.keys()))
     args = parser.parse_args()
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"LLM-AS-PLAYER: Evaluating TTA with {args.persona} persona")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Setup
     session_id = uuid4()
@@ -237,7 +255,9 @@ async def main():
     all_scores: dict[str, list[float]] = {q["id"]: [] for q in EVALUATION_QUESTIONS}
 
     # Player "brain" - uses the same LLM to decide what to do
-    async def get_player_input(turn_num: int, narrative: str, history: list[dict]) -> str:
+    async def get_player_input(
+        turn_num: int, narrative: str, history: list[dict]
+    ) -> str:
         """Have the LLM decide what to do based on persona."""
 
         prompt = f"""You are playing a text adventure game. {PERSONAS[args.persona]}
@@ -265,7 +285,7 @@ Example: "look around carefully" or "talk to the merchant" or "go to the square"
         print("-" * 40)
 
         # Get LLM's decision
-        last_narrative = turn_history[-1]['narrative'] if turn_history else intro
+        last_narrative = turn_history[-1]["narrative"] if turn_history else intro
         player_input = await get_player_input(turn_num, last_narrative, turn_history)
         print(f"Player: {player_input}")
 
@@ -286,21 +306,27 @@ Example: "look around carefully" or "talk to the merchant" or "go to the square"
             llm, args.persona, player_input, narrative, turn_history
         )
 
-        print(f"\n📊 Reflection:")
+        print("\n📊 Reflection:")
         if isinstance(reflection, list):
             for r in reflection:
-                print(f"   {r.get('id', '?'):12s}: {r.get('score', '?')}/10 — {r.get('note', '')[:50]}")
+                print(
+                    "   "
+                    f"{r.get('id', '?'):12s}: {r.get('score', '?')}/10 — "
+                    f"{r.get('note', '')[:50]}"
+                )
         else:
             print(f"   Coherence: {reflection.get('coherence', '?')}/10")
             print(f"   Engagement: {reflection.get('engagement', '?')}/10")
             print(f"   Fun: {reflection.get('fun', '?')}/10")
 
-        turn_history.append({
-            "turn": turn_num,
-            "player_input": player_input,
-            "narrative": narrative,
-            "reflection": reflection,
-        })
+        turn_history.append(
+            {
+                "turn": turn_num,
+                "player_input": player_input,
+                "narrative": narrative,
+                "reflection": reflection,
+            }
+        )
 
         # Accumulate scores
         if isinstance(reflection, list):
@@ -314,13 +340,13 @@ Example: "look around carefully" or "talk to the merchant" or "go to the square"
             all_scores["fun"].append(float(reflection.get("fun", 5)))
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("FINAL EVALUATION")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     print(f"\nPersona: {args.persona}")
     print(f"Turns played: {args.turns}")
-    print(f"\n📈 Average Scores:")
+    print("\n📈 Average Scores:")
 
     weighted_sum = 0.0
     total_weight = 0.0
@@ -348,4 +374,5 @@ Example: "look around carefully" or "talk to the merchant" or "go to the square"
 
 if __name__ == "__main__":
     from uuid import uuid4
+
     asyncio.run(main())
