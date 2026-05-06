@@ -39,6 +39,11 @@ async def guarded_llm_call(
     deps: PipelineDeps,
     role: ModelRole,
     messages: list[Message],
+    *,
+    prompt_id: str | None = None,
+    prompt_version: str | None = None,
+    fragment_versions: dict[str, str] | None = None,
+    prompt_hash: str | None = None,
 ) -> LLMResponse:
     """Call LLM with cost enforcement, semaphore, and circuit breaker."""
 
@@ -154,6 +159,10 @@ async def guarded_llm_call(
             latency_ms=latency_ms,
             cost_usd=cost_usd,
             otel_trace_id=otel_tid,
+            prompt_id=prompt_id,
+            prompt_version=prompt_version,
+            fragment_versions=fragment_versions,
+            prompt_hash=prompt_hash,
         )
 
     return response

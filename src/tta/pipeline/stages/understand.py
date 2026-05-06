@@ -153,7 +153,15 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             Message(role=MessageRole.USER, content=state.player_input),
         ]
         try:
-            response = await guarded_llm_call(deps, ModelRole.CLASSIFICATION, messages)
+            response = await guarded_llm_call(
+                deps,
+                ModelRole.CLASSIFICATION,
+                messages,
+                prompt_id=rendered.template_id,
+                prompt_version=rendered.template_version,
+                fragment_versions=rendered.fragment_versions,
+                prompt_hash=rendered.prompt_hash,
+            )
             intent = response.content.strip().lower()
             if intent not in VALID_INTENTS:
                 intent = "other"

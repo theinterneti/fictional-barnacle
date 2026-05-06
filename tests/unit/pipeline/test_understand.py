@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -283,3 +284,40 @@ async def test_prompt_registry_render_error_falls_back() -> None:
     assert result.parsed_intent.intent == "other"
     assert result.parsed_intent.confidence == 0.3
     assert len(llm.call_history) == 0
+
+
+@pytest.mark.asyncio
+async def test_llm_fallback_passes_prompt_provenance_to_guarded_call() -> None:
+    """Classification fallback forwards rendered prompt provenance."""
+    from tta.prompts.registry import RenderedPrompt
+
+    rendered = RenderedPrompt(
+        text="You are a classifier.",
+        template_id="classification.intent",
+        template_version="2.0.0",
+        fragment_versions={"safety-preamble": "frag1234"},
+        prompt_hash="hash5678",
+    )
+    registry = _StubRegistry(templates={"classification.intent": rendered.text})
+    state = _make_state(player_input="mysterious input")
+    deps = _make_deps(llm=MockLLMClient(response="examine"))
+    deps.prompt_registry = registry  # type: ignore[assignment]
+    llm_response = SimpleNamespace(content="examine")
+
+    with (
+        patch.object(registry, "render", return_value=rendered),
+        patch(
+            "tta.pipeline.stages.understand.guarded_llm_call",
+            new=AsyncMock(return_value=llm_response),
+        ) as mock_guarded,
+    ):
+        result = await understand_stage(state, deps)
+
+    assert result.parsed_intent is not None
+    assert result.parsed_intent.intent == "examine"
+    mock_guarded.assert_awaited_once()
+    call_kwargs = mock_guarded.await_args.kwargs
+    assert call_kwargs["prompt_id"] == "classification.intent"
+    assert call_kwargs["prompt_version"] == "2.0.0"
+    assert call_kwargs["fragment_versions"] == {"safety-preamble": "frag1234"}
+    assert call_kwargs["prompt_hash"] == "hash5678"

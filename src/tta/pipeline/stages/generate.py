@@ -254,7 +254,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         )
 
     # 3. Call LLM with transient-failure retry cascade
-    gen_system = _resolve_system_prompt(deps)
+    gen_system, rendered_system_prompt = _resolve_system_prompt(deps)
     messages = [
         Message(role=MessageRole.SYSTEM, content=gen_system),
         Message(role=MessageRole.USER, content=prompt),
@@ -265,7 +265,15 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     response: LLMResponse | None = None
 
     try:
-        response = await _llm_with_retries(messages, deps, state)
+        response = await _llm_with_retries(
+            messages,
+            deps,
+            state,
+            prompt_id=rendered_system_prompt.template_id,
+            prompt_version=rendered_system_prompt.template_version,
+            fragment_versions=rendered_system_prompt.fragment_versions,
+            prompt_hash=rendered_system_prompt.prompt_hash,
+        )
         narrative = response.content
     except (BudgetExceededError, AppError, PermanentLLMError):
         raise  # Non-transient — propagate immediately
@@ -347,7 +355,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     )
 
 
-def _resolve_system_prompt(deps: PipelineDeps) -> str:
+def _resolve_system_prompt(deps: PipelineDeps) -> tuple[str, object]:
     """Resolve generation system prompt from registry (AC-09.1).
 
     Templates are the single source of truth — no inline fallback.
@@ -360,7 +368,7 @@ def _resolve_system_prompt(deps: PipelineDeps) -> str:
             "Narrative generation template not available",
         )
     rendered = deps.prompt_registry.render("narrative.generate", {})
-    return rendered.text
+    return rendered.text, rendered
 
 
 def _simplify_prompt(state: TurnState) -> str:
@@ -379,6 +387,11 @@ async def _llm_with_retries(
     messages: list[Message],
     deps: PipelineDeps,
     state: TurnState,
+    *,
+    prompt_id: str | None = None,
+    prompt_version: str | None = None,
+    fragment_versions: dict[str, str] | None = None,
+    prompt_hash: str | None = None,
 ) -> LLMResponse:
     """Call LLM with retry cascade for transient failures (S03 FR-8).
 
@@ -389,7 +402,15 @@ async def _llm_with_retries(
     last_exc: Exception | None = None
     for attempt in range(_MAX_TRANSIENT_RETRIES + 1):
         try:
-            return await guarded_llm_call(deps, ModelRole.GENERATION, messages)
+            return await guarded_llm_call(
+                deps,
+                ModelRole.GENERATION,
+                messages,
+                prompt_id=prompt_id,
+                prompt_version=prompt_version,
+                fragment_versions=fragment_versions,
+                prompt_hash=prompt_hash,
+            )
         except (TransientLLMError, AllTiersFailedError) as exc:
             last_exc = exc
             log.warning(
@@ -462,7 +483,15 @@ async def _extract_world_changes(
         ),
     ]
     try:
-        response = await guarded_llm_call(deps, ModelRole.EXTRACTION, messages)
+        response = await guarded_llm_call(
+            deps,
+            ModelRole.EXTRACTION,
+            messages,
+            prompt_id=extraction_prompt.template_id,
+            prompt_version=extraction_prompt.template_version,
+            fragment_versions=extraction_prompt.fragment_versions,
+            prompt_hash=extraction_prompt.prompt_hash,
+        )
         parsed = json.loads(response.content)
 
         # New format: {"world_changes": [...], "suggested_actions": [...]}
