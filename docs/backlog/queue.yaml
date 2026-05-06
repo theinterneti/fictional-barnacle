@@ -1,0 +1,22 @@
+# ==============================================================================
+# fictional-barnacle backlog queue
+# ==============================================================================
+# APPEND-ONLY — never edit or delete existing entries.
+# Written by the nightly Barnacle Discovery Agent (Hermes cron job).
+# Read by the pipeline cron to determine what to build next.
+#
+# Schema: see docs/backlog/README.md
+# Status values: queued | in_progress | done | skipped
+# Horizon values: short | mid | long
+# Source values: barnacle_gap | tta_intel | dukat | hindsight | web
+# ==============================================================================
+
+schema_version: "1.0"
+created: "2026-05-04"
+note: "testing mode — discovery agent writes queue.yaml.dry-run until graduation"
+
+queue: []
+
+backlog: []
+
+stubs_created: []
