@@ -26,6 +26,7 @@ from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
 from tta.pipeline.types import PipelineDeps
 from tta.prompts.loader import log_injection_signals
+from tta.prompts.registry import RenderedPrompt  # noqa: TC002
 
 log = structlog.get_logger()
 
@@ -355,7 +356,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     )
 
 
-def _resolve_system_prompt(deps: PipelineDeps) -> tuple[str, object]:
+def _resolve_system_prompt(deps: PipelineDeps) -> tuple[str, RenderedPrompt]:
     """Resolve generation system prompt from registry (AC-09.1).
 
     Templates are the single source of truth — no inline fallback.
