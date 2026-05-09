@@ -20,18 +20,6 @@ from tta.config import Settings
 
 
 # ---------------------------------------------------------------------------
-# Force all integration tests into the session event loop so they share the
-# same loop as session-scoped async fixtures (postgres_engine, neo4j_db,
-# redis_client).  asyncio_default_fixture_loop_scope=session in pyproject.toml
-# handles the fixture side; this hook handles the test side.
-# ---------------------------------------------------------------------------
-def pytest_collection_modifyitems(items: list) -> None:  # type: ignore[type-arg]
-    for item in items:
-        if "tests/integration" in str(item.fspath):
-            item.add_marker(pytest.mark.asyncio(loop_scope="session"))
-
-
-# ---------------------------------------------------------------------------
 # Integration Settings (test-services ports, LLM mock, no Neo4j)
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session")
