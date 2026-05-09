@@ -20,6 +20,19 @@ from tta.config import Settings
 
 
 # ---------------------------------------------------------------------------
+# Session-scoped event loop — required so that session-scoped async fixtures
+# (postgres_engine, redis_client, neo4j_db) and function-scoped tests share
+# the same asyncio loop, avoiding "Future attached to a different loop" errors.
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="session")
+def event_loop():
+    """Single event loop for the entire integration test session."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+# ---------------------------------------------------------------------------
 # Integration Settings (test-services ports, LLM mock, no Neo4j)
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session")
