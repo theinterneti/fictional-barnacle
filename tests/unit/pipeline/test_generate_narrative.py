@@ -123,9 +123,9 @@ class TestNarratorConstraints:
         rendered.text = "Never break the fourth wall. Never reveal you are an AI."
         registry.render.return_value = rendered
         deps = _make_deps(prompt_registry=registry)
-        result = _resolve_system_prompt(deps)
-        assert "fourth wall" in result.lower()
-        assert "ai" in result.lower()
+        result_text, _ = _resolve_system_prompt(deps)
+        assert "fourth wall" in result_text.lower()
+        assert "ai" in result_text.lower()
 
 
 # ===================================================================
@@ -212,8 +212,8 @@ class TestPromptRegistryResolution:
         registry.render.return_value = rendered
 
         deps = _make_deps(prompt_registry=registry)
-        result = _resolve_system_prompt(deps)
-        assert result == "Custom system prompt from registry"
+        result_text, _ = _resolve_system_prompt(deps)
+        assert result_text == "Custom system prompt from registry"
 
     def test_raises_when_no_registry(self) -> None:
         deps = _make_deps(prompt_registry=None)

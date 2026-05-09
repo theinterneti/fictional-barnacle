@@ -90,8 +90,7 @@ EVALUATION_QUESTIONS = [
     {
         "id": "world_logic",
         "question": (
-            "Did the world follow consistent rules? "
-            "Did NPCs behave believably?"
+            "Did the world follow consistent rules? Did NPCs behave believably?"
         ),
         "aspect": "World Consistency",
         "weight": 0.8,
@@ -105,8 +104,7 @@ EVALUATION_QUESTIONS = [
     {
         "id": "character",
         "question": (
-            "Did you feel like a character in a story, "
-            "or just a user typing commands?"
+            "Did you feel like a character in a story, or just a user typing commands?"
         ),
         "aspect": "Character Investment",
         "weight": 1.0,
@@ -120,8 +118,7 @@ EVALUATION_QUESTIONS = [
     {
         "id": "emotion",
         "question": (
-            "Did any moment make you feel something? "
-            "(curious, tense, amused, wonder)"
+            "Did any moment make you feel something? (curious, tense, amused, wonder)"
         ),
         "aspect": "Emotional Response",
         "weight": 1.0,
