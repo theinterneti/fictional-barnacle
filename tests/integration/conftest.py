@@ -271,6 +271,44 @@ async def neo4j_session(
         await session.run("MATCH (n) DETACH DELETE n")
 
 
+@pytest.fixture(scope="session")
+async def neo4j_large_world(
+    neo4j_db: Any,
+) -> AsyncIterator[dict[str, Any]]:
+    """Seed a 1,000-location Neo4j world once for latency tests."""
+    import os
+
+    session_id = "perf_test_session"
+    fixture_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "fixtures",
+        "neo4j",
+        "world_large.cypher",
+    )
+    with open(fixture_path) as fh:
+        cypher = fh.read().replace("__SESSION_ID__", session_id)
+
+    async with neo4j_db.session() as session:
+        await session.run(
+            "MATCH (n {session_id: $sid}) DETACH DELETE n",
+            sid=session_id,
+        )
+        for stmt in cypher.split(";"):
+            stmt = stmt.strip()
+            if stmt and not stmt.startswith("//"):
+                await session.run(stmt)
+
+    try:
+        yield {"driver": neo4j_db, "session_id": session_id}
+    finally:
+        async with neo4j_db.session() as session:
+            await session.run(
+                "MATCH (n {session_id: $sid}) DETACH DELETE n",
+                sid=session_id,
+            )
+
+
 # ---------------------------------------------------------------------------
 # Redis
 # ---------------------------------------------------------------------------

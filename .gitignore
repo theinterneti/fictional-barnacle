@@ -71,3 +71,9 @@ reports/
 .claude/ralph-loop.local.md
 .testmondata
 .hypothesis/
+.gitnexus
+.worktrees/
+
+# Hermes local agent state / generated pipeline artifacts
+.hermes/
+docs/backlog/*.dry-run

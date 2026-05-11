@@ -189,6 +189,18 @@ PG_POOL_OVERFLOW = Gauge(
     registry=REGISTRY,
 )
 
+PG_POOL_IDLE = Gauge(
+    "tta_pg_pool_idle",
+    "PostgreSQL connections idle in pool",
+    registry=REGISTRY,
+)
+
+PG_POOL_WAITING = Gauge(
+    "tta_pg_pool_waiting",
+    "Requests waiting for a PostgreSQL pool connection",
+    registry=REGISTRY,
+)
+
 REDIS_POOL_ACTIVE = Gauge(
     "tta_redis_pool_active_connections",
     "Redis active connections",

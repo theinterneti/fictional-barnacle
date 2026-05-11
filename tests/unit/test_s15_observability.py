@@ -367,6 +367,48 @@ def test_record_llm_generation_pseudonymizes_player():
     assert len(trace_kwargs["user_id"]) >= 16  # pseudonymized hash prefix
 
 
+def test_record_llm_generation_includes_prompt_provenance_metadata():
+    """Prompt provenance fields are included in generation metadata."""
+    from tta.observability.langfuse import record_llm_generation
+
+    mock_client = MagicMock()
+    mock_trace = MagicMock()
+    mock_client.trace.return_value = mock_trace
+
+    with (
+        patch("tta.observability.langfuse._langfuse_client", mock_client),
+        patch(
+            "tta.observability.langfuse._get_context_ids",
+            return_value={
+                "correlation_id": "corr-1",
+                "session_id": "sess-1",
+                "turn_id": "turn-1",
+                "player_id": None,
+            },
+        ),
+    ):
+        record_llm_generation(
+            name="pipeline.generation",
+            role="generation",
+            messages=[{"role": "user", "content": "hello"}],
+            result=_make_llm_response(),
+            latency_ms=200,
+            cost_usd=0.003,
+            prompt_id="narrative.generate",
+            prompt_version="2.3.4",
+            fragment_versions={"safety-preamble": "abcd1234"},
+            prompt_hash="deadbeef",
+        )
+
+    gen_kwargs = mock_trace.generation.call_args[1]
+    assert gen_kwargs["metadata"]["prompt_id"] == "narrative.generate"
+    assert gen_kwargs["metadata"]["prompt_version"] == "2.3.4"
+    assert gen_kwargs["metadata"]["fragment_versions"] == {
+        "safety-preamble": "abcd1234"
+    }
+    assert gen_kwargs["metadata"]["prompt_hash"] == "deadbeef"
+
+
 # ---------------------------------------------------------------------------
 # OTel child spans (AC-10) — via guarded_llm_call
 # ---------------------------------------------------------------------------
@@ -503,3 +545,70 @@ async def test_guarded_llm_call_passes_otel_trace_to_langfuse():
     mock_record.assert_called_once()
     call_kwargs = mock_record.call_args[1]
     assert call_kwargs["otel_trace_id"] == "otel-trace-xyz"
+
+
+@pytest.mark.asyncio
+async def test_guarded_llm_call_passes_prompt_provenance_to_langfuse():
+    """Prompt provenance is forwarded to record_llm_generation."""
+    from tta.pipeline.llm_guard import guarded_llm_call
+
+    response = _make_llm_response()
+    mock_llm = AsyncMock()
+    mock_llm.generate = AsyncMock(return_value=response)
+
+    deps = SimpleNamespace(
+        llm=mock_llm,
+        llm_semaphore=None,
+        llm_circuit_breaker=None,
+        settings=SimpleNamespace(
+            session_cost_cap_usd=100.0,
+            session_cost_warn_pct=0.8,
+            turn_cost_cap_usd=10.0,
+        ),
+    )
+
+    mock_tracker = MagicMock()
+    mock_tracker.check_session_budget.return_value = "ok"
+    mock_tracker.turn_cost_usd = 0.0
+
+    class FakeSpan:
+        def set_attribute(self, key: str, value: Any) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: Any):
+            pass
+
+    class FakeTracer:
+        def start_as_current_span(self, name: str, **kwargs: Any):
+            return FakeSpan()
+
+    with (
+        patch("tta.pipeline.llm_guard.get_cost_tracker", return_value=mock_tracker),
+        patch("tta.pipeline.llm_guard.trace") as mock_trace,
+        patch("tta.pipeline.llm_guard.record_llm_generation") as mock_record,
+        patch("tta.pipeline.llm_guard.record_daily_cost"),
+        patch("tta.pipeline.llm_guard.current_trace_id", return_value="otel-trace-xyz"),
+    ):
+        mock_trace.get_tracer.return_value = FakeTracer()
+
+        from tta.llm.roles import ModelRole
+
+        await guarded_llm_call(
+            deps,
+            ModelRole.GENERATION,
+            [],
+            prompt_id="narrative.generate",
+            prompt_version="2.3.4",
+            fragment_versions={"safety-preamble": "abcd1234"},
+            prompt_hash="deadbeef",
+        )  # type: ignore[arg-type]
+
+    mock_record.assert_called_once()
+    call_kwargs = mock_record.call_args[1]
+    assert call_kwargs["prompt_id"] == "narrative.generate"
+    assert call_kwargs["prompt_version"] == "2.3.4"
+    assert call_kwargs["fragment_versions"] == {"safety-preamble": "abcd1234"}
+    assert call_kwargs["prompt_hash"] == "deadbeef"

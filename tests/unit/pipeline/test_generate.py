@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import cast
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -158,6 +158,120 @@ async def test_generate_calls_llm_with_generation_role() -> None:
 
     gen_calls = [c for c in mock_llm.call_history if c["role"] == "generation"]
     assert len(gen_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_generate_passes_generation_prompt_provenance_to_guarded_call() -> None:
+    """Narrative generation forwards rendered prompt provenance."""
+    from tta.prompts.registry import RenderedPrompt
+
+    registry = _StubRegistry(
+        templates={
+            "narrative.generate": "You are a narrative engine.",
+            "extraction.world-changes": "Extract world changes as JSON.",
+        }
+    )
+    generation_prompt = RenderedPrompt(
+        text="You are a narrative engine.",
+        template_id="narrative.generate",
+        template_version="3.1.0",
+        fragment_versions={"safety-preamble": "frag9999"},
+        prompt_hash="hash-gen-1",
+    )
+    extraction_prompt = RenderedPrompt(
+        text="Extract world changes as JSON.",
+        template_id="extraction.world-changes",
+        template_version="1.0.0",
+        fragment_versions={},
+        prompt_hash="hash-ext-1",
+    )
+    registry.render = lambda template_id, variables: (
+        generation_prompt if template_id == "narrative.generate" else extraction_prompt
+    )
+
+    state = _make_state()
+    deps = _make_deps(prompt_registry=registry)
+    generation_response = LLMResponse(
+        content="Narrative text.",
+        model_used="mock",
+        token_count=TokenCount(prompt_tokens=5, completion_tokens=3, total_tokens=8),
+        latency_ms=0.0,
+    )
+    extraction_response = LLMResponse(
+        content='{"world_changes": [], "suggested_actions": []}',
+        model_used="mock",
+        token_count=TokenCount(prompt_tokens=5, completion_tokens=3, total_tokens=8),
+        latency_ms=0.0,
+    )
+
+    with patch(
+        "tta.pipeline.stages.generate.guarded_llm_call",
+        new=AsyncMock(side_effect=[generation_response, extraction_response]),
+    ) as mock_guarded:
+        await generate_stage(state, deps)
+
+    first_call = mock_guarded.await_args_list[0]
+    assert first_call.kwargs["prompt_id"] == "narrative.generate"
+    assert first_call.kwargs["prompt_version"] == "3.1.0"
+    assert first_call.kwargs["fragment_versions"] == {"safety-preamble": "frag9999"}
+    assert first_call.kwargs["prompt_hash"] == "hash-gen-1"
+
+
+@pytest.mark.asyncio
+async def test_generate_passes_extraction_prompt_provenance_to_guarded_call() -> None:
+    """World extraction forwards rendered prompt provenance."""
+    from tta.prompts.registry import RenderedPrompt
+
+    registry = _StubRegistry(
+        templates={
+            "narrative.generate": "You are a narrative engine.",
+            "extraction.world-changes": "Extract world changes as JSON.",
+        }
+    )
+    generation_prompt = RenderedPrompt(
+        text="You are a narrative engine.",
+        template_id="narrative.generate",
+        template_version="3.1.0",
+        fragment_versions={},
+        prompt_hash="hash-gen-1",
+    )
+    extraction_prompt = RenderedPrompt(
+        text="Extract world changes as JSON.",
+        template_id="extraction.world-changes",
+        template_version="4.2.0",
+        fragment_versions={"json-format": "frag-ext-2"},
+        prompt_hash="hash-ext-2",
+    )
+    registry.render = lambda template_id, variables: (
+        generation_prompt if template_id == "narrative.generate" else extraction_prompt
+    )
+
+    state = _make_state()
+    deps = _make_deps(prompt_registry=registry)
+    generation_response = LLMResponse(
+        content="Narrative text.",
+        model_used="mock",
+        token_count=TokenCount(prompt_tokens=5, completion_tokens=3, total_tokens=8),
+        latency_ms=0.0,
+    )
+    extraction_response = LLMResponse(
+        content='{"world_changes": [], "suggested_actions": []}',
+        model_used="mock",
+        token_count=TokenCount(prompt_tokens=5, completion_tokens=3, total_tokens=8),
+        latency_ms=0.0,
+    )
+
+    with patch(
+        "tta.pipeline.stages.generate.guarded_llm_call",
+        new=AsyncMock(side_effect=[generation_response, extraction_response]),
+    ) as mock_guarded:
+        await generate_stage(state, deps)
+
+    second_call = mock_guarded.await_args_list[1]
+    assert second_call.kwargs["prompt_id"] == "extraction.world-changes"
+    assert second_call.kwargs["prompt_version"] == "4.2.0"
+    assert second_call.kwargs["fragment_versions"] == {"json-format": "frag-ext-2"}
+    assert second_call.kwargs["prompt_hash"] == "hash-ext-2"
 
 
 async def test_generate_calls_extraction_after_generation() -> None:
