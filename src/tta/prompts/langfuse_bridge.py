@@ -66,7 +66,7 @@ def _from_langfuse_name(name: str) -> str:
     hyphens back to dots.  Idempotent on already-dotted names.
     """
     if name.startswith(_LANGFUSE_PREFIX):
-        name = name[len(_LANGFUSE_PREFIX):]
+        name = name[len(_LANGFUSE_PREFIX) :]
     # If already dotted, return as-is
     if "." in name:
         return name
