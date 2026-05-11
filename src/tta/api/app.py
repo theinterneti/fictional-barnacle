@@ -144,6 +144,24 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Fail-loud on missing or broken required templates (AC-09.1).
     app.state.prompt_registry.validate_required_templates()
 
+    # 3.5 Langfuse Prompt Bridge (FB-005 / AC-09.2)
+    # Wire Langfuse prompt management to the file-based registry.
+    # When Langfuse is configured, the bridge enables runtime prompt
+    # activation, preview, and per-version metrics.
+    from tta.observability.langfuse import get_langfuse
+    from tta.prompts.langfuse_bridge import LangfusePromptBridge
+
+    lf_client = get_langfuse()
+    if lf_client is not None:
+        app.state.prompt_bridge = LangfusePromptBridge(
+            langfuse_client=lf_client,
+            file_registry=app.state.prompt_registry,
+        )
+        log.info("prompt_bridge_initialized")
+    else:
+        app.state.prompt_bridge = None
+        log.info("prompt_bridge_disabled", reason="langfuse_not_configured")
+
     # 4. LLM client
     if settings.llm_mock:
         from tta.llm.testing import MockLLMClient

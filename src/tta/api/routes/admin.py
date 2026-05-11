@@ -13,6 +13,8 @@ Endpoint inventory (Appendix A):
   §3.5  Moderation queue    — GET/POST /admin/moderation/…
   §3.6  Rate-limit mgmt     — GET/POST /admin/rate-limits/…
   §3.7  Audit log           — GET /admin/audit-log
+  §3.8  Prompt management    — POST /admin/prompts/{name}/activate,
+                                  POST /admin/prompts/{name}/preview
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from tta.api.errors import AppError
 from tta.errors import ErrorCategory
 from tta.observability.metrics import REGISTRY, SESSIONS_ACTIVE, generate_latest
 from tta.persistence.redis_session import evict_game_state
+from tta.prompts.langfuse_bridge import _from_langfuse_name
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger()
@@ -1096,4 +1099,131 @@ async def enqueue_job(
     return JSONResponse(
         status_code=201,
         content={"job_id": job_id, "job_fn": job_fn_name},
+    )
+
+
+# ==================================================================
+# §3.8  Prompt management (FB-005 / AC-09.02)
+# ==================================================================
+
+
+class ActivatePromptRequest(BaseModel):
+    label: str = Field(
+        default="production",
+        pattern=r"^[a-z0-9_\-]{1,36}$",
+        description="Langfuse label to apply (e.g. 'production', 'staging')",
+    )
+
+
+class PreviewPromptRequest(BaseModel):
+    label: str = Field(
+        default="production",
+        pattern=r"^[a-z0-9_\-]{1,36}$",
+        description="Label to preview (e.g. 'staging')",
+    )
+    variables: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Template variables for rendering",
+    )
+
+
+@router.post("/prompts/{name}/activate")
+async def activate_prompt(
+    name: str,
+    body: ActivatePromptRequest,
+    request: Request,
+    admin: AdminIdentity = Depends(require_admin),
+) -> JSONResponse:
+    """Activate a prompt version by changing its Langfuse label (AC-09.02).
+
+    This is the runtime equivalent of "deploy this version to production."
+    The next turn that uses this prompt will fetch the newly-labelled version.
+    """
+    bridge = request.app.state.prompt_bridge
+    if bridge is None:
+        raise AppError(
+            ErrorCategory.INTERNAL_ERROR,
+            "PROMPT_BRIDGE_NOT_CONFIGURED",
+            "Langfuse prompt bridge is not configured. Set langfuse_host in settings.",
+        )
+
+    template_id = _from_langfuse_name(name)
+    await bridge.activate(template_id, label=body.label)
+
+    await _audit(
+        request,
+        admin,
+        action="prompt_activate",
+        target_type="prompt",
+        target_id=name,
+        reason=f"label={body.label}",
+    )
+
+    log.info(
+        "admin_prompt_activated",
+        prompt_name=name,
+        label=body.label,
+        admin=admin.admin_id,
+    )
+    return JSONResponse(
+        content={"status": "activated", "prompt": name, "label": body.label},
+    )
+
+
+@router.post("/prompts/{name}/preview")
+async def preview_prompt(
+    name: str,
+    body: PreviewPromptRequest,
+    request: Request,
+    admin: AdminIdentity = Depends(require_admin),
+) -> JSONResponse:
+    """Preview a prompt against variables in shadow mode (AC-09.09).
+
+    Renders the specified prompt version against the provided variables
+    and returns the rendered output.  This does NOT modify game state,
+    consume turn credits, or affect observability dashboards.
+    """
+    bridge = request.app.state.prompt_bridge
+    if bridge is None:
+        raise AppError(
+            ErrorCategory.INTERNAL_ERROR,
+            "PROMPT_BRIDGE_NOT_CONFIGURED",
+            "Langfuse prompt bridge is not configured. Set langfuse_host in settings.",
+        )
+
+    template_id = _from_langfuse_name(name)
+    rendered = await bridge.preview(
+        template_id,
+        variables=body.variables,
+        label=body.label,
+    )
+
+    await _audit(
+        request,
+        admin,
+        action="prompt_preview",
+        target_type="prompt",
+        target_id=name,
+        reason=f"label={body.label}",
+    )
+
+    log.info(
+        "admin_prompt_previewed",
+        prompt_name=name,
+        label=body.label,
+        version=rendered.metadata.get("langfuse_prompt_version"),
+        admin=admin.admin_id,
+    )
+    return JSONResponse(
+        content={
+            "prompt": name,
+            "label": body.label,
+            "version": rendered.metadata.get("langfuse_prompt_version"),
+            "rendered_body": rendered.text,
+            "metadata": {
+                "template_id": rendered.template_id,
+                "fragment_versions": rendered.fragment_versions,
+                "prompt_hash": rendered.prompt_hash,
+            },
+        },
     )

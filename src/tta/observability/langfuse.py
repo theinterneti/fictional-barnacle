@@ -91,6 +91,7 @@ def record_llm_generation(
     prompt_version: str | None = None,
     fragment_versions: dict[str, str] | None = None,
     prompt_hash: str | None = None,
+    langfuse_prompt: Any | None = None,
 ) -> None:
     """Record a single LLM call as a Langfuse generation on a per-turn trace.
 
@@ -105,6 +106,11 @@ def record_llm_generation(
     - Player IDs pseudonymized (FR-15.21)
     - Full prompt/completion stored in Langfuse (FR-15.17/FR-15.33)
     - Langfuse errors are swallowed with throttled warnings (EC-15.5)
+
+    When ``langfuse_prompt`` is provided (a Langfuse ``TextPromptClient``
+    or ``ChatPromptClient`` object), the generation is linked to the
+    Langfuse prompt version, enabling per-version metrics in the Langfuse
+    UI (AC-09.7 / FB-005).
     """
     if _langfuse_client is None:
         return
@@ -171,6 +177,10 @@ def record_llm_generation(
         gen["metadata"]["fragment_versions"] = fragment_versions
     if prompt_hash:
         gen["metadata"]["prompt_hash"] = prompt_hash
+
+    # FB-005 / AC-09.7: link to Langfuse prompt version for per-version metrics.
+    if langfuse_prompt is not None:
+        gen["prompt"] = langfuse_prompt
 
     # Extract model and tokens from LLMResponse
     if hasattr(result, "model_used"):

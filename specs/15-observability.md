@@ -4,7 +4,7 @@
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations
-> **Dependencies**: S08 (Turn Pipeline), S14 (Deployment)
+> **Dependencies**: S08 (Turn Pipeline)
 > **Last Updated**: 2026-04-09
 
 ## Overview

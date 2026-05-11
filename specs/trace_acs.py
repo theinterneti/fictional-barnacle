@@ -60,7 +60,7 @@ def is_canonical(ac_id: str) -> bool:
 #   Scenario: AC-10.01   (Gherkin)
 _AC_DEF_RE = re.compile(
     r"^\s*-\s*\[[x ]\]\s*\*?\*?AC-(\d+)\.(\d+)"  # - [ ] **AC-N.M
-    r"|^\s*-\s+\*?\*?AC-(\d+)\.(\d+)\*?\*?:"  # - **AC-N.M**:
+    r"|^\s*-\s+\*?\*?AC-(\d+)\.(\d+)\*?\*?[^:\n]*:"  # - **AC-N.M** (opt tag):
     r"|^###\s+AC-(\d+)\.(\d+)\b"  # ### AC-N.M
     r"|\bScenario:\s+AC-(\d+)\.(\d+)",  # Scenario: AC-N.M
     re.MULTILINE | re.IGNORECASE,

@@ -4,7 +4,7 @@
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations
-> **Dependencies**: S01 (Gameplay Loop), S05 (Choice & Consequence), S14 (Deployment), S15 (Observability)
+> **Dependencies**: S01 (Gameplay Loop), S05 (Choice & Consequence), S15 (Observability)
 > **Last Updated**: 2026-04-07
 
 ## Overview
