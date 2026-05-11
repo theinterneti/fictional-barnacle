@@ -59,6 +59,20 @@ def _to_langfuse_name(template_id: str) -> str:
     return _LANGFUSE_PREFIX + template_id.replace(".", "-")
 
 
+def _from_langfuse_name(name: str) -> str:
+    """Convert a Langfuse prompt name back to a TTA template ID.
+
+    Inverse of ``_to_langfuse_name``.  Strips the prefix and converts
+    hyphens back to dots.  Idempotent on already-dotted names.
+    """
+    if name.startswith(_LANGFUSE_PREFIX):
+        name = name[len(_LANGFUSE_PREFIX):]
+    # If already dotted, return as-is
+    if "." in name:
+        return name
+    return name.replace("-", ".")
+
+
 class BridgeError(Exception):
     """Raised when bridge operations fail (missing prompt, Langfuse unreachable)."""
 
@@ -73,8 +87,8 @@ class LangfusePromptBridge:
     ) -> None:
         self._langfuse = langfuse_client
         self._file_registry = file_registry
-        # template_id → (langfuse_prompt_object, body_hash)
-        self._cache: dict[str, tuple[Any, str]] = {}
+        # (template_id, label) → (langfuse_prompt_object, body_hash)
+        self._cache: dict[tuple[str, str], tuple[Any, str]] = {}
 
     # ── seeding ────────────────────────────────────────────────────
 
@@ -111,15 +125,17 @@ class LangfusePromptBridge:
         body_hash = _sha256(body)
 
         # Check if Langfuse already has this prompt
+        prompt_exists = False
         try:
             existing = self._langfuse.get_prompt(name, label="production")
+            prompt_exists = True
             existing_body = (
                 existing.prompt
                 if isinstance(existing.prompt, str)
                 else str(existing.prompt)
             )
             if _sha256(existing_body) == body_hash:
-                self._cache[template_id] = (existing, body_hash)
+                self._cache[(template_id, "production")] = (existing, body_hash)
                 log.debug(
                     "langfuse_bridge.seed_skipped",
                     template_id=template_id,
@@ -128,12 +144,11 @@ class LangfusePromptBridge:
                 return "skipped"
 
             # Hash differs — create new version
-            version = existing.version
             log.info(
                 "langfuse_bridge.seed_updating",
                 template_id=template_id,
                 langfuse_name=name,
-                previous_version=version,
+                previous_version=existing.version,
             )
         except Exception:
             # Prompt doesn't exist yet in Langfuse
@@ -154,8 +169,8 @@ class LangfusePromptBridge:
                 "body_hash": body_hash,
             },
         )
-        self._cache[template_id] = (created, body_hash)
-        return "created"
+        self._cache[(template_id, "production")] = (created, body_hash)
+        return "updated" if prompt_exists else "created"
 
     # ── refresh ────────────────────────────────────────────────────
 
@@ -177,7 +192,7 @@ class LangfusePromptBridge:
             ) from exc
 
         body = prompt.prompt if isinstance(prompt.prompt, str) else str(prompt.prompt)
-        self._cache[template_id] = (prompt, _sha256(body))
+        self._cache[(template_id, label)] = (prompt, _sha256(body))
         return prompt
 
     # ── render ─────────────────────────────────────────────────────
@@ -202,7 +217,7 @@ class LangfusePromptBridge:
             variables = {}
 
         # Ensure we have the latest Langfuse prompt
-        cache_entry = self._cache.get(template_id)
+        cache_entry = self._cache.get((template_id, label))
         if cache_entry is None:
             langfuse_prompt_obj = await self.refresh(template_id, label)
         else:
@@ -274,10 +289,14 @@ class LangfusePromptBridge:
             headers = self._langfuse.client._client_wrapper._get_headers()
             for key, val in headers.items():
                 req.add_header(key, val)
-            urlopen(req)
+            with urlopen(req, timeout=10) as resp:
+                resp.read()
 
         # Invalidate cache so next render picks up the new labelled version
-        self._cache.pop(template_id, None)
+        # Clear ALL label entries for this template_id
+        keys_to_remove = [k for k in self._cache if k[0] == template_id]
+        for k in keys_to_remove:
+            self._cache.pop(k, None)
         log.info(
             "langfuse_bridge.activated",
             template_id=template_id,
@@ -317,11 +336,11 @@ class LangfusePromptBridge:
 
         return rendered
 
-    # ── helpers ────────────────────────────────────────────────────
-
-    def get_langfuse_prompt_for(self, template_id: str) -> Any | None:
+    def get_langfuse_prompt_for(
+        self, template_id: str, label: str = "production"
+    ) -> Any | None:
         """Return the cached Langfuse prompt object for a template, if any."""
-        entry = self._cache.get(template_id)
+        entry = self._cache.get((template_id, label))
         return entry[0] if entry else None
 
 

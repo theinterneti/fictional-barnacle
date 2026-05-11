@@ -78,7 +78,7 @@ def test_activate_prompt_returns_200(client, mock_bridge):
     assert data["prompt"] == "narrative-generate"
     assert data["label"] == "production"
     mock_bridge.activate.assert_awaited_once_with(
-        "narrative-generate", label="production"
+        "narrative.generate", label="production"
     )
 
 
@@ -133,7 +133,7 @@ def test_preview_prompt_returns_200(client, mock_bridge):
     assert "rendered_body" in data
     assert data["rendered_body"] == "You are in a haunted manor."
     mock_bridge.preview.assert_awaited_once_with(
-        "narrative-generate",
+        "narrative.generate",
         variables={"world_name": "Haunted Manor"},
         label="staging",
     )
@@ -155,7 +155,7 @@ def test_preview_prompt_default_label(client, mock_bridge):
     )
     assert response.status_code == 200
     mock_bridge.preview.assert_awaited_once_with(
-        "narrative-generate",
+        "narrative.generate",
         variables={},
         label="production",
     )

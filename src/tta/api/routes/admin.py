@@ -34,6 +34,7 @@ from tta.api.errors import AppError
 from tta.errors import ErrorCategory
 from tta.observability.metrics import REGISTRY, SESSIONS_ACTIVE, generate_latest
 from tta.persistence.redis_session import evict_game_state
+from tta.prompts.langfuse_bridge import _from_langfuse_name
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger()
@@ -1146,7 +1147,8 @@ async def activate_prompt(
             "Langfuse prompt bridge is not configured. Set langfuse_host in settings.",
         )
 
-    await bridge.activate(name, label=body.label)
+    template_id = _from_langfuse_name(name)
+    await bridge.activate(template_id, label=body.label)
 
     await _audit(
         request,
@@ -1189,8 +1191,9 @@ async def preview_prompt(
             "Langfuse prompt bridge is not configured. Set langfuse_host in settings.",
         )
 
+    template_id = _from_langfuse_name(name)
     rendered = await bridge.preview(
-        name,
+        template_id,
         variables=body.variables,
         label=body.label,
     )

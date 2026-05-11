@@ -127,7 +127,7 @@ async def test_refresh_fetches_and_caches(bridge, mock_langfuse):
 
     assert prompt.version == 2
     # Cache should now contain the refreshed prompt
-    cached = bridge.get_langfuse_prompt_for("narrative.generate")
+    cached = bridge.get_langfuse_prompt_for("narrative.generate", label="staging")
     assert cached is not None
     assert cached.version == 2
 
