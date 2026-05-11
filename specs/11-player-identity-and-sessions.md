@@ -4,7 +4,7 @@
 > **Release Baseline**: 🔒 v1 Closed
 > **Implementation Fit**: ⚠️ Partial
 > **Level**: 3 — Platform
-> **Dependencies**: S12 (Persistence Strategy)
+> **Dependencies**: —
 > **Last Updated**: 2026-04-07
 
 ---
