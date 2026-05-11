@@ -1,7 +1,7 @@
 {
   "spec_count": 65,
-  "total_words": 169792,
-  "total_acceptance_criteria": 679,
+  "total_words": 172194,
+  "total_acceptance_criteria": 686,
   "specs": [
     {
       "file": "CLOSEOUT_TEMPLATE.md",
@@ -476,7 +476,7 @@
       "status": "✅ Approved",
       "level": "3 — Platform",
       "dependencies": [
-        "S12 (Persistence Strategy)"
+        "—"
       ],
       "last_updated": "2026-04-07",
       "sections": [
@@ -497,7 +497,7 @@
         "Open Questions",
         "v1 Closeout (Non-normative)"
       ],
-      "word_count": 4318,
+      "word_count": 4316,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 14,
       "has_user_stories": true,
@@ -513,13 +513,14 @@
       "file": "12-persistence-strategy.md",
       "number": "S12",
       "title": "Persistence Strategy",
-      "status": "✅ Approved",
+      "status": "✅ Approved (v2)",
       "level": "3 — Platform",
       "dependencies": [
         "S04 (World Model)",
-        "S13 (World Graph Schema)"
+        "S13 (World Graph Schema)",
+        "S17 (Data Privacy)"
       ],
-      "last_updated": "2026-04-09",
+      "last_updated": "2026-05-10",
       "sections": [
         "Purpose",
         "Design Philosophy",
@@ -537,12 +538,22 @@
         "Edge Cases",
         "Out of Scope",
         "Open Questions",
+        "v2: GDPR Deletion (AC-12.03)",
+        "v2: Performance Benchmarks (AC-12.05 through AC-12.08)",
+        "v2: Neo4j Migration Idempotency (AC-12.10)",
+        "v2: SQL Restore Within 1 Hour (AC-12.11)",
+        "Preconditions",
+        "Restore Steps",
+        "Verification",
+        "Rollback",
+        "v2: Updated Acceptance Criteria",
+        "v2: Open Questions",
         "Changelog",
         "v1 Closeout (Non-normative)"
       ],
-      "word_count": 4142,
+      "word_count": 6550,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 12,
+      "acceptance_criteria_count": 19,
       "has_user_stories": true,
       "has_edge_cases": true,
       "has_out_of_scope": true,
@@ -643,8 +654,7 @@
       "status": "✅ Approved",
       "level": "4 — Operations",
       "dependencies": [
-        "S08 (Turn Pipeline)",
-        "S14 (Deployment)"
+        "S08 (Turn Pipeline)"
       ],
       "last_updated": "2026-04-09",
       "sections": [
@@ -664,7 +674,7 @@
         "Changelog",
         "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3743,
+      "word_count": 3741,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 32,
       "has_user_stories": true,
@@ -730,7 +740,6 @@
       "dependencies": [
         "S01 (Gameplay Loop)",
         "S05 (Choice & Consequence)",
-        "S14 (Deployment)",
         "S15 (Observability)"
       ],
       "last_updated": "2026-04-07",
@@ -754,7 +763,7 @@
         "Appendix C: v1 vs Future Privacy Maturity",
         "v1 Closeout (Non-normative)"
       ],
-      "word_count": 4576,
+      "word_count": 4574,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 44,
       "has_user_stories": true,

@@ -40,8 +40,8 @@
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
 | S10 | [API & Streaming](10-api-and-streaming.md) | ✅ Approved | 3978 | 13 | 0 | ✅ | ✅ | — |
-| S11 | [Player Identity & Sessions](11-player-identity-and-sessions.md) | ✅ Approved | 4318 | 14 | 4 | ✅ | ✅ | — |
-| S12 | [Persistence Strategy](12-persistence-strategy.md) | ✅ Approved | 4142 | 12 | 0 | ✅ | ✅ | — |
+| S11 | [Player Identity & Sessions](11-player-identity-and-sessions.md) | ✅ Approved | 4316 | 14 | 4 | ✅ | ✅ | — |
+| S12 | [Persistence Strategy](12-persistence-strategy.md) | ✅ Approved (v2) | 6550 | 19 | 0 | ✅ | ✅ | — |
 | S13 | [World Graph Schema](13-world-graph-schema.md) | ✅ Approved | 5928 | 16 | 0 | ✅ | ✅ | — |
 | S23 | [Error Handling & Resilience](23-error-handling-and-resilience.md) | ✅ Approved | 4659 | 24 | 12 | ✅ | ✅ | — |
 | S25 | [Rate Limiting & Anti-Abuse](25-rate-limiting-and-anti-abuse.md) | ✅ Approved | 3212 | 16 | 8 | ✅ | ✅ | — |
@@ -59,9 +59,9 @@
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
 | S14 | [Deployment & Infrastructure](14-deployment.md) | ✅ Approved | 3563 | 34 | 4 | ✅ | ✅ | — |
-| S15 | [Observability](15-observability.md) | ✅ Approved | 3743 | 32 | 4 | ✅ | ✅ | — |
+| S15 | [Observability](15-observability.md) | ✅ Approved | 3741 | 32 | 4 | ✅ | ✅ | — |
 | S16 | [Testing Infrastructure](16-testing-infrastructure.md) | ✅ Approved | 5072 | 48 | 8 | ✅ | ✅ | — |
-| S17 | [Data Privacy](17-data-privacy.md) | ✅ Approved | 4576 | 44 | 4 | ✅ | ✅ | — |
+| S17 | [Data Privacy](17-data-privacy.md) | ✅ Approved | 4574 | 44 | 4 | ✅ | ✅ | — |
 | S26 | [Admin & Operator Tooling](26-admin-and-operator-tooling.md) | ✅ Approved | 3423 | 16 | 8 | ✅ | ✅ | — |
 | S28 | [Performance & Scaling](28-performance-and-scaling.md) | ✅ Approved | 3247 | 16 | 8 | ✅ | ✅ | — |
 | S42 | [LLM Playtester Agent Harness](42-llm-playtester-agent-harness.md) | ✅ Approved | 1506 | 5 | 5 | ✅ | ❌ | No edge cases section |
@@ -120,8 +120,8 @@
 ## Summary
 
 - **Total specs**: 65
-- **Total words**: 169,792
-- **Total acceptance criteria**: 679
+- **Total words**: 172,194
+- **Total acceptance criteria**: 686
 - **Specs with warnings**: 30/65
 - **Specs with Gherkin scenarios**: 61/65
 - **Total Gherkin scenarios**: 335
