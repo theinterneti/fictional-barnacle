@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 .PHONY: help validate-specs validate-plans validate-openapi validate-all regen-indexes \
 	dashboard trace trace-html \
-        lint format typecheck test test-unit test-integration test-watch \
+        lint format typecheck test test-unit test-integration test-persistence test-watch \
         test-bdd test-hypothesis \
         test-up test-down quality check check-format \
         dev play playtest playtest-web up down build logs shell \
@@ -82,6 +82,37 @@ test-integration: ## Run integration tests (starts/stops test services)
 	EXIT_CODE=$$?; \
 	docker compose -f docker-compose.test.yml down; \
 	exit $$EXIT_CODE
+
+test-persistence: ## Run persistence gate (S12/S13/S28) with structured report
+	@echo "=== Persistence Gate ==="
+	@echo "S12: PostgreSQL + Redis + GDPR"
+	@echo "S13: Neo4j world graph"
+	@echo "S28: Performance benchmarks"
+	@echo ""
+	docker compose -f docker-compose.test.yml up -d
+	@echo "Waiting for PostgreSQL..."
+	@for i in $$(seq 1 30); do \
+		pg_isready -h localhost -p 5433 -U tta_test >/dev/null 2>&1 && break; \
+		sleep 1; \
+	done
+	@echo "Waiting for Neo4j..."
+	@for i in $$(seq 1 10); do \
+		curl -sf http://localhost:7474 >/dev/null 2>&1 && break; \
+		sleep 2; \
+	done
+	@echo ""
+	@echo "--- Running S12 persistence tests ---"
+	-uv run pytest tests/integration/test_s12_persistence_integration.py -v --tb=short 2>&1 | tee /tmp/s12-result.txt
+	@echo ""
+	@echo "--- Running S13 Neo4j tests ---"
+	-uv run pytest tests/integration/test_s13_neo4j_integration.py -v --tb=short 2>&1 | tee /tmp/s13-result.txt
+	@echo ""
+	@echo "--- Running S28 performance tests ---"
+	-PERF=1 uv run pytest tests/integration/test_s28_performance.py -v --tb=short 2>&1 | tee /tmp/s28-result.txt
+	@echo ""
+	@echo "=== Gate Summary ==="
+	@python3 -c "\nimport re\nfrom pathlib import Path\nsections = {'S12': '/tmp/s12-result.txt', 'S13': '/tmp/s13-result.txt', 'S28': '/tmp/s28-result.txt'}\nfor name, path in sections.items():\n    if not Path(path).exists():\n        print(f'{name}: SKIPPED (no results)')\n        continue\n    text = Path(path).read_text()\n    passed = len(re.findall(r'PASSED', text))\n    failed = len(re.findall(r'FAILED', text))\n    skipped = len(re.findall(r'SKIPPED', text))\n    status = 'PASS' if failed == 0 and passed > 0 else 'FAIL' if failed > 0 else 'SKIP'\n    print(f'{name}: {status} ({passed} passed, {failed} failed, {skipped} skipped)')\n"
+	docker compose -f docker-compose.test.yml down
 
 test-watch: ## Continuous selective testing (reruns affected tests on save)
 	uv run ptw . -- --testmon -x --tb=short
