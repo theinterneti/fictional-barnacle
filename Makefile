@@ -102,16 +102,16 @@ test-persistence: ## Run persistence gate (S12/S13/S28) with structured report
 	done
 	@echo ""
 	@echo "--- Running S12 persistence tests ---"
-	-uv run pytest tests/integration/test_s12_persistence_integration.py -v --tb=short 2>&1 | tee /tmp/s12-result.txt
+	uv run pytest tests/integration/test_s12_persistence_integration.py -v --tb=short 2>&1 | tee /tmp/s12-$$$$.txt; S12_EXIT=$${PIPESTATUS[0]}
 	@echo ""
 	@echo "--- Running S13 Neo4j tests ---"
-	-uv run pytest tests/integration/test_s13_neo4j_integration.py -v --tb=short 2>&1 | tee /tmp/s13-result.txt
+	uv run pytest tests/integration/test_s13_neo4j_integration.py -v --tb=short 2>&1 | tee /tmp/s13-$$$$.txt; S13_EXIT=$${PIPESTATUS[0]}
 	@echo ""
 	@echo "--- Running S28 performance tests ---"
-	-PERF=1 uv run pytest tests/integration/test_s28_performance.py -v --tb=short 2>&1 | tee /tmp/s28-result.txt
+	PERF=1 uv run pytest tests/integration/test_s28_performance.py -v --tb=short 2>&1 | tee /tmp/s28-$$$$.txt; S28_EXIT=$${PIPESTATUS[0]}
 	@echo ""
 	@echo "=== Gate Summary ==="
-	@python3 -c "\nimport re\nfrom pathlib import Path\nsections = {'S12': '/tmp/s12-result.txt', 'S13': '/tmp/s13-result.txt', 'S28': '/tmp/s28-result.txt'}\nfor name, path in sections.items():\n    if not Path(path).exists():\n        print(f'{name}: SKIPPED (no results)')\n        continue\n    text = Path(path).read_text()\n    passed = len(re.findall(r'PASSED', text))\n    failed = len(re.findall(r'FAILED', text))\n    skipped = len(re.findall(r'SKIPPED', text))\n    status = 'PASS' if failed == 0 and passed > 0 else 'FAIL' if failed > 0 else 'SKIP'\n    print(f'{name}: {status} ({passed} passed, {failed} failed, {skipped} skipped)')\n"
+	@python3 -c "\nimport re, os\nfrom pathlib import Path\npid = os.getpid()\nsections = {\n    'S12': f'/tmp/s12-{pid}.txt',\n    'S13': f'/tmp/s13-{pid}.txt',\n    'S28': f'/tmp/s28-{pid}.txt',\n}\nexit_code = 0\nfor name, path in sections.items():\n    if not Path(path).exists():\n        print(f'{name}: SKIPPED (no results)')\n        continue\n    text = Path(path).read_text()\n    passed = len(re.findall(r'PASSED', text))\n    failed = len(re.findall(r'FAILED', text))\n    skipped = len(re.findall(r'SKIPPED', text))\n    if failed > 0:\n        exit_code = 1\n        status = 'FAIL'\n    elif passed > 0:\n        status = 'PASS'\n    else:\n        status = 'SKIP'\n    print(f'{name}: {status} ({passed} passed, {failed} failed, {skipped} skipped)')\nimport sys; sys.exit(exit_code)\n"
 	docker compose -f docker-compose.test.yml down
 
 test-watch: ## Continuous selective testing (reruns affected tests on save)
