@@ -26,6 +26,7 @@ from tta.models.turn import TurnState, TurnStatus
 from tta.pipeline.llm_guard import guarded_llm_call
 from tta.pipeline.types import PipelineDeps
 from tta.prompts.loader import log_injection_signals
+from tta.prompts.registry import RenderedPrompt
 
 log = structlog.get_logger()
 
