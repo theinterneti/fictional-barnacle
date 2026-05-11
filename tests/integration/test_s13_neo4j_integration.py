@@ -36,7 +36,7 @@ LARGE_SESSION_ID = "perf_test_session"
 
 @pytest.mark.skipif(
     os.getenv("CI") == "true" and os.getenv("PERF") != "1",
-    reason="latency benchmarks are environment-dependent; skip in CI (override with PERF=1)",
+    reason="latency benchmarks vary by environment; skip in CI (PERF=1 to run)",
 )
 @pytest.mark.spec("AC-13.04")
 class TestAC1304LocationContextLatency:
@@ -65,7 +65,7 @@ class TestAC1304LocationContextLatency:
 
 @pytest.mark.skipif(
     os.getenv("CI") == "true" and os.getenv("PERF") != "1",
-    reason="latency benchmarks are environment-dependent; skip in CI (override with PERF=1)",
+    reason="latency benchmarks vary by environment; skip in CI (PERF=1 to run)",
 )
 @pytest.mark.spec("AC-13.05")
 class TestAC1305MovementValidationLatency:
@@ -94,7 +94,7 @@ class TestAC1305MovementValidationLatency:
 
 @pytest.mark.skipif(
     os.getenv("CI") == "true" and os.getenv("PERF") != "1",
-    reason="latency benchmarks are environment-dependent; skip in CI (override with PERF=1)",
+    reason="latency benchmarks vary by environment; skip in CI (PERF=1 to run)",
 )
 @pytest.mark.spec("AC-13.06")
 @pytest.mark.spec("AC-12.08")
