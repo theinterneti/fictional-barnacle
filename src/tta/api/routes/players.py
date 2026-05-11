@@ -521,4 +521,25 @@ async def request_account_deletion(
 
     data = AccountDeletionResponse().model_dump()
     data["player_id"] = str(pid)
+
+    # 9. Dispatch async GDPR deletion job (AC-11.13, S17 FR-17.10)
+    # Runs within 72 hours to physically purge all remaining data
+    # (Neo4j, Redis, Langfuse traces) after the sync PII scrub above.
+    queue = getattr(request.app.state, "job_queue", None)
+    if queue is not None:
+        try:
+            job_id = await queue.enqueue(
+                "gdpr_delete_player", str(pid), _job_id=f"gdpr-{pid}"
+            )
+            data["deletion_job_id"] = job_id
+        except Exception:
+            log.exception("gdpr_job_enqueue_failed", player_id=str(pid))
+    else:
+        log.warning(
+            "gdpr_async_not_available",
+            player_id=str(pid),
+            hint="Job queue not configured; physical deletion deferred",
+        )
+        data["deletion_job_id"] = None
+
     return {"data": data}
