@@ -248,9 +248,7 @@ class LangfusePromptBridge:
         try:
             prompt = self._langfuse.get_prompt(name)
         except Exception as exc:
-            raise BridgeError(
-                f"Prompt '{name}' not found in Langfuse: {exc}"
-            ) from exc
+            raise BridgeError(f"Prompt '{name}' not found in Langfuse: {exc}") from exc
 
         # Apply the label by updating prompt labels via the SDK.
         # Langfuse v4 SDK: use update_prompt_labels or the REST API.
@@ -321,9 +319,7 @@ class LangfusePromptBridge:
 
     # ── helpers ────────────────────────────────────────────────────
 
-    def get_langfuse_prompt_for(
-        self, template_id: str
-    ) -> Any | None:
+    def get_langfuse_prompt_for(self, template_id: str) -> Any | None:
         """Return the cached Langfuse prompt object for a template, if any."""
         entry = self._cache.get(template_id)
         return entry[0] if entry else None

@@ -186,9 +186,7 @@ async def test_generate_passes_generation_prompt_provenance_to_guarded_call() ->
         prompt_hash="hash-ext-1",
     )
     registry.render = lambda template_id, variables: (
-        generation_prompt
-        if template_id == "narrative.generate"
-        else extraction_prompt
+        generation_prompt if template_id == "narrative.generate" else extraction_prompt
     )
 
     state = _make_state()
@@ -245,9 +243,7 @@ async def test_generate_passes_extraction_prompt_provenance_to_guarded_call() ->
         prompt_hash="hash-ext-2",
     )
     registry.render = lambda template_id, variables: (
-        generation_prompt
-        if template_id == "narrative.generate"
-        else extraction_prompt
+        generation_prompt if template_id == "narrative.generate" else extraction_prompt
     )
 
     state = _make_state()

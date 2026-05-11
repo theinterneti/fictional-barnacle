@@ -1143,8 +1143,7 @@ async def activate_prompt(
         raise AppError(
             ErrorCategory.CONFIGURATION,
             "PROMPT_BRIDGE_NOT_CONFIGURED",
-            "Langfuse prompt bridge is not configured. "
-            "Set langfuse_host in settings.",
+            "Langfuse prompt bridge is not configured. Set langfuse_host in settings.",
         )
 
     await bridge.activate(name, label=body.label)
@@ -1187,8 +1186,7 @@ async def preview_prompt(
         raise AppError(
             ErrorCategory.CONFIGURATION,
             "PROMPT_BRIDGE_NOT_CONFIGURED",
-            "Langfuse prompt bridge is not configured. "
-            "Set langfuse_host in settings.",
+            "Langfuse prompt bridge is not configured. Set langfuse_host in settings.",
         )
 
     rendered = await bridge.preview(
