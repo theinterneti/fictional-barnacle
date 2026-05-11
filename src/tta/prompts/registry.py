@@ -33,6 +33,7 @@ class RenderedPrompt(BaseModel):
     token_estimate: int = 0
     fragment_versions: dict[str, str] = Field(default_factory=dict)
     prompt_hash: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class PromptRegistry(Protocol):

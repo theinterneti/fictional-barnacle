@@ -14,6 +14,7 @@ Queue-full/timeout from semaphore does NOT trip the breaker.
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import structlog
 from opentelemetry import trace
@@ -44,8 +45,14 @@ async def guarded_llm_call(
     prompt_version: str | None = None,
     fragment_versions: dict[str, str] | None = None,
     prompt_hash: str | None = None,
+    langfuse_prompt: Any | None = None,
 ) -> LLMResponse:
-    """Call LLM with cost enforcement, semaphore, and circuit breaker."""
+    """Call LLM with cost enforcement, semaphore, and circuit breaker.
+
+    When ``langfuse_prompt`` is provided (a Langfuse prompt object),
+    the generation trace is linked to the prompt version in Langfuse
+    for per-version metrics (FB-005 / AC-09.7).
+    """
 
     # --- Pre-call: session cost budget check (FR-07.20) ---
     settings = deps.settings
@@ -163,6 +170,7 @@ async def guarded_llm_call(
             prompt_version=prompt_version,
             fragment_versions=fragment_versions,
             prompt_hash=prompt_hash,
+            langfuse_prompt=langfuse_prompt,
         )
 
     return response
