@@ -148,7 +148,7 @@ a full component plan at the same path. The full plan must:
 2. Close each open question in §4, with a decision row.
 3. Populate the sections that a normal component plan carries (schemas,
    interfaces, test strategy, wave breakdown with line estimates).
-4. Update `plans/index.md` via `index_plans.py` so discovery catches it.
+4. Regenerate the plan index via `index_plans.py` so discovery catches it.
 
 Until then, no code under `src/tta/evaluation/` or `src/tta/playtesting/`
 should be written — v2.1 is out of scope for implementation until v2.0
