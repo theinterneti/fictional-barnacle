@@ -4,7 +4,7 @@
 > Existing component plans remain the source of truth for design. This document
 > answers a narrower question: what should we do next from the repo state today?
 
-Status: ✅ Wave 1 complete (2026-05-11)
+Status: ✅ Waves 1–2 complete (2026-05-11)
 Scope: fictional-barnacle repo only
 Based on: git working tree, plan/spec inventory, AC traceability report, validator output
 
@@ -52,6 +52,50 @@ Based on: git working tree, plan/spec inventory, AC traceability report, validat
 - Spec validator: FB-005-draft now clean; circular dependency is only
   high-signal structural issue
 - Plan validator: broken reference fixed; v2.1 stub warnings are by design
+
+## Wave 2 Closeout (2026-05-11)
+
+### Completed
+1. **LangfusePromptBridge** (`src/tta/prompts/langfuse_bridge.py`, 333 lines) —
+   bridges FilePromptRegistry (Jinja2 rendering) with Langfuse Prompt
+   Management (versioning, labels, per-version metrics).  Supports seed,
+   render, activate (label flip), preview (shadow mode), and cache
+   management.
+
+2. **Admin endpoints** (`src/tta/api/routes/admin.py` §3.8) —
+   - `POST /admin/prompts/{name}/activate` — flips Langfuse label
+   - `POST /admin/prompts/{name}/preview` — renders against variables
+     in shadow mode (no game state modification)
+
+3. **Langfuse prompt linkage** — `record_llm_generation` and
+   `guarded_llm_call` now accept an optional Langfuse prompt object.
+   When provided, the generation is linked to the prompt version in
+   Langfuse for automatic per-version metrics (latency, tokens, cost,
+   generation count, scores).
+
+4. **RenderedPrompt.metadata** — added `metadata: dict[str, Any]` field
+   to carry Langfuse prompt objects through the render→LLM call chain.
+
+5. **18 unit tests** (12 bridge + 6 admin), all passing.
+
+6. **Protocol fix** — `PromptRegistry.list()` → `list_templates()` to
+   match the protocol definition.  `RenderedPrompt.text` (not `.body`)
+   used consistently.
+
+### Architecture decision
+- **Langfuse** = source of truth for prompt versions, labels, config,
+  and per-version metrics.
+- **FilePromptRegistry** = Jinja2 rendering engine (fragments, safety
+  preamble, hash tracking).  This division of labor is intentional:
+  Langfuse can't handle TTA's complex Jinja2 composition needs, and the
+  local registry shouldn't duplicate version management that Langfuse
+  already provides.
+- **Genre packs** and **fragment composition** remain file-based for now
+  (deferred to a future wave).
+
+### Trace impact
+- AC-09.02 and AC-09.09 are now covered (were uncovered before Wave 2)
+- Headline: 310/335 approved (92.5%), 0 orphans
 
 ## 1. Why this plan exists
 
