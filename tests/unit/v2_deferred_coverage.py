@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # S01 — Gameplay Loop & Progression (integration infra required)
 # ═══════════════════════════════════════════════════════════════════════════
