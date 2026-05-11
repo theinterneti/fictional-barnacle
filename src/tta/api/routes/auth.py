@@ -626,3 +626,109 @@ async def list_sessions(
         {"session_id": sfid, "expires_at": int(score)} for sfid, score in entries
     ]
     return JSONResponse(content={"data": sessions})
+
+
+# ── POST /auth/login (AC-11.03, AC-11.09, AC-11.11) ────────────
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(
+        ..., min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    )
+    password: str = Field(..., min_length=1, max_length=_PASSWORD_MAX)
+
+
+@router.post("/login")
+async def login(
+    body: LoginRequest,
+    pg: AsyncSession = Depends(get_pg),
+    redis: Redis = Depends(get_redis),
+) -> JSONResponse:
+    """Authenticate a registered player with email and password.
+
+    Returns a JWT token pair.  Tracks failed attempts in Redis for
+    login lockout (AC-11.09: 5 failures → 429 for 15 minutes).
+    Rejects deleted players (AC-11.11).
+    """
+    from tta.auth.passwords import verify_password
+
+    lockout_key = f"tta:auth:login_attempts:{body.email.lower()}"
+    lockout_ttl = 900  # 15-minute lockout window (FR-11.15)
+
+    # AC-11.09: check login lockout
+    attempts = await redis.get(lockout_key)
+    if attempts and int(attempts) >= 5:
+        ttl = await redis.ttl(lockout_key)
+        raise AppError(
+            ErrorCategory.RATE_LIMITED,
+            "LOGIN_LOCKED",
+            f"Too many failed login attempts. Try again in {max(ttl, 0)} seconds.",
+        )
+
+    # Look up player by email
+    row = await pg.execute(
+        sa.text(
+            "SELECT id, email, password_hash, role, is_anonymous, deleted_at "
+            "FROM players WHERE email = :email"
+        ),
+        {"email": body.email.lower()},
+    )
+    player_row = row.one_or_none()
+
+    # Constant-time comparison: don't reveal whether email exists
+    if player_row is None:
+        await _record_failed_login(redis, lockout_key, lockout_ttl)
+        raise AppError(
+            ErrorCategory.AUTH_REQUIRED,
+            "LOGIN_FAILED",
+            "Invalid email or password.",
+        )
+
+    # AC-11.11: deleted player cannot log in
+    if player_row.deleted_at is not None:
+        raise AppError(
+            ErrorCategory.FORBIDDEN,
+            "ACCOUNT_DELETED",
+            "This account has been deleted.",
+        )
+
+    # Verify password
+    stored_hash = player_row.password_hash or ""
+    if not stored_hash or not verify_password(body.password, stored_hash):
+        await _record_failed_login(redis, lockout_key, lockout_ttl)
+        raise AppError(
+            ErrorCategory.AUTH_REQUIRED,
+            "LOGIN_FAILED",
+            "Invalid email or password.",
+        )
+
+    # Success — clear failed attempts
+    await redis.delete(lockout_key)
+
+    player_id = player_row.id
+    access, refresh, expires_in, _ = await _issue_token_pair(
+        pg,
+        player_id,
+        is_anonymous=False,
+        role=player_row.role or "player",
+        redis=redis,
+    )
+    await pg.commit()
+
+    body_resp = TokenResponse(
+        access_token=access,
+        refresh_token=refresh,
+        expires_in=expires_in,
+        player_id=str(player_id),
+        is_anonymous=False,
+    )
+    response = JSONResponse(content={"data": body_resp.model_dump()})
+    _set_auth_cookie(response, access, expires_in)
+    log.info("player_logged_in", player_id=str(player_id))
+    return response
+
+
+async def _record_failed_login(redis: Redis, key: str, ttl: int) -> None:
+    """Increment the failed-login counter and set expiry (AC-11.09)."""
+    await redis.incr(key)
+    await redis.expire(key, ttl)
