@@ -1,11 +1,11 @@
 ---
 name: pipeline
-description: "Skill for the Pipeline area of fictional-barnacle. 240 symbols across 20 files."
+description: "Skill for the Pipeline area of fictional-barnacle. 233 symbols across 19 files."
 ---
 
 # Pipeline
 
-240 symbols | 20 files | Cohesion: 73%
+233 symbols | 19 files | Cohesion: 73%
 
 ## When to Use
 
@@ -67,8 +67,8 @@ Start here when exploring this area:
 
 | Area | Connections |
 |------|-------------|
-| World | 13 calls |
 | Choices | 11 calls |
+| World | 1 calls |
 
 ## How to Explore
 

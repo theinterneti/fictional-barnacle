@@ -181,7 +181,7 @@ class TestAC1203GDPRDeletion:
         # Verify player exists before deletion
         async with postgres_engine.connect() as conn:
             row = await conn.execute(
-                sa.text("SELECT player_id FROM players WHERE player_id = :pid"),
+                sa.text("SELECT id FROM players WHERE id = :pid"),
                 {"pid": player_id},
             )
             assert row.fetchone() is not None, "Player must exist before deletion"
@@ -197,7 +197,7 @@ class TestAC1203GDPRDeletion:
         # Verify player is gone
         async with postgres_engine.connect() as conn:
             row = await conn.execute(
-                sa.text("SELECT player_id FROM players WHERE player_id = :pid"),
+                sa.text("SELECT id FROM players WHERE id = :pid"),
                 {"pid": player_id},
             )
             assert row.fetchone() is None, (

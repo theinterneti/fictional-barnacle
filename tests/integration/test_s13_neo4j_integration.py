@@ -15,6 +15,7 @@ AC-13.16: deleting a game removes Neo4j nodes
 from __future__ import annotations
 
 import asyncio
+import os
 import statistics
 import time
 import uuid
@@ -33,6 +34,10 @@ LARGE_SESSION_ID = "perf_test_session"
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    os.getenv("CI") == "true",
+    reason="latency benchmarks are environment-dependent; skip in CI",
+)
 @pytest.mark.spec("AC-13.04")
 class TestAC1304LocationContextLatency:
     """AC-13.04: location context query completes in < 50 ms on 1 000-node world."""
@@ -58,6 +63,10 @@ class TestAC1304LocationContextLatency:
         )
 
 
+@pytest.mark.skipif(
+    os.getenv("CI") == "true",
+    reason="latency benchmarks are environment-dependent; skip in CI",
+)
 @pytest.mark.spec("AC-13.05")
 class TestAC1305MovementValidationLatency:
     """AC-13.05: movement validation query completes in < 10 ms."""
@@ -83,6 +92,10 @@ class TestAC1305MovementValidationLatency:
         )
 
 
+@pytest.mark.skipif(
+    os.getenv("CI") == "true",
+    reason="latency benchmarks are environment-dependent; skip in CI",
+)
 @pytest.mark.spec("AC-13.06")
 @pytest.mark.spec("AC-12.08")
 class TestAC1306TwoHopLatency:

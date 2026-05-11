@@ -1,11 +1,11 @@
 ---
 name: world
-description: "Skill for the World area of fictional-barnacle. 332 symbols across 24 files."
+description: "Skill for the World area of fictional-barnacle. 339 symbols across 25 files."
 ---
 
 # World
 
-332 symbols | 24 files | Cohesion: 87%
+339 symbols | 25 files | Cohesion: 88%
 
 ## When to Use
 

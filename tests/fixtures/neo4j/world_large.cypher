@@ -52,8 +52,8 @@ UNWIND regions AS ri
       session_id: '__SESSION_ID__',
       location_id: 'loc_' + toString(ri) + '_' + toString(li + 1)
     })
-    MERGE (a)-[:EXIT {direction: 'north'}]->(b)
-    MERGE (b)-[:EXIT {direction: 'south'}]->(a);
+    MERGE (a)-[:CONNECTS_TO {direction: 'north'}]->(b)
+    MERGE (b)-[:CONNECTS_TO {direction: 'south'}]->(a);
 
 // 200 NPCs spread across first 200 locations
 WITH range(0, 199) AS npcs

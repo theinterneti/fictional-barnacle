@@ -1,11 +1,11 @@
 ---
 name: llm
-description: "Skill for the Llm area of fictional-barnacle. 87 symbols across 11 files."
+description: "Skill for the Llm area of fictional-barnacle. 90 symbols across 12 files."
 ---
 
 # Llm
 
-87 symbols | 11 files | Cohesion: 86%
+90 symbols | 12 files | Cohesion: 86%
 
 ## When to Use
 
@@ -24,9 +24,9 @@ description: "Skill for the Llm area of fictional-barnacle. 87 symbols across 11
 | `src/tta/llm/errors.py` | LLMError, TransientLLMError, PermanentLLMError, AllTiersFailedError, BudgetExceededError (+2) |
 | `tests/unit/performance/test_s28_performance.py` | test_metrics_update_on_execute, test_error_in_function_still_decrements, test_semaphore_queues_under_load, test_queue_overflow_returns_service_unavailable, test_semaphore_in_flight_completes |
 | `tests/unit/llm/test_semaphore.py` | test_basic_execution, test_concurrency_limited, test_queue_overflow_returns_503, test_timeout_cancels_request, test_active_and_waiting_counts |
+| `scripts/llm_player.py` | get_llm_reflection, main, get_player_input |
 | `tests/unit/llm/test_llm_client.py` | test_generate_returns_valid_response, test_stream_returns_llm_response, test_satisfies_llm_client_protocol |
 | `src/tta/llm/testing.py` | _build_response, generate, stream |
-| `src/tta/llm/context_budget.py` | count_tokens, fit_chunks_to_budget |
 
 ## Entry Points
 
@@ -67,8 +67,16 @@ Start here when exploring this area:
 
 | Flow | Type | Steps |
 |------|------|-------|
+| `Main → _is_healthy` | intra_community | 5 |
+| `Main → _error_response` | intra_community | 4 |
 | `Stream → _is_healthy` | intra_community | 4 |
 | `Stream → _error_response` | intra_community | 3 |
+
+## Connected Areas
+
+| Area | Connections |
+|------|-------------|
+| World | 1 calls |
 
 ## How to Explore
 
