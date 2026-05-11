@@ -94,11 +94,13 @@ test-persistence: ## Run persistence gate (S12/S13/S28) with structured report
 	@for i in $$(seq 1 30); do \
 		pg_isready -h localhost -p 5433 -U tta_test >/dev/null 2>&1 && break; \
 		sleep 1; \
+		test $$i -eq 30 && echo "ERROR: PostgreSQL did not become ready" && exit 1; \
 	done
 	@echo "Waiting for Neo4j..."
 	@for i in $$(seq 1 10); do \
 		curl -sf http://localhost:7474 >/dev/null 2>&1 && break; \
 		sleep 2; \
+		test $$i -eq 10 && echo "ERROR: Neo4j did not become ready" && exit 1; \
 	done
 	@echo ""
 	@echo "--- Running S12 persistence tests ---"
