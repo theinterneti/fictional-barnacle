@@ -355,7 +355,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     )
 
 
-def _resolve_system_prompt(deps: PipelineDeps) -> tuple[str, object]:
+def _resolve_system_prompt(deps: PipelineDeps) -> tuple[str, RenderedPrompt]:
     """Resolve generation system prompt from registry (AC-09.1).
 
     Templates are the single source of truth — no inline fallback.

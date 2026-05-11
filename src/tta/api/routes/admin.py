@@ -1141,7 +1141,7 @@ async def activate_prompt(
     bridge = request.app.state.prompt_bridge
     if bridge is None:
         raise AppError(
-            ErrorCategory.CONFIGURATION,
+            ErrorCategory.INTERNAL_ERROR,
             "PROMPT_BRIDGE_NOT_CONFIGURED",
             "Langfuse prompt bridge is not configured. Set langfuse_host in settings.",
         )
@@ -1184,7 +1184,7 @@ async def preview_prompt(
     bridge = request.app.state.prompt_bridge
     if bridge is None:
         raise AppError(
-            ErrorCategory.CONFIGURATION,
+            ErrorCategory.INTERNAL_ERROR,
             "PROMPT_BRIDGE_NOT_CONFIGURED",
             "Langfuse prompt bridge is not configured. Set langfuse_host in settings.",
         )
