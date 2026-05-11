@@ -250,6 +250,7 @@ def _mock_pg_with_rows(rows: list) -> MagicMock:
 # ── AC-26.2: Player search ───────────────────────────────────────
 
 
+@pytest.mark.spec("AC-26.02")
 class TestPlayerSearch:
     """GET /admin/players?search=... (AC-26.2)."""
 
@@ -1037,6 +1038,7 @@ def _make_audit_entry(
     return entry  # type: ignore[return-value]
 
 
+@pytest.mark.spec("AC-26.08")
 class TestAuditLogCompleteness:
     """AC-26.8: Audit log records all admin writes with required fields (FR-26.24)."""
 

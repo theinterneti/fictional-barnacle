@@ -8,7 +8,6 @@ Deferred ACs (require login endpoint or async jobs not yet implemented):
   AC-11.03 — Multi-device login (login endpoint deferred per S11 §14)
   AC-11.09 — Login lockout (login endpoint deferred per S11 §14)
   AC-11.11 — Deleted player cannot login (login endpoint deferred per S11 §14)
-  AC-11.13 — Data not retrievable within 72h (async deletion job)
 """
 
 from __future__ import annotations
@@ -759,6 +758,108 @@ class TestAC1107ExpiredGameCanBeResumed:
         assert data["recap"] and "welcome back" in data["recap"].lower(), (
             "AC-11.07: expired game resume must include 'welcome back' narrative "
             "even when no summary/genesis intro exists"
+        )
+
+
+# ---------------------------------------------------------------------------
+# AC-11.13 — Data not retrievable within 72h (async deletion job)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-11.13")
+class TestAC1113AsyncGdprDeletion:
+    """AC-11.13: After account deletion, the player's email, name, and turn
+    history are not retrievable via any API endpoint or direct database query
+    within 72 hours.
+
+    The DELETE /me endpoint performs:
+    1. Immediate PII scrub (status=pending_deletion, redaction)
+    2. Async job dispatch (gdpr_delete_player via ARQ)
+    """
+
+    def test_delete_me_dispatches_async_gdpr_job(
+        self, app: FastAPI, pg: AsyncMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """DELETE /me enqueues gdpr_delete_player and returns deletion_job_id."""
+        from unittest.mock import AsyncMock
+
+        # Mock job queue
+        job_queue = AsyncMock()
+        job_queue.enqueue = AsyncMock(return_value="job-gdpr-test")
+        app.state.job_queue = job_queue
+
+        session_row = MagicMock()
+        session_row.id = _GAME_ID
+
+        call_count = 0
+
+        async def _execute(*args: object, **kwargs: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 6:
+                result = MagicMock()
+                result.fetchall = lambda: [session_row]
+                return result
+            return _make_result()
+
+        pg.execute = _execute  # type: ignore[assignment]
+        pg.commit = AsyncMock()  # type: ignore[assignment]
+
+        client = TestClient(app)
+        resp = client.delete("/api/v1/players/me")
+
+        assert resp.status_code == 202, (
+            f"AC-11.13: DELETE /me should return 202, got {resp.status_code}"
+        )
+        body = resp.json()
+        data = body.get("data", body)
+        assert "deletion_job_id" in data, (
+            "AC-11.13: response must include deletion_job_id from async dispatch"
+        )
+        assert data["deletion_job_id"] is not None, (
+            "AC-11.13: deletion_job_id must not be None when queue is configured"
+        )
+
+        # Assert async job was enqueued
+        job_queue.enqueue.assert_awaited_once()
+        call_args = job_queue.enqueue.call_args
+        assert call_args[0][0] == "gdpr_delete_player", (
+            "AC-11.13: must enqueue gdpr_delete_player job"
+        )
+
+    def test_delete_me_graceful_when_queue_unavailable(
+        self, app: FastAPI, pg: AsyncMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """DELETE /me succeeds without job queue — returns None deletion_job_id."""
+        # No job queue on state
+        if hasattr(app.state, "job_queue"):
+            del app.state.job_queue
+
+        session_row = MagicMock()
+        session_row.id = _GAME_ID
+
+        call_count = 0
+
+        async def _execute(*args: object, **kwargs: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 6:
+                result = MagicMock()
+                result.fetchall = lambda: [session_row]
+                return result
+            return _make_result()
+
+        pg.execute = _execute  # type: ignore[assignment]
+        pg.commit = AsyncMock()  # type: ignore[assignment]
+
+        client = TestClient(app)
+        resp = client.delete("/api/v1/players/me")
+
+        assert resp.status_code == 202
+        body = resp.json()
+        data = body.get("data", body)
+        assert data["deletion_job_id"] is None, (
+            "AC-11.13: deletion_job_id should be None when queue unavailable"
         )
 
 

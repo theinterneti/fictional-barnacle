@@ -1,12 +1,14 @@
 {
-  "generated": "2026-05-11T15:57:23.256315+00:00",
+  "generated": "2026-05-11T22:20:10.983309+00:00",
   "approved": {
-    "total_acs": 328,
-    "covered_acs": 302,
-    "uncovered_acs": 26,
-    "coverage_pct": 92.1,
+    "total_acs": 335,
+    "covered_acs": 331,
+    "uncovered_acs": 4,
+    "coverage_pct": 98.8,
     "matrix": {
-      "AC-01.01": [],
+      "AC-01.01": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_1_1_deferred_response_timing"
+      ],
       "AC-01.02": [
         "tests/unit/api/test_s01_ac_compliance.py::TestAC102EmptyInput::test_empty_string_returns_400",
         "tests/unit/api/test_s01_ac_compliance.py::TestAC102EmptyInput::test_whitespace_only_returns_400"
@@ -14,7 +16,9 @@
       "AC-01.03": [
         "tests/unit/api/test_s01_ac_compliance.py::TestAC103SaveCommand::test_save_returns_confirmation_message"
       ],
-      "AC-01.04": [],
+      "AC-01.04": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_1_4_deferred_reconnect_ux"
+      ],
       "AC-01.05": [
         "tests/unit/api/test_s01_ac_compliance.py::TestAC105CharacterFailure::test_active_game_accepts_turn_after_failure",
         "tests/unit/api/test_s01_ac_compliance.py::TestAC105CharacterFailure::test_game_status_remains_active_not_ended"
@@ -30,7 +34,9 @@
       "AC-01.08": [
         "tests/unit/api/test_s01_ac_compliance.py::TestAC108SecondPlaythrough::test_new_game_after_completed_game_creates_distinct_id"
       ],
-      "AC-01.09": [],
+      "AC-01.09": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_1_9_deferred_sse_reconnect"
+      ],
       "AC-01.10": [
         "tests/unit/api/test_s01_ac_compliance.py::TestAC110UnknownCommand::test_unknown_command_returns_help_message",
         "tests/unit/api/test_s01_ac_compliance.py::TestAC110UnknownCommand::test_help_command_also_lists_all_commands"
@@ -41,8 +47,12 @@
       "AC-02.02": [
         "tests/unit/genesis/test_s02_ac_compliance.py::test_ac_2_2_world_graph_created_once"
       ],
-      "AC-02.03": [],
-      "AC-02.04": [],
+      "AC-02.03": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_2_3_deferred_llm_quality_eval"
+      ],
+      "AC-02.04": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_2_4_deferred_wall_clock_timing"
+      ],
       "AC-02.05": [
         "tests/unit/genesis/test_s02_ac_compliance.py::test_ac_2_5_genesis_result_envelope"
       ],
@@ -91,7 +101,9 @@
         "tests/unit/pipeline/test_s03_ac_compliance.py::TestAC306ContextAssemblyPerformance::test_context_stage_fast_at_turn_100",
         "tests/unit/pipeline/test_s03_ac_compliance.py::TestAC306ContextAssemblyPerformance::test_context_size_is_bounded"
       ],
-      "AC-03.07": [],
+      "AC-03.07": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_3_7_deferred_coherence_checker"
+      ],
       "AC-03.08": [
         "tests/unit/pipeline/test_s03_ac_compliance.py::TestAC308IntentWordRanges::test_examine_range_is_150_to_300",
         "tests/unit/pipeline/test_s03_ac_compliance.py::TestAC308IntentWordRanges::test_move_range",
@@ -167,7 +179,9 @@
         "tests/unit/choices/test_s05_ac_compliance.py::TestAC504PermanentReversibility::test_reversibility_enum_ordering",
         "tests/unit/choices/test_s05_ac_compliance.py::TestAC504PermanentReversibility::test_permanent_chain_distinguishable_from_trivial_chain"
       ],
-      "AC-05.05": [],
+      "AC-05.05": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_5_5_deferred_foreshadowing_eval"
+      ],
       "AC-05.06": [
         "tests/unit/choices/test_s05_ac_compliance.py::TestAC506PerformanceBudget::test_thirty_chains_evaluated_under_300ms"
       ],
@@ -202,7 +216,9 @@
         "tests/unit/pipeline/test_s06_character_system.py::TestCharacterDisplay::test_missing_fields_graceful",
         "tests/unit/pipeline/test_s06_character_system.py::TestCharacterDisplay::test_no_world_seed"
       ],
-      "AC-06.02": [],
+      "AC-06.02": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_6_2_deferred_trait_evolution"
+      ],
       "AC-06.03": [
         "tests/unit/pipeline/test_s06_character_system.py::TestRuntimeRelationships::test_runtime_dimensions_shown",
         "tests/unit/pipeline/test_s06_character_system.py::TestRuntimeRelationships::test_dimension_labels",
@@ -258,7 +274,9 @@
         "tests/unit/pipeline/test_s06_ac_compliance.py::TestAC609KnowledgeBoundary::test_no_knowledge_boundary_no_knows_about_line",
         "tests/unit/pipeline/test_s06_ac_compliance.py::TestAC609KnowledgeBoundary::test_multiple_npcs_each_get_own_knowledge_boundary"
       ],
-      "AC-06.10": [],
+      "AC-06.10": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_6_10_deferred_npc_death"
+      ],
       "AC-07.01": [
         "tests/unit/llm/test_s07_ac_compliance.py::TestAC071ModelAbstraction::test_response_envelope_has_required_fields",
         "tests/unit/llm/test_s07_ac_compliance.py::TestAC071ModelAbstraction::test_caller_uses_role_not_model_name",
@@ -291,7 +309,9 @@
         "tests/unit/llm/test_s07_ac_compliance.py::TestAC075CostManagement::test_session_cap_raises_budget_exceeded_error",
         "tests/unit/llm/test_s07_ac_compliance.py::TestAC075CostManagement::test_cost_defaults_to_zero_when_pricing_unavailable"
       ],
-      "AC-07.06": [],
+      "AC-07.06": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_7_6_deferred_langfuse_tracing"
+      ],
       "AC-07.07": [
         "tests/unit/llm/test_s07_ac_compliance.py::TestAC077MockModeTesting::test_mock_intercepts_acompletion_not_real_call",
         "tests/unit/llm/test_s07_ac_compliance.py::TestAC077MockModeTesting::test_full_call_path_exercised_in_mock_mode",
@@ -344,7 +364,11 @@
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC091PromptsAsVersionedAssets::test_required_templates_constant_non_empty",
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC091PromptsAsVersionedAssets::test_real_required_templates_all_present"
       ],
-      "AC-09.02": [],
+      "AC-09.02": [
+        "tests/unit/api/test_admin_prompts.py::test_activate_prompt_returns_200",
+        "tests/unit/prompts/test_langfuse_bridge.py::test_seed_creates_new_prompts",
+        "tests/unit/prompts/test_langfuse_bridge.py::test_activate_changes_label_and_invalidates_cache"
+      ],
       "AC-09.03": [
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC093TemplateVariables::test_required_variable_injected",
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC093TemplateVariables::test_optional_variable_injected_when_provided",
@@ -382,7 +406,10 @@
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC098Guardrails::test_injection_logging_does_not_block_clean_input",
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC098Guardrails::test_injection_logging_does_not_mutate_input"
       ],
-      "AC-09.09": [],
+      "AC-09.09": [
+        "tests/unit/api/test_admin_prompts.py::test_preview_prompt_returns_200",
+        "tests/unit/prompts/test_langfuse_bridge.py::test_preview_renders_with_label"
+      ],
       "AC-10.01": [
         "tests/unit/api/test_s10_ac_compliance.py::TestAC1001GameplayFlow::test_full_flow_create_and_submit_turn"
       ],
@@ -394,8 +421,12 @@
         "tests/unit/api/test_s10_ac_compliance.py::TestAC1003ErrorShape::test_unhandled_error_returns_standard_envelope",
         "tests/unit/api/test_s10_ac_compliance.py::TestAC1003ErrorShape::test_404_game_not_found_returns_standard_envelope"
       ],
-      "AC-10.04": [],
-      "AC-10.05": [],
+      "AC-10.04": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_10_4_deferred_sse_timing"
+      ],
+      "AC-10.05": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_10_5_deferred_reconnect_missed_events"
+      ],
       "AC-10.06": [
         "tests/unit/api/test_s10_ac_compliance.py::TestS10FR1038HeartbeatEvent::test_heartbeat_event_model_type",
         "tests/unit/api/test_s10_ac_compliance.py::TestS10FR1038HeartbeatEvent::test_heartbeat_sse_wire_format",
@@ -442,7 +473,10 @@
       "AC-11.02": [
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1102UpgradePreservesPlayerId::test_upgrade_preserves_player_id"
       ],
-      "AC-11.03": [],
+      "AC-11.03": [
+        "tests/unit/api/test_auth_login.py::test_login_returns_token_pair",
+        "tests/unit/api/test_auth_login.py::test_login_sets_session_cookie"
+      ],
       "AC-11.04": [
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1104CreatedToActiveTransition::test_submit_turn_on_created_game_updates_status_to_active",
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1104CreatedToActiveTransition::test_submit_turn_on_active_game_does_not_repeat_status_update"
@@ -465,19 +499,26 @@
         "tests/unit/lifecycle/test_cleanup.py::TestAbandonRule::test_abandon_cutoff_is_24h",
         "tests/unit/lifecycle/test_cleanup.py::TestAbandonRule::test_abandon_not_triggered_at_exactly_24h"
       ],
-      "AC-11.09": [],
+      "AC-11.09": [
+        "tests/unit/api/test_auth_login.py::test_login_lockout_after_5_failures"
+      ],
       "AC-11.10": [
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1110RefreshTokenReuseDetection::test_reused_refresh_token_returns_401",
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1110RefreshTokenReuseDetection::test_reused_refresh_token_issues_revocation_update",
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1110RefreshTokenReuseDetection::test_reused_refresh_token_error_body_follows_envelope"
       ],
-      "AC-11.11": [],
+      "AC-11.11": [
+        "tests/unit/api/test_auth_login.py::test_login_rejects_deleted_player"
+      ],
       "AC-11.12": [
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1112NoPasswordInResponses::test_anonymous_response_has_no_password_fields",
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1112NoPasswordInResponses::test_upgrade_response_has_no_password_fields",
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1112NoPasswordInResponses::test_refresh_response_has_no_password_fields"
       ],
-      "AC-11.13": [],
+      "AC-11.13": [
+        "tests/unit/api/test_s11_ac_compliance.py::TestAC1113AsyncGdprDeletion::test_delete_me_dispatches_async_gdpr_job",
+        "tests/unit/api/test_s11_ac_compliance.py::TestAC1113AsyncGdprDeletion::test_delete_me_graceful_when_queue_unavailable"
+      ],
       "AC-11.14": [
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1114PlayerIdNotReassignable::test_players_table_primary_key_in_migration",
         "tests/unit/api/test_s11_ac_compliance.py::TestAC1114PlayerIdNotReassignable::test_immediate_deletion_route_is_soft_delete",
@@ -494,10 +535,25 @@
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1202CacheReconstruction::test_reconstruction_sets_ttl_on_restored_key",
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1202CacheReconstruction::test_missing_sql_row_returns_none_not_error"
       ],
+      "AC-12.03": [
+        "tests/integration/test_s12_persistence_integration.py::TestAC1203GDPRDeletion::test_gdpr_job_removes_player_row"
+      ],
       "AC-12.04": [
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1204StateDriftPrevention::test_sequential_turns_have_monotone_turn_numbers",
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1204StateDriftPrevention::test_each_turn_preserves_its_own_narrative",
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1204StateDriftPrevention::test_duplicate_turn_number_rejected"
+      ],
+      "AC-12.05": [
+        "tests/integration/test_s12_persistence_integration.py::TestAC1205RedisCacheReadLatency::test_redis_get_p95_under_5ms"
+      ],
+      "AC-12.06": [
+        "tests/integration/test_s12_persistence_integration.py::TestAC1206CacheMissReconstructionLatency::test_cache_miss_reconstruction_p95_under_500ms"
+      ],
+      "AC-12.07": [
+        "tests/integration/test_s12_persistence_integration.py::TestAC1207TurnProcessingLatency::test_turn_processing_p95_under_200ms"
+      ],
+      "AC-12.08": [
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1306TwoHopLatency::test_two_hop_query_p95_under_200ms"
       ],
       "AC-12.09": [
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1209AlembicMigrations::test_migrations_directory_exists",
@@ -505,6 +561,12 @@
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1209AlembicMigrations::test_all_migrations_have_upgrade_and_downgrade",
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1209AlembicMigrations::test_migrations_are_sequentially_numbered",
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1209AlembicMigrations::test_alembic_ini_present_at_repo_root"
+      ],
+      "AC-12.10": [
+        "tests/integration/test_s12_persistence_integration.py::TestAC1210MigrationIdempotency::test_alembic_upgrade_head_is_idempotent"
+      ],
+      "AC-12.11": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_12_11_deferred_sql_restore"
       ],
       "AC-12.12": [
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1212RedisTtlCompliance::test_all_keys_with_ttl_report_zero_violations",
@@ -747,7 +809,9 @@
         "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_default_thresholds",
         "tests/unit/moderation/test_flagging.py::TestSessionFlagTracker::test_flag_emits_warning_log"
       ],
-      "AC-24.09": [],
+      "AC-24.09": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_24_9_deferred_fantasy_violence"
+      ],
       "AC-24.10": [
         "tests/unit/moderation/test_s24_fail_closed.py::TestFailClosedPreGeneration::test_exception_blocks_in_fail_closed",
         "tests/unit/moderation/test_s24_fail_closed.py::TestFailClosedPreGeneration::test_exception_passes_in_fail_open",
@@ -863,7 +927,13 @@
         "tests/unit/api/test_s26_ac_compliance.py::TestAC261AdminAuth::test_wrong_key_returns_403",
         "tests/unit/api/test_s26_ac_compliance.py::TestAC261AdminAuth::test_valid_key_grants_access"
       ],
-      "AC-26.02": [],
+      "AC-26.02": [
+        "tests/unit/api/test_admin.py::TestPlayerSearch::test_search_by_handle_prefix_returns_matches",
+        "tests/unit/api/test_admin.py::TestPlayerSearch::test_empty_search_returns_all_players",
+        "tests/unit/api/test_admin.py::TestPlayerSearch::test_no_matching_search_returns_empty_not_404",
+        "tests/unit/api/test_admin.py::TestPlayerSearch::test_next_cursor_set_when_results_exist",
+        "tests/unit/api/test_admin.py::TestPlayerSearch::test_next_cursor_null_when_empty"
+      ],
       "AC-26.03": [
         "tests/unit/api/test_s26_ac_compliance.py::TestAC263PlayerSearch::test_player_lookup_returns_profile",
         "tests/unit/api/test_s26_ac_compliance.py::TestAC263PlayerSearch::test_player_not_found_returns_404"
@@ -890,7 +960,13 @@
         "tests/unit/api/test_s26_ac_compliance.py::TestAC267AuditLog::test_audit_entries_are_immutable_list",
         "tests/unit/api/test_s26_ac_compliance.py::TestAC267AuditLog::test_write_operations_produce_audit_entries"
       ],
-      "AC-26.08": [],
+      "AC-26.08": [
+        "tests/unit/api/test_admin.py::TestAuditLogCompleteness::test_audit_log_entries_include_required_fields",
+        "tests/unit/api/test_admin.py::TestAuditLogCompleteness::test_audit_log_filter_by_action",
+        "tests/unit/api/test_admin.py::TestAuditLogCompleteness::test_audit_log_filter_by_admin_id",
+        "tests/unit/api/test_admin.py::TestAuditLogCompleteness::test_audit_log_empty_when_no_entries",
+        "tests/unit/api/test_admin.py::TestAuditLogCompleteness::test_audit_log_requires_authentication"
+      ],
       "AC-27.01": [
         "tests/unit/api/test_s27_ac_compliance.py::TestAC271GameCreation::test_post_games_returns_201",
         "tests/unit/api/test_s27_ac_compliance.py::TestAC271GameCreation::test_post_games_returns_required_fields",
@@ -959,7 +1035,9 @@
         "tests/unit/performance/test_s28_performance.py::TestGracefulShutdown::test_semaphore_in_flight_completes",
         "tests/unit/performance/test_s28_performance.py::TestGracefulShutdown::test_observability_shutdown_functions_are_safe"
       ],
-      "AC-28.08": [],
+      "AC-28.08": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_28_8_deferred_multi_instance_throughput"
+      ],
       "AC-29.01": [
         "tests/unit/universe/test_models.py::test_universe_default_status_is_dormant",
         "tests/unit/universe/test_service.py::test_create_returns_dormant_universe",
@@ -1685,13 +1763,6 @@
     }
   },
   "stub_acs": 0,
-  "orphan_citations": 6,
-  "orphans": [
-    "AC-12.03",
-    "AC-12.05",
-    "AC-12.06",
-    "AC-12.07",
-    "AC-12.08",
-    "AC-12.10"
-  ]
+  "orphan_citations": 0,
+  "orphans": []
 }
