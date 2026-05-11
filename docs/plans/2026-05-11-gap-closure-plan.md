@@ -336,7 +336,7 @@ This plan succeeded. As of 2026-05-11:
 - ✅ S12 live-infra claims have a verification gate (`make test-persistence` with PERF=1 override)
 - ✅ The work queue was derived from actual gaps, not stale planning artifacts
 
-### Waves delivered (4 PRs merged)
+### Waves delivered (3 PRs merged, 1 audit complete)
 
 | Wave | PR | What |
 |------|-----|------|
@@ -344,7 +344,7 @@ This plan succeeded. As of 2026-05-11:
 | 2 | #187 | LangfusePromptBridge + admin activate/preview endpoints |
 | — | #186 | World graph schema integration tests (pre-existing, reviewed + CI-fixed) |
 | 3 | #188 | Persistence gate (`test-persistence` target, PERF=1 override) |
-| 4 | — | Audit complete: all 25 remaining uncovered ACs are dependency-blocked |
+| 4 | audit | All 25 uncovered ACs confirmed dependency-blocked (no code changes) |
 
 ### Remaining uncovered ACs — dependency map
 
