@@ -25,7 +25,12 @@ class ModelRoleConfig(BaseModel):
 
 
 # Default role configurations (plans/llm-and-pipeline.md §1.3)
-DEFAULT_ROLE_CONFIGS: dict[ModelRole, ModelRoleConfig] = {
+# Three backends supported:
+#   anthropic  — direct Claude (best quality, paid)
+#   openai     — any OpenAI-compatible endpoint (FMR, ollama, vllm, etc.)
+#   openrouter — multi-provider routing via OpenRouter
+
+ANTHROPIC_ROLE_CONFIGS: dict[ModelRole, ModelRoleConfig] = {
     ModelRole.GENERATION: ModelRoleConfig(
         primary="anthropic/claude-sonnet-4-20250514",
         fallback="anthropic/claude-haiku-4-20250514",
@@ -51,4 +56,79 @@ DEFAULT_ROLE_CONFIGS: dict[ModelRole, ModelRoleConfig] = {
         max_tokens=256,
         timeout_seconds=10.0,
     ),
+}
+
+# OpenAI-compatible backend (FMR default, user-overridable base URL).
+# FMR's "auto" model routes to the best free model; hermes-* aliases
+# provide policy-based selection when users want more control.
+OPENAI_ROLE_CONFIGS: dict[ModelRole, ModelRoleConfig] = {
+    ModelRole.GENERATION: ModelRoleConfig(
+        primary="openai/tta",
+        fallback="openai/tta",
+        temperature=0.85,
+        max_tokens=1024,
+        timeout_seconds=90.0,
+    ),
+    ModelRole.CLASSIFICATION: ModelRoleConfig(
+        primary="openai/tta",
+        fallback="openai/tta",
+        temperature=0.1,
+        max_tokens=256,
+        timeout_seconds=15.0,
+    ),
+    ModelRole.EXTRACTION: ModelRoleConfig(
+        primary="openai/tta",
+        fallback="openai/tta",
+        temperature=0.0,
+        max_tokens=2048,
+        timeout_seconds=90.0,
+    ),
+    ModelRole.SUMMARIZATION: ModelRoleConfig(
+        primary="openai/tta",
+        fallback="openai/tta",
+        temperature=0.3,
+        max_tokens=256,
+        timeout_seconds=15.0,
+    ),
+}
+
+# OpenRouter backend — multi-provider with free-tier fallbacks.
+OPENROUTER_ROLE_CONFIGS: dict[ModelRole, ModelRoleConfig] = {
+    ModelRole.GENERATION: ModelRoleConfig(
+        primary="openrouter/google/gemma-4-31b-it:free",
+        fallback="openrouter/google/gemma-3-27b-it:free",
+        temperature=0.85,
+        max_tokens=1024,
+        timeout_seconds=90.0,
+    ),
+    ModelRole.CLASSIFICATION: ModelRoleConfig(
+        primary="openrouter/google/gemma-3-27b-it:free",
+        temperature=0.1,
+        max_tokens=256,
+        timeout_seconds=15.0,
+    ),
+    ModelRole.EXTRACTION: ModelRoleConfig(
+        primary="openrouter/google/gemma-3-27b-it:free",
+        temperature=0.0,
+        max_tokens=2048,
+        timeout_seconds=30.0,
+    ),
+    ModelRole.SUMMARIZATION: ModelRoleConfig(
+        primary="openrouter/google/gemma-3-27b-it:free",
+        temperature=0.3,
+        max_tokens=256,
+        timeout_seconds=15.0,
+    ),
+}
+
+# Default: openai backend (FMR on localhost:3456 for zero-cost local play).
+# This is the recommended configuration for most users.
+DEFAULT_ROLE_CONFIGS = OPENAI_ROLE_CONFIGS
+
+# Legacy reference — kept for backward compatibility with code that
+# imports DEFAULT_ROLE_CONFIGS directly.
+BACKEND_ROLE_CONFIGS: dict[str, dict[ModelRole, ModelRoleConfig]] = {
+    "anthropic": ANTHROPIC_ROLE_CONFIGS,
+    "openai": OPENAI_ROLE_CONFIGS,
+    "openrouter": OPENROUTER_ROLE_CONFIGS,
 }
