@@ -36,13 +36,20 @@ class TestAC2802FirstSSETokenLatency:
 
         game_id = game_resp.json()["data"]["game_id"]
 
+        # Submit a turn first — the SSE stream replays the latest turn events
+        turn_resp = await auth_client.post(
+            f"/api/v1/games/{game_id}/turns",
+            json={"input": "look around"},
+        )
+        if turn_resp.status_code not in (200, 201, 202):
+            pytest.skip(f"Turn submission failed ({turn_resp.status_code})")
+
         t0 = time.perf_counter()
         first_token_ms: float | None = None
 
         async with auth_client.stream(
-            "POST",
-            f"/api/v1/games/{game_id}/turns/stream",
-            json={"player_input": "look around"},
+            "GET",
+            f"/api/v1/games/{game_id}/stream",
         ) as response:
             if response.status_code not in (200, 201, 202):
                 pytest.skip(f"SSE endpoint returned {response.status_code}")

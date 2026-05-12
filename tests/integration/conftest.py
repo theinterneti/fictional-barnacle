@@ -33,12 +33,21 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
 
     from tta.config import Environment, LogLevel, get_settings
 
+    # Respect TTA_LLM_MOCK from caller environment. Set TTA_LLM_MOCK=false
+    # to use real LLM (e.g., FMR) for tests that need live AI responses.
+    _llm_mock = os.environ.get("TTA_LLM_MOCK", "true").lower() not in (
+        "false",
+        "0",
+        "no",
+    )
+    _openai_api_key = os.environ.get("TTA_OPENAI_API_KEY", "")
+
     env_overrides = {
         "TTA_DATABASE_URL": "postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test",
         "TTA_REDIS_URL": "redis://localhost:6380/1",
         "TTA_NEO4J_URI": "bolt://localhost:7688",
         "TTA_NEO4J_PASSWORD": "",
-        "TTA_LLM_MOCK": "true",
+        "TTA_LLM_MOCK": str(_llm_mock).lower(),
         "TTA_ENVIRONMENT": "development",
         "TTA_LOG_LEVEL": "DEBUG",
         "TTA_LOG_FORMAT": "console",
@@ -56,7 +65,8 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
         redis_url="redis://localhost:6380/1",
         neo4j_uri="bolt://localhost:7688",
         neo4j_password="",
-        llm_mock=True,
+        llm_mock=_llm_mock,
+        openai_api_key=_openai_api_key,
         environment=Environment.DEVELOPMENT,
         log_level=LogLevel.DEBUG,
         log_format="console",
@@ -108,13 +118,15 @@ def _run_migrations(
     """Run Alembic migrations via subprocess to avoid event-loop conflicts."""
     import os
     import subprocess
+    import sys
 
     env = {**os.environ}  # TTA_DATABASE_URL already set by integration_settings
     result = subprocess.run(
-        ["uv", "run", "alembic", "upgrade", "head"],
+        [sys.executable, "-B", "-m", "alembic", "-c", "alembic.ini", "upgrade", "head"],
         env=env,
         capture_output=True,
         text=True,
+        cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     )
     if result.returncode != 0:
         import pytest

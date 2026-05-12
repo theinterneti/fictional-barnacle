@@ -2131,11 +2131,12 @@ async def update_game(
 @router.delete("/{game_id}", status_code=204, response_model=None)
 async def end_game(
     game_id: UUID,
+    request: Request,
     body: DeleteGameRequest | None = None,
     player: Player = Depends(get_current_player),
     pg: AsyncSession = Depends(get_pg),
 ) -> None:
-    """Soft-delete a game (S27 FR-27.16–FR-27.19)."""
+    """Soft-delete a game and clean up its Neo4j world graph (S27 FR-27.16–FR-27.19)."""
     if body is None or not body.confirm:
         raise AppError(
             ErrorCategory.INPUT_INVALID,
@@ -2151,6 +2152,23 @@ async def end_game(
             "INVALID_STATE_TRANSITION",
             f"Game is already in '{row.status}' status.",
         )
+
+    # Clean up Neo4j world graph before soft-deleting the PG row.
+    # The game_id is the session_id used in all Neo4j nodes.
+    neo4j_driver = getattr(request.app.state, "neo4j_driver", None)
+    if neo4j_driver is not None:
+        try:
+            async with neo4j_driver.session() as session:
+                await session.run(
+                    "MATCH (n {session_id: $sid}) DETACH DELETE n",
+                    sid=str(game_id),
+                )
+        except Exception:
+            log.warning(
+                "neo4j_cleanup_failed_during_delete",
+                game_id=str(game_id),
+                exc_info=True,
+            )
 
     now = datetime.now(UTC)
     await pg.execute(

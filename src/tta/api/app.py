@@ -161,7 +161,6 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         app.state.prompt_bridge = None
         log.info("prompt_bridge_disabled", reason="langfuse_not_configured")
-
     # 4. LLM client
     if settings.llm_mock:
         from tta.llm.testing import MockLLMClient
@@ -169,15 +168,36 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.llm_client = MockLLMClient()
         log.info("llm_client_mock_enabled")
     else:
+        import os
+
         from tta.llm.litellm_client import LiteLLMClient
-        from tta.llm.roles import DEFAULT_ROLE_CONFIGS, ModelRole, ModelRoleConfig
+        from tta.llm.roles import (
+            BACKEND_ROLE_CONFIGS,
+            DEFAULT_ROLE_CONFIGS,
+            ModelRole,
+            ModelRoleConfig,
+        )
+
+        # Select backend-specific role configs (default: openai → FMR).
+        _backend = settings.llm_backend
+        _role_configs = BACKEND_ROLE_CONFIGS.get(_backend, DEFAULT_ROLE_CONFIGS)
+
+        # Configure LiteLLM environment for the selected backend.
+        if _backend == "openai":
+            os.environ.setdefault("OPENAI_API_BASE", settings.openai_api_base)
+            if settings.openai_api_key:
+                os.environ["OPENAI_API_KEY"] = settings.openai_api_key
+        elif _backend == "openrouter":
+            # OPENROUTER_API_KEY is expected in the environment already
+            # (via 1Password or direct env var).
+            pass
 
         # Allow env-var overrides for primary/fallback model per FR-17.30 audit.
         # If TTA_LITELLM_MODEL is non-default, override ALL roles so that
-        # operators can switch providers (e.g. openrouter/...) without code changes.
+        # operators can switch providers without code changes.
         _default_primary = "openai/gpt-4o-mini"
         if settings.litellm_model and settings.litellm_model != _default_primary:
-            _overridden = dict(DEFAULT_ROLE_CONFIGS)
+            _overridden = dict(_role_configs)
             for _role in ModelRole:
                 _base = _overridden[_role]
                 _overridden[_role] = ModelRoleConfig(
@@ -189,14 +209,17 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 )
             app.state.llm_client = LiteLLMClient(role_configs=_overridden)
         else:
-            app.state.llm_client = LiteLLMClient()
+            app.state.llm_client = LiteLLMClient(role_configs=_role_configs)
 
-    # S17 FR-17.30: log configured LLM provider on startup for audit trail
-    log.info(
-        "llm_provider_configured",
-        model=settings.litellm_model,
-        fallback_model=settings.litellm_fallback_model or "none",
-    )
+        # S17 FR-17.30: log configured LLM provider on startup for audit trail
+        log.info(
+            "llm_provider_configured",
+            backend=_backend,
+            api_base=settings.openai_api_base if _backend == "openai" else "default",
+            model=settings.litellm_model,
+            generation_model=_role_configs[ModelRole.GENERATION].primary,
+            fallback_model=settings.litellm_fallback_model or "none",
+        )
 
     # 5. World service — Neo4j when explicitly configured, in-memory fallback
     app.state.neo4j_driver = None
