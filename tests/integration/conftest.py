@@ -310,8 +310,7 @@ async def neo4j_large_world() -> AsyncIterator[Any]:
             loc_count = (await verify.single())["cnt"]
             if loc_count != 1000:
                 raise RuntimeError(
-                    f"neo4j_large_world loaded {loc_count} locations "
-                    f"(expected 1000)"
+                    f"neo4j_large_world loaded {loc_count} locations (expected 1000)"
                 )
 
         yield driver

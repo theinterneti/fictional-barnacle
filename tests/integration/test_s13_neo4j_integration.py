@@ -149,8 +149,7 @@ class TestAC1307PlayerMovementAtomicity:
             f"AC-13.07 FAIL: expected 1 LOCATED_IN edge, got {record['cnt']}"
         )
         assert record["loc_ids"] == ["end"], (
-            f"AC-13.07 FAIL: player should be at 'end', "
-            f"got {record['loc_ids']}"
+            f"AC-13.07 FAIL: player should be at 'end', got {record['loc_ids']}"
         )
 
 
@@ -251,8 +250,7 @@ class TestAC1309NPCSinglePresence:
             f"AC-13.09 FAIL: expected 1 PRESENT_IN edge, got {record['cnt']}"
         )
         assert record["loc_ids"] == ["loc2"], (
-            f"AC-13.09 FAIL: NPC should be at 'loc2', "
-            f"got {record['loc_ids']}"
+            f"AC-13.09 FAIL: NPC should be at 'loc2', got {record['loc_ids']}"
         )
 
 
