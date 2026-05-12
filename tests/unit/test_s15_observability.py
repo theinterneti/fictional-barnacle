@@ -171,6 +171,7 @@ async def test_daily_cost_summary_loop_emits_log():
     assert get_daily_turns() == 0
 
 
+@pytest.mark.spec("AC-07.06")
 def test_record_llm_generation_no_output_truncation():
     """FR-15.17/FR-15.33: full content is sent to Langfuse, not truncated."""
     from tta.observability.langfuse import record_llm_generation
@@ -246,6 +247,7 @@ def test_record_llm_generation_noop_when_disabled():
     )  # should not raise
 
 
+@pytest.mark.spec("AC-07.06")
 def test_record_llm_generation_calls_langfuse():
     """When Langfuse is configured, trace + generation are created."""
     from tta.observability.langfuse import record_llm_generation
@@ -367,6 +369,7 @@ def test_record_llm_generation_pseudonymizes_player():
     assert len(trace_kwargs["user_id"]) >= 16  # pseudonymized hash prefix
 
 
+@pytest.mark.spec("AC-09.07")
 def test_record_llm_generation_includes_prompt_provenance_metadata():
     """Prompt provenance fields are included in generation metadata."""
     from tta.observability.langfuse import record_llm_generation
@@ -548,6 +551,7 @@ async def test_guarded_llm_call_passes_otel_trace_to_langfuse():
 
 
 @pytest.mark.asyncio
+@pytest.mark.spec("AC-09.07")
 async def test_guarded_llm_call_passes_prompt_provenance_to_langfuse():
     """Prompt provenance is forwarded to record_llm_generation."""
     from tta.pipeline.llm_guard import guarded_llm_call
@@ -612,3 +616,300 @@ async def test_guarded_llm_call_passes_prompt_provenance_to_langfuse():
     assert call_kwargs["prompt_version"] == "2.3.4"
     assert call_kwargs["fragment_versions"] == {"safety-preamble": "abcd1234"}
     assert call_kwargs["prompt_hash"] == "deadbeef"
+
+
+# ---------------------------------------------------------------------------
+# AC-07.06: per-turn trace grouping — multiple LLM calls share one trace
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-07.06")
+def test_record_llm_generation_reuses_trace_for_same_turn():
+    """Multiple LLM calls within the same turn use the same Langfuse trace id."""
+    from tta.observability.langfuse import record_llm_generation
+
+    mock_client = MagicMock()
+    mock_trace_a = MagicMock()
+    mock_trace_b = MagicMock()
+    mock_client.trace.side_effect = [mock_trace_a, mock_trace_b]
+
+    with (
+        patch("tta.observability.langfuse._langfuse_client", mock_client),
+        patch(
+            "tta.observability.langfuse._get_context_ids",
+            return_value={
+                "correlation_id": "corr-1",
+                "session_id": "sess-1",
+                "turn_id": "turn-42",
+                "player_id": None,
+            },
+        ),
+    ):
+        # First LLM call within the turn (understand stage)
+        record_llm_generation(
+            name="pipeline.understand",
+            role="classification",
+            messages=[{"role": "user", "content": "look around"}],
+            result=_make_llm_response(model="openai/gpt-4o-mini", cost_usd=0.002),
+            latency_ms=120,
+            cost_usd=0.002,
+        )
+
+        # Second LLM call within the same turn (generate stage)
+        record_llm_generation(
+            name="pipeline.generate",
+            role="generation",
+            messages=[{"role": "user", "content": "narrative prompt..."}],
+            result=_make_llm_response(model="openai/gpt-4o", cost_usd=0.005),
+            latency_ms=350,
+            cost_usd=0.005,
+        )
+
+    # Both calls should create a trace with the same turn_id as trace id
+    trace_call_1 = mock_client.trace.call_args_list[0][1]
+    trace_call_2 = mock_client.trace.call_args_list[1][1]
+    assert trace_call_1["id"] == "turn-42"
+    assert trace_call_2["id"] == "turn-42"
+    assert trace_call_1["name"] == "turn-turn-42"
+    assert trace_call_2["name"] == "turn-turn-42"
+
+    # Both generations should attach to their respective trace objects
+    mock_trace_a.generation.assert_called_once()
+    mock_trace_b.generation.assert_called_once()
+
+    # Verify turn_id is in generation metadata for both
+    gen_a = mock_trace_a.generation.call_args[1]
+    gen_b = mock_trace_b.generation.call_args[1]
+    assert gen_a["metadata"]["turn_id"] == "turn-42"
+    assert gen_b["metadata"]["turn_id"] == "turn-42"
+
+
+# ---------------------------------------------------------------------------
+# AC-08.07: per-turn trace structure — OTel span hierarchy + cost aggregation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-08.07")
+def test_cost_aggregation_persists_in_langfuse_metadata():
+    """Per-turn cost is recorded in Langfuse generation metadata (AC-08.07)."""
+    from tta.observability.langfuse import record_llm_generation
+
+    mock_client = MagicMock()
+    mock_trace = MagicMock()
+    mock_client.trace.return_value = mock_trace
+
+    with (
+        patch("tta.observability.langfuse._langfuse_client", mock_client),
+        patch(
+            "tta.observability.langfuse._get_context_ids",
+            return_value={
+                "correlation_id": "corr-1",
+                "session_id": "sess-1",
+                "turn_id": "turn-1",
+                "player_id": None,
+            },
+        ),
+    ):
+        record_llm_generation(
+            name="pipeline.generate",
+            role="generation",
+            messages=[{"role": "user", "content": "test"}],
+            result=_make_llm_response(
+                model="openai/gpt-4o",
+                prompt_tokens=500,
+                completion_tokens=200,
+                cost_usd=0.012,
+            ),
+            latency_ms=800,
+            cost_usd=0.012,
+        )
+
+    gen_kwargs = mock_trace.generation.call_args[1]
+    # AC-08.07 requires cost recorded in metadata
+    assert gen_kwargs["metadata"]["cost_usd"] == 0.012
+    # Usage data must be present
+    assert gen_kwargs["usage"]["input"] == 500
+    assert gen_kwargs["usage"]["output"] == 200
+    assert gen_kwargs["usage"]["total"] == 700
+    # Model must be recorded
+    assert gen_kwargs["model"] == "openai/gpt-4o"
+
+
+@pytest.mark.spec("AC-08.07")
+def test_record_llm_generation_tags_role_for_filtering():
+    """Trace is tagged with the LLM role so stage-level calls can be filtered."""
+    from tta.observability.langfuse import record_llm_generation
+
+    mock_client = MagicMock()
+    mock_trace = MagicMock()
+    mock_client.trace.return_value = mock_trace
+
+    with (
+        patch("tta.observability.langfuse._langfuse_client", mock_client),
+        patch(
+            "tta.observability.langfuse._get_context_ids",
+            return_value={
+                "correlation_id": "c1",
+                "session_id": "s1",
+                "turn_id": "t1",
+                "player_id": None,
+            },
+        ),
+    ):
+        record_llm_generation(
+            name="pipeline.understand",
+            role="classification",
+            messages=[{"role": "user", "content": "x"}],
+            result=_make_llm_response(),
+            latency_ms=50,
+            cost_usd=0.001,
+        )
+
+    trace_kwargs = mock_client.trace.call_args[1]
+    assert "classification" in trace_kwargs["tags"]
+    assert trace_kwargs["name"] == "turn-t1"
+
+
+# ---------------------------------------------------------------------------
+# AC-09.07: langfuse_prompt linkage — generation linked to Langfuse prompt object
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("AC-09.07")
+def test_record_llm_generation_links_langfuse_prompt():
+    """When langfuse_prompt is provided, the generation is linked to it (AC-09.07)."""
+    from tta.observability.langfuse import record_llm_generation
+
+    mock_client = MagicMock()
+    mock_trace = MagicMock()
+    mock_client.trace.return_value = mock_trace
+
+    # A Langfuse TextPromptClient with version attribute
+    mock_langfuse_prompt = MagicMock()
+    mock_langfuse_prompt.version = 3
+
+    with (
+        patch("tta.observability.langfuse._langfuse_client", mock_client),
+        patch(
+            "tta.observability.langfuse._get_context_ids",
+            return_value={
+                "correlation_id": "corr-1",
+                "session_id": "sess-1",
+                "turn_id": "turn-1",
+                "player_id": None,
+            },
+        ),
+    ):
+        record_llm_generation(
+            name="pipeline.generate",
+            role="generation",
+            messages=[{"role": "user", "content": "test"}],
+            result=_make_llm_response(),
+            latency_ms=100,
+            cost_usd=0.001,
+            prompt_id="narrative.generate",
+            prompt_version="v3",
+            fragment_versions={
+                "safety-preamble": "abc123",
+                "world-context": "def456",
+            },
+            langfuse_prompt=mock_langfuse_prompt,
+        )
+
+    gen_kwargs = mock_trace.generation.call_args[1]
+    # AC-09.07: generation is linked to the Langfuse prompt object
+    assert gen_kwargs["prompt"] is mock_langfuse_prompt
+    # All prompt provenance fields present
+    assert gen_kwargs["metadata"]["prompt_id"] == "narrative.generate"
+    assert gen_kwargs["metadata"]["prompt_version"] == "v3"
+    assert gen_kwargs["metadata"]["fragment_versions"] == {
+        "safety-preamble": "abc123",
+        "world-context": "def456",
+    }
+
+
+# ---------------------------------------------------------------------------
+# AC-08.07: OTel span hierarchy — turn_pipeline → stage_* child spans
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.spec("AC-08.07")
+async def test_orchestrator_creates_per_stage_otel_spans(create_turn_state):
+    """Run_pipeline creates OTel spans: turn_pipeline parent → stage_* children."""
+    from tta.models.turn import TurnState, TurnStatus
+    from tta.pipeline.orchestrator import STAGE_MAP, run_pipeline
+    from tta.pipeline.types import PipelineDeps
+
+    # A no-op stage that returns the turn state immediately
+    async def _noop_stage(ts: TurnState, _deps: PipelineDeps) -> TurnState:
+        ts.status = TurnStatus.processing
+        return ts
+
+    # Track every span opened via start_as_current_span
+    opened_spans: list[str] = []
+    span_attrs: list[dict[str, Any]] = []
+
+    class SpanTracker:
+        def __init__(self, name: str, **kwargs: Any) -> None:
+            opened_spans.append(name)
+            if kwargs.get("attributes"):
+                span_attrs.append(kwargs["attributes"])
+
+        def __enter__(self) -> SpanTracker:
+            return self
+
+        def __exit__(self, *_: Any) -> None:
+            pass
+
+        def set_status(self, *_: Any) -> None:
+            pass
+
+    class MockTracer:
+        def start_as_current_span(self, name: str, **kwargs: Any) -> SpanTracker:
+            return SpanTracker(name, **kwargs)
+
+    fake_turn = create_turn_state(turn_number=1, player_input="test")
+    fake_llm = AsyncMock()
+    fake_llm.generate = AsyncMock()
+    fake_settings = MagicMock()
+    fake_settings.langfuse_host = None
+
+    deps = PipelineDeps(
+        llm=fake_llm,
+        world=MagicMock(),
+        session_repo=MagicMock(),
+        turn_repo=MagicMock(),
+        safety_pre_input=MagicMock(),
+        safety_pre_gen=MagicMock(),
+        safety_post_gen=MagicMock(),
+        settings=fake_settings,
+    )
+
+    with (
+        patch("tta.pipeline.orchestrator.get_tracer", return_value=MockTracer()),
+        patch("tta.pipeline.orchestrator.record_daily_turn"),
+        patch.dict(
+            "tta.pipeline.orchestrator.STAGE_MAP",
+            dict.fromkeys(STAGE_MAP, _noop_stage),
+        ),
+    ):
+        await run_pipeline(fake_turn, deps)
+
+    # AC-08.07: pipeline span + one span per stage
+    assert "turn_pipeline" in opened_spans
+    assert "stage_understand" in opened_spans
+    assert "stage_context" in opened_spans
+    assert "stage_generate" in opened_spans
+    assert "stage_deliver" in opened_spans
+
+    # AC-08.07: pipeline span carries session/turn attributes
+    pipeline_attrs = span_attrs[0]
+    assert "tta.session_id" in pipeline_attrs
+    assert "tta.turn_id" in pipeline_attrs
+    assert pipeline_attrs["tta.turn_number"] == 1
+
+    # Stage spans carry stage name attribute
+    stage_attrs = [a for a in span_attrs if "tta.stage" in a]
+    stage_names = {a["tta.stage"] for a in stage_attrs}
+    assert stage_names == {"understand", "context", "generate", "deliver"}
