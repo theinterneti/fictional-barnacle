@@ -212,8 +212,6 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.llm_client = LiteLLMClient(role_configs=_role_configs)
 
         # S17 FR-17.30: log configured LLM provider on startup for audit trail
-        _backend = settings.llm_backend
-        _role_configs = BACKEND_ROLE_CONFIGS.get(_backend, DEFAULT_ROLE_CONFIGS)
         log.info(
             "llm_provider_configured",
             backend=_backend,
