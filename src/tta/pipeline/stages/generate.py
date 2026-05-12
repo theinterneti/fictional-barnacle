@@ -8,6 +8,7 @@ hooks, calls the LLM for narrative, then extracts world changes.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import structlog
 
@@ -274,6 +275,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             prompt_version=rendered_system_prompt.template_version,
             fragment_versions=rendered_system_prompt.fragment_versions,
             prompt_hash=rendered_system_prompt.prompt_hash,
+            langfuse_prompt=rendered_system_prompt.metadata.get("langfuse_prompt"),
         )
         narrative = response.content
     except (BudgetExceededError, AppError, PermanentLLMError):
@@ -393,6 +395,7 @@ async def _llm_with_retries(
     prompt_version: str | None = None,
     fragment_versions: dict[str, str] | None = None,
     prompt_hash: str | None = None,
+    langfuse_prompt: Any | None = None,
 ) -> LLMResponse:
     """Call LLM with retry cascade for transient failures (S03 FR-8).
 
@@ -411,6 +414,7 @@ async def _llm_with_retries(
                 prompt_version=prompt_version,
                 fragment_versions=fragment_versions,
                 prompt_hash=prompt_hash,
+                langfuse_prompt=langfuse_prompt,
             )
         except (TransientLLMError, AllTiersFailedError) as exc:
             last_exc = exc
@@ -492,6 +496,7 @@ async def _extract_world_changes(
             prompt_version=extraction_prompt.template_version,
             fragment_versions=extraction_prompt.fragment_versions,
             prompt_hash=extraction_prompt.prompt_hash,
+            langfuse_prompt=extraction_prompt.metadata.get("langfuse_prompt"),
         )
         parsed = json.loads(response.content)
 
