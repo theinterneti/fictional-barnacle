@@ -234,11 +234,16 @@ async def neo4j_db(
 
     async with driver.session() as session:
         for stmt in cypher.split(";"):
-            stmt = stmt.strip()
-            if stmt and not stmt.startswith("//"):
+            # Strip leading comment lines — split(";") fragments can
+            # leave "// ..." lines ahead of valid Cypher.
+            lines = stmt.strip().split("\n")
+            while lines and lines[0].strip().startswith("//"):
+                lines.pop(0)
+            clean = "\n".join(lines).strip()
+            if clean:
                 # Use literal string to satisfy Neo4j LiteralString requirement
                 await session.run(
-                    stmt  # type: ignore[arg-type]
+                    clean  # type: ignore[arg-type]
                 )
 
     yield driver
@@ -269,10 +274,15 @@ async def neo4j_large_world(neo4j_db: Any) -> AsyncIterator[Any]:
 
     async with neo4j_db.session() as session:
         for stmt in cypher.split(";"):
-            stmt = stmt.strip()
-            if stmt and not stmt.startswith("//"):
-                # Use type: ignore to allow str from split() — safe in test fixtures
-                await session.run(stmt)  # type: ignore[arg-type]
+            # Strip leading comment lines — split(";") fragments can
+            # leave "// ..." lines ahead of valid Cypher.
+            lines = stmt.strip().split("\n")
+            while lines and lines[0].strip().startswith("//"):
+                lines.pop(0)
+            clean = "\n".join(lines).strip()
+            if clean:
+                # type: ignore — str from split() is safe in test fixtures
+                await session.run(clean)  # type: ignore[arg-type]
 
     yield neo4j_db
 
@@ -307,10 +317,15 @@ async def neo4j_session(
 
     async with neo4j_db.session() as session:
         for stmt in seed_cypher.split(";"):
-            stmt = stmt.strip()
-            if stmt and not stmt.startswith("//"):
-                # Use type: ignore to allow str from split() — safe in test fixtures
-                await session.run(stmt)  # type: ignore[arg-type]
+            # Strip leading comment lines — split(";") fragments can
+            # leave "// ..." lines ahead of valid Cypher.
+            lines = stmt.strip().split("\n")
+            while lines and lines[0].strip().startswith("//"):
+                lines.pop(0)
+            clean = "\n".join(lines).strip()
+            if clean:
+                # type: ignore — str from split() is safe in test fixtures
+                await session.run(clean)  # type: ignore[arg-type]
 
         yield session
 
