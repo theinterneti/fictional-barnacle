@@ -255,14 +255,20 @@ async def neo4j_db(
 
 
 @pytest.fixture(scope="session")
-async def neo4j_large_world(neo4j_db: Any) -> AsyncIterator[Any]:
+async def neo4j_large_world(
+) -> AsyncIterator[Any]:
     """Session-scoped driver with the 1 000-node world loaded.
 
-    Loads world_large.cypher once per session (replacing __SESSION_ID__ with
-    _LARGE_WORLD_SESSION_ID).  Tears down by DETACH DELETE-ing all large-world
-    nodes at the end of the session.
+    Uses its own dedicated driver to avoid interference from the
+    neo4j_db fixture's world_full.cypher loading.
     """
     import os
+
+    from neo4j import AsyncGraphDatabase
+
+    neo4j_uri = os.getenv("TTA_NEO4J_URI", "bolt://localhost:7688")
+
+    driver = AsyncGraphDatabase.driver(neo4j_uri)
 
     fixture_path = os.path.join(
         os.path.dirname(__file__),
@@ -276,26 +282,36 @@ async def neo4j_large_world(neo4j_db: Any) -> AsyncIterator[Any]:
 
     cypher = raw.replace("__SESSION_ID__", _LARGE_WORLD_SESSION_ID)
 
-    async with neo4j_db.session() as session:
+    async with driver.session() as session:
         for stmt in cypher.split(";"):
-            # Strip leading comment lines — split(";") fragments can
-            # leave "// ..." lines ahead of valid Cypher.
+            # Strip leading comment lines
             lines = stmt.strip().split("\n")
             while lines and lines[0].strip().startswith("//"):
                 lines.pop(0)
             clean = "\n".join(lines).strip()
             if clean:
-                # type: ignore — str from split() is safe in test fixtures
                 await session.run(clean)  # type: ignore[arg-type]
 
-    yield neo4j_db
+        # Verify
+        verify = await session.run(
+            "MATCH (l:Location {session_id: $sid}) RETURN count(l) AS cnt",
+            sid=_LARGE_WORLD_SESSION_ID,
+        )
+        loc_count = (await verify.single())["cnt"]
+        if loc_count != 1000:
+            raise RuntimeError(
+                f"neo4j_large_world loaded {loc_count} locations (expected 1000)"
+            )
 
-    # Teardown — remove all large-world nodes by session_id
-    async with neo4j_db.session() as session:
+    yield driver
+
+    # Teardown — remove large-world nodes
+    async with driver.session() as session:
         await session.run(
             "MATCH (n {session_id: $sid}) DETACH DELETE n",
             sid=_LARGE_WORLD_SESSION_ID,
         )
+    await driver.close()
 
 
 @pytest.fixture()
