@@ -108,13 +108,15 @@ def _run_migrations(
     """Run Alembic migrations via subprocess to avoid event-loop conflicts."""
     import os
     import subprocess
+    import sys
 
     env = {**os.environ}  # TTA_DATABASE_URL already set by integration_settings
     result = subprocess.run(
-        ["uv", "run", "alembic", "upgrade", "head"],
+        [sys.executable, "-B", "-m", "alembic", "-c", "alembic.ini", "upgrade", "head"],
         env=env,
         capture_output=True,
         text=True,
+        cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     )
     if result.returncode != 0:
         import pytest
