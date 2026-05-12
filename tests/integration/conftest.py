@@ -34,7 +34,7 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
     from tta.config import Environment, LogLevel, get_settings
 
     env_overrides = {
-        "TTA_DATABASE_URL": "postgresql+asyncpg://tta_test:tta_test@localhost:5433/tta_test",
+        "TTA_DATABASE_URL": "postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test",
         "TTA_REDIS_URL": "redis://localhost:6380/1",
         "TTA_NEO4J_URI": "bolt://localhost:7688",
         "TTA_NEO4J_PASSWORD": "",
@@ -52,7 +52,7 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
     get_settings.cache_clear()
 
     settings = Settings(
-        database_url="postgresql+asyncpg://tta_test:tta_test@localhost:5433/tta_test",
+        database_url="postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test",
         redis_url="redis://localhost:6380/1",
         neo4j_uri="bolt://localhost:7688",
         neo4j_password="",
@@ -190,6 +190,10 @@ def pg_dsn(integration_settings: Settings) -> str:
 # ---------------------------------------------------------------------------
 # Neo4j (S47 — live test instance at bolt://localhost:7688, no-auth)
 # ---------------------------------------------------------------------------
+
+_LARGE_WORLD_SESSION_ID = "00000000-0000-0000-0000-000000000001"
+
+
 @pytest.fixture(scope="session")
 async def neo4j_db(
     integration_settings: Settings,
@@ -230,12 +234,96 @@ async def neo4j_db(
 
     async with driver.session() as session:
         for stmt in cypher.split(";"):
-            stmt = stmt.strip()
-            if stmt and not stmt.startswith("//"):
-                await session.run(stmt)
+            # Strip leading comment lines — split(";") fragments can
+            # leave "// ..." lines ahead of valid Cypher.
+            lines = stmt.strip().split("\n")
+            while lines and lines[0].strip().startswith("//"):
+                lines.pop(0)
+            clean = "\n".join(lines).strip()
+            if clean:
+                # str from split() — safe in test fixtures; type: ignore for
+                # neo4j LiteralString requirement on session.run()
+                await session.run(
+                    clean  # type: ignore[arg-type]
+                )
 
     yield driver
+    # Teardown — clear all data so the next session starts clean.
+    # world_full.cypher uses CREATE (not MERGE) so re-runs fail otherwise.
+    async with driver.session() as session:
+        await session.run("MATCH (n) DETACH DELETE n")
     await driver.close()
+
+
+@pytest.fixture(scope="session")
+async def neo4j_large_world() -> AsyncIterator[Any]:
+    """Session-scoped driver with the 1 000-node world loaded.
+
+    Uses its own dedicated driver to avoid interference from the
+    neo4j_db fixture's world_full.cypher loading.
+    """
+    import os
+
+    from neo4j import AsyncGraphDatabase
+
+    neo4j_uri = os.getenv("TTA_NEO4J_URI", "bolt://localhost:7688")
+
+    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=None)
+
+    try:
+        # Verify connectivity (skip if Neo4j is unavailable)
+        await driver.verify_connectivity()
+
+        fixture_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "fixtures",
+            "neo4j",
+            "world_large.cypher",
+        )
+        with open(fixture_path) as fh:
+            raw = fh.read()
+
+        cypher = raw.replace("__SESSION_ID__", _LARGE_WORLD_SESSION_ID)
+
+        async with driver.session() as session:
+            # Pre-load cleanup — remove stale data from prior failed runs
+            await session.run(
+                "MATCH (n {session_id: $sid}) DETACH DELETE n",
+                sid=_LARGE_WORLD_SESSION_ID,
+            )
+
+            for stmt in cypher.split(";"):
+                # Strip leading comment lines
+                lines = stmt.strip().split("\n")
+                while lines and lines[0].strip().startswith("//"):
+                    lines.pop(0)
+                clean = "\n".join(lines).strip()
+                if clean:
+                    await session.run(clean)  # type: ignore[arg-type]
+
+            # Verify
+            verify = await session.run(
+                "MATCH (l:Location {session_id: $sid}) RETURN count(l) AS cnt",
+                sid=_LARGE_WORLD_SESSION_ID,
+            )
+            loc_count = (await verify.single())["cnt"]
+            if loc_count != 1000:
+                raise RuntimeError(
+                    f"neo4j_large_world loaded {loc_count} locations (expected 1000)"
+                )
+
+        yield driver
+    finally:
+        # Teardown — remove large-world nodes
+        try:
+            async with driver.session() as session:
+                await session.run(
+                    "MATCH (n {session_id: $sid}) DETACH DELETE n",
+                    sid=_LARGE_WORLD_SESSION_ID,
+                )
+        finally:
+            await driver.close()
 
 
 @pytest.fixture()
@@ -261,52 +349,20 @@ async def neo4j_session(
 
     async with neo4j_db.session() as session:
         for stmt in seed_cypher.split(";"):
-            stmt = stmt.strip()
-            if stmt and not stmt.startswith("//"):
-                await session.run(stmt)
+            # Strip leading comment lines — split(";") fragments can
+            # leave "// ..." lines ahead of valid Cypher.
+            lines = stmt.strip().split("\n")
+            while lines and lines[0].strip().startswith("//"):
+                lines.pop(0)
+            clean = "\n".join(lines).strip()
+            if clean:
+                # type: ignore — str from split() is safe in test fixtures
+                await session.run(clean)  # type: ignore[arg-type]
 
         yield session
 
         # Teardown — clear all data
         await session.run("MATCH (n) DETACH DELETE n")
-
-
-@pytest.fixture(scope="session")
-async def neo4j_large_world(
-    neo4j_db: Any,
-) -> AsyncIterator[dict[str, Any]]:
-    """Seed a 1,000-location Neo4j world once for latency tests."""
-    import os
-
-    session_id = "perf_test_session"
-    fixture_path = os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "fixtures",
-        "neo4j",
-        "world_large.cypher",
-    )
-    with open(fixture_path) as fh:
-        cypher = fh.read().replace("__SESSION_ID__", session_id)
-
-    async with neo4j_db.session() as session:
-        await session.run(
-            "MATCH (n {session_id: $sid}) DETACH DELETE n",
-            sid=session_id,
-        )
-        for stmt in cypher.split(";"):
-            stmt = stmt.strip()
-            if stmt and not stmt.startswith("//"):
-                await session.run(stmt)
-
-    try:
-        yield {"driver": neo4j_db, "session_id": session_id}
-    finally:
-        async with neo4j_db.session() as session:
-            await session.run(
-                "MATCH (n {session_id: $sid}) DETACH DELETE n",
-                sid=session_id,
-            )
 
 
 # ---------------------------------------------------------------------------

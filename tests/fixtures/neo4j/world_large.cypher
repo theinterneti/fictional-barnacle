@@ -1,94 +1,84 @@
-// world_large.cypher — 1 000-location world for performance tests.
-// session_id is injected via string replacement before use.
+// Large world fixture — 20 regions, 1 000 locations, 200 NPCs, 100 items, 1 player.
+// session_id = __SESSION_ID__ (replaced at load time by neo4j_large_world fixture)
+// Use UNWIND-based bulk creates to avoid one-statement-per-node overhead.
 
-// Constraints (idempotent)
-CREATE CONSTRAINT location_unique IF NOT EXISTS
-  FOR (l:Location) REQUIRE (l.session_id, l.location_id) IS UNIQUE;
-CREATE CONSTRAINT npc_unique IF NOT EXISTS
-  FOR (n:NPC) REQUIRE (n.session_id, n.npc_id) IS UNIQUE;
+// ── Regions (region_0 … region_19) ───────────────────────────────────────────
+UNWIND range(0, 19) AS i
+CREATE (:Region {
+  id:         'large-region-' + toString(i),
+  name:       'Region ' + toString(i),
+  session_id: '__SESSION_ID__',
+  created_at: datetime(),
+  updated_at: datetime()
+});
 
-// World node
-MERGE (w:World {session_id: '__SESSION_ID__'})
-  ON CREATE SET w.created_at = datetime();
+// ── Locations (loc_R_L where R=0-19, L=0-49) — 1 000 total ──────────────────
+UNWIND range(0, 19) AS r
+UNWIND range(0, 49) AS l
+CREATE (:Location {
+  id:          'large-loc-' + toString(r) + '-' + toString(l),
+  name:        'Location ' + toString(r) + '_' + toString(l),
+  description: 'Location ' + toString(l) + ' in region ' + toString(r),
+  session_id:  '__SESSION_ID__',
+  created_at:  datetime(),
+  updated_at:  datetime()
+});
 
-// Generate 20 regions × 50 locations each (done via UNWIND)
-WITH range(0, 19) AS regions
-UNWIND regions AS ri
-  MERGE (reg:Region {
-    session_id: '__SESSION_ID__',
-    region_id: 'region_' + toString(ri),
-    name: 'Region ' + toString(ri)
-  });
+// ── CONTAINS_LOCATION: region → all its locations ────────────────────────────
+UNWIND range(0, 19) AS r
+UNWIND range(0, 49) AS l
+MATCH (reg:Region   {id:         'large-region-' + toString(r),               session_id: '__SESSION_ID__'})
+MATCH (loc:Location {id:         'large-loc-' + toString(r) + '-' + toString(l), session_id: '__SESSION_ID__'})
+CREATE (reg)-[:CONTAINS_LOCATION]->(loc);
 
-WITH range(0, 19) AS regions
-UNWIND regions AS ri
-  WITH ri, range(0, 49) AS locs
-  UNWIND locs AS li
-    MERGE (loc:Location {
-      session_id: '__SESSION_ID__',
-      location_id: 'loc_' + toString(ri) + '_' + toString(li),
-      name: 'Location ' + toString(ri) + '_' + toString(li),
-      archetype: 'room',
-      created_at: datetime(),
-      updated_at: datetime()
-    })
-    WITH loc, ri
-    MATCH (reg:Region {
-      session_id: '__SESSION_ID__',
-      region_id: 'region_' + toString(ri)
-    })
-    MERGE (loc)-[:IN_REGION]->(reg);
+// ── EXIT chains: loc_R_L → loc_R_(L+1) (N→S within each region) ─────────────
+// Using CONNECTS_TO for compatibility with get_location_context / validate_movement
+UNWIND range(0, 19) AS r
+UNWIND range(0, 48) AS l
+MATCH (a:Location {id: 'large-loc-' + toString(r) + '-' + toString(l),       session_id: '__SESSION_ID__'})
+MATCH (b:Location {id: 'large-loc-' + toString(r) + '-' + toString(l + 1),   session_id: '__SESSION_ID__'})
+CREATE (a)-[:CONNECTS_TO {direction: 'south'}]->(b);
 
-// Connect locations within each region (chain: loc_r_0 → loc_r_1 → … → loc_r_49)
-WITH range(0, 19) AS regions
-UNWIND regions AS ri
-  WITH ri, range(0, 48) AS locs
-  UNWIND locs AS li
-    MATCH (a:Location {
-      session_id: '__SESSION_ID__',
-      location_id: 'loc_' + toString(ri) + '_' + toString(li)
-    })
-    MATCH (b:Location {
-      session_id: '__SESSION_ID__',
-      location_id: 'loc_' + toString(ri) + '_' + toString(li + 1)
-    })
-    MERGE (a)-[:CONNECTS_TO {direction: 'north'}]->(b)
-    MERGE (b)-[:CONNECTS_TO {direction: 'south'}]->(a);
+// ── NPCs (npc_0 … npc_199), each IS_AT loc_(i%20)_(i%50) ────────────────────
+UNWIND range(0, 199) AS i
+CREATE (:NPC {
+  id:         'large-npc-' + toString(i),
+  name:       'NPC ' + toString(i),
+  description: 'A test NPC ' + toString(i) + ' in the large world.',
+  alive:      true,
+  session_id: '__SESSION_ID__',
+  created_at: datetime(),
+  updated_at: datetime()
+});
 
-// 200 NPCs spread across first 200 locations
-WITH range(0, 199) AS npcs
-UNWIND npcs AS ni
-  MATCH (loc:Location {
-    session_id: '__SESSION_ID__',
-    location_id: 'loc_' + toString(toInteger(ni / 10)) + '_' + toString(ni % 10)
-  })
-  MERGE (npc:NPC {
-    session_id: '__SESSION_ID__',
-    npc_id: 'npc_' + toString(ni),
-    name: 'NPC ' + toString(ni),
-    archetype: 'villager',
-    created_at: datetime(),
-    updated_at: datetime()
-  })
-  MERGE (npc)-[:PRESENT_IN]->(loc);
+UNWIND range(0, 199) AS i
+MATCH (npc:NPC      {id:         'large-npc-' + toString(i),                                  session_id: '__SESSION_ID__'})
+MATCH (loc:Location {id:         'large-loc-' + toString(i % 20) + '-' + toString(i % 50),    session_id: '__SESSION_ID__'})
+CREATE (npc)-[:IS_AT]->(loc);
 
-// 100 items spread across first 100 locations
-WITH range(0, 99) AS items
-UNWIND items AS ii
-  MATCH (loc:Location {
-    session_id: '__SESSION_ID__',
-    location_id: 'loc_' + toString(toInteger(ii / 10)) + '_' + toString(ii % 10)
-  })
-  MERGE (item:Item {
-    session_id: '__SESSION_ID__',
-    item_id: 'item_' + toString(ii),
-    name: 'Item ' + toString(ii),
-    created_at: datetime(),
-    updated_at: datetime()
-  })
-  MERGE (item)-[:AT_LOCATION]->(loc);
+// ── Items (item_0 … item_99), each IS_AT loc_(i%20)_(i%50) ─────────────────
+UNWIND range(0, 99) AS i
+CREATE (:Item {
+  id:         'large-item-' + toString(i),
+  name:       'Item ' + toString(i),
+  description: 'A test item ' + toString(i) + ' in the large world.',
+  hidden:     false,
+  session_id: '__SESSION_ID__',
+  created_at: datetime(),
+  updated_at: datetime()
+});
 
-// Player starting at loc_0_0
-MERGE (player:Player {session_id: '__SESSION_ID__', player_id: 'player_1'})
-MERGE (loc0:Location {session_id: '__SESSION_ID__', location_id: 'loc_0_0'})
-MERGE (player)-[:LOCATED_IN]->(loc0)
+UNWIND range(0, 99) AS i
+MATCH (item:Item    {id:         'large-item-' + toString(i),                                  session_id: '__SESSION_ID__'})
+MATCH (loc:Location {id:         'large-loc-' + toString(i % 20) + '-' + toString(i % 50),    session_id: '__SESSION_ID__'})
+CREATE (item)-[:IS_AT]->(loc);
+
+// ── Player (player_1) LOCATED_IN loc_0_0 ─────────────────────────────────────
+MATCH (loc:Location {id: 'large-loc-0-0', session_id: '__SESSION_ID__'})
+CREATE (:Player {
+  id:         'large-player-1',
+  name:       'Test Player',
+  session_id: '__SESSION_ID__',
+  created_at: datetime(),
+  updated_at: datetime()
+})-[:LOCATED_IN]->(loc)

@@ -161,6 +161,7 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                 prompt_version=rendered.template_version,
                 fragment_versions=rendered.fragment_versions,
                 prompt_hash=rendered.prompt_hash,
+                langfuse_prompt=rendered.metadata.get("langfuse_prompt"),
             )
             intent = response.content.strip().lower()
             if intent not in VALID_INTENTS:

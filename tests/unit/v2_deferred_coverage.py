@@ -171,24 +171,12 @@ def test_ac_6_10_deferred_npc_death() -> None:
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# S07 — LLM Integration (observability gap)
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-@pytest.mark.spec("AC-07.06")
-def test_ac_7_6_deferred_langfuse_tracing() -> None:
-    """AC-07.06 (Langfuse traces for LLM calls) — deferred to v2.
-
-    LLM calls are wired to structlog but not to Langfuse.  Prompt/response pairs
-    are not stored for quality review.  This is a significant observability gap
-    for production.
-    """
-    pytest.skip(
-        "Deferred to v2: Langfuse trace integration not wired in v1; LLM calls"
-        " use structlog only"
-    )
-
+# S07 — LLM Integration: AC-07.06 now covered by real tests in
+#   tests/unit/test_s15_observability.py (spec markers added 2026-05-11).
+#
+#   Covered by: test_record_llm_generation_calls_langfuse,
+#               test_record_llm_generation_no_output_truncation,
+#               test_record_llm_generation_reuses_trace_for_same_turn
 
 # ═══════════════════════════════════════════════════════════════════════════
 # S10 — API & Streaming (integration only, recognized as such in test files)
@@ -276,25 +264,12 @@ def test_ac_28_8_deferred_multi_instance_throughput() -> None:
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# S08 — Turn Processing Pipeline (partial implementation, no assertions)
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-@pytest.mark.spec("AC-08.07")
-def test_ac_8_7_deferred_langfuse_trace_structure() -> None:
-    """AC-08.07 (Langfuse trace per turn with per-stage spans + cost) — deferred.
-
-    Spans are emitted in v1 but no automated assertion on trace structure exists.
-    Cost aggregation (per-turn token counts passed through) is untested
-    end-to-end.  Both require Langfuse exercised in CI with trace validation.
-    """
-    pytest.skip(
-        "Deferred to v2: Langfuse trace structure and cost aggregation require"
-        " CI-integrated Langfuse with automated assertions; spans emitted but"
-        " not validated in v1"
-    )
-
+# S08 — Turn Processing Pipeline: AC-08.07 now covered by real tests in
+#   tests/unit/test_s15_observability.py (spec markers added 2026-05-11).
+#
+#   Covered by: test_cost_aggregation_persists_in_langfuse_metadata,
+#               test_record_llm_generation_tags_role_for_filtering,
+#               test_orchestrator_creates_per_stage_otel_spans
 
 # ═══════════════════════════════════════════════════════════════════════════
 # S09 — Prompt & Content Management (not built in v1)
@@ -315,14 +290,8 @@ def test_ac_9_6_deferred_genre_packs() -> None:
     )
 
 
-@pytest.mark.spec("AC-09.07")
-def test_ac_9_7_deferred_langfuse_prompt_metrics() -> None:
-    """AC-09.07 (Langfuse per-version prompt metrics) — deferred to v2.
-
-    Requires live Langfuse integration with prompt version tracking.  Per-version
-    quality, latency, cost, and error rate metrics are not tracked in v1.
-    """
-    pytest.skip(
-        "Deferred to v2: requires live Langfuse integration with prompt version"
-        " tracking; per-version metrics not implemented in v1"
-    )
+# AC-09.07 (per-version prompt metrics) now covered by real tests in
+# tests/unit/test_s15_observability.py:
+#   test_record_llm_generation_includes_prompt_provenance_metadata,
+#   test_guarded_llm_call_passes_prompt_provenance_to_langfuse,
+#   test_record_llm_generation_links_langfuse_prompt
