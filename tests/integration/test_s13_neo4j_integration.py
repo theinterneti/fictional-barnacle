@@ -140,7 +140,7 @@ class TestAC1307PlayerMovementAtomicity:
         result = await neo4j_session.run(
             "MATCH (p:Player {player_id: 'p1', session_id: $sid})"
             "-[:LOCATED_IN]->(loc)"
-            " RETURN count(loc) AS cnt, loc.location_id AS loc_id",
+            " RETURN count(loc) AS cnt, collect(loc.location_id) AS loc_ids",
             sid=sid,
         )
         record = await result.single()
@@ -148,8 +148,9 @@ class TestAC1307PlayerMovementAtomicity:
         assert record["cnt"] == 1, (
             f"AC-13.07 FAIL: expected 1 LOCATED_IN edge, got {record['cnt']}"
         )
-        assert record["loc_id"] == "end", (
-            f"AC-13.07 FAIL: player should be at 'end', got '{record['loc_id']}'"
+        assert record["loc_ids"] == ["end"], (
+            f"AC-13.07 FAIL: player should be at 'end', "
+            f"got {record['loc_ids']}"
         )
 
 
@@ -241,7 +242,7 @@ class TestAC1309NPCSinglePresence:
         result = await neo4j_session.run(
             "MATCH (npc:NPC {npc_id: 'guard', session_id: $sid})"
             "-[:PRESENT_IN]->(loc)"
-            " RETURN count(loc) AS cnt, loc.location_id AS loc_id",
+            " RETURN count(loc) AS cnt, collect(loc.location_id) AS loc_ids",
             sid=sid,
         )
         record = await result.single()
@@ -249,8 +250,9 @@ class TestAC1309NPCSinglePresence:
         assert record["cnt"] == 1, (
             f"AC-13.09 FAIL: expected 1 PRESENT_IN edge, got {record['cnt']}"
         )
-        assert record["loc_id"] == "loc2", (
-            f"AC-13.09 FAIL: NPC should be at 'loc2', got '{record['loc_id']}'"
+        assert record["loc_ids"] == ["loc2"], (
+            f"AC-13.09 FAIL: NPC should be at 'loc2', "
+            f"got {record['loc_ids']}"
         )
 
 
