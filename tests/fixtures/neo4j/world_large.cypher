@@ -44,6 +44,7 @@ UNWIND range(0, 199) AS i
 CREATE (:NPC {
   id:         'large-npc-' + toString(i),
   name:       'NPC ' + toString(i),
+  description: 'A test NPC ' + toString(i) + ' in the large world.',
   alive:      true,
   session_id: '__SESSION_ID__',
   created_at: datetime(),
@@ -60,6 +61,7 @@ UNWIND range(0, 99) AS i
 CREATE (:Item {
   id:         'large-item-' + toString(i),
   name:       'Item ' + toString(i),
+  description: 'A test item ' + toString(i) + ' in the large world.',
   hidden:     false,
   session_id: '__SESSION_ID__',
   created_at: datetime(),
