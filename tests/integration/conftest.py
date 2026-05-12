@@ -247,6 +247,10 @@ async def neo4j_db(
                 )
 
     yield driver
+    # Teardown — clear all data so the next session starts clean.
+    # world_full.cypher uses CREATE (not MERGE) so re-runs fail otherwise.
+    async with driver.session() as session:
+        await session.run("MATCH (n) DETACH DELETE n")
     await driver.close()
 
 
