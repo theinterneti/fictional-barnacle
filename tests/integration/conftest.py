@@ -255,8 +255,7 @@ async def neo4j_db(
 
 
 @pytest.fixture(scope="session")
-async def neo4j_large_world(
-) -> AsyncIterator[Any]:
+async def neo4j_large_world() -> AsyncIterator[Any]:
     """Session-scoped driver with the 1 000-node world loaded.
 
     Uses its own dedicated driver to avoid interference from the
