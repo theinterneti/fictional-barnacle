@@ -1,10 +1,10 @@
 {
-  "generated": "2026-05-11T22:20:10.983309+00:00",
+  "generated": "2026-05-12T19:41:16.642863+00:00",
   "approved": {
     "total_acs": 335,
-    "covered_acs": 331,
-    "uncovered_acs": 4,
-    "coverage_pct": 98.8,
+    "covered_acs": 335,
+    "uncovered_acs": 0,
+    "coverage_pct": 100.0,
     "matrix": {
       "AC-01.01": [
         "tests/unit/v2_deferred_coverage.py::test_ac_1_1_deferred_response_timing"
@@ -74,7 +74,9 @@
         "tests/unit/genesis/test_s02_ac_compliance.py::test_ac_2_9_character_concept_in_prompt",
         "tests/unit/genesis/test_s02_ac_compliance.py::test_ac_2_9_different_concepts_produce_different_prompts"
       ],
-      "AC-02.10": [],
+      "AC-02.10": [
+        "tests/unit/genesis/test_s02_ac_compliance.py::test_ac_2_10_boundary_verified_via_sim"
+      ],
       "AC-03.01": [
         "tests/unit/pipeline/test_s03_ac_compliance.py::TestAC301SensoryGuidance::test_examine_prompt_includes_exploration_hook",
         "tests/unit/pipeline/test_s03_ac_compliance.py::TestAC301SensoryGuidance::test_move_prompt_includes_exploration_hook",
@@ -310,7 +312,9 @@
         "tests/unit/llm/test_s07_ac_compliance.py::TestAC075CostManagement::test_cost_defaults_to_zero_when_pricing_unavailable"
       ],
       "AC-07.06": [
-        "tests/unit/v2_deferred_coverage.py::test_ac_7_6_deferred_langfuse_tracing"
+        "tests/unit/test_s15_observability.py::test_record_llm_generation_no_output_truncation",
+        "tests/unit/test_s15_observability.py::test_record_llm_generation_calls_langfuse",
+        "tests/unit/test_s15_observability.py::test_record_llm_generation_reuses_trace_for_same_turn"
       ],
       "AC-07.07": [
         "tests/unit/llm/test_s07_ac_compliance.py::TestAC077MockModeTesting::test_mock_intercepts_acompletion_not_real_call",
@@ -352,7 +356,11 @@
         "tests/unit/pipeline/test_s08_ac_compliance.py::TestAC086ErrorResilience::test_duplicate_turn_rejected_by_repository",
         "tests/unit/pipeline/test_s08_ac_compliance.py::TestAC086ErrorResilience::test_idempotency_key_prevents_double_processing"
       ],
-      "AC-08.07": [],
+      "AC-08.07": [
+        "tests/unit/test_s15_observability.py::test_cost_aggregation_persists_in_langfuse_metadata",
+        "tests/unit/test_s15_observability.py::test_record_llm_generation_tags_role_for_filtering",
+        "tests/unit/test_s15_observability.py::test_orchestrator_creates_per_stage_otel_spans"
+      ],
       "AC-09.01": [
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC091PromptsAsVersionedAssets::test_prompts_loaded_from_files",
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC091PromptsAsVersionedAssets::test_each_template_has_unique_id",
@@ -392,8 +400,14 @@
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC095PromptTesting::test_narrative_generate_core_instructions_stable",
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC095PromptTesting::test_classification_intent_categories_stable"
       ],
-      "AC-09.06": [],
-      "AC-09.07": [],
+      "AC-09.06": [
+        "tests/unit/v2_deferred_coverage.py::test_ac_9_6_deferred_genre_packs"
+      ],
+      "AC-09.07": [
+        "tests/unit/test_s15_observability.py::test_record_llm_generation_includes_prompt_provenance_metadata",
+        "tests/unit/test_s15_observability.py::test_guarded_llm_call_passes_prompt_provenance_to_langfuse",
+        "tests/unit/test_s15_observability.py::test_record_llm_generation_links_langfuse_prompt"
+      ],
       "AC-09.08": [
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC098Guardrails::test_generation_role_gets_safety_preamble",
         "tests/unit/prompts/test_s09_ac_compliance.py::TestAC098Guardrails::test_classification_role_gets_safety_preamble",
@@ -553,7 +567,7 @@
         "tests/integration/test_s12_persistence_integration.py::TestAC1207TurnProcessingLatency::test_turn_processing_p95_under_200ms"
       ],
       "AC-12.08": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1306TwoHopLatency::test_two_hop_query_p95_under_200ms"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1306TwoHopLatency::test_p95_under_200ms"
       ],
       "AC-12.09": [
         "tests/unit/persistence/test_s12_ac_compliance.py::TestAC1209AlembicMigrations::test_migrations_directory_exists",
@@ -593,22 +607,22 @@
         "tests/unit/world/test_s13_ac_compliance.py::TestAC1303RequiredProperties::test_valid_location_constructs_without_error"
       ],
       "AC-13.04": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1304LocationContextLatency::test_location_context_p95_under_50ms"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1304LocationContextLatency::test_p95_under_150ms"
       ],
       "AC-13.05": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1305MovementValidationLatency::test_movement_validation_p95_under_10ms"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1305MovementValidationLatency::test_p95_under_30ms"
       ],
       "AC-13.06": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1306TwoHopLatency::test_two_hop_query_p95_under_200ms"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1306TwoHopLatency::test_p95_under_200ms"
       ],
       "AC-13.07": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1307PlayerMovementAtomicity::test_movement_updates_located_in"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1307PlayerMovementAtomicity::test_player_has_single_location_after_move"
       ],
       "AC-13.08": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1308ItemPickupAtomicity::test_item_transferred_to_player"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1308ItemPickupAtomicity::test_item_moves_from_location_to_inventory"
       ],
       "AC-13.09": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1309NPCSinglePresence::test_npc_present_in_exactly_one_location"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1309NPCSinglePresence::test_npc_has_single_presence_after_move"
       ],
       "AC-13.10": [
         "tests/unit/world/test_s13_ac_compliance.py::TestAC1310ValidSeedMaterialises::test_valid_seed_calls_tx_run",
@@ -625,7 +639,7 @@
         "tests/unit/world/test_s13_ac_compliance.py::TestAC1312DuplicateSessionRejected::test_duplicate_session_raises_on_driver_error"
       ],
       "AC-13.13": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1313TimestampOrdering::test_updated_at_advances_after_disposition_change"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1313TimestampOrdering::test_updated_at_after_created_at"
       ],
       "AC-13.14": [
         "tests/unit/world/test_s13_ac_compliance.py::TestAC1314ChangeDetection::test_one_change_calls_tx_run_once",
@@ -633,10 +647,10 @@
         "tests/unit/world/test_s13_ac_compliance.py::TestAC1314ChangeDetection::test_empty_changes_list_commits_cleanly"
       ],
       "AC-13.15": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1315DualStoreSessionConsistency::test_neo4j_session_id_matches_sql_game_id"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1315DualStoreSessionConsistency::test_world_node_session_id_matches_game_id"
       ],
       "AC-13.16": [
-        "tests/integration/test_s13_neo4j_integration.py::TestAC1316SessionDeleteCleansNeo4j::test_game_deletion_removes_neo4j_world"
+        "tests/integration/test_s13_neo4j_integration.py::TestAC1316SessionDeleteCleansNeo4j::test_delete_game_removes_neo4j_nodes"
       ],
       "AC-23.01": [
         "tests/unit/api/test_errors.py::test_category_to_status_mapping",

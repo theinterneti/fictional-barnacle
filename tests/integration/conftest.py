@@ -33,12 +33,21 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
 
     from tta.config import Environment, LogLevel, get_settings
 
+    # Respect TTA_LLM_MOCK from caller environment. Set TTA_LLM_MOCK=false
+    # to use real LLM (e.g., FMR) for tests that need live AI responses.
+    _llm_mock = os.environ.get("TTA_LLM_MOCK", "true").lower() not in (
+        "false",
+        "0",
+        "no",
+    )
+    _openai_api_key = os.environ.get("TTA_OPENAI_API_KEY", "")
+
     env_overrides = {
         "TTA_DATABASE_URL": "postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test",
         "TTA_REDIS_URL": "redis://localhost:6380/1",
         "TTA_NEO4J_URI": "bolt://localhost:7688",
         "TTA_NEO4J_PASSWORD": "",
-        "TTA_LLM_MOCK": "true",
+        "TTA_LLM_MOCK": str(_llm_mock).lower(),
         "TTA_ENVIRONMENT": "development",
         "TTA_LOG_LEVEL": "DEBUG",
         "TTA_LOG_FORMAT": "console",
@@ -56,7 +65,8 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
         redis_url="redis://localhost:6380/1",
         neo4j_uri="bolt://localhost:7688",
         neo4j_password="",
-        llm_mock=True,
+        llm_mock=_llm_mock,
+        openai_api_key=_openai_api_key,
         environment=Environment.DEVELOPMENT,
         log_level=LogLevel.DEBUG,
         log_format="console",
@@ -312,8 +322,7 @@ async def neo4j_large_world() -> AsyncIterator[Any]:
             loc_count = (await verify.single())["cnt"]
             if loc_count != 1000:
                 raise RuntimeError(
-                    f"neo4j_large_world loaded {loc_count} locations "
-                    f"(expected 1000)"
+                    f"neo4j_large_world loaded {loc_count} locations (expected 1000)"
                 )
 
         yield driver

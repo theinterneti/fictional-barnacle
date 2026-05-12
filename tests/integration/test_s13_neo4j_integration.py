@@ -55,9 +55,7 @@ class TestAC1304LocationContextLatency:
             latencies.append(time.perf_counter() - t0)
 
         p95_ms = _p95(latencies) * 1000
-        assert p95_ms < 150, (
-            f"AC-13.04 FAIL: get_location_context(depth=1) p95={p95_ms:.1f} ms >= 150 ms"
-        )
+        assert p95_ms < 150, f"AC-13.04 FAIL: p95={p95_ms:.1f} ms >= 150 ms (depth=1)"
 
 
 @pytest.mark.spec("AC-13.05")
@@ -149,8 +147,7 @@ class TestAC1307PlayerMovementAtomicity:
             f"AC-13.07 FAIL: expected 1 LOCATED_IN edge, got {record['cnt']}"
         )
         assert record["loc_ids"] == ["end"], (
-            f"AC-13.07 FAIL: player should be at 'end', "
-            f"got {record['loc_ids']}"
+            f"AC-13.07 FAIL: player should be at 'end', got {record['loc_ids']}"
         )
 
 
@@ -251,8 +248,7 @@ class TestAC1309NPCSinglePresence:
             f"AC-13.09 FAIL: expected 1 PRESENT_IN edge, got {record['cnt']}"
         )
         assert record["loc_ids"] == ["loc2"], (
-            f"AC-13.09 FAIL: NPC should be at 'loc2', "
-            f"got {record['loc_ids']}"
+            f"AC-13.09 FAIL: NPC should be at 'loc2', got {record['loc_ids']}"
         )
 
 
@@ -400,8 +396,10 @@ class TestAC1316SessionDeleteCleansNeo4j:
         game_id = game_resp.json()["data"]["game_id"]
 
         # Delete the game session
-        del_resp = await client.delete(
+        del_resp = await client.request(
+            "DELETE",
             f"/api/v1/games/{game_id}",
+            json={"confirm": True},
             headers=headers,
         )
         if del_resp.status_code not in (200, 204):

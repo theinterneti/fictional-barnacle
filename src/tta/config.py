@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from enum import StrEnum
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
@@ -92,6 +92,19 @@ class Settings(BaseSettings):
     neo4j_password: str
 
     # LiteLLM
+    # --- LLM Backend Selection ---
+    # Backend: \"anthropic\" (direct Claude), \"openrouter\" (multi-provider),
+    # or \"openai\" (any OpenAI-compatible endpoint — default: FMR at localhost:3456).
+    llm_backend: Literal["anthropic", "openai", "openrouter"] = "openai"
+
+    # OpenAI-compatible backend settings (used when llm_backend=\"openai\").
+    # Default: free-model-router on localhost. Override for
+    # local LLMs (ollama, vllm, etc.).
+    openai_api_base: str = "http://localhost:3456/v1"
+    openai_api_key: str = ""
+
+    # Model override — if set to a non-default value, overrides ALL role models.
+    # Useful for quick provider switches without changing role configs.
     litellm_model: str = "openai/gpt-4o-mini"
     litellm_fallback_model: str = "openai/gpt-4o-mini"
     llm_mock: bool = False
@@ -175,8 +188,10 @@ class Settings(BaseSettings):
     llm_max_output_tokens: int = 2000
 
     # Latency budget (S28 §3.3 guidance)
-    latency_budget_warn_ms: int = 5000
-    latency_budget_abort_ms: int = 30000
+    # Free-model backends (FMR, OpenRouter free tier) need higher budgets —
+    # large prompts (genesis enrichment ~5K tokens) can take 45-90s on free models.
+    latency_budget_warn_ms: int = 30000
+    latency_budget_abort_ms: int = 120000
 
     # --- S26 Admin ---
     admin_api_key: str = ""

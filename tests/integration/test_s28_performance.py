@@ -40,9 +40,9 @@ class TestAC2802FirstSSETokenLatency:
         first_token_ms: float | None = None
 
         async with auth_client.stream(
-            "POST",
-            f"/api/v1/games/{game_id}/turns/stream",
-            json={"player_input": "look around"},
+            "GET",
+            f"/api/v1/games/{game_id}/stream",
+            json={"input": "look around"},
         ) as response:
             if response.status_code not in (200, 201, 202):
                 pytest.skip(f"SSE endpoint returned {response.status_code}")

@@ -129,7 +129,7 @@ class TestAC1207TurnProcessingLatency:
             t0 = time.perf_counter()
             turn_resp = await auth_client.post(
                 f"/api/v1/games/{game_id}/turns",
-                json={"player_input": f"look around {i}"},
+                json={"input": f"look around {i}"},
             )
             elapsed = (time.perf_counter() - t0) * 1000
             if turn_resp.status_code not in (200, 201, 202):
