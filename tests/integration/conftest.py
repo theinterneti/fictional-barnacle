@@ -34,7 +34,7 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
     from tta.config import Environment, LogLevel, get_settings
 
     env_overrides = {
-        "TTA_DATABASE_URL": "postgresql+asyncpg://tta_test:tta_test@localhost:5433/tta_test",
+        "TTA_DATABASE_URL": "postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test",
         "TTA_REDIS_URL": "redis://localhost:6380/1",
         "TTA_NEO4J_URI": "bolt://localhost:7688",
         "TTA_NEO4J_PASSWORD": "",
@@ -52,7 +52,7 @@ def integration_settings(tmp_path_factory) -> Iterator[Settings]:
     get_settings.cache_clear()
 
     settings = Settings(
-        database_url="postgresql+asyncpg://tta_test:tta_test@localhost:5433/tta_test",
+        database_url="postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test",
         redis_url="redis://localhost:6380/1",
         neo4j_uri="bolt://localhost:7688",
         neo4j_password="",
