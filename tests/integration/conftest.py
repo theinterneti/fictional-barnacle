@@ -241,7 +241,8 @@ async def neo4j_db(
                 lines.pop(0)
             clean = "\n".join(lines).strip()
             if clean:
-                # Use literal string to satisfy Neo4j LiteralString requirement
+                # str from split() — safe in test fixtures; type: ignore for
+                # neo4j LiteralString requirement on session.run()
                 await session.run(
                     clean  # type: ignore[arg-type]
                 )
@@ -267,50 +268,63 @@ async def neo4j_large_world() -> AsyncIterator[Any]:
 
     neo4j_uri = os.getenv("TTA_NEO4J_URI", "bolt://localhost:7688")
 
-    driver = AsyncGraphDatabase.driver(neo4j_uri)
+    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=None)
 
-    fixture_path = os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "fixtures",
-        "neo4j",
-        "world_large.cypher",
-    )
-    with open(fixture_path) as fh:
-        raw = fh.read()
+    try:
+        # Verify connectivity (skip if Neo4j is unavailable)
+        await driver.verify_connectivity()
 
-    cypher = raw.replace("__SESSION_ID__", _LARGE_WORLD_SESSION_ID)
-
-    async with driver.session() as session:
-        for stmt in cypher.split(";"):
-            # Strip leading comment lines
-            lines = stmt.strip().split("\n")
-            while lines and lines[0].strip().startswith("//"):
-                lines.pop(0)
-            clean = "\n".join(lines).strip()
-            if clean:
-                await session.run(clean)  # type: ignore[arg-type]
-
-        # Verify
-        verify = await session.run(
-            "MATCH (l:Location {session_id: $sid}) RETURN count(l) AS cnt",
-            sid=_LARGE_WORLD_SESSION_ID,
+        fixture_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "fixtures",
+            "neo4j",
+            "world_large.cypher",
         )
-        loc_count = (await verify.single())["cnt"]
-        if loc_count != 1000:
-            raise RuntimeError(
-                f"neo4j_large_world loaded {loc_count} locations (expected 1000)"
+        with open(fixture_path) as fh:
+            raw = fh.read()
+
+        cypher = raw.replace("__SESSION_ID__", _LARGE_WORLD_SESSION_ID)
+
+        async with driver.session() as session:
+            # Pre-load cleanup — remove stale data from prior failed runs
+            await session.run(
+                "MATCH (n {session_id: $sid}) DETACH DELETE n",
+                sid=_LARGE_WORLD_SESSION_ID,
             )
 
-    yield driver
+            for stmt in cypher.split(";"):
+                # Strip leading comment lines
+                lines = stmt.strip().split("\n")
+                while lines and lines[0].strip().startswith("//"):
+                    lines.pop(0)
+                clean = "\n".join(lines).strip()
+                if clean:
+                    await session.run(clean)  # type: ignore[arg-type]
 
-    # Teardown — remove large-world nodes
-    async with driver.session() as session:
-        await session.run(
-            "MATCH (n {session_id: $sid}) DETACH DELETE n",
-            sid=_LARGE_WORLD_SESSION_ID,
-        )
-    await driver.close()
+            # Verify
+            verify = await session.run(
+                "MATCH (l:Location {session_id: $sid}) RETURN count(l) AS cnt",
+                sid=_LARGE_WORLD_SESSION_ID,
+            )
+            loc_count = (await verify.single())["cnt"]
+            if loc_count != 1000:
+                raise RuntimeError(
+                    f"neo4j_large_world loaded {loc_count} locations "
+                    f"(expected 1000)"
+                )
+
+        yield driver
+    finally:
+        # Teardown — remove large-world nodes
+        try:
+            async with driver.session() as session:
+                await session.run(
+                    "MATCH (n {session_id: $sid}) DETACH DELETE n",
+                    sid=_LARGE_WORLD_SESSION_ID,
+                )
+        finally:
+            await driver.close()
 
 
 @pytest.fixture()
