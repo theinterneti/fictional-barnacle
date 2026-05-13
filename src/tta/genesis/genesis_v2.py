@@ -26,10 +26,12 @@ from uuid import UUID
 
 import sqlalchemy as sa
 import structlog
+from pydantic import BaseModel, Field
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tta.llm.client import LLMClient, Message, MessageRole
 from tta.llm.roles import ModelRole
+from tta.llm.structured import generate_structured
 
 if TYPE_CHECKING:
     from tta.seeds.registry import SeedRegistry
@@ -555,7 +557,21 @@ class GenesisOrchestrator:
             state.composition_committed = False
 
     async def _infer_traits(self, state: GenesisState, player_input: str) -> None:
-        """Infer 2-3 character traits from conversation history."""
+        """Infer 2-3 character traits from conversation history.
+
+        Uses Instructor for structured extraction (replaces manual json.loads).
+        Non-fatal — defaults to empty traits on failure.
+        """
+
+        class CharacterTraits(BaseModel):
+            """Character personality traits extracted from conversation."""
+
+            traits: list[str] = Field(
+                default_factory=list,
+                max_length=3,
+                description="2-3 single adjective personality traits",
+            )
+
         history_text = "\n".join(
             f"{i['role'].upper()}: {i['content']}" for i in state.interactions[-6:]
         )
@@ -563,11 +579,9 @@ class GenesisOrchestrator:
             Message(
                 role=MessageRole.SYSTEM,
                 content=(
-                    "You are a character analyst. Based on the following conversation, "
-                    "infer 2-3 personality traits for this character. "
-                    "Respond with a JSON array of strings, "
-                    'e.g. ["curious", "cautious"]. '
-                    "Use single adjective words only."
+                    "You are a character analyst. Based on the following "
+                    "conversation, infer 2-3 personality traits for this "
+                    "character. Use single adjective words only."
                 ),
             ),
             Message(
@@ -576,11 +590,14 @@ class GenesisOrchestrator:
             ),
         ]
         try:
-            raw = await self._llm.generate(ModelRole.EXTRACTION, messages)
-            traits = json.loads(raw.content)
-            if isinstance(traits, list):
-                state.inferred_traits = [str(t) for t in traits[:3]]
-        except (json.JSONDecodeError, Exception):
+            result = await generate_structured(
+                self._llm,
+                messages,
+                CharacterTraits,
+                role=ModelRole.EXTRACTION,
+            )
+            state.inferred_traits = result.traits[:3]
+        except Exception:
             # Non-fatal — inferred traits default to empty
             pass
 
