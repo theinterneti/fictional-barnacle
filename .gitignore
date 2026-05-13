@@ -77,3 +77,4 @@ reports/
 # Hermes local agent state / generated pipeline artifacts
 .hermes/
 docs/backlog/*.dry-run
+data/eval_smoke_output/

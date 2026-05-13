@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from tta.config import CURRENT_CONSENT_VERSION
 from tta.llm.client import GenerationParams, Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.playtest.profile import TasteProfile, get_taste_profile
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
     from tta.llm.client import LLMClient
 
 # Environment-configurable constants (FR-42.01, FR-42.04)
-PLAYTEST_TURN_TIMEOUT: float = float(os.environ.get("PLAYTEST_TURN_TIMEOUT", "60"))
+PLAYTEST_TURN_TIMEOUT: float = float(os.environ.get("PLAYTEST_TURN_TIMEOUT", "180"))
 PLAYTEST_MIN_TURNS: int = int(os.environ.get("PLAYTEST_MIN_TURNS", "5"))
 POLL_INTERVAL: float = 1.0
 MAX_CONSECUTIVE_TIMEOUTS: int = 3
@@ -97,6 +98,21 @@ class PlaytesterAgent:
             headers=headers,
             timeout=PLAYTEST_TURN_TIMEOUT + 10,
         ) as client:
+            # Accept consent before game creation (required since S17 v2).
+            # Without this, POST /api/v1/games returns 403 CONSENT_REQUIRED.
+            consent_resp = await client.patch(
+                "/api/v1/players/me/consent",
+                json={
+                    "consent_version": CURRENT_CONSENT_VERSION,
+                    "consent_categories": {
+                        "core_gameplay": True,
+                        "llm_processing": True,
+                    },
+                    "age_13_plus_confirmed": True,
+                },
+            )
+            consent_resp.raise_for_status()
+
             resp = await client.post(
                 "/api/v1/games",
                 json={
@@ -105,13 +121,42 @@ class PlaytesterAgent:
                     "scenario_seed_id": self._scenario_seed_id or None,
                 },
             )
-            resp.raise_for_status()
-            game_data = resp.json()["data"]
-            self._game_id = game_data["game_id"]
-            self._genesis_phases_completed = game_data.get(
-                "genesis_phases_completed", 7
-            )
-            current_narrative = game_data.get("narrative_intro", "")
+            # ANON_GAME_LIMIT means a game already exists (likely from a timed-out
+            # previous attempt). Reuse it instead of creating a new one.
+            current_narrative = ""  # assigned in all branches; placates pyright
+            if resp.status_code == 403:
+                error_data = resp.json().get("error", {})
+                if error_data.get("code") == "ANON_GAME_LIMIT":
+                    list_resp = await client.get("/api/v1/games")
+                    list_resp.raise_for_status()
+                    games = list_resp.json().get("data", [])
+                    if not games:
+                        raise RuntimeError(
+                            "ANON_GAME_LIMIT but no existing games found"
+                        )
+                    # Use the most recently created game, then resume
+                    # to get the genesis narrative_intro (GameSummary
+                    # does not include it; only POST /{id}/resume does).
+                    existing = games[0]
+                    self._game_id = existing["game_id"]
+                    resume_resp = await client.post(
+                        f"/api/v1/games/{self._game_id}/resume"
+                    )
+                    resume_resp.raise_for_status()
+                    resume_data = resume_resp.json()["data"]
+                    current_narrative = resume_data.get("recap", "")
+                    self._genesis_phases_completed = 7  # genesis is done
+                    # Skip the game creation block below
+                else:
+                    resp.raise_for_status()
+            else:
+                resp.raise_for_status()
+                game_data = resp.json()["data"]
+                self._game_id = game_data["game_id"]
+                self._genesis_phases_completed = game_data.get(
+                    "genesis_phases_completed", 7
+                )
+                current_narrative = game_data.get("narrative_intro", "")
 
             consecutive_timeouts = 0
             turn_index = 0
