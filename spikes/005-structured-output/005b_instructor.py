@@ -126,8 +126,12 @@ def run(mode_str: str, model: str, n: int = 100) -> dict[str, Any]:
         "total": total,
         "pass_rate": passed / total if total else 0,
         "avg_latency_ms": round(sum(latencies) / len(latencies), 1) if latencies else 0,
-        "avg_prompt_tokens": round(sum(prompt_toks) / len(prompt_toks), 1) if prompt_toks else 0,
-        "avg_completion_tokens": round(sum(completion_toks) / len(completion_toks), 1) if completion_toks else 0,
+        "avg_prompt_tokens": round(sum(prompt_toks) / len(prompt_toks), 1)
+        if prompt_toks
+        else 0,
+        "avg_completion_tokens": round(sum(completion_toks) / len(completion_toks), 1)
+        if completion_toks
+        else 0,
         "errors": errors[:10],
     }
 
@@ -146,7 +150,9 @@ if __name__ == "__main__":
                 f"  pass_rate: {stats['pass_rate']:.1%} ({stats['passed']}/{stats['total']})"
             )
             print(f"  avg_latency: {stats['avg_latency_ms']}ms")
-            print(f"  avg_tokens: {stats['avg_prompt_tokens']}p + {stats['avg_completion_tokens']}c")
+            print(
+                f"  avg_tokens: {stats['avg_prompt_tokens']}p + {stats['avg_completion_tokens']}c"
+            )
             if stats["errors"]:
                 for e in stats["errors"]:
                     print(f"  FAIL: {e}")

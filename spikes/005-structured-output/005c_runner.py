@@ -5,17 +5,24 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-import litellm  # noqa: E402
+# Load shared module dynamically (numeric dirs not importable as packages)
+import importlib.util  # noqa: E402
+
 from pydantic_ai import Agent  # noqa: E402
 from pydantic_ai.models.litellm import LiteLLMModel  # noqa: E402
-from spikes.structured_output_005.shared import (  # noqa: E402
-    IntentOutput,
-    SYSTEM_PROMPT,
-    TEST_INPUTS,
-)
+
+_shared_path = Path(__file__).parent / "shared.py"
+_spec = importlib.util.spec_from_file_location("shared", _shared_path)
+_shared = importlib.util.module_from_spec(_spec)
+sys.modules["shared"] = _shared
+_spec.loader.exec_module(_shared)
+IntentOutput = _shared.IntentOutput
+SYSTEM_PROMPT = _shared.SYSTEM_PROMPT
+TEST_INPUTS = _shared.TEST_INPUTS
 
 MODEL_NAME = sys.argv[1] if len(sys.argv) > 1 else "openai/tta"
 N = 100
@@ -34,6 +41,7 @@ for i, inp in enumerate(TEST_INPUTS[:N]):
     call_start = time.monotonic()
     try:
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(agent.run(inp))
         elapsed = (time.monotonic() - call_start) * 1000
         results.append(True)
@@ -46,7 +54,7 @@ for i, inp in enumerate(TEST_INPUTS[:N]):
         passed = sum(results)
         elapsed_total = time.monotonic() - start_time
         print(
-            f"  Progress: {i+1}/{N}, pass={passed}/{i+1} ({passed/(i+1):.1%}), elapsed={elapsed_total:.0f}s",
+            f"  Progress: {i + 1}/{N}, pass={passed}/{i + 1} ({passed / (i + 1):.1%}), elapsed={elapsed_total:.0f}s",
             flush=True,
         )
 
@@ -66,7 +74,10 @@ stats = {
     "elapsed_s": round(elapsed_total, 1),
 }
 
-print(f"\n  FINAL: {passed}/{total} = {passed/total:.1%}, avg_lat={stats['avg_latency_ms']}ms, elapsed={elapsed_total:.0f}s", flush=True)
+print(
+    f"\n  FINAL: {passed}/{total} = {passed / total:.1%}, avg_lat={stats['avg_latency_ms']}ms, elapsed={elapsed_total:.0f}s",
+    flush=True,
+)
 if errors:
     print(f"  First errors: {errors[:3]}", flush=True)
 

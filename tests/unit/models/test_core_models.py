@@ -60,7 +60,7 @@ class TestTurnState:
 
     def test_all_optional_fields_populated(self):
         intent = ParsedIntent(
-            intent="explore", confidence=0.95, entities={"dir": "north"}
+            intent="explore", confidence=0.95, entities=["north"]
         )
         tokens = TokenCount(prompt_tokens=100, completion_tokens=50, total_tokens=150)
         ts = TurnState(

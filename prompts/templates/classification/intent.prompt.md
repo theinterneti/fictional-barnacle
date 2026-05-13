@@ -6,7 +6,8 @@ description: >
   System instructions for intent classification. Player input is passed
   separately in the USER message by the pipeline stage. Returns structured
   JSON with intent, confidence, entities, emotional_tone, and summary.
-  Validated via Pydantic model_validate with 1 retry on failure.
+  Validated via JSON parse + field normalization with 'other' fallback for
+  unknown intents. One automatic retry on parse/validation failure.
 parameters:
   temperature: 0.1
   max_tokens: 256

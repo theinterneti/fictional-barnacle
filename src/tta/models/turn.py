@@ -34,11 +34,11 @@ class TokenCount(BaseModel):
 
 
 class ParsedIntent(BaseModel):
-    """Result of intent-parsing stage (S08 §4.2).
+    """Result of intent-parsing stage (S08 §4.2, FR-08.01–FR-08.04).
 
     Enriched in Wave 29 (structured output spike) with emotional_tone,
     entities list, and summary. Compatible with JSON-output LLM classification.
-    """
+    Intent values: move, examine, talk, use, meta, other."""
 
     intent: str
     confidence: float

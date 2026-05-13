@@ -93,6 +93,9 @@ def _parse_classification_response(content: str) -> ParsedIntent | None:
     except json.JSONDecodeError:
         return None
 
+    if not isinstance(data, dict):
+        return None
+
     intent = str(data.get("intent", "")).strip().lower()
     if not intent:
         return None

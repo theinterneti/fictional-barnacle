@@ -426,7 +426,7 @@ class TestRealTemplates:
         # v1.1.0: system-only template, no required variables
         result = real_registry.render("classification.intent", {})
         assert "intent" in result.text.lower()
-        assert result.template_version == "1.1.0"
+        assert result.template_version == "2.0.0"
 
     def test_render_extraction_world_changes(
         self, real_registry: FilePromptRegistry

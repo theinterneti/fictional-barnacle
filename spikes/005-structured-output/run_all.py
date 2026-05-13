@@ -61,7 +61,13 @@ def run_module(name: str, model: str, api_key: str) -> dict[str, Any] | None:
                 try:
                     rate_str = line.split("pass_rate:")[1].split("%")[0].strip()
                     # Format: "85.0% (85/100)" or "0.85 (85/100)"
-                    if "/" in rate_str:
+                    # Prefer parenthesized passed/total when present
+                    parens = line.split("(")[-1].split(")")[0] if "(" in line else ""
+                    if "/" in parens:
+                        parts = parens.split("/")
+                        passed = int(parts[0].strip())
+                        total = int(parts[1].strip())
+                    elif "/" in rate_str:
                         parts = rate_str.strip("()").split("/")
                         if len(parts) >= 2:
                             passed = int(parts[0].strip())
@@ -70,7 +76,8 @@ def run_module(name: str, model: str, api_key: str) -> dict[str, Any] | None:
                             continue
                     else:
                         rate = float(rate_str)
-                        passed = int(rate * 100)
+                        # rate_str is a percentage (e.g. "85.0"), not a fraction
+                        passed = round(rate)
                         total = 100
                     results["modes"][current_mode] = {
                         "passed": passed,
@@ -81,7 +88,7 @@ def run_module(name: str, model: str, api_key: str) -> dict[str, Any] | None:
 
         return results
     except subprocess.TimeoutExpired:
-        print(f"  TIMEOUT after 600s")
+        print("  TIMEOUT after 600s")
         return None
 
 
@@ -94,9 +101,7 @@ def print_table(rows: list[dict[str, Any]]) -> None:
     print("\n" + "=" * 80)
     print("HEAD-TO-HEAD: Structured Output Approaches")
     print("=" * 80)
-    print(
-        f"{'Approach':<25} {'Mode':<20} {'Pass Rate':<12} {'Status'}"
-    )
+    print(f"{'Approach':<25} {'Mode':<20} {'Pass Rate':<12} {'Status'}")
     print("-" * 80)
 
     for row in rows:
@@ -120,7 +125,8 @@ def main():
     api_key = os.environ.get("OPENAI_API_KEY", "")
     if not api_key:
         print("ERROR: OPENAI_API_KEY not set. Set it to the FMR tenant token.")
-        print("  export OPENAI_API_KEY=$(op read 'op://Projects/agent-adam-service-account/credential')")
+        print("  # See README for authentication setup.")
+        print("  export OPENAI_API_KEY=<tenant-token>")
         sys.exit(1)
     print(f"005 Structured Output Spike — model={model}")
     print(f"Repo root: {REPO_ROOT}\n")
@@ -151,13 +157,16 @@ def main():
     print("=" * 60)
     try:
         import pydantic_ai  # noqa: F401
+
         result = run_module("005c_pydantic_ai.py", model, api_key)
         if result:
             result["approach"] = "005c_pydantic_ai"
             all_results.append(result)
     except ImportError:
         print("  SKIP: pydantic-ai not installed. Run: uv add pydantic-ai")
-        print("  (STRATEGY defers PydanticAI to v3+; installing only for spike comparison)")
+        print(
+            "  (STRATEGY defers PydanticAI to v3+; installing only for spike comparison)"
+        )
 
     # --- Results ---
     print_table(all_results)
