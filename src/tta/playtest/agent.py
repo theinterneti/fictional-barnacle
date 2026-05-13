@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from tta.llm.client import LLMClient
 
 # Environment-configurable constants (FR-42.01, FR-42.04)
-PLAYTEST_TURN_TIMEOUT: float = float(os.environ.get("PLAYTEST_TURN_TIMEOUT", "60"))
+PLAYTEST_TURN_TIMEOUT: float = float(os.environ.get("PLAYTEST_TURN_TIMEOUT", "180"))
 PLAYTEST_MIN_TURNS: int = int(os.environ.get("PLAYTEST_MIN_TURNS", "5"))
 POLL_INTERVAL: float = 1.0
 MAX_CONSECUTIVE_TIMEOUTS: int = 3
@@ -97,6 +97,20 @@ class PlaytesterAgent:
             headers=headers,
             timeout=PLAYTEST_TURN_TIMEOUT + 10,
         ) as client:
+            # Accept consent before game creation (required since S17 v2).
+            # Without this, POST /api/v1/games returns 403 CONSENT_REQUIRED.
+            await client.patch(
+                "/api/v1/players/me/consent",
+                json={
+                    "consent_version": "1.0",
+                    "consent_categories": {
+                        "core_gameplay": True,
+                        "llm_processing": True,
+                    },
+                    "age_13_plus_confirmed": True,
+                },
+            )
+
             resp = await client.post(
                 "/api/v1/games",
                 json={
@@ -105,13 +119,36 @@ class PlaytesterAgent:
                     "scenario_seed_id": self._scenario_seed_id or None,
                 },
             )
-            resp.raise_for_status()
-            game_data = resp.json()["data"]
-            self._game_id = game_data["game_id"]
-            self._genesis_phases_completed = game_data.get(
-                "genesis_phases_completed", 7
-            )
-            current_narrative = game_data.get("narrative_intro", "")
+            # ANON_GAME_LIMIT means a game already exists (likely from a timed-out
+            # previous attempt). Reuse it instead of creating a new one.
+            if resp.status_code == 403:
+                error_data = resp.json().get("error", {})
+                if error_data.get("code") == "ANON_GAME_LIMIT":
+                    list_resp = await client.get("/api/v1/games")
+                    list_resp.raise_for_status()
+                    games = list_resp.json().get("data", [])
+                    if not games:
+                        raise RuntimeError(
+                            "ANON_GAME_LIMIT but no existing games found"
+                        )
+                    # Use the most recently created game
+                    existing = games[0]
+                    self._game_id = existing["game_id"]
+                    self._genesis_phases_completed = existing.get(
+                        "genesis_phases_completed", 7
+                    )
+                    current_narrative = existing.get("narrative_intro", "")
+                    # Skip the game creation block below
+                else:
+                    resp.raise_for_status()
+            else:
+                resp.raise_for_status()
+                game_data = resp.json()["data"]
+                self._game_id = game_data["game_id"]
+                self._genesis_phases_completed = game_data.get(
+                    "genesis_phases_completed", 7
+                )
+                current_narrative = game_data.get("narrative_intro", "")
 
             consecutive_timeouts = 0
             turn_index = 0
