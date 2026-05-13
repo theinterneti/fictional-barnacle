@@ -1,5 +1,7 @@
 """Smoke test: run a single eval pipeline session against live TTA + FMR."""
-import asyncio, json, sys
+import asyncio
+import json
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -71,8 +73,12 @@ async def main():
     print("(Genesis + 5+ turns through FMR free models — may take 3-8 minutes)\n")
     result, exit_code = await pipeline.run()
 
-    print(f"\n=== Results ===")
-    print(f"Total: {result.total_runs} | Complete: {result.complete_runs} | Errors: {result.error_runs}")
+    print("\n=== Results ===")
+    print(
+        f"Total: {result.total_runs} | "
+        f"Complete: {result.complete_runs} | "
+        f"Errors: {result.error_runs}"
+    )
     print(f"Verdict: {result.batch_verdict}")
     print(f"Medians: {json.dumps(result.batch_category_medians, indent=2)}")
 
@@ -82,13 +88,17 @@ async def main():
         for c in r.categories:
             print(f"  {c.category_id} ({c.status}): {c.score}")
 
-    Path("data/eval_smoke_output").mkdir(parents=True, exist_ok=True)
-    (Path("data/eval_smoke_output") / "smoke_result.json").write_text(json.dumps({
+    report_path = Path("data/eval_smoke_output") / "smoke_result.json"
+    composite = (
+        result.quality_reports[0].composite_score
+        if result.quality_reports else None
+    )
+    report_path.write_text(json.dumps({
         "verdict": result.batch_verdict,
         "complete": result.complete_runs,
         "errors": result.error_runs,
         "medians": result.batch_category_medians,
-        "composite": result.quality_reports[0].composite_score if result.quality_reports else None,
+        "composite": composite,
     }, indent=2))
 
     await llm.aclose()
