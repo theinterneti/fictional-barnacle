@@ -22,7 +22,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import structlog
 from pydantic import BaseModel
@@ -37,10 +37,10 @@ log = structlog.get_logger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
-_instructor_client: object | None = None
+_instructor_client: Any = None
 
 
-def _get_instructor_client() -> object:
+def _get_instructor_client() -> Any:
     """Lazily initialize the Instructor client to avoid import-time
     litellm import (which hangs when CWD is the project root)."""
     global _instructor_client
