@@ -121,6 +121,7 @@ class PlaytesterAgent:
             )
             # ANON_GAME_LIMIT means a game already exists (likely from a timed-out
             # previous attempt). Reuse it instead of creating a new one.
+            current_narrative = ""  # assigned in all branches; placates pyright
             if resp.status_code == 403:
                 error_data = resp.json().get("error", {})
                 if error_data.get("code") == "ANON_GAME_LIMIT":
