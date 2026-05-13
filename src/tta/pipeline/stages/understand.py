@@ -231,9 +231,7 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                     emotional_tone=parsed.emotional_tone,
                     input=player_input[:80],
                 )
-                intent_state = state.model_copy(
-                    update={"parsed_intent": parsed}
-                )
+                intent_state = state.model_copy(update={"parsed_intent": parsed})
             else:
                 # First parse failed — retry once (Wave 29 structured output)
                 log.debug("intent_parse_retry", input=player_input[:80])
@@ -254,9 +252,7 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                         intent=parsed.intent,
                         confidence=parsed.confidence,
                     )
-                    intent_state = state.model_copy(
-                        update={"parsed_intent": parsed}
-                    )
+                    intent_state = state.model_copy(update={"parsed_intent": parsed})
                 else:
                     log.warning(
                         "llm_classification_parse_failed",

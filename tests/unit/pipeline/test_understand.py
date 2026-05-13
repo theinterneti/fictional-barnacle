@@ -114,9 +114,7 @@ async def test_meta_takes_priority_over_move_for_quit() -> None:
 
 async def test_llm_fallback_for_ambiguous_input() -> None:
     """Input with no regex match falls back to LLM classification."""
-    mock_llm = MockLLMClient(
-        response='{"intent": "examine", "confidence": 0.9}'
-    )
+    mock_llm = MockLLMClient(response='{"intent": "examine", "confidence": 0.9}')
     state = _make_state(player_input="what is this place")
     deps = _make_deps(llm=mock_llm)
     result = await understand_stage(state, deps)
@@ -302,7 +300,9 @@ async def test_llm_fallback_passes_prompt_provenance_to_guarded_call() -> None:
     )
     registry = _StubRegistry(templates={"classification.intent": rendered.text})
     state = _make_state(player_input="mysterious input")
-    deps = _make_deps(llm=MockLLMClient(response='{"intent": "examine", "confidence": 0.9}'))
+    deps = _make_deps(
+        llm=MockLLMClient(response='{"intent": "examine", "confidence": 0.9}')
+    )
     deps.prompt_registry = registry  # type: ignore[assignment]
     llm_response = SimpleNamespace(content='{"intent": "examine", "confidence": 0.9}')
 
