@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from tta.config import CURRENT_CONSENT_VERSION
 from tta.llm.client import GenerationParams, Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.playtest.profile import TasteProfile, get_taste_profile
@@ -99,10 +100,10 @@ class PlaytesterAgent:
         ) as client:
             # Accept consent before game creation (required since S17 v2).
             # Without this, POST /api/v1/games returns 403 CONSENT_REQUIRED.
-            await client.patch(
+            consent_resp = await client.patch(
                 "/api/v1/players/me/consent",
                 json={
-                    "consent_version": "1.0",
+                    "consent_version": CURRENT_CONSENT_VERSION,
                     "consent_categories": {
                         "core_gameplay": True,
                         "llm_processing": True,
@@ -110,6 +111,7 @@ class PlaytesterAgent:
                     "age_13_plus_confirmed": True,
                 },
             )
+            consent_resp.raise_for_status()
 
             resp = await client.post(
                 "/api/v1/games",
@@ -132,13 +134,18 @@ class PlaytesterAgent:
                         raise RuntimeError(
                             "ANON_GAME_LIMIT but no existing games found"
                         )
-                    # Use the most recently created game
+                    # Use the most recently created game, then resume
+                    # to get the genesis narrative_intro (GameSummary
+                    # does not include it; only POST /{id}/resume does).
                     existing = games[0]
                     self._game_id = existing["game_id"]
-                    self._genesis_phases_completed = existing.get(
-                        "genesis_phases_completed", 7
+                    resume_resp = await client.post(
+                        f"/api/v1/games/{self._game_id}/resume"
                     )
-                    current_narrative = existing.get("narrative_intro", "")
+                    resume_resp.raise_for_status()
+                    resume_data = resume_resp.json()["data"]
+                    current_narrative = resume_data.get("recap", "")
+                    self._genesis_phases_completed = 7  # genesis is done
                     # Skip the game creation block below
                 else:
                     resp.raise_for_status()
