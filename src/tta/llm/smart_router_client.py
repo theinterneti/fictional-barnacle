@@ -14,6 +14,8 @@ FREE_MODEL_ROUTER_BIN
 FREE_MODEL_ROUTER_STARTUP_TIMEOUT
     Seconds to wait for the server to become healthy after a managed
     start (default: 15).
+FREE_MODEL_ROUTER_API_KEY
+    API key for the free-model-router (default: \"free-model-router\").
 """
 
 import asyncio
@@ -40,6 +42,7 @@ _ROUTER_BIN = Path(
     )
 )
 _STARTUP_TIMEOUT = float(os.getenv("FREE_MODEL_ROUTER_STARTUP_TIMEOUT", "15"))
+_ROUTER_API_KEY = os.getenv("FREE_MODEL_ROUTER_API_KEY", "free-model-router")
 
 _ROLE_TO_TASK: dict[ModelRole, str] = {
     ModelRole.GENERATION: "creative",
@@ -188,7 +191,11 @@ class SmartRouterLLMClient:
         if self._client is not None:
             return
 
-        self._client = httpx.AsyncClient(base_url=_ROUTER_BASE_URL, timeout=90.0)
+        self._client = httpx.AsyncClient(
+            base_url=_ROUTER_BASE_URL,
+            timeout=90.0,
+            headers={"Authorization": f"Bearer {_ROUTER_API_KEY}"},
+        )
 
         if await self._is_healthy():
             log.info("free_model_router.connected", url=_ROUTER_BASE_URL)
