@@ -149,8 +149,21 @@ def _make_http_mock(
         resp.json.return_value = {"data": list(submitted_turns)}
         return resp
 
+    async def _mock_patch(url: str, *, json: Any = None, **kwargs: Any) -> MagicMock:
+        resp = MagicMock()
+        resp.raise_for_status = MagicMock()
+        resp.json.return_value = {
+            "data": {
+                "consent_version": "1.0",
+                "consent_accepted_at": "2026-01-01T00:00:00Z",
+                "consent_categories": {"core_gameplay": True, "llm_processing": True},
+            }
+        }
+        return resp
+
     mock_client.post = AsyncMock(side_effect=_mock_post)
     mock_client.get = AsyncMock(side_effect=_mock_get)
+    mock_client.patch = AsyncMock(side_effect=_mock_patch)
     return mock_client
 
 
