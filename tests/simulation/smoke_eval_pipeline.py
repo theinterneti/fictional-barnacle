@@ -1,4 +1,5 @@
 """Smoke test: run a single eval pipeline session against live TTA + FMR."""
+
 import asyncio
 import json
 import sys
@@ -90,16 +91,20 @@ async def main():
 
     report_path = Path("data/eval_smoke_output") / "smoke_result.json"
     composite = (
-        result.quality_reports[0].composite_score
-        if result.quality_reports else None
+        result.quality_reports[0].composite_score if result.quality_reports else None
     )
-    report_path.write_text(json.dumps({
-        "verdict": result.batch_verdict,
-        "complete": result.complete_runs,
-        "errors": result.error_runs,
-        "medians": result.batch_category_medians,
-        "composite": composite,
-    }, indent=2))
+    report_path.write_text(
+        json.dumps(
+            {
+                "verdict": result.batch_verdict,
+                "complete": result.complete_runs,
+                "errors": result.error_runs,
+                "medians": result.batch_category_medians,
+                "composite": composite,
+            },
+            indent=2,
+        )
+    )
 
     await llm.aclose()
     return exit_code
