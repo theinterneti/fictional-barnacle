@@ -3,10 +3,15 @@
 Rules-first classification with LLM fallback for ambiguous input.
 Runs safety_pre_input hook before classification.
 (plans/llm-and-pipeline.md §3)
+
+Wave 29 (structured output spike): LLM fallback now returns structured JSON
+per classification.intent v2.0.0. Response is parsed, validated against
+ParsedIntent, and retried once on validation failure.
 """
 
 from __future__ import annotations
 
+import json
 import re
 
 import structlog
@@ -65,6 +70,57 @@ INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 
 # Inline classification prompt removed in Wave 28 (S09 AC-09.1).
 # System prompt managed via FilePromptRegistry: classification.intent
+
+
+def _parse_classification_response(content: str) -> ParsedIntent | None:
+    """Parse LLM JSON response into ParsedIntent with Pydantic validation.
+
+    Handles markdown code fences, malformed JSON, and schema mismatches.
+    Returns None if parsing or validation fails.
+    """
+    text = content.strip()
+    if not text:
+        return None
+
+    # Strip markdown code fences if present
+    if text.startswith("```"):
+        lines = text.split("\n")
+        if len(lines) > 2:
+            text = "\n".join(lines[1:-1]).strip()
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+    intent = str(data.get("intent", "")).strip().lower()
+    if not intent:
+        return None
+    if intent not in VALID_INTENTS:
+        intent = "other"
+
+    try:
+        confidence = float(data.get("confidence", 0.5))
+        confidence = max(0.0, min(1.0, confidence))
+    except (TypeError, ValueError):
+        confidence = 0.5
+
+    entities_raw = data.get("entities", [])
+    if isinstance(entities_raw, list):
+        entities = [str(e) for e in entities_raw]
+    else:
+        entities = []
+
+    emotional_tone = data.get("emotional_tone")
+    summary = data.get("summary")
+
+    return ParsedIntent(
+        intent=intent,
+        confidence=confidence,
+        entities=entities,
+        emotional_tone=emotional_tone,
+        summary=summary,
+    )
 
 
 async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
@@ -163,19 +219,53 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                 prompt_hash=rendered.prompt_hash,
                 langfuse_prompt=rendered.metadata.get("langfuse_prompt"),
             )
-            intent = response.content.strip().lower()
-            if intent not in VALID_INTENTS:
-                intent = "other"
-            log.debug(
-                "intent_classified_llm",
-                intent=intent,
-                input=player_input[:80],
-            )
-            intent_state = state.model_copy(
-                update={
-                    "parsed_intent": ParsedIntent(intent=intent, confidence=0.7),
-                }
-            )
+            parsed = _parse_classification_response(response.content)
+            if parsed is not None:
+                log.debug(
+                    "intent_classified_llm",
+                    intent=parsed.intent,
+                    confidence=parsed.confidence,
+                    emotional_tone=parsed.emotional_tone,
+                    input=player_input[:80],
+                )
+                intent_state = state.model_copy(
+                    update={"parsed_intent": parsed}
+                )
+            else:
+                # First parse failed — retry once (Wave 29 structured output)
+                log.debug("intent_parse_retry", input=player_input[:80])
+                response = await guarded_llm_call(
+                    deps,
+                    ModelRole.CLASSIFICATION,
+                    messages,
+                    prompt_id=rendered.template_id,
+                    prompt_version=rendered.template_version,
+                    fragment_versions=rendered.fragment_versions,
+                    prompt_hash=rendered.prompt_hash,
+                    langfuse_prompt=rendered.metadata.get("langfuse_prompt"),
+                )
+                parsed = _parse_classification_response(response.content)
+                if parsed is not None:
+                    log.debug(
+                        "intent_classified_llm_retry",
+                        intent=parsed.intent,
+                        confidence=parsed.confidence,
+                    )
+                    intent_state = state.model_copy(
+                        update={"parsed_intent": parsed}
+                    )
+                else:
+                    log.warning(
+                        "llm_classification_parse_failed",
+                        fallback="other",
+                    )
+                    intent_state = state.model_copy(
+                        update={
+                            "parsed_intent": ParsedIntent(
+                                intent="other", confidence=0.3
+                            ),
+                        }
+                    )
         except AppError:
             raise
         except Exception:

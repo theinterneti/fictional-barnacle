@@ -15,6 +15,7 @@ validated by written specifications.
 specs/          29 functional specifications (source of truth)
   future/       5 boundary stubs for post-v1 features (S18-S22)
 plans/          System plan + 6 component technical plans
+docs/vision/    Unified vision, roadmap, thread reference, strategy
 src/            Application source code
 tests/          Unit, integration, and BDD tests
 static/         Web playtest client
@@ -82,6 +83,7 @@ make validate-all   # spec + plan validators
 
 | Working on… | Read first |
 |---|---|
+| Vision, roadmap, big-picture direction | `docs/vision/TTA-UNIFIED-VISION.md` |
 | Architecture, tech stack | `plans/system.md` |
 | Game loop, narrative, world | `specs/01-06` + `plans/world-and-genesis.md` |
 | LLM integration, pipeline | `specs/07-08` + `plans/llm-and-pipeline.md` |
@@ -92,6 +94,8 @@ make validate-all   # spec + plan validators
 | Admin, save/load, performance | `specs/26-28` + `plans/ops.md` / `api-and-sessions.md` |
 | Privacy | `specs/17` |
 | Project scope, values | `specs/00-project-charter.md` |
+| Thread details, cross-cutting concerns | `docs/vision/TTA-THREADS.md` |
+| Feasibility explorations, go-to-market, edge cases | `docs/vision/TTA-STRATEGY.md` |
 
 ## Spec & Plan Inventory
 
