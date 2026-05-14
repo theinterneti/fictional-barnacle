@@ -74,6 +74,7 @@ async def run_one_genesis(llm: LiteLLMClient, pg_factory, run_id: int) -> dict:
             # game_sessions.genesis_state via UPDATE; the row must exist.
             # Also need a players row for the FK constraint.
             from sqlalchemy import text as sa_text
+
             player_id = uuid4()
             await pg.execute(
                 sa_text(
@@ -141,6 +142,7 @@ async def main(count: int = 5, verbose: bool = False):
     # Mirror the app's env setup: litellm reads OPENAI_API_KEY,
     # but our .env only defines TTA_OPENAI_API_KEY.
     import os as _os
+
     _tta_key = _os.environ.get("TTA_OPENAI_API_KEY", "")
     if _tta_key:
         _os.environ.setdefault("OPENAI_API_KEY", _tta_key)
@@ -163,7 +165,7 @@ async def main(count: int = 5, verbose: bool = False):
 
     results = []
     for i in range(count):
-        print(f"  [{i+1}/{count}] Generating world...", end=" ", flush=True)
+        print(f"  [{i + 1}/{count}] Generating world...", end=" ", flush=True)
         result = await run_one_genesis(llm, pg_factory, i + 1)
         results.append(result)
 
@@ -200,10 +202,12 @@ async def main(count: int = 5, verbose: bool = False):
     avg_response_len = sum(all_lengths) / len(all_lengths) if all_lengths else 0
 
     print("\n=== Results ===")
-    print(f"Completion rate:    {completed}/{count} ({completed/count*100:.0f}%)")
+    print(f"Completion rate:    {completed}/{count} ({completed / count * 100:.0f}%)")
     print(f"Characters named:   {named}/{count}")
-    print(f"Locations set:      {located}/{count}"
-          "  (note: genesis_v2 does not set starting_location)")
+    print(
+        f"Locations set:      {located}/{count}"
+        "  (note: genesis_v2 does not set starting_location)"
+    )
     print(f"Avg traits:         {avg_traits:.1f}")
     print(f"Avg response len:   {avg_response_len:.0f} chars")
     print(f"Errors:             {sum(len(r['errors']) for r in results)}")
