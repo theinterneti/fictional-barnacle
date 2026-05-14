@@ -34,7 +34,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 | 3 | Neo4j CE | **KEEP** | Benchmark at v2.1 stress test; defer upgrade to v3 | Hermes |
 | 4 | SSE transport | **KEEP** | Revisit at v3 invite multiplayer | — |
 | 5 | Manual JSON parsing for LLM output | **AUGMENT** | Spike complete: prompt + Pydantic validation wins; no new deps | Hermes |
-| 6 | In-process async for background work | **AUGMENT** | Move NPC autonomy + playtesters to arq workers | Hermes |
+| 6 | In-process async for background work | **AUGMENT** | Spike complete: arq ready; move NPC autonomy + playtesters to workers | Hermes |
 | 7 | Jinja2 prompt templating | **AUGMENT** | Jinja2 for composition; Langfuse for versioning (already wired) | — |
 | 8 | Static HTML/JS player UI | **AUGMENT** | Adopt htmx over existing HTML; defer SPA to v3 | Hermes |
 | 9 | Tenacity-only resilience | **AUGMENT** | Adopt ttadev RetryPrimitive + TimeoutPrimitive | Hermes |
@@ -128,10 +128,15 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   after every turn and competes with the next player turn for LLM capacity.
 - **What v2.1 demands**: Playtester sessions are long-running (5-10 min),
   expensive (14+ LLM calls), and parallel. They will starve player turns.
-- **Verdict**: **AUGMENT**. Adopt arq for playtesters, NPC autonomy, consequence
-  propagation. Player turn path stays in-process.
-- **Action**: Task routing table (see Decision #1 action). Spike: 3 concurrent
-  playtesters with zero player-turn latency regression.
+- **Verdict**: **AUGMENT** (spike complete). arq infrastructure ready — 4 existing
+  jobs, dead-letter handling, metrics. Playtester sessions and NPC autonomy
+  ready to move. See `spikes/006-arq-worker-migration.md`.
+  **Critical finding**: NPC autonomy runs INLINE during turn pipeline
+  (`context.py:87`) — every player turn waits for NPC LLM calls.
+  Should fire-and-forget after turn completes.
+- **Action**: Implement in two phases: (1) move NPC autonomy + consequence
+  propagation to arq workers (immediate latency win), (2) move playtester
+  sessions to arq workers (v2.1 concurrency). Zero new infrastructure needed.
 
 ## 7. Jinja2 Prompt Templating
 
@@ -242,7 +247,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 - [ ] Every REPLACE / AUGMENT verdict has a spike branch + success metric, or ADR.
   - [x] #13 (ttadev): **spike complete** — verified on v0.1.0-alpha release
   - [x] #5 (structured output): **spike complete** — prompt + Pydantic wins
-  - [ ] #6 (arq worker): spike pending
+  - [x] #6 (arq worker): **spike complete** — infrastructure ready, call sites mapped
   - [ ] #8 (htmx UI): spike pending
   - [ ] #12 (rate-limit): component spec pending
 - [ ] Decisions reflected in `plans/v2_1-evaluation-and-playtesting.md`.
