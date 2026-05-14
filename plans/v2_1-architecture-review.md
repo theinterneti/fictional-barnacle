@@ -204,9 +204,9 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   providers.
 - **Verdict**: **BUILD**. In-process component: asyncio semaphores keyed by
   task type, provider-aware via LiteLLM hooks.
-- **Action**: Write `specs/48-rate-limit-budget.md` before any new LLM call
-  sites. Implement as `src/tta/llm/rate_limiter.py`. Success: under 3×
-  concurrent playtester load, player turn latency stays within budget.
+- **Action**: ✅ Spec written: `specs/50-rate-limit-budget.md`. Implement as
+  `src/tta/llm/rate_limiter.py`. Success: under 3× concurrent playtester load,
+  player turn latency stays within budget.
 
 ## 13. No `ttadev` Dependency (NEW for v2.1)
 
