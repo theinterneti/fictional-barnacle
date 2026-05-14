@@ -74,6 +74,33 @@ async def run_one_genesis(llm: LiteLLMClient, pg_factory, run_id: int) -> dict:
 
     async with pg_factory() as pg:
         try:
+            # Create a game_sessions row — genesis_v2 persists state to
+            # game_sessions.genesis_state via UPDATE; the row must exist.
+            # Also need a players row for the FK constraint.
+            from sqlalchemy import text as sa_text
+            player_id = uuid4()
+            await pg.execute(
+                sa_text(
+                    "INSERT INTO players (id, handle, created_at) "
+                    "VALUES (:pid, :handle, NOW()) "
+                    "ON CONFLICT (id) DO NOTHING"
+                ),
+                {"pid": player_id, "handle": f"smoke_test_{run_id}"},
+            )
+            await pg.execute(
+                sa_text(
+                    "INSERT INTO game_sessions (id, player_id, world_seed, status) "
+                    "VALUES (:sid, :pid, :seed, 'creating') "
+                    "ON CONFLICT (id) DO NOTHING"
+                ),
+                {
+                    "sid": session_id,
+                    "pid": player_id,
+                    "seed": '{"genesis": {"seed_phrase": "smoke test"}}',
+                },
+            )
+            await pg.commit()
+
             orch = GenesisOrchestrator(llm)
             response, state = await orch.start(session_id, universe_id, pg)
             result["narrator_responses"].append(response)
@@ -131,9 +158,9 @@ async def main(count: int = 5, verbose: bool = False):
     engine = create_async_engine(database_url, echo=False)
     pg_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    print(f"=== Genesis v2 Smoke Test ===\n")
-    print(f"Runs: {count}")
-    print(f"Started: {datetime.now(timezone.utc).isoformat()}\n")
+    print(f"=== Genesis v2 Smoke Test ===\n", flush=True)
+    print(f"Runs: {count}", flush=True)
+    print(f"Started: {datetime.now(timezone.utc).isoformat()}\n", flush=True)
 
     results = []
     for i in range(count):
