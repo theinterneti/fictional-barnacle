@@ -251,7 +251,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   - [x] #6 (arq worker): **spike complete** — infrastructure ready, call sites mapped
   - [x] #8 (htmx UI): **spike complete** — htmx via script tags, zero deps
   - [x] #12 (rate-limit): **spec written** — `specs/50-rate-limit-budget.md`
-- [ ] Decisions reflected in `plans/v2_1-evaluation-and-playtesting.md`.
+- [x] Decisions reflected in `plans/v2_1-evaluation-and-playtesting.md`.
 - [x] Anti-decisions documented and signed off.
 - [x] No v2.1 spec work begins on a call site whose architectural choice is TBD.
 

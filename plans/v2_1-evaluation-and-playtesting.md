@@ -31,6 +31,30 @@ These decisions are **locked** for v2.1. Component code must comply.
 
 ---
 
+## 0-bis. Architecture Review Decisions (v2.1 Gate)
+
+These decisions from `plans/v2_1-architecture-review.md` (completed 2026-05-14)
+are **locked** and affect v2.1 evaluation/playtesting implementation:
+
+| AR # | Decision | Impact on this plan |
+|------|----------|---------------------|
+| #5 | Structured output: prompt + Pydantic validation | Quality evaluators (`quality/evaluator.py`) use strong prompt template with JSON example, Pydantic `model_validate()`, 1 retry. No instructor/pydantic-ai. |
+| #6 | arq workers for background tasks | Playtester sessions run in arq workers, not the API process. `EvaluationPipeline` enqueues `run_playtester_session` jobs. NPC autonomy fire-and-forget after turns. |
+| #8 | htmx UI | Playtester feedback intake uses htmx-enhanced `static/index.html` with SSE streaming + choice buttons. No SPA framework. |
+| #12 | Rate-limit budget | Playtester sessions use HIGH tier (cap: 3 concurrent). Quality evaluation LLM calls use HIGH tier. Player turns use CRITICAL tier (never throttled). Spec: `specs/50-rate-limit-budget.md`. |
+| #13 | ttadev dependency | `ttadev>=0.1.0-alpha` from GitHub release. RetryPrimitive wraps LLM calls in playtester sessions. CachePrimitive caches scenario seeds and Genesis phase outputs. |
+
+### Task routing (Decision #6)
+
+| Task | Process | Priority tier |
+|------|---------|---------------|
+| Player turn pipeline | API process (in-process) | CRITICAL |
+| Playtester sessions | arq worker | HIGH (cap: 3) |
+| Quality evaluation (per-session) | arq worker | HIGH |
+| NPC autonomy | arq worker (fire-and-forget) | LOW (cap: 2) |
+| Consequence propagation | arq worker (after NPC autonomy) | LOW |
+| Scenario seed loading | In-process (on-demand) | N/A (cached) |
+
 ## 1. Module Layout
 
 ```
