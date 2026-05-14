@@ -34,6 +34,7 @@ dependencies = [
     "pyjwt>=2.9",
     "bcrypt>=4.2",
     "arq>=0.25",
+    "httpx-sse>=0.4.3",
     "ttadev",
 ]
 
@@ -126,4 +127,4 @@ exclude_lines = [
 ]
 
 [tool.uv.sources]
-ttadev = { git = "https://github.com/theinterneti/TTA.dev.git", rev = "v0.1.1-alpha" }
+ttadev = { git = "https://github.com/theinterneti/TTA.dev.git", rev = "v0.1.2-alpha" }
