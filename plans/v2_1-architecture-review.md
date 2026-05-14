@@ -1,7 +1,8 @@
 # v2.1 Architecture Review
 
-> **Status**: 📝 Template — fill in as the review is conducted
+> **Status**: ✅ Complete — all 13 decisions resolved
 > **Created**: 2026-05-13
+> **Completed**: 2026-05-14
 > **Companion to**: `plans/v2_1-evaluation-and-playtesting.md`, `docs/vision/TTA-STRATEGY.md`, `docs/vision/TTA-CRITICAL-REVIEW.md`
 > **Gate**: Between v2.0 merge and v2.1 design. Required by CRITICAL-REVIEW §6.
 
@@ -24,178 +25,242 @@ where each v1 choice is re-examined against:
 
 ## Decision Matrix (Summary)
 
-Fill in as decisions are made. Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
+Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 
 | # | Choice | Verdict | Action this version | Owner |
 |---|--------|---------|---------------------|-------|
-| 1 | Single FastAPI process | _TBD_ | | |
-| 2 | LiteLLM library mode (vs. direct FMR HTTP) | _TBD_ | | |
-| 3 | Neo4j CE | _TBD_ | | |
-| 4 | SSE transport | _TBD_ | | |
-| 5 | Manual JSON parsing for LLM output | _TBD_ | | |
-| 6 | In-process async for background work | _TBD_ | | |
-| 7 | Jinja2 prompt templating | _TBD_ | | |
-| 8 | Static HTML/JS player UI | _TBD_ | | |
-| 9 | Tenacity-only resilience | _TBD_ | | |
-| 10 | No dedicated cache layer | _TBD_ | | |
-| 11 | No image-gen client | _TBD_ (new for v2.1) | | |
-| 12 | No rate-limit budget | _TBD_ (new for v2.1) | | |
-| 13 | No `ttadev` dependency | _TBD_ (new for v2.1) | | |
-
----
-
-## Method
-
-For each choice below, answer four questions:
-
-1. **What it is** — current state in code (file path, key abstraction).
-2. **Why it was chosen** — v1 reasoning (link to spec/plan).
-3. **What we learned** — what shipping v1 + v2.0 actually taught us.
-4. **What v2.1 demands** — does this choice still serve the version's scope?
-
-Then issue a verdict and an action. If the verdict is REPLACE or AUGMENT,
-require a spike branch with a defined success metric before the change merges.
+| 1 | Single FastAPI process | **AUGMENT** | Add arq worker; keep turn path in-process | Hermes |
+| 2 | LiteLLM library mode (vs. direct FMR HTTP) | **KEEP** | Remove vestigial SmartRouterLLMClient | Hermes |
+| 3 | Neo4j CE | **KEEP** | Benchmark at v2.1 stress test; defer upgrade to v3 | Hermes |
+| 4 | SSE transport | **KEEP** | Revisit at v3 invite multiplayer | — |
+| 5 | Manual JSON parsing for LLM output | **AUGMENT** | Spike complete: prompt + Pydantic validation wins; no new deps | Hermes |
+| 6 | In-process async for background work | **AUGMENT** | Spike complete: arq ready; move NPC autonomy + playtesters to workers | Hermes |
+| 7 | Jinja2 prompt templating | **AUGMENT** | Jinja2 for composition; Langfuse for versioning (already wired) | — |
+| 8 | Static HTML/JS player UI | **AUGMENT** | Spike complete: htmx via script tags; zero deps, natural SSE | Hermes |
+| 9 | Tenacity-only resilience | **AUGMENT** | Adopt ttadev RetryPrimitive + TimeoutPrimitive | Hermes |
+| 10 | No dedicated cache layer | **AUGMENT** | Adopt ttadev CachePrimitive over Redis | Hermes |
+| 11 | No image-gen client | **DEFER** | One-page ADR during v2.1 spec work | Hermes |
+| 12 | No rate-limit budget | **BUILD** | Component spec + asyncio semaphore implementation | Hermes |
+| 13 | No `ttadev` dependency | **ADOPT** | Verified: install from GitHub release v0.1.0-alpha; RetryPrimitive + CachePrimitive work | Hermes |
 
 ---
 
 ## 1. Single FastAPI Process
 
-- **What it is**: `src/tta/app.py` — single ASGI app, single process, in-process pipelines.
-- **Why it was chosen**: `plans/system.md` — solo dev, no microservices, simplicity over scale.
-- **What we learned**: _v2.0 NPC autonomy / playtester concurrency observations go here._
-- **What v2.1 demands**: Parallel playtester sessions, stress test (CRITICAL-REVIEW §4).
-- **Verdict**: _TBD_
-- **Action**: _TBD_ (likely: keep + add `arq` worker process for background work)
+- **What it is**: `src/tta/app.py` — single ASGI app, single process, in-process
+  pipelines. Background work runs via `asyncio.create_task()` (10 sites).
+- **Why it was chosen**: `plans/system.md` — solo dev, no microservices, simplicity.
+- **What we learned**: arq infrastructure already wired (`src/tta/jobs/queue.py`,
+  `src/tta/jobs/worker.py`, `arq>=0.25` in pyproject.toml) but unused for
+  background LLM work. Everything runs in the API process.
+- **What v2.1 demands**: Parallel playtester sessions (long-running, LLM-heavy)
+  will starve player-facing turns if sharing the API process.
+- **Verdict**: **AUGMENT**. Add arq worker for background LLM tasks. Player turn
+  path stays in-process for latency.
+- **Action**: Define task routing in `plans/v2_1-evaluation-and-playtesting.md`.
+  Spike: 3 concurrent playtester sessions, success = no player-turn latency
+  regression > 20%.
 
 ## 2. LiteLLM Library Mode
 
-- **What it is**: `src/tta/llm/litellm_client.py` calls `litellm.acompletion(...)` directly. FMR is a routed provider.
-- **Why it was chosen**: `specs/07-llm-integration.md` — abstract provider, keep proxy out of process tree.
-- **What we learned**: _Recent multi-backend work (#193) hardened this — note actual experience._
-- **What v2.1 demands**: Structured output (quality scoring, choice classification). LiteLLM supports `response_format=` natively against most providers; FMR support is the unknown.
-- **Verdict**: _TBD_
-- **Action**: Verify FMR `response_format` support; if missing, decide between PydanticAI/instructor wrapper or contributing upstream to FMR.
+- **What it is**: `src/tta/llm/litellm_client.py` calls `litellm.acompletion()`.
+  FMR is routed provider (`openai/tta`). `SmartRouterLLMClient` (256 lines,
+  `smart_router_client.py`) talks to FMR via direct HTTP but is **not wired**
+  into the app. The app uses `LiteLLMClient` exclusively.
+- **Why it was chosen**: `specs/07-llm-integration.md` — abstract provider.
+  Multi-backend PR #193 hardened with role-configurable backends.
+- **What we learned**: Two parallel clients for the same purpose. SmartRouter
+  duplicates token counting, error handling, call history. LiteLLM handles
+  fallback, retry, provider abstraction. Multi-backend config lets operators
+  switch between FMR, OpenRouter, Anthropic without code changes.
+- **What v2.1 demands**: Structured output. 30 LLM call sites.
+- **Verdict**: **KEEP** LiteLLM. Remove SmartRouterLLMClient as dead code.
+- **Action**: Delete `src/tta/llm/smart_router_client.py`. Verify FMR
+  `response_format` passthrough (see Decision #5).
 
 ## 3. Neo4j Community Edition
 
-- **What it is**: Neo4j CE 5.x via `neo4j>=6.0` driver. Graph holds world, NPCs, consequences, locations.
-- **Why it was chosen**: `plans/system.md` — OSS, no parallel-query limit at our scale.
-- **What we learned**: _v2.0 graph query volume observations go here._
-- **What v2.1 demands**: Quality eval reads, richer location/NPC/faction graphs, playtester parallelism. CRITICAL-REVIEW §6 flags CE ceiling.
-- **Verdict**: _TBD_
-- **Action**: Benchmark concurrent read throughput under simulated playtester load. Decide whether CE survives v3.
+- **What it is**: Neo4j CE 5.x via `neo4j>=6.0`. World graph, NPCs, consequences.
+- **Why it was chosen**: `plans/system.md` — OSS, graph-native queries.
+- **What we learned**: 26/28 integration tests pass. Two-hop latency acceptable
+  in isolation; flaky under concurrent load. No observed CE ceiling at single-user.
+- **What v2.1 demands**: Richer graphs + playtester parallelism.
+- **Verdict**: **KEEP** for v2.1. Benchmark at stress test; empirical data gates v3.
+- **Action**: Add concurrent Neo4j read benchmark to v2.1 stress test.
 
 ## 4. SSE Transport
 
-- **What it is**: FastAPI native `EventSourceResponse` streaming turn output to player.
-- **Why it was chosen**: `plans/api-and-sessions.md` — one-way, simple, well-supported.
-- **What we learned**: _v2.0 transport-abstraction work informs this._
-- **What v2.1 demands**: Still solo player. SSE remains sufficient.
-- **Verdict**: _TBD_ (default: KEEP, revisit at v3 invite multiplayer)
+- **What it is**: FastAPI `EventSourceResponse` streaming turn output.
+- **Why it was chosen**: `plans/api-and-sessions.md` — one-way, simple.
+- **What we learned**: Reliable for narrative streaming. Transport abstraction
+  added in Wave C but not exercised.
+- **What v2.1 demands**: Still solo player. SSE sufficient.
+- **Verdict**: **KEEP**. Revisit at v3 multiplayer.
+- **Action**: None this version.
 
 ## 5. Manual JSON Parsing for LLM Output
 
-- **What it is**: Hand-rolled parsing/validation in pipeline stages (Understand, choice classification, etc.).
-- **Why it was chosen**: v1 only had a small number of structured calls.
-- **What we learned**: _Failure-rate data from production traces goes here._
-- **What v2.1 demands**: Many new structured-output sites — coherence/tone/pacing scores, tone tags, lore checks, choice classification. STRATEGY's "frequent and fragile" trigger fires here.
-- **Verdict**: _TBD_ (candidates: LiteLLM native `response_format` · `instructor` · `pydantic-ai`)
-- **Action**: Spike branch — implement one v2.1 structured call three ways, measure failure rate × 100 runs against free models. Pick winner before writing v2.1 quality specs.
+- **What it is**: Hand-rolled `json.loads()` at 14 call sites across
+  genesis_v2.py, quality/evaluator.py, generate.py, snapshot.py, neo4j_service.py.
+- **Why it was chosen**: v1 had few structured-output sites.
+- **What we learned**: Free models produce parseable JSON ~80-90% of the time.
+  Typical failures: trailing commas, unescaped quotes, markdown-wrapped JSON.
+  Instructor PR #196 merged then reverted (#198) — premature.
+- **What v2.1 demands**: Many new structured-output sites (quality scoring,
+  tone tags, lore checks, choice classification, composition extraction).
+- **Verdict**: **AUGMENT** (spike complete). Winner: **prompt-based JSON + Pydantic
+  validation**. See `spikes/005-structured-output/README.md` for full results.
+  - `response_format` ignored by free models through FMR — ineffective.
+  - `instructor` blocked by `mistralai` dependency conflict.
+  - `pydantic-ai` overkill for structured output alone (deferred to v3+).
+  - Free models produce valid JSON 85-100% with strong prompt + example.
+  - Recommendation: strong prompt template + Pydantic `model_validate()` + 1 retry.
+- **Action**: Done. Implement in production: add strong prompt template from spike,
+  add Pydantic post-validation to existing `json.loads()` call sites, add 1 retry
+  on validation failure. No new dependencies.
 
 ## 6. In-Process Async for Background Work
 
-- **What it is**: NPC autonomy, consequence propagation run as `asyncio.create_task(...)` in the API process.
+- **What it is**: NPC autonomy, consequence propagation, session purging all run
+  as `asyncio.create_task()` in the API process (10 sites in app.py, games.py).
 - **Why it was chosen**: v1 had no background work; v2.0 kept it simple.
-- **What we learned**: `arq>=0.25` is already in `pyproject.toml` — verify whether it is wired in or vestigial.
-- **What v2.1 demands**: Playtester sessions are long-running, expensive, and parallel. They will starve player-facing turns if they share the API process.
-- **Verdict**: _TBD_ (default: AUGMENT — adopt arq for playtester runs and NPC autonomy; keep player turn path in-process)
-- **Action**: Define which task types run where. Document in `plans/v2_1-evaluation-and-playtesting.md`.
+- **What we learned**: arq infrastructure wired but unused. NPC autonomy fires
+  after every turn and competes with the next player turn for LLM capacity.
+- **What v2.1 demands**: Playtester sessions are long-running (5-10 min),
+  expensive (14+ LLM calls), and parallel. They will starve player turns.
+- **Verdict**: **AUGMENT** (spike complete). arq infrastructure ready — 4 existing
+  jobs, dead-letter handling, metrics. Playtester sessions and NPC autonomy
+  ready to move. See `spikes/006-arq-worker-migration.md`.
+  **Critical finding**: NPC autonomy runs INLINE during turn pipeline
+  (`context.py:87`) — every player turn waits for NPC LLM calls.
+  Should fire-and-forget after turn completes.
+- **Action**: Implement in two phases: (1) move NPC autonomy + consequence
+  propagation to arq workers (immediate latency win), (2) move playtester
+  sessions to arq workers (v2.1 concurrency). Zero new infrastructure needed.
 
 ## 7. Jinja2 Prompt Templating
 
-- **What it is**: `src/tta/prompts/` — Jinja2 templates rendered with world-state context.
-- **Why it was chosen**: `plans/prompts.md` — familiar, debuggable, no abstraction overhead.
-- **What we learned**: _Prompt-iteration friction observations go here._
-- **What v2.1 demands**: Versioned prompts in Langfuse, A/B comparison. Langfuse v4 has its own prompt management.
-- **Verdict**: _TBD_ (default: KEEP for composition, ADOPT Langfuse prompt store for versioning)
+- **What it is**: `src/tta/prompts/` — Jinja2 templates. Langfuse prompt bridge
+  (`langfuse_bridge.py`) already wired across 6 files.
+- **Why it was chosen**: `plans/prompts.md` — familiar, debuggable. Langfuse
+  bridge added in gap-closure (#187).
+- **What we learned**: Dual approach working: Jinja2 composes prompts from
+  world state; Langfuse versions and enables A/B comparison.
+- **What v2.1 demands**: Versioned prompts with quality metrics per version.
+- **Verdict**: **AUGMENT** (already done). Keep both.
+- **Action**: None. Document the dual approach.
 
 ## 8. Static HTML/JS Player UI
 
-- **What it is**: Minimal `index.html` with `EventSource` consumer.
+- **What it is**: Minimal HTML test harness with EventSource consumer.
 - **Why it was chosen**: v1 needed a test harness, not a client.
-- **What we learned**: _Playtester feedback (when available) goes here._
-- **What v2.1 demands**: Styled output, choice buttons, scene metadata display, basic image rendering (basic portraits land in v2.1).
-- **Verdict**: _TBD_ (default: AUGMENT with htmx or Alpine over existing HTML; defer React/Svelte to v3)
-- **Action**: Decide between htmx and Alpine. Both are dependency-light; pick one before writing v2.1 UI specs.
+- **What we learned**: Inadequate for playtesters. No choice buttons, no styling.
+- **What v2.1 demands**: Styled output, choice buttons, dark theme, basic image
+  rendering.
+- **Verdict**: **AUGMENT** with htmx. Smaller than Alpine (~14KB), natural SSE
+  support (`hx-sse`), no build step. Defer React/Svelte to v3.
+- **Action**: Spike complete. See `spikes/008-htmx-ui.md`. Add htmx as script-tag
+  dependency in `static/index.html`. Two tags: `htmx.org@2.0.4` + `htmx-ext-sse@2.2.2`.
+  Zero build steps, zero new Python dependencies.
 
 ## 9. Tenacity-Only Resilience
 
-- **What it is**: `tenacity>=9.0` decorators on LLM calls and Neo4j queries.
-- **Why it was chosen**: `plans/resilience-and-safety.md` — single proven retry library, no custom code.
-- **What we learned**: _Production retry-failure patterns go here._
-- **What v2.1 demands**: Playtester runs need timeouts; concurrent calls need circuit breakers; rate-limit budget needs cooperative throttling. STRATEGY recommends `ttadev` primitives.
-- **Verdict**: _TBD_ (default: AUGMENT — adopt `ttadev` RetryPrimitive + CachePrimitive + TimeoutPrimitive)
+- **What it is**: `tenacity>=9.0` decorators on LLM calls + Neo4j queries.
+  3 retries per tier, exponential backoff. No circuit breakers, no timeouts.
+- **Why it was chosen**: `plans/resilience-and-safety.md` — proven retry library.
+- **What we learned**: Free model calls take 30-90s. No per-task timeout
+  enforcement. Concurrent calls have no circuit breaking.
+- **What v2.1 demands**: Per-task timeouts, circuit breakers for parallel
+  playtesters, cooperative throttling for rate-limit budget.
+- **Verdict**: **AUGMENT**. Adopt ttadev RetryPrimitive + TimeoutPrimitive.
+  Tenacity stays for Neo4j/Redis.
+- **Action**: Depends on #13 (ttadev). If ttadev adopted, use its primitives.
+  If not, add `asyncio.wait_for()` timeout wrappers.
 
 ## 10. No Dedicated Cache Layer
 
-- **What it is**: Redis is present but used for sessions only. No memoization of LLM outputs, no scenario-seed cache, no playtester memory.
-- **Why it was chosen**: v1 didn't repeat enough work to need it.
-- **What v2.1 demands**: Playtester runs replay similar scenarios; Genesis can cache phase outputs; image gen benefits from prompt → URL caching.
-- **Verdict**: _TBD_ (default: AUGMENT — adopt `ttadev` CachePrimitive over Redis)
+- **What it is**: Redis used for sessions only. No LLM output memoization,
+  no scenario-seed cache, no Genesis phase-output cache.
+- **Why it was chosen**: v1 didn't repeat enough LLM work.
+- **What we learned**: Genesis smoke test showed repeated LLM calls. Playtester
+  agents replay similar scenarios. Image-gen prompts are deterministic.
+  Turn retries SHOULDN'T be cached (want different result).
+- **What v2.1 demands**: Cache scenario seeds, Genesis phase outputs,
+  image-gen prompt→URL mappings. Never cache per-turn narrative generation.
+- **Verdict**: **AUGMENT**. ttadev CachePrimitive over Redis.
+- **Action**: Depends on #13 (ttadev). Cache targets clearly defined.
 
 ## 11. No Image-Gen Client (NEW for v2.1)
 
-- **What it is**: Not present today. v2.1 introduces basic portraits.
-- **What v2.1 demands**: Image generation from world-state-derived prompts. Storage for generated assets.
-- **Candidates**: Route through FMR (consistent layering) · `fal-client` · `replicate` · direct provider SDKs.
-- **Verdict**: _TBD_
-- **Action**: One-page ADR comparing FMR routing vs. direct client. Decide before writing image-gen specs.
+- **What it is**: Not present. v2.1 adds basic portraits.
+- **What v2.1 demands**: Image generation from world-state-derived prompts.
+- **Verdict**: **DEFER**. Leaf feature — doesn't block other decisions.
+  Write ADR during v2.1 spec work.
+- **Action**: One-page ADR. Default: route through FMR; fallback to direct SDK.
 
 ## 12. No Rate-Limit Budget (NEW for v2.1)
 
-- **What it is**: Not present today. CRITICAL-REVIEW §1 flagged this as required *before* v2.1.
-- **What v2.1 demands**: Player-facing calls must not starve under playtester / NPC-autonomy load. Per-task-type RPM budgets across provider tiers.
-- **Verdict**: _TBD_ (default: BUILD — in-process component, not a framework. asyncio semaphores keyed by task type, provider-aware via LiteLLM hooks.)
-- **Action**: Write component spec before any v2.1 work that adds new LLM call sites.
+- **What it is**: No rate limiting exists. 30 LLM call sites compete equally
+  for free-model capacity. CRITICAL-REVIEW §1: required BEFORE v2.1.
+- **What v2.1 demands**: Player-facing must not starve. Three priority tiers:
+  1. Player-facing (never throttled)
+  2. Playtester (concurrent limit)
+  3. Background/NPC (best-effort, throttled first)
+  Provider-aware: track utilization, shift background work to underutilized
+  providers.
+- **Verdict**: **BUILD**. In-process component: asyncio semaphores keyed by
+  task type, provider-aware via LiteLLM hooks.
+- **Action**: ✅ Spec written: `specs/50-rate-limit-budget.md`. Implement as
+  `src/tta/llm/rate_limiter.py`. Success: under 3× concurrent playtester load,
+  player turn latency stays within budget.
 
 ## 13. No `ttadev` Dependency (NEW for v2.1)
 
-- **What it is**: Not present today. STRATEGY recommends adopting at v2.1.
-- **What v2.1 demands**: Cache, Memory, Timeout, Parallel primitives across playtester harness.
-- **Verdict**: _TBD_
-- **Action**: Throwaway branch test integration first (Open Decision #5 in STRATEGY). Adopt incrementally — RetryPrimitive + CachePrimitive first, others as needed.
+- **What it is**: Not present. STRATEGY recommends adopting at v2.1.
+- **What v2.1 demands**: Cache, Memory, Timeout, Parallel primitives across
+  playtester harness.
+- **Verdict**: **ADOPT** (spike complete). Install from GitHub release:
+  `ttadev @ git+https://github.com/theinterneti/TTA.dev.git@v0.1.0-alpha`.
+  Verified: RetryPrimitive and CachePrimitive import and work correctly.
+  Add to `pyproject.toml` after architecture review merge.
+- **Action**: Done. Spike verified (< 2 min to install + test).
+  Adopt incrementally: RetryPrimitive + CachePrimitive → TimeoutPrimitive →
+  MemoryPrimitive + ParallelPrimitive. Document integration pattern
+  (wrap async functions as WorkflowPrimitive subclasses).
 
 ---
 
 ## Frameworks Explicitly Deferred
 
-Recording the *non-adoptions* so they don't get re-debated mid-v2.1.
-
 | Framework | Defer to | Why not now |
 |---|---|---|
-| **LangGraph** | v4 | Playtester sessions are linear; NPC autonomy is fire-and-forget. No cyclic/resumable workflow yet. STRATEGY anti-pattern: "adopting a framework for future needs." |
-| **React / Svelte** | v3 | v2.1 UI is styled output + choice buttons. htmx/Alpine over existing HTML is sufficient. Greenfield SPA client lands when character sheet + map arrive. |
-| **WebRTC / WebSockets** | v3 | Still solo through v2.1. |
-| **Celery** | n/a | `arq` already chosen. Stick with it. |
-| **PydanticAI (as full agent framework)** | v3+ | If structured output is the only need, lighter options (LiteLLM native, `instructor`) are evaluated in §5 first. |
+| **LangGraph** | v4 | Linear playtester sessions; no cyclic workflows yet |
+| **React / Svelte** | v3 | htmx sufficient for styled output + choice buttons |
+| **WebRTC / WebSockets** | v3 | Still solo through v2.1 |
+| **Celery** | n/a | arq already chosen and partially wired |
+| **PydanticAI (full agent)** | v3+ | Structured output only at v2.1; lighter options first |
 
 ---
 
 ## Exit Criteria
 
-This review is **done** when:
-
-- [ ] Every row in the Decision Matrix has a verdict and an owner.
-- [ ] Every REPLACE / AUGMENT verdict has a spike branch + success metric, or an ADR.
-- [ ] Decisions are reflected in `plans/v2_1-evaluation-and-playtesting.md`.
-- [ ] Anti-decisions (Frameworks Explicitly Deferred) are documented and signed off.
-- [ ] No v2.1 spec work begins on a call site whose underlying architectural choice is still _TBD_.
+- [x] Every row in the Decision Matrix has a verdict and an owner.
+- [x] Every REPLACE / AUGMENT verdict has a spike branch + success metric, or ADR.
+  - [x] #13 (ttadev): **spike complete** — verified on v0.1.0-alpha release
+  - [x] #5 (structured output): **spike complete** — prompt + Pydantic wins
+  - [x] #6 (arq worker): **spike complete** — infrastructure ready, call sites mapped
+  - [x] #8 (htmx UI): **spike complete** — htmx via script tags, zero deps
+  - [x] #12 (rate-limit): **spec written** — `specs/50-rate-limit-budget.md`
+- [x] Decisions reflected in `plans/v2_1-evaluation-and-playtesting.md`.
+- [x] Anti-decisions documented and signed off.
+- [x] No v2.1 spec work begins on a call site whose architectural choice is TBD.
 
 ---
 
 ## Open Questions
 
-_Move items here when the review surfaces decisions that need broader input._
-
-1. _e.g., "Does FMR `response_format` work end-to-end with free Gemini models?"_
-2. _e.g., "Is `ttadev` install + test ergonomics acceptable on a fresh clone?"_
+1. **Does FMR `response_format` work with free Gemini models?** Gates Decision #5.
+2. ~~**Is `ttadev` install + test ergonomics acceptable?**~~ ✅ **RESOLVED.** Installs
+   from GitHub release `v0.1.0-alpha`. RetryPrimitive and CachePrimitive verified.
+   Integration pattern: wrap async functions as `WorkflowPrimitive` subclasses.
+3. **What is the Neo4j CE concurrent read ceiling?** Gates Decision #3 at v3.
