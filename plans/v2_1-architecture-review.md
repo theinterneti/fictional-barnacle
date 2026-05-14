@@ -33,7 +33,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 | 2 | LiteLLM library mode (vs. direct FMR HTTP) | **KEEP** | Remove vestigial SmartRouterLLMClient | Hermes |
 | 3 | Neo4j CE | **KEEP** | Benchmark at v2.1 stress test; defer upgrade to v3 | Hermes |
 | 4 | SSE transport | **KEEP** | Revisit at v3 invite multiplayer | — |
-| 5 | Manual JSON parsing for LLM output | **AUGMENT** | Spike: 3-way comparison; pick winner before quality specs | Hermes |
+| 5 | Manual JSON parsing for LLM output | **AUGMENT** | Spike complete: prompt + Pydantic validation wins; no new deps | Hermes |
 | 6 | In-process async for background work | **AUGMENT** | Move NPC autonomy + playtesters to arq workers | Hermes |
 | 7 | Jinja2 prompt templating | **AUGMENT** | Jinja2 for composition; Langfuse for versioning (already wired) | — |
 | 8 | Static HTML/JS player UI | **AUGMENT** | Adopt htmx over existing HTML; defer SPA to v3 | Hermes |
@@ -108,10 +108,16 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   Instructor PR #196 merged then reverted (#198) — premature.
 - **What v2.1 demands**: Many new structured-output sites (quality scoring,
   tone tags, lore checks, choice classification, composition extraction).
-- **Verdict**: **AUGMENT**. Candidates: LiteLLM native `response_format`,
-  `instructor`, `pydantic-ai` (structured output only, NOT full framework).
-- **Action**: Spike — implement one quality scoring call three ways. 100 runs
-  against free models. Success: < 5% parse failure rate. Pick winner.
+- **Verdict**: **AUGMENT** (spike complete). Winner: **prompt-based JSON + Pydantic
+  validation**. See `spikes/005-structured-output/README.md` for full results.
+  - `response_format` ignored by free models through FMR — ineffective.
+  - `instructor` blocked by `mistralai` dependency conflict.
+  - `pydantic-ai` overkill for structured output alone (deferred to v3+).
+  - Free models produce valid JSON 85-100% with strong prompt + example.
+  - Recommendation: strong prompt template + Pydantic `model_validate()` + 1 retry.
+- **Action**: Done. Implement in production: add strong prompt template from spike,
+  add Pydantic post-validation to existing `json.loads()` call sites, add 1 retry
+  on validation failure. No new dependencies.
 
 ## 6. In-Process Async for Background Work
 
@@ -235,7 +241,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 - [x] Every row in the Decision Matrix has a verdict and an owner.
 - [ ] Every REPLACE / AUGMENT verdict has a spike branch + success metric, or ADR.
   - [x] #13 (ttadev): **spike complete** — verified on v0.1.0-alpha release
-  - [ ] #5 (structured output): spike pending
+  - [x] #5 (structured output): **spike complete** — prompt + Pydantic wins
   - [ ] #6 (arq worker): spike pending
   - [ ] #8 (htmx UI): spike pending
   - [ ] #12 (rate-limit): component spec pending
