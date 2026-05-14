@@ -13,6 +13,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 import structlog
 
@@ -209,7 +210,7 @@ class RateLimitedLLMClient:
 
     def __init__(
         self,
-        inner: object,
+        inner: Any,
         budget: RateLimitBudget | None = None,
     ) -> None:
         self._inner = inner

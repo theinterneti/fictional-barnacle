@@ -281,11 +281,11 @@ async def run_npc_autonomy(ctx: dict, game_id: str, universe_id: str) -> dict:
         from tta.world.service import WorldService
 
         settings = get_settings()
-        world = WorldService(settings=settings)
+        world = WorldService(settings=settings)  # type: ignore[abstract]
         wt_service = WorldTimeService()
 
         # Load world context from Neo4j
-        world_ctx = await world.get_full_context(game_id)
+        world_ctx = await world.get_full_context(game_id)  # type: ignore[attr-defined]
         npcs = world_ctx.get("npcs_present", [])
         current_ticks = world_ctx.get("world_time", {}).get("total_ticks", 0)
         tick_delta = wt_service.tick(current_ticks)
@@ -300,7 +300,7 @@ async def run_npc_autonomy(ctx: dict, game_id: str, universe_id: str) -> dict:
 
         # Write NPC state changes back to Neo4j
         for change in autonomy_delta.changes:
-            await world.update_npc_state(
+            await world.update_npc_state(  # type: ignore[attr-defined]
                 game_id=game_id,
                 npc_id=change.npc_id,
                 state_updates={"after": change.after},
@@ -308,15 +308,11 @@ async def run_npc_autonomy(ctx: dict, game_id: str, universe_id: str) -> dict:
 
         # Consequence propagation chained after autonomy
         consequence_results = []
-        if autonomy_delta.events and settings.neo4j_uri:
-            from tta.simulation.consequence import ConsequencePropagator
+        if autonomy_delta.events:
+            from tta.simulation.consequence import DefaultConsequencePropagator
             from tta.simulation.types import PropagationSource
 
-            propagator = ConsequencePropagator(
-                neo4j_uri=settings.neo4j_uri,
-                neo4j_user=settings.neo4j_user,
-                neo4j_password=settings.neo4j_password,
-            )
+            propagator = DefaultConsequencePropagator(max_depth=3)
             sources = [
                 PropagationSource(
                     source_event_id=e.event_id,
@@ -329,6 +325,8 @@ async def run_npc_autonomy(ctx: dict, game_id: str, universe_id: str) -> dict:
             ]
             consequence_results = await propagator.propagate(
                 source_events=sources,
+                universe_id=universe_id,
+                world_time=tick_delta.world_time,
             )
 
         duration = time.monotonic() - start
