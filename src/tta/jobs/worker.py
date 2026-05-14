@@ -11,6 +11,7 @@ from tta.jobs.jobs import (
     gdpr_delete_player,
     retention_sweep,
     run_npc_autonomy,
+    run_playtester_session,
     session_cleanup,
 )
 
@@ -29,6 +30,7 @@ class WorkerSettings:
         session_cleanup,
         game_backfill,
         run_npc_autonomy,
+        run_playtester_session,
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 10

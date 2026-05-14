@@ -262,6 +262,79 @@ async def game_backfill(ctx: dict, game_id: str | None = None) -> dict:
         raise
 
 
+async def run_playtester_session(
+    ctx: dict,
+    api_base_url: str,
+    scenario_seed_id: str,
+    persona_id: str,
+    run_seed: int,
+    persona_jitter_seed: int = 0,
+    api_key: str = "",
+) -> dict:
+    """Run a single playtester session in an arq worker (Decision #6).
+
+    Creates a PlaytesterAgent, plays a full session against the TTA API,
+    and returns a serialized RunResult. Sessions are stateless and parallel.
+    """
+    start = time.monotonic()
+    job_fn = "run_playtester_session"
+    try:
+        from tta.llm.litellm_client import LiteLLMClient
+        from tta.playtest.agent import PlaytesterAgent
+
+        llm = LiteLLMClient()
+        agent = PlaytesterAgent(
+            api_base_url=api_base_url,
+            llm_client=llm,
+            api_key=api_key or None,
+        )
+        agent.setup(
+            scenario_seed_id=scenario_seed_id,
+            persona_id=persona_id,
+            run_seed=run_seed,
+            persona_jitter_seed=persona_jitter_seed,
+        )
+        report = await agent.run()
+
+        duration = time.monotonic() - start
+        JOB_DURATION.labels(job_fn=job_fn).observe(duration)
+        JOB_RUNS.labels(job_fn=job_fn, status="success").inc()
+        log.info(
+            "playtester_session_complete",
+            scenario_seed_id=scenario_seed_id,
+            persona_id=persona_id,
+            status=report.status,
+            turns=len(report.turns),
+            duration_ms=round(duration * 1000, 1),
+        )
+        return {
+            "scenario_seed_id": scenario_seed_id,
+            "persona_id": persona_id,
+            "run_seed": run_seed,
+            "status": report.status,
+            "run_id": report.run_id,
+            "turns_completed": len(report.turns),
+            "overall_rating": report.overall_agent_rating,
+            "report_json": report.model_dump_json(),  # type: ignore[attr-defined]
+        }
+
+    except Exception as exc:
+        duration = time.monotonic() - start
+        JOB_DURATION.labels(job_fn=job_fn).observe(duration)
+        job_try = ctx.get("job_try", 1)
+        if job_try >= 3:
+            JOB_RUNS.labels(job_fn=job_fn, status="failed").inc()
+            await _write_dead_letter(
+                ctx,
+                job_fn,
+                (api_base_url, scenario_seed_id, persona_id, run_seed),
+                str(exc),
+            )
+        else:
+            JOB_RUNS.labels(job_fn=job_fn, status="retry").inc()
+        raise
+
+
 async def run_npc_autonomy(ctx: dict, game_id: str, universe_id: str) -> dict:
     """Fire-and-forget NPC autonomy + consequence propagation (Decision #6).
 

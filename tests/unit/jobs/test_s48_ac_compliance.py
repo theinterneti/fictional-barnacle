@@ -369,8 +369,8 @@ class TestWorkerSettings:
         assert self.WS.keep_result == 3600
 
     @pytest.mark.spec("AC-48.05")
-    def test_all_five_functions_registered(self) -> None:
-        """AC-48.05: All five job functions are registered with the worker."""
+    def test_all_six_functions_registered(self) -> None:
+        """AC-48.05: All six job functions are registered with the worker."""
         fn_names = {fn.__name__ for fn in self.WS.functions}
         assert fn_names == {
             "gdpr_delete_player",
@@ -378,6 +378,7 @@ class TestWorkerSettings:
             "session_cleanup",
             "game_backfill",
             "run_npc_autonomy",
+            "run_playtester_session",
         }
 
     @pytest.mark.spec("AC-48.05")
