@@ -36,7 +36,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 | 5 | Manual JSON parsing for LLM output | **AUGMENT** | Spike complete: prompt + Pydantic validation wins; no new deps | Hermes |
 | 6 | In-process async for background work | **AUGMENT** | Spike complete: arq ready; move NPC autonomy + playtesters to workers | Hermes |
 | 7 | Jinja2 prompt templating | **AUGMENT** | Jinja2 for composition; Langfuse for versioning (already wired) | — |
-| 8 | Static HTML/JS player UI | **AUGMENT** | Adopt htmx over existing HTML; defer SPA to v3 | Hermes |
+| 8 | Static HTML/JS player UI | **AUGMENT** | Spike complete: htmx via script tags; zero deps, natural SSE | Hermes |
 | 9 | Tenacity-only resilience | **AUGMENT** | Adopt ttadev RetryPrimitive + TimeoutPrimitive | Hermes |
 | 10 | No dedicated cache layer | **AUGMENT** | Adopt ttadev CachePrimitive over Redis | Hermes |
 | 11 | No image-gen client | **DEFER** | One-page ADR during v2.1 spec work | Hermes |
@@ -158,9 +158,10 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 - **What v2.1 demands**: Styled output, choice buttons, dark theme, basic image
   rendering.
 - **Verdict**: **AUGMENT** with htmx. Smaller than Alpine (~14KB), natural SSE
-  support, no build step. Defer React/Svelte to v3.
-- **Action**: Spike: htmx choice buttons + SSE streaming + dark theme.
-  Success: playtester-ready within a week.
+  support (`hx-sse`), no build step. Defer React/Svelte to v3.
+- **Action**: Spike complete. See `spikes/008-htmx-ui.md`. Add htmx as script-tag
+  dependency in `static/index.html`. Two tags: `htmx.org@2.0.4` + `htmx-ext-sse@2.2.2`.
+  Zero build steps, zero new Python dependencies.
 
 ## 9. Tenacity-Only Resilience
 
@@ -244,12 +245,12 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 ## Exit Criteria
 
 - [x] Every row in the Decision Matrix has a verdict and an owner.
-- [ ] Every REPLACE / AUGMENT verdict has a spike branch + success metric, or ADR.
+- [x] Every REPLACE / AUGMENT verdict has a spike branch + success metric, or ADR.
   - [x] #13 (ttadev): **spike complete** — verified on v0.1.0-alpha release
   - [x] #5 (structured output): **spike complete** — prompt + Pydantic wins
   - [x] #6 (arq worker): **spike complete** — infrastructure ready, call sites mapped
-  - [ ] #8 (htmx UI): spike pending
-  - [ ] #12 (rate-limit): component spec pending
+  - [x] #8 (htmx UI): **spike complete** — htmx via script tags, zero deps
+  - [x] #12 (rate-limit): **spec written** — `specs/50-rate-limit-budget.md`
 - [ ] Decisions reflected in `plans/v2_1-evaluation-and-playtesting.md`.
 - [x] Anti-decisions documented and signed off.
 - [x] No v2.1 spec work begins on a call site whose architectural choice is TBD.
