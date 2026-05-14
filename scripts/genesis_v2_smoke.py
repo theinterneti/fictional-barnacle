@@ -17,33 +17,29 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
 # Add repo root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlmodel import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from tta.genesis.genesis_v2 import (
-    GenesisOrchestrator,
-    GenesisPhase,
-    GenesisState,
     _PHASE_ORDER,
+    GenesisOrchestrator,
 )
 from tta.llm.litellm_client import LiteLLMClient
 
-
 # Canned player inputs — one per phase interaction
 # These are intentionally simple to keep the smoke test fast
-PLAYER_INPUTS = [
-    "I want to explore a world where technology and nature have merged into something strange and beautiful.",
-    "I'm drawn to places where everyday reality feels slightly unstable, like anything could shift.",
-    "Sometimes I feel like I don't quite fit in my own world. Maybe that's why I'm here.",
-    "I'm someone who notices details others miss. The small things that hint at bigger truths.",
-    "I would name myself Kai. It means 'ocean' — something deep and unknowable but familiar.",
+PLAYER_INPUTS = [  # noqa: E501
+    "I want to explore a world where technology and nature have merged into something strange and beautiful.",  # noqa: E501
+    "I'm drawn to places where everyday reality feels slightly unstable, like anything could shift.",  # noqa: E501
+    "Sometimes I feel like I don't quite fit in my own world. Maybe that's why I'm here.",  # noqa: E501
+    "I'm someone who notices details others miss. The small things that hint at bigger truths.",  # noqa: E501
+    "I would name myself Kai. It means 'ocean' — something deep and unknowable but familiar.",  # noqa: E501
     "I think about what it means to truly belong somewhere, to something.",
     "I'm ready to step through. Whatever waits on the other side.",
 ]
@@ -85,12 +81,12 @@ async def run_one_genesis(llm: LiteLLMClient, pg_factory, run_id: int) -> dict:
                     "VALUES (:pid, :handle, NOW()) "
                     "ON CONFLICT (id) DO NOTHING"
                 ),
-                {"pid": player_id, "handle": f"smoke_test_{run_id}"},
+                {"pid": player_id, "handle": f"smoke_{run_id}_{session_id.hex[:8]}"},
             )
             await pg.execute(
                 sa_text(
                     "INSERT INTO game_sessions (id, player_id, world_seed, status) "
-                    "VALUES (:sid, :pid, :seed, 'creating') "
+                    "VALUES (:sid, :pid, CAST(:seed AS jsonb), 'creating') "
                     "ON CONFLICT (id) DO NOTHING"
                 ),
                 {
@@ -153,14 +149,17 @@ async def main(count: int = 5, verbose: bool = False):
     # LLM client (uses FMR via LiteLLM)
     llm = LiteLLMClient()
 
-    # Database
-    database_url = "postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test"
+    # Database — respect TTA_DATABASE_URL if set, otherwise use test defaults
+    database_url = _os.environ.get(
+        "TTA_DATABASE_URL",
+        "postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test",
+    )
     engine = create_async_engine(database_url, echo=False)
     pg_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    print(f"=== Genesis v2 Smoke Test ===\n", flush=True)
+    print("=== Genesis v2 Smoke Test ===\n", flush=True)
     print(f"Runs: {count}", flush=True)
-    print(f"Started: {datetime.now(timezone.utc).isoformat()}\n", flush=True)
+    print(f"Started: {datetime.now(UTC).isoformat()}\n", flush=True)
 
     results = []
     for i in range(count):
@@ -200,10 +199,11 @@ async def main(count: int = 5, verbose: bool = False):
         all_lengths.extend(r["quality"]["response_lengths"])
     avg_response_len = sum(all_lengths) / len(all_lengths) if all_lengths else 0
 
-    print(f"\n=== Results ===")
+    print("\n=== Results ===")
     print(f"Completion rate:    {completed}/{count} ({completed/count*100:.0f}%)")
     print(f"Characters named:   {named}/{count}")
-    print(f"Locations set:      {located}/{count}")
+    print(f"Locations set:      {located}/{count}"
+          "  (note: genesis_v2 does not set starting_location)")
     print(f"Avg traits:         {avg_traits:.1f}")
     print(f"Avg response len:   {avg_response_len:.0f} chars")
     print(f"Errors:             {sum(len(r['errors']) for r in results)}")
@@ -214,7 +214,7 @@ async def main(count: int = 5, verbose: bool = False):
     out_path.write_text(
         json.dumps(
             {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "count": count,
                 "summary": {
                     "completed": completed,
@@ -231,8 +231,9 @@ async def main(count: int = 5, verbose: bool = False):
     )
     print(f"\nDetailed results saved to: {out_path}")
 
-    # Gate check
-    if completed >= count * 0.5:
+    # Gate check — all runs must complete for a clean gate pass.
+    # Individual world quality is evaluated manually from the JSON output.
+    if completed == count:
         print(f"\n✓ SMOKE TEST PASSED: {completed}/{count} worlds completed")
         return 0
     else:
@@ -244,9 +245,15 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--count", type=int, default=5, help="Number of worlds to generate")
+    parser.add_argument(
+        "--count", type=int, default=5, help="Number of worlds to generate"
+    )
     parser.add_argument("--verbose", action="store_true", help="Show detailed output")
     args = parser.parse_args()
+
+    if args.count < 1:
+        print("Error: --count must be >= 1", file=sys.stderr)
+        sys.exit(2)
 
     exit_code = asyncio.run(main(count=args.count, verbose=args.verbose))
     sys.exit(exit_code)
