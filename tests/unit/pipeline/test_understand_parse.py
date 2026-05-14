@@ -5,10 +5,6 @@ Decision #5: prompt-based JSON + Pydantic model_validate + 1 retry.
 
 import json
 
-import pytest
-
-from tta.models.turn import ParsedIntent
-
 
 class TestParseClassificationResponse:
     """JSON extraction and ParsedIntent validation from LLM raw output."""

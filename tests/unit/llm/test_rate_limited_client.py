@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from tta.llm.client import GenerationParams, LLMClient, Message, MessageRole
+from tta.llm.client import LLMClient, Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.llm.testing import MockLLMClient
 
@@ -61,8 +61,11 @@ class TestRateLimitedClientHigh:
 
     async def test_high_tier_call_enforces_cap(self) -> None:
         """When HIGH cap is 1, concurrent calls queue."""
-        from tta.llm.rate_limiter import RateLimitedLLMClient, TaskPriority
-        from tta.llm.rate_limiter import RateLimitBudget
+        from tta.llm.rate_limiter import (
+            RateLimitBudget,
+            RateLimitedLLMClient,
+            TaskPriority,
+        )
 
         budget = RateLimitBudget(high_concurrency=1)
         mock = MockLLMClient(response="high response")
@@ -112,7 +115,7 @@ class TestRateLimitedClientHigh:
 
     async def test_default_tier_is_critical(self) -> None:
         """Without explicit tier, default to CRITICAL (backward compat)."""
-        from tta.llm.rate_limiter import RateLimitedLLMClient, TaskPriority
+        from tta.llm.rate_limiter import RateLimitedLLMClient
 
         budget = __import__(
             "tta.llm.rate_limiter", fromlist=["RateLimitBudget"]

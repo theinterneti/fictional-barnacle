@@ -44,7 +44,7 @@ class TestCriticalTierAlwaysAdmitted:
             await budget.release(TaskPriority.HIGH)
 
     async def test_critical_never_waits_even_under_full_load(self) -> None:
-        """CRITICAL call completes immediately even when all non-CRITICAL slots are busy."""
+        """CRITICAL completes immediately even when all non-CRITICAL slots busy."""
         from tta.llm.rate_limiter import RateLimitBudget, TaskPriority
 
         budget = RateLimitBudget(

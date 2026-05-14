@@ -310,10 +310,12 @@ async def test_llm_fallback_passes_prompt_provenance_to_guarded_call() -> None:
     )
     registry = _StubRegistry(templates={"classification.intent": rendered.text})
     state = _make_state(player_input="mysterious input")
-    deps = _make_deps(llm=MockLLMClient(
-        response='{"intent":"examine","confidence":0.8,"entities":[],'
-        '"emotional_tone":"neutral","summary":"test"}'
-    ))
+    deps = _make_deps(
+        llm=MockLLMClient(
+            response='{"intent":"examine","confidence":0.8,"entities":[],'
+            '"emotional_tone":"neutral","summary":"test"}'
+        )
+    )
     deps.prompt_registry = registry  # type: ignore[assignment]
     llm_response = SimpleNamespace(
         content='{"intent":"examine","confidence":0.8,"entities":[],'
