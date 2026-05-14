@@ -217,7 +217,10 @@ class TestLLMCallTracking:
         classify_calls = [
             c for c in mock_llm.call_history if c["role"] == ModelRole.CLASSIFICATION
         ]
-        assert len(classify_calls) == 1
+        # v2.1: JSON parse fails on narrative mock response → 1 retry = 2 calls
+        assert len(classify_calls) == 2  # first + retry
+        # Fallback to other/0.3 after both parse attempts fail
+        assert state.parsed_intent is None  # original unchanged
 
     async def test_generation_call_uses_correct_role(self) -> None:
         deps = _build_deps()

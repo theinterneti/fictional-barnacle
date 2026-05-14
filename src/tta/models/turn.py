@@ -34,11 +34,13 @@ class TokenCount(BaseModel):
 
 
 class ParsedIntent(BaseModel):
-    """Result of intent-parsing stage."""
+    """Result of intent-parsing stage (v2.1 enriched for structured output)."""
 
     intent: str
     confidence: float
-    entities: dict = Field(default_factory=dict)
+    entities: list[str] = Field(default_factory=list)
+    emotional_tone: str = ""
+    summary: str = ""
 
 
 class TurnRequest(BaseModel):

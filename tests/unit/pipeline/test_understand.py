@@ -114,27 +114,34 @@ async def test_meta_takes_priority_over_move_for_quit() -> None:
 
 async def test_llm_fallback_for_ambiguous_input() -> None:
     """Input with no regex match falls back to LLM classification."""
-    mock_llm = MockLLMClient(response="examine")
+    mock_llm = MockLLMClient(
+        response='{"intent":"examine","confidence":0.85,"entities":[],'
+        '"emotional_tone":"curious","summary":"looking around"}'
+    )
     state = _make_state(player_input="what is this place")
     deps = _make_deps(llm=mock_llm)
     result = await understand_stage(state, deps)
 
     assert result.parsed_intent is not None
     assert result.parsed_intent.intent == "examine"
-    assert result.parsed_intent.confidence == 0.7
+    assert result.parsed_intent.confidence == 0.85
     assert len(mock_llm.call_history) == 1
     assert mock_llm.call_history[0]["role"] == "classification"
 
 
 async def test_llm_fallback_unknown_intent_becomes_other() -> None:
     """LLM returns an unrecognized intent → defaults to 'other'."""
-    mock_llm = MockLLMClient(response="dance")
+    mock_llm = MockLLMClient(
+        response='{"intent":"dance","confidence":0.5,"entities":[],'
+        '"emotional_tone":"neutral","summary":"dancing"}'
+    )
     state = _make_state(player_input="pirouette gracefully")
     deps = _make_deps(llm=mock_llm)
     result = await understand_stage(state, deps)
 
     assert result.parsed_intent is not None
     assert result.parsed_intent.intent == "other"
+    assert result.parsed_intent.confidence == 0.3
 
 
 async def test_llm_failure_returns_other() -> None:
@@ -250,7 +257,10 @@ async def test_prompt_registry_used_for_classification() -> None:
     custom_system = "You are a custom classifier."
     registry = _StubRegistry(templates={"classification.intent": custom_system})
     # "mysterious input" won't match any regex, forcing LLM fallback
-    llm = MockLLMClient(response="examine")
+    llm = MockLLMClient(
+        response='{"intent":"examine","confidence":0.9,"entities":[],'
+        '"emotional_tone":"neutral","summary":"investigating"}'
+    )
     state = _make_state(player_input="mysterious input")
     deps = _make_deps(llm=llm)
     deps.prompt_registry = registry  # type: ignore[assignment]
@@ -300,9 +310,15 @@ async def test_llm_fallback_passes_prompt_provenance_to_guarded_call() -> None:
     )
     registry = _StubRegistry(templates={"classification.intent": rendered.text})
     state = _make_state(player_input="mysterious input")
-    deps = _make_deps(llm=MockLLMClient(response="examine"))
+    deps = _make_deps(llm=MockLLMClient(
+        response='{"intent":"examine","confidence":0.8,"entities":[],'
+        '"emotional_tone":"neutral","summary":"test"}'
+    ))
     deps.prompt_registry = registry  # type: ignore[assignment]
-    llm_response = SimpleNamespace(content="examine")
+    llm_response = SimpleNamespace(
+        content='{"intent":"examine","confidence":0.8,"entities":[],'
+        '"emotional_tone":"neutral","summary":"test"}'
+    )
 
     with (
         patch.object(registry, "render", return_value=rendered),

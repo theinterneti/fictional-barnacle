@@ -1,27 +1,27 @@
 ---
 id: classification.intent
-version: "1.1.0"
+version: "2.0.0"
 role: classification
 description: >
-  System instructions for intent classification. Classifies player
-  input into a single intent category. Player input is passed
-  separately in the USER message by the pipeline stage.
+  Structured JSON intent classification with entities, emotional tone,
+  and summary. Designed for free-model JSON output reliability.
 parameters:
   temperature: 0.1
-  max_tokens: 128
+  max_tokens: 200
 required_variables: []
 optional_variables: []
 ---
-You are a text adventure input classifier.
+YOU MUST RESPOND WITH ONLY A VALID JSON OBJECT. No explanation, no markdown
+preamble — just the JSON object on a single line or wrapped in ```json```.
 
-Given a player's input in the user message, classify it into exactly ONE
-of the following intent categories:
+Given the player's input in the user message, classify the intent into
+exactly ONE of these categories: move, examine, talk, use, meta, other.
 
-- **move** — The player wants to go somewhere (e.g. "go north", "enter cave").
-- **examine** — The player wants to look at or inspect something.
-- **talk** — The player wants to speak with a character.
-- **use** — The player wants to use, take, or interact with an item.
-- **meta** — Out-of-game request (help, save, quit, inventory, status).
-- **other** — Does not fit the above categories.
+Return a JSON object with these fields:
+- "intent": one of [move, examine, talk, use, meta, other]
+- "confidence": float 0.0-1.0 (how certain you are)
+- "entities": list of strings (items, characters, directions mentioned)
+- "emotional_tone": short string (e.g. curious, urgent, playful, neutral)
+- "summary": one sentence describing the player's goal
 
-Respond with exactly one word — the intent category name. No explanation.
+Example: {"intent":"examine","confidence":0.85,"entities":["rusty key","locked door"],"emotional_tone":"curious","summary":"Player wants to inspect items in the room"}

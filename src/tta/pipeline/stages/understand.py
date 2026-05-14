@@ -7,6 +7,7 @@ Runs safety_pre_input hook before classification.
 
 from __future__ import annotations
 
+import json
 import re
 
 import structlog
@@ -163,17 +164,39 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                 prompt_hash=rendered.prompt_hash,
                 langfuse_prompt=rendered.metadata.get("langfuse_prompt"),
             )
-            intent = response.content.strip().lower()
-            if intent not in VALID_INTENTS:
+            parsed = _parse_classification_response(response.content)
+            if parsed is None:
+                # One retry — free models have high latency variance
+                log.debug("classification_json_parse_failed_retrying")
+                response = await guarded_llm_call(
+                    deps,
+                    ModelRole.CLASSIFICATION,
+                    messages,
+                    prompt_id=rendered.template_id,
+                    prompt_version=rendered.template_version,
+                    fragment_versions=rendered.fragment_versions,
+                    prompt_hash=rendered.prompt_hash,
+                    langfuse_prompt=rendered.metadata.get("langfuse_prompt"),
+                )
+                parsed = _parse_classification_response(response.content)
+            if parsed is None:
                 intent = "other"
+                confidence = 0.3
+            else:
+                intent = parsed.intent
+                confidence = parsed.confidence
+                if intent not in VALID_INTENTS:
+                    intent = "other"
+                    confidence = 0.3
             log.debug(
                 "intent_classified_llm",
                 intent=intent,
+                confidence=confidence,
                 input=player_input[:80],
             )
             intent_state = state.model_copy(
                 update={
-                    "parsed_intent": ParsedIntent(intent=intent, confidence=0.7),
+                    "parsed_intent": ParsedIntent(intent=intent, confidence=confidence),
                 }
             )
         except AppError:
@@ -273,3 +296,39 @@ def _enrich_choice_classification(state: TurnState) -> TurnState:
             exc_info=True,
         )
         return state
+
+
+def _parse_classification_response(content: str) -> ParsedIntent | None:
+    """Extract and validate a JSON classification from LLM output.
+
+    Handles three common free-model output patterns:
+    1. Raw JSON object
+    2. JSON wrapped in ```json fences
+    3. JSON object floating in other text
+
+    Returns ParsedIntent on success, None on any failure (triggers retry).
+    """
+    if not content.strip():
+        return None
+
+    candidates: list[str] = []
+
+    # Pattern 1: ```json fences
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", content, re.DOTALL)
+    if fence_match:
+        candidates.append(fence_match.group(1).strip())
+
+    # Pattern 2: bare JSON object anywhere in text
+    for match in re.finditer(r"\{[^{}]*\}", content):
+        candidates.append(match.group(0))
+
+    # Try each candidate
+    json_str = content.strip()  # prefer raw content if it's clean JSON
+    for candidate in [json_str] + candidates:
+        try:
+            data = json.loads(candidate)
+            return ParsedIntent.model_validate(data)
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    return None
