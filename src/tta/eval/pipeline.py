@@ -39,11 +39,13 @@ class EvaluationPipeline:
         api_base_url: str = "",
         api_key: str | None = None,
         llm_client: Any = None,
+        arq_queue: Any = None,
     ) -> None:
         self._config = config or BatchConfig()
         self._api_base_url = api_base_url
         self._api_key = api_key
         self._llm = llm_client
+        self._arq_queue = arq_queue
 
     # ------------------------------------------------------------------
     # Step 1 — plan
@@ -72,7 +74,15 @@ class EvaluationPipeline:
     # Step 2 — execute LLM playtesters
 
     async def run_llm_playtesters(self, planned: list[PlannedRun]) -> list[RunResult]:
-        """Run all planned sessions in parallel (bounded by max_parallel_runs)."""
+        """Run all planned sessions, using arq workers when available.
+
+        With arq_queue: enqueue all sessions as jobs, wait for results.
+        Without arq_queue: run inline with asyncio.Semaphore (backward compat).
+        """
+        if self._arq_queue is not None:
+            return await self._run_via_arq(planned)
+
+        # Fallback: inline execution (existing behavior)
         from tta.playtest.agent import PlaytesterAgent
 
         sem = asyncio.Semaphore(self._config.max_parallel_runs)
@@ -131,6 +141,75 @@ class EvaluationPipeline:
                 )
 
         return list(await asyncio.gather(*[_run_one(p) for p in planned]))
+
+    async def _run_via_arq(self, planned: list[PlannedRun]) -> list[RunResult]:
+        """Enqueue playtester sessions as arq jobs and collect results."""
+        import asyncio
+
+        job_ids: dict[str, PlannedRun] = {}
+        for p in planned:
+            job_id = await self._arq_queue.enqueue(
+                "run_playtester_session",
+                api_base_url=self._api_base_url,
+                scenario_seed_id=p.scenario_seed_id,
+                persona_id=p.persona_id,
+                run_seed=p.run_seed,
+                persona_jitter_seed=p.persona_jitter_seed,
+                api_key=self._api_key or "",
+            )
+            job_ids[job_id] = p
+
+        # Poll for results
+        results: list[RunResult] = []
+        pending = dict(job_ids)
+        timeout = 600  # 10 min total wait
+        poll_interval = 2.0
+        elapsed = 0.0
+
+        while pending and elapsed < timeout:
+            for job_id, planned_run in list(pending.items()):
+                status = await self._arq_queue.job_status(job_id)
+                if status is None:
+                    continue
+                status_str = str(status) if not isinstance(status, str) else status
+                if status_str in ("complete", "success"):
+                    pending.pop(job_id)
+                    results.append(
+                        RunResult(
+                            run_id=planned_run.run_id,
+                            scenario_seed_id=planned_run.scenario_seed_id,
+                            persona_id=planned_run.persona_id,
+                            status="complete",
+                        )
+                    )
+                elif status_str in ("failed", "not_found"):
+                    pending.pop(job_id)
+                    results.append(
+                        RunResult(
+                            run_id=planned_run.run_id,
+                            scenario_seed_id=planned_run.scenario_seed_id,
+                            persona_id=planned_run.persona_id,
+                            status="error",
+                            error=f"arq job {status_str}",
+                        )
+                    )
+            if pending:
+                await asyncio.sleep(poll_interval)
+                elapsed += poll_interval
+
+        # Any still pending → timed out
+        for _job_id, planned_run in pending.items():
+            results.append(
+                RunResult(
+                    run_id=planned_run.run_id,
+                    scenario_seed_id=planned_run.scenario_seed_id,
+                    persona_id=planned_run.persona_id,
+                    status="error",
+                    error="arq job timed out",
+                )
+            )
+
+        return results
 
     # ------------------------------------------------------------------
     # Step 3 — load human feedback
