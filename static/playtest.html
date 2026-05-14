@@ -66,12 +66,19 @@
     border: 1px solid var(--border); background: var(--bg);
     color: var(--text); font-size: 1rem; text-align: center;
   }
+  .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+  .htmx-request .htmx-indicator { opacity: 1; }
+  .htmx-request#send-btn { opacity: 0.4; }
 </style>
+<!-- v2.1: htmx + SSE extension — no build step, 14KB each -->
+<script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+<script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
 </head>
 <body>
   <header>
-    <h1>⚔ TTA Playtest</h1>
+    <h1>TTA Playtest</h1>
     <span id="status">disconnected</span>
+    <span class="htmx-indicator" style="color:var(--accent)">processing...</span>
   </header>
 
   <!-- Setup screen -->
@@ -82,11 +89,27 @@
   </div>
 
   <!-- Game screen (hidden initially) -->
-  <div id="narrative" style="display:none"></div>
+  <!-- v2.1: hx-sse streams narrative_block events directly into #narrative -->
+  <div id="narrative" style="display:none"
+       hx-ext="sse"
+       sse-connect="/api/v1/games/STREAM_PLACEHOLDER/stream"
+       sse-swap="narrative_block"
+       hx-swap="beforeend">
+  </div>
   <div id="input-bar" style="display:none">
-    <input id="turn-input" placeholder="What do you do?" autofocus
-           onkeydown="if(event.key==='Enter')submitTurn()">
-    <button id="send-btn" onclick="submitTurn()">Send</button>
+    <!-- v2.1: hx-post submits turns, response goes to #turn-response -->
+    <input id="turn-input" name="input" placeholder="What do you do?" autofocus
+           onkeydown="if(event.key==='Enter')document.getElementById('send-btn').click()">
+    <button id="send-btn"
+            hx-post="/api/v1/games/TURN_PLACEHOLDER/turns"
+            hx-include="#turn-input"
+            hx-target="#turn-response"
+            hx-swap="none"
+            hx-indicator=".htmx-indicator"
+            onclick="onTurnSubmit()">
+      Send
+    </button>
+    <div id="turn-response" style="display:none"></div>
   </div>
 
 <script>
@@ -94,6 +117,7 @@ let BASE = '';
 let gameId = null;
 let token = null;
 let eventSource = null;
+let tokenEl = null;
 
 const $ = id => document.getElementById(id);
 
@@ -122,7 +146,7 @@ async function api(method, path, body) {
   const opts = {
     method,
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',  // send/receive cookies cross-origin
+    credentials: 'include',
   };
   if (token) opts.headers['Authorization'] = 'Bearer ' + token;
   if (body !== undefined) opts.body = JSON.stringify(body);
@@ -140,15 +164,22 @@ async function startSession() {
   setStatus('connecting...');
 
   try {
-    // Register player
     const handle = 'web-' + Math.random().toString(36).slice(2, 10);
     const regData = await api('POST', '/players', { handle });
     token = regData.data.session_token;
     const playerId = regData.data.player_id;
 
-    // Create game
     const gameData = await api('POST', '/games', {});
     gameId = gameData.data.game_id;
+
+    // Update htmx attributes with actual game ID
+    const narrative = $('narrative');
+    narrative.setAttribute('sse-connect', BASE + '/games/' + gameId + '/stream');
+    const sendBtn = $('send-btn');
+    sendBtn.setAttribute('hx-post', BASE + '/games/' + gameId + '/turns');
+    // htmx needs to be re-processed after attribute changes
+    htmx.process(narrative);
+    htmx.process(sendBtn);
 
     // Show game UI
     $('config').style.display = 'none';
@@ -161,7 +192,8 @@ async function startSession() {
     addMsg('Type your action and press Enter.', 'system');
     setInputEnabled(true);
 
-    // Connect SSE stream
+    // Connect SSE stream (vanilla EventSource for token streaming;
+    // htmx hx-sse handles narrative_block events automatically)
     connectSSE();
   } catch (err) {
     setStatus('connection failed', 'error');
@@ -177,23 +209,14 @@ function connectSSE() {
   const url = BASE + '/games/' + gameId + '/stream';
   eventSource = new EventSource(url, { withCredentials: true });
 
-  // Buffer for streaming tokens
-  let tokenEl = null;
-
   eventSource.addEventListener('turn_start', e => {
     const d = JSON.parse(e.data);
     addMsg(`--- Turn ${d.turn_number || '?'} ---`, 'system');
     tokenEl = null;
   });
 
-  eventSource.addEventListener('narrative_block', e => {
-    const d = JSON.parse(e.data);
-    const text = d.full_text || d.text || '';
-    if (text) {
-      addMsg(text, 'narrative');
-      tokenEl = null;
-    }
-  });
+  // narrative_block is handled by htmx hx-sse via sse-swap="narrative_block"
+  // We skip the manual handler here — htmx swaps it into #narrative
 
   eventSource.addEventListener('narrative_token', e => {
     const d = JSON.parse(e.data);
@@ -250,7 +273,6 @@ function connectSSE() {
   });
 
   eventSource.onerror = () => {
-    // EventSource auto-reconnects; just update status briefly
     setStatus('reconnecting...', '');
     setTimeout(() => {
       if (eventSource && eventSource.readyState === EventSource.OPEN) {
@@ -260,24 +282,14 @@ function connectSSE() {
   };
 }
 
-async function submitTurn() {
+function onTurnSubmit() {
   const input = $('turn-input');
   const text = input.value.trim();
   if (!text || input.disabled) return;
-
   input.value = '';
   setInputEnabled(false);
   setStatus('processing...', 'connected');
-
   addMsg('> ' + text, 'system');
-
-  try {
-    await api('POST', '/games/' + gameId + '/turns', { input: text });
-    // SSE stream will deliver the response
-  } catch (err) {
-    addMsg('Failed to submit turn: ' + err.message, 'error');
-    setInputEnabled(true);
-  }
 }
 </script>
 </body>
