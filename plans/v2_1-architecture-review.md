@@ -41,7 +41,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 | 10 | No dedicated cache layer | **AUGMENT** | Adopt ttadev CachePrimitive over Redis | Hermes |
 | 11 | No image-gen client | **DEFER** | One-page ADR during v2.1 spec work | Hermes |
 | 12 | No rate-limit budget | **BUILD** | Component spec + asyncio semaphore implementation | Hermes |
-| 13 | No `ttadev` dependency | **ADOPT** | Spike first; incremental adoption (Retry + Cache first) | Hermes |
+| 13 | No `ttadev` dependency | **ADOPT** | Verified: install from GitHub release v0.1.0-alpha; RetryPrimitive + CachePrimitive work | Hermes |
 
 ---
 
@@ -207,12 +207,14 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 - **What it is**: Not present. STRATEGY recommends adopting at v2.1.
 - **What v2.1 demands**: Cache, Memory, Timeout, Parallel primitives across
   playtester harness.
-- **Verdict**: **ADOPT** incrementally. Spike first. Adopt: RetryPrimitive +
-  CachePrimitive → TimeoutPrimitive → Memory + Parallel. If spike fails,
-  implement minimal alternatives.
-- **Action**: Spike branch — `pip install ttadev`, verify import, test
-  RetryPrimitive + CachePrimitive against FMR. Success: < 5 min to install +
-  verify. If successful, add to pyproject.toml.
+- **Verdict**: **ADOPT** (spike complete). Install from GitHub release:
+  `ttadev @ git+https://github.com/theinterneti/TTA.dev.git@v0.1.0-alpha`.
+  Verified: RetryPrimitive and CachePrimitive import and work correctly.
+  Add to `pyproject.toml` after architecture review merge.
+- **Action**: Done. Spike verified (< 2 min to install + test).
+  Adopt incrementally: RetryPrimitive + CachePrimitive → TimeoutPrimitive →
+  MemoryPrimitive + ParallelPrimitive. Document integration pattern
+  (wrap async functions as WorkflowPrimitive subclasses).
 
 ---
 
@@ -232,6 +234,11 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 
 - [x] Every row in the Decision Matrix has a verdict and an owner.
 - [ ] Every REPLACE / AUGMENT verdict has a spike branch + success metric, or ADR.
+  - [x] #13 (ttadev): **spike complete** — verified on v0.1.0-alpha release
+  - [ ] #5 (structured output): spike pending
+  - [ ] #6 (arq worker): spike pending
+  - [ ] #8 (htmx UI): spike pending
+  - [ ] #12 (rate-limit): component spec pending
 - [ ] Decisions reflected in `plans/v2_1-evaluation-and-playtesting.md`.
 - [x] Anti-decisions documented and signed off.
 - [x] No v2.1 spec work begins on a call site whose architectural choice is TBD.
@@ -241,5 +248,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
 ## Open Questions
 
 1. **Does FMR `response_format` work with free Gemini models?** Gates Decision #5.
-2. **Is `ttadev` install + test ergonomics acceptable?** Gates Decision #13.
+2. ~~**Is `ttadev` install + test ergonomics acceptable?**~~ ✅ **RESOLVED.** Installs
+   from GitHub release `v0.1.0-alpha`. RetryPrimitive and CachePrimitive verified.
+   Integration pattern: wrap async functions as `WorkflowPrimitive` subclasses.
 3. **What is the Neo4j CE concurrent read ceiling?** Gates Decision #3 at v3.

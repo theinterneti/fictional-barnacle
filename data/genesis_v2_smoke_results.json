@@ -1,0 +1,222 @@
+{
+  "timestamp": "2026-05-14T03:47:42.247948+00:00",
+  "count": 2,
+  "summary": {
+    "completed": 1,
+    "named": 1,
+    "located": 0,
+    "avg_traits": 1.5,
+    "avg_response_len": 291.93333333333334
+  },
+  "results": [
+    {
+      "run_id": 1,
+      "session_id": "d466e547-c876-4fb3-98f1-9bc3989c973f",
+      "universe_id": "b5bf9564-c0b2-4ed6-a522-a0f6b1d47e4a",
+      "phases_completed": 0,
+      "total_interactions": 0,
+      "narrator_responses": [],
+      "final_state": null,
+      "errors": [
+        "(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint \"players_handle_key\"\nDETAIL:  Key (handle)=(smoke_test_1) already exists.\n[SQL: INSERT INTO players (id, handle, created_at) VALUES ($1, $2, NOW()) ON CONFLICT (id) DO NOTHING]\n[parameters: (UUID('74f7c8e6-02b7-4f25-8ca7-444d804c6ec6'), 'smoke_test_1')]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)"
+      ],
+      "quality": {
+        "completed": false,
+        "character_named": false,
+        "starting_location_set": false,
+        "traits_inferred": 0,
+        "first_turn_seed_length": 0,
+        "response_lengths": []
+      }
+    },
+    {
+      "run_id": 2,
+      "session_id": "d64b9b7e-ad4a-4f82-9d1d-24b55a0eae80",
+      "universe_id": "947b8d6f-e762-4dc5-a113-3f0906292f0f",
+      "phases_completed": 8,
+      "total_interactions": 29,
+      "narrator_responses": [
+        "You find yourself in a moment of quiet. Tell me \u2014 what does your ordinary world look like right now?",
+        "That sounds intriguing. To help me tie that concept into something grounded, tell me\u2014what does a typical day look like for you in your everyday life? Where do you live, and what kind of work fills your hours?",
+        "That's a compelling aesthetic orientation - liminality, threshold spaces, the sensation of things hovering between states. It shows up in art, architecture, film, and writing as much as in actual physical places.\n\nWhat's drawing you there? Are you:\n\n- **Exploring something for creative work** (writing, art, design)?\n- **Seeking places or media** that evoke that feeling?\n- **Reflecting on a mood or sensibility** you want to understand better?\n\nI'm happy to engage in any direction - whether that means discussing what makes certain spaces feel unstable, brainstorming concepts that play with that instability, or pointing toward work (books, films, places) that captures it well.",
+        "The feeling of being slightly out of sync with the world around you can be a curious thing. Have you noticed any small, almost imperceptible changes in your daily routine or surroundings that might be contributing to this sense of disconnection? Perhaps a faint scent that lingers in a familiar place, or a recurring phrase that echoes in your mind, just out of context?",
+        "The air feels\u2026thin, lately. Like a veil drawn almost imperceptibly across the world, hinting at something just beyond our usual perception.  I find myself noticing little things \u2013 a flicker of light where there shouldn't be, a scent that vanishes as soon as you try to place it. Tell me, have *you* noticed anything small and out of place?",
+        "Kai... a name that feels like a heavy anchor, but you might find that even the deepest waters are prone to sudden, inexplicable shifts. You reach for that familiarity, yet you can't help but notice how the horizon seems to tremble every time you look away.",
+        "You reach for a memory of home, but the edges are fraying, aren't they? It feels as though you are trying to hold onto",
+        "Before we step forward, tell me\u2014what pulls at your heart in this moment? The instinct to run, or the need to shield someone close? What shadowy fear claws at your thoughts as you take this step?",
+        "The threshold hums beneath your feet. Before you step, tell me: what is the first instinct that rises in your gut when the unknown stirs? What quiet terror do you refuse to name? And what\u2014or who\u2014is the one thing you would turn and fight the dark to shield?",
+        "Good. The threshold hums with what has been and what is yet to unravel. What truth remains when the name you carried dissolves? Step forward, and let the echoes decide.",
+        "The truth is, you've always been a product of others' whispers and shadows.",
+        "A hush falls over the air as you speak, the very words echoing with a significance you cannot yet fully grasp. \"I'm\" \u2013 a name both simple and profound, a declaration of self in a realm unbound by conventional labels. This is not merely a moniker, but the foundation of your being here, a key to unlocking the mysteries and forging your own destiny in this strange and wondrous place.",
+        "The air crackles as the final syllable hangs in the space between worlds. \"I'm...\" you declare, and in that simple act of self-definition, a spark ignites.  To be called \"I'm\" is to exist outside of definition, a blank slate poised to be written upon by the very fate of this realm \u2013 a powerful, and perhaps perilous, freedom you now embody.",
+        "Good mindset to have. Whatever task is waiting on the other side \u2014 you're prepared to engage with it.\n\nIf there's something concrete you want to tackle next (debugging, building something new, explaining a concept, reviewing code), just let me know. Or if you're still figuring out what comes next, we can explore ideas together.\n\nWhat's the next move?",
+        "The shimmering veil thrummed, a symphony of possibilities humming against your skin \u2013 eons of potential coalescing into a single, expectant point.  You have witnessed the echoing silence before the first breath, the infinite canvas yearning for color, and now, the nascent heartbeat of existence calls to you. This is the moment woven into the very fabric of being, the final threshold crossed; there is no return to the unformed.  And knowing the weight of what you're about to unleash, do you dare to shape the song of what comes next?"
+      ],
+      "final_state": {
+        "current_phase": "COMPLETE",
+        "phase_interaction_count": 0,
+        "interactions": [
+          {
+            "role": "narrator",
+            "content": "You find yourself in a moment of quiet. Tell me \u2014 what does your ordinary world look like right now?"
+          },
+          {
+            "role": "player",
+            "content": "I want to explore a world where technology and nature have merged into something strange and beautiful."
+          },
+          {
+            "role": "narrator",
+            "content": "That sounds intriguing. To help me tie that concept into something grounded, tell me\u2014what does a typical day look like for you in your everyday life? Where do you live, and what kind of work fills your hours?"
+          },
+          {
+            "role": "player",
+            "content": "I'm drawn to places where everyday reality feels slightly unstable, like anything could shift."
+          },
+          {
+            "role": "narrator",
+            "content": "That's a compelling aesthetic orientation - liminality, threshold spaces, the sensation of things hovering between states. It shows up in art, architecture, film, and writing as much as in actual physical places.\n\nWhat's drawing you there? Are you:\n\n- **Exploring something for creative work** (writing, art, design)?\n- **Seeking places or media** that evoke that feeling?\n- **Reflecting on a mood or sensibility** you want to understand better?\n\nI'm happy to engage in any direction - whether that means discussing what makes certain spaces feel unstable, brainstorming concepts that play with that instability, or pointing toward work (books, films, places) that captures it well."
+          },
+          {
+            "role": "player",
+            "content": "Sometimes I feel like I don't quite fit in my own world. Maybe that's why I'm here."
+          },
+          {
+            "role": "narrator",
+            "content": "The feeling of being slightly out of sync with the world around you can be a curious thing. Have you noticed any small, almost imperceptible changes in your daily routine or surroundings that might be contributing to this sense of disconnection? Perhaps a faint scent that lingers in a familiar place, or a recurring phrase that echoes in your mind, just out of context?"
+          },
+          {
+            "role": "player",
+            "content": "I'm someone who notices details others miss. The small things that hint at bigger truths."
+          },
+          {
+            "role": "narrator",
+            "content": "The air feels\u2026thin, lately. Like a veil drawn almost imperceptibly across the world, hinting at something just beyond our usual perception.  I find myself noticing little things \u2013 a flicker of light where there shouldn't be, a scent that vanishes as soon as you try to place it. Tell me, have *you* noticed anything small and out of place?"
+          },
+          {
+            "role": "player",
+            "content": "I would name myself Kai. It means 'ocean' \u2014 something deep and unknowable but familiar."
+          },
+          {
+            "role": "narrator",
+            "content": "Kai... a name that feels like a heavy anchor, but you might find that even the deepest waters are prone to sudden, inexplicable shifts. You reach for that familiarity, yet you can't help but notice how the horizon seems to tremble every time you look away."
+          },
+          {
+            "role": "player",
+            "content": "I think about what it means to truly belong somewhere, to something."
+          },
+          {
+            "role": "narrator",
+            "content": "You reach for a memory of home, but the edges are fraying, aren't they? It feels as though you are trying to hold onto"
+          },
+          {
+            "role": "player",
+            "content": "I'm ready to step through. Whatever waits on the other side."
+          },
+          {
+            "role": "narrator",
+            "content": "Before we step forward, tell me\u2014what pulls at your heart in this moment? The instinct to run, or the need to shield someone close? What shadowy fear claws at your thoughts as you take this step?"
+          },
+          {
+            "role": "player",
+            "content": "I'm ready to step through. Whatever waits on the other side."
+          },
+          {
+            "role": "narrator",
+            "content": "The threshold hums beneath your feet. Before you step, tell me: what is the first instinct that rises in your gut when the unknown stirs? What quiet terror do you refuse to name? And what\u2014or who\u2014is the one thing you would turn and fight the dark to shield?"
+          },
+          {
+            "role": "player",
+            "content": "I'm ready to step through. Whatever waits on the other side."
+          },
+          {
+            "role": "narrator",
+            "content": "Good. The threshold hums with what has been and what is yet to unravel. What truth remains when the name you carried dissolves? Step forward, and let the echoes decide."
+          },
+          {
+            "role": "player",
+            "content": "I'm ready to step through. Whatever waits on the other side."
+          },
+          {
+            "role": "narrator",
+            "content": "The truth is, you've always been a product of others' whispers and shadows."
+          },
+          {
+            "role": "player",
+            "content": "I'm ready to step through. Whatever waits on the other side."
+          },
+          {
+            "role": "narrator",
+            "content": "A hush falls over the air as you speak, the very words echoing with a significance you cannot yet fully grasp. \"I'm\" \u2013 a name both simple and profound, a declaration of self in a realm unbound by conventional labels. This is not merely a moniker, but the foundation of your being here, a key to unlocking the mysteries and forging your own destiny in this strange and wondrous place."
+          },
+          {
+            "role": "player",
+            "content": "I'm ready to step through. Whatever waits on the other side."
+          },
+          {
+            "role": "narrator",
+            "content": "The air crackles as the final syllable hangs in the space between worlds. \"I'm...\" you declare, and in that simple act of self-definition, a spark ignites.  To be called \"I'm\" is to exist outside of definition, a blank slate poised to be written upon by the very fate of this realm \u2013 a powerful, and perhaps perilous, freedom you now embody."
+          },
+          {
+            "role": "player",
+            "content": "I'm ready to step through. Whatever waits on the other side."
+          },
+          {
+            "role": "narrator",
+            "content": "Good mindset to have. Whatever task is waiting on the other side \u2014 you're prepared to engage with it.\n\nIf there's something concrete you want to tackle next (debugging, building something new, explaining a concept, reviewing code), just let me know. Or if you're still figuring out what comes next, we can explore ideas together.\n\nWhat's the next move?"
+          },
+          {
+            "role": "player",
+            "content": "I'm ready to step through. Whatever waits on the other side."
+          },
+          {
+            "role": "narrator",
+            "content": "The shimmering veil thrummed, a symphony of possibilities humming against your skin \u2013 eons of potential coalescing into a single, expectant point.  You have witnessed the echoing silence before the first breath, the infinite canvas yearning for color, and now, the nascent heartbeat of existence calls to you. This is the moment woven into the very fabric of being, the final threshold crossed; there is no return to the unformed.  And knowing the weight of what you're about to unleash, do you dare to shape the song of what comes next?"
+          }
+        ],
+        "seed_phrase": null,
+        "slip_event": "I would name myself Kai. It means 'ocean' \u2014 something deep and unknowable but familiar.",
+        "inferred_traits": [
+          "curious",
+          "unstable",
+          "fearful"
+        ],
+        "confirmed_traits": [
+          "curious",
+          "unstable"
+        ],
+        "narrator_form_hint": "a voice between memory and shadow",
+        "character_name": "I'm",
+        "starting_location": null,
+        "composition_committed": false,
+        "first_turn_seed": "Character: I'm | Traits: curious, unstable | Narrator form: a voice between memory and shadow | The slip: I would name myself Kai. It means 'ocean' \u2014 something deep and unknowable but familiar.",
+        "completed": true,
+        "universe_id": "947b8d6f-e762-4dc5-a113-3f0906292f0f"
+      },
+      "errors": [],
+      "quality": {
+        "completed": true,
+        "character_named": true,
+        "starting_location_set": false,
+        "traits_inferred": 3,
+        "first_turn_seed_length": 193,
+        "response_lengths": [
+          100,
+          208,
+          682,
+          370,
+          339,
+          256,
+          118,
+          194,
+          256,
+          168,
+          75,
+          383,
+          341,
+          352,
+          537
+        ]
+      }
+    }
+  ]
+}
