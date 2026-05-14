@@ -126,4 +126,4 @@ exclude_lines = [
 ]
 
 [tool.uv.sources]
-ttadev = { git = "https://github.com/theinterneti/TTA.dev.git", rev = "v0.1.0-alpha" }
+ttadev = { git = "https://github.com/theinterneti/TTA.dev.git", rev = "v0.1.1-alpha" }
