@@ -6,19 +6,32 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /usr/local/bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
+# git needed for ttadev git dependency (python:3.12-slim doesn't include it)
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy dependency files first (cache layer)
 COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies only (cache layer — no project install yet)
+# Mount GITHUB_TOKEN secret so git can clone ttadev from CI
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --frozen --no-install-project
+    --mount=type=secret,id=GITHUB_TOKEN \
+    bash -c 'if [ -f /run/secrets/GITHUB_TOKEN ]; then \
+      export GIT_ASKPASS="echo $(cat /run/secrets/GITHUB_TOKEN)"; \
+      git config --global url."https://x-access-token:$(cat /run/secrets/GITHUB_TOKEN)@github.com/".insteadOf "https://github.com/"; \
+    fi; \
+    uv sync --no-dev --frozen --no-install-project'
 
 # Copy source and install the project package
 COPY src/ src/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --frozen
+    --mount=type=secret,id=GITHUB_TOKEN \
+    bash -c 'if [ -f /run/secrets/GITHUB_TOKEN ]; then \
+      git config --global url."https://x-access-token:$(cat /run/secrets/GITHUB_TOKEN)@github.com/".insteadOf "https://github.com/"; \
+    fi; \
+    uv sync --no-dev --frozen'
 
 # Stage 2: Runtime
 FROM python:3.12-slim AS runtime
