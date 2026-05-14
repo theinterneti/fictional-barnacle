@@ -10,6 +10,7 @@ from tta.jobs.jobs import (
     game_backfill,
     gdpr_delete_player,
     retention_sweep,
+    run_npc_autonomy,
     session_cleanup,
 )
 
@@ -22,7 +23,13 @@ class WorkerSettings:
     Start with: ``uv run arq tta.jobs.worker.WorkerSettings``
     """
 
-    functions = [gdpr_delete_player, retention_sweep, session_cleanup, game_backfill]
+    functions = [
+        gdpr_delete_player,
+        retention_sweep,
+        session_cleanup,
+        game_backfill,
+        run_npc_autonomy,
+    ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 10
     job_timeout = 1800

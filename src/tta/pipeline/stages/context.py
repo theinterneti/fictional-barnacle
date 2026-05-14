@@ -69,113 +69,23 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         }
         context_partial = True
 
-    # v2 S35 — NPC Autonomy (guarded: no-op for v1 sessions without universe_id)
-    if deps.autonomy_processor is not None and deps.world_time_service is not None:
+    # v2.1 Decision #6: NPC autonomy + consequence propagation moved to arq worker.
+    # Fire-and-forget via ArqQueue — NPC state changes visible on NEXT turn.
+    if deps.arq_queue is not None:
         universe_id = world_context.get("universe_id") or (
             state.game_state.get("universe_id")
             if isinstance(state.game_state, dict)
             else None
         )
-        if universe_id:
-            npcs = world_context.get("npcs_present", [])
-            current_ticks = (
-                state.game_state.get("world_time", {}).get("total_ticks", 0)
-                if isinstance(state.game_state, dict)
-                else 0
-            )
-            tick_delta = deps.world_time_service.tick(current_ticks)
-            autonomy_delta = deps.autonomy_processor.process(
-                universe_id=universe_id,
-                world_time=tick_delta.world_time,
-                npcs=npcs,
-            )
-            world_context["autonomous_changes"] = [
-                {"npc_id": c.npc_id, "action_type": c.action_type, "after": c.after}
-                for c in autonomy_delta.changes
-            ]
-            world_context["autonomous_events"] = [
-                {
-                    "event_id": e.event_id,
-                    "description": e.description,
-                    "severity": e.severity,
-                }
-                for e in autonomy_delta.events
-            ]
-            # v2 S36 — Consequence Propagation
-            if deps.consequence_propagator is not None and autonomy_delta.events:
-                from tta.simulation.types import PropagationSource
-
-                sources = [
-                    PropagationSource(
-                        source_event_id=e.event_id,
-                        source_type="npc_autonomy",
-                        source_location_id=e.location_id or universe_id,
-                        original_severity=e.severity,
-                        description=e.description,
-                    )
-                    for e in autonomy_delta.events
-                ]
-                propagation_results = await deps.consequence_propagator.propagate(
-                    source_events=sources,
+        if universe_id and deps.autonomy_processor is not None:
+            try:
+                await deps.arq_queue.enqueue(
+                    "run_npc_autonomy",
+                    game_id=str(state.session_id),
                     universe_id=universe_id,
-                    world_time=tick_delta.world_time,
                 )
-                world_context["propagated_consequences"] = [
-                    {
-                        "source_event_id": r.source_event_id,
-                        "total_records": r.total_records,
-                        "depth": r.propagation_depth_reached,
-                    }
-                    for r in propagation_results
-                ]
-
-            # v2 S37 — World Memory Recording
-            if deps.memory_writer is not None:
-                try:
-                    _location_description = world_context.get("location_description")
-                    _event_descriptions = [
-                        str(event.get("description", "")).strip()
-                        for event in world_context.get("autonomous_events", [])
-                        if isinstance(event, dict) and event.get("description")
-                    ]
-                    _mem_content = (
-                        _location_description.strip()
-                        if isinstance(_location_description, str)
-                        and _location_description.strip()
-                        else " ".join(_event_descriptions) or "World state updated."
-                    )[:1000]
-                    _mem_cfg = (
-                        state.game_state.get("memory_config", {})
-                        if isinstance(state.game_state, dict)
-                        else {}
-                    )
-                    await deps.memory_writer.record(
-                        universe_id=universe_id,
-                        session_id=state.session_id,
-                        turn_number=state.turn_number,
-                        world_time=tick_delta.world_time,
-                        source="narrator",
-                        content=_mem_content,
-                        attributed_to=None,
-                        tags=[],
-                        consequence_ids=[],
-                        npc_tier=None,
-                        max_consequence_severity=None,
-                    )
-                    _mem_ctx = await deps.memory_writer.get_context(
-                        universe_id=universe_id,
-                        session_id=state.session_id,
-                        current_tick=tick_delta.world_time.total_ticks,
-                        budget_tokens=2000,
-                        memory_config=_mem_cfg,
-                    )
-                    world_context["memory_context"] = {
-                        "working": [r.content for r in _mem_ctx.working],
-                        "active": [r.content for r in _mem_ctx.active],
-                        "compressed": [r.content for r in _mem_ctx.compressed],
-                    }
-                except Exception:
-                    log.warning("memory_writer_failed", exc_info=True)
+            except Exception:
+                log.debug("npc_autonomy_enqueue_failed", exc_info=True)
 
     # Inject tone/genre from world seed (S03 FR-6.1)
     world_context = _inject_tone(world_context, state)

@@ -77,7 +77,7 @@ class TestClassificationIntent:
     def test_renders_without_variables(self, registry: FilePromptRegistry) -> None:
         result = registry.render("classification.intent", {})
         assert result.text
-        assert result.template_version == "1.1.0"
+        assert result.template_version == "2.0.0"
 
     def test_contains_all_intent_categories(self, registry: FilePromptRegistry) -> None:
         result = registry.render("classification.intent", {})

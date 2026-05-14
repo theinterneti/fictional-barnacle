@@ -260,3 +260,102 @@ async def game_backfill(ctx: dict, game_id: str | None = None) -> dict:
         else:
             JOB_RUNS.labels(job_fn=job_fn, status="retry").inc()
         raise
+
+
+async def run_npc_autonomy(ctx: dict, game_id: str, universe_id: str) -> dict:
+    """Fire-and-forget NPC autonomy + consequence propagation (Decision #6).
+
+    Loads NPC state from Neo4j, runs autonomy_processor for one tick,
+    writes state changes back, then chains consequence propagation for
+    any world events generated.
+
+    Runs in arq worker — non-blocking for the player turn pipeline.
+    NPC state changes are visible on the NEXT player turn.
+    """
+    start = time.monotonic()
+    job_fn = "run_npc_autonomy"
+    try:
+        from tta.config import get_settings
+        from tta.simulation.npc_autonomy import DefaultAutonomyProcessor
+        from tta.simulation.world_time import WorldTimeService
+        from tta.world.service import WorldService
+
+        settings = get_settings()
+        world = WorldService(settings=settings)  # type: ignore[abstract]
+        wt_service = WorldTimeService()
+
+        # Load world context from Neo4j
+        world_ctx = await world.get_full_context(game_id)  # type: ignore[attr-defined]
+        npcs = world_ctx.get("npcs_present", [])
+        current_ticks = world_ctx.get("world_time", {}).get("total_ticks", 0)
+        tick_delta = wt_service.tick(current_ticks)
+
+        # Run autonomy (rule-based only — no LLM in worker)
+        processor = DefaultAutonomyProcessor(llm=None)
+        autonomy_delta = processor.process(
+            universe_id=universe_id,
+            world_time=tick_delta.world_time,
+            npcs=npcs,
+        )
+
+        # Write NPC state changes back to Neo4j
+        for change in autonomy_delta.changes:
+            await world.update_npc_state(  # type: ignore[attr-defined]
+                game_id=game_id,
+                npc_id=change.npc_id,
+                state_updates={"after": change.after},
+            )
+
+        # Consequence propagation chained after autonomy
+        consequence_results = []
+        if autonomy_delta.events:
+            from tta.simulation.consequence import DefaultConsequencePropagator
+            from tta.simulation.types import PropagationSource
+
+            propagator = DefaultConsequencePropagator(max_depth=3)
+            sources = [
+                PropagationSource(
+                    source_event_id=e.event_id,
+                    source_type="npc_autonomy",
+                    source_location_id=getattr(e, "location_id", None) or universe_id,
+                    original_severity=e.severity,
+                    description=e.description,
+                )
+                for e in autonomy_delta.events
+            ]
+            consequence_results = await propagator.propagate(
+                source_events=sources,
+                universe_id=universe_id,
+                world_time=tick_delta.world_time,
+            )
+
+        duration = time.monotonic() - start
+        JOB_DURATION.labels(job_fn=job_fn).observe(duration)
+        JOB_RUNS.labels(job_fn=job_fn, status="success").inc()
+        log.info(
+            "npc_autonomy_complete",
+            game_id=game_id,
+            universe_id=universe_id,
+            npc_count=len(npcs),
+            changes=len(autonomy_delta.changes),
+            events=len(autonomy_delta.events),
+            consequences=len(consequence_results),
+            duration_ms=round(duration * 1000, 1),
+        )
+        return {
+            "npc_count": len(npcs),
+            "changes": len(autonomy_delta.changes),
+            "events": len(autonomy_delta.events),
+            "consequences": len(consequence_results),
+        }
+
+    except Exception as exc:
+        duration = time.monotonic() - start
+        JOB_DURATION.labels(job_fn=job_fn).observe(duration)
+        job_try = ctx.get("job_try", 1)
+        if job_try >= 3:
+            JOB_RUNS.labels(job_fn=job_fn, status="failed").inc()
+            await _write_dead_letter(ctx, job_fn, (game_id, universe_id), str(exc))
+        else:
+            JOB_RUNS.labels(job_fn=job_fn, status="retry").inc()
+        raise

@@ -70,6 +70,7 @@ class PipelineDeps:
     consequence_propagator: ConsequencePropagator | None = None  # v2 S36
     memory_writer: MemoryWriter | None = None  # v2 S37
     social_memory_writer: SocialMemoryWriter | None = None  # v2 S38
+    arq_queue: Any | None = None  # ArqQueue for fire-and-forget job dispatch
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState
