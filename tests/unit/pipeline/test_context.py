@@ -410,12 +410,13 @@ async def test_autonomous_changes_injected_into_world_context() -> None:
     result_state = await context_stage(state, deps)
     world_context = result_state.world_context or {}
 
-    assert "autonomous_changes" in world_context, (
-        "world_context must contain 'autonomous_changes' "
-        "when autonomy_processor is active"
+    # v2.1 Decision #6: autonomous_changes are no longer injected inline.
+    # NPC autonomy runs in arq worker — results visible on NEXT turn.
+    # arq_queue is None in this test → enqueue is skipped silently.
+    assert "autonomous_changes" not in world_context, (
+        "autonomous_changes should NOT be injected inline (Decision #6)"
     )
-    assert len(world_context["autonomous_changes"]) == 1
-    assert world_context["autonomous_changes"][0]["npc_id"] == "npc-01"
+    # Context assembly completes without error (no crash from missing autonomy)
 
 
 @pytest.mark.spec("AC-36.06")
@@ -483,11 +484,10 @@ async def test_propagated_consequences_injected_into_world_context() -> None:
     result_state = await context_stage(state, deps)
     world_context = result_state.world_context or {}
 
-    assert "propagated_consequences" in world_context, (
-        "world_context must contain 'propagated_consequences' "
-        "when consequence_propagator is active"
+    # v2.1 Decision #6: consequence propagation moved to arq worker.
+    # propagated_consequences no longer injected inline.
+    # arq_queue is None in this test → enqueue is skipped silently.
+    assert "propagated_consequences" not in world_context, (
+        "propagated_consequences should NOT be injected inline (Decision #6)"
     )
-    assert len(world_context["propagated_consequences"]) == 1
-    result = world_context["propagated_consequences"][0]
-    assert result["source_event_id"] == "evt-01"
-    assert result["total_records"] == 2
+    # Context assembly completes without error
