@@ -35,86 +35,64 @@ CREATE INDEX region_name_idx     IF NOT EXISTS FOR (n:Region) ON (n.name);
 
 // ── Full test world data ──────────────────────────────────────────────────────
 
-CREATE (u:Universe {
+MERGE (u:Universe {
   world_id: 'test-world-full-001',
   name: 'Full Test World',
-  status: 'active',
-  created_at: datetime(),
-  updated_at: datetime()
+  status: 'active'
 })
 
-CREATE (r1:Region {
+MERGE (r1:Region {
   region_id: 'test-region-full-001',
-  name: 'Eastern Province',
-  created_at: datetime(),
-  updated_at: datetime()
+  name: 'Eastern Province'
 })
 
-CREATE (r2:Region {
+MERGE (r2:Region {
   region_id: 'test-region-full-002',
-  name: 'Western Province',
-  created_at: datetime(),
-  updated_at: datetime()
+  name: 'Western Province'
 })
 
-CREATE (loc1:Location {
+MERGE (loc1:Location {
   location_id: 'test-loc-full-001',
   name: 'Capital City',
-  description: 'The heart of the kingdom.',
-  created_at: datetime(),
-  updated_at: datetime()
+  description: 'The heart of the kingdom.'
 })
 
-CREATE (loc2:Location {
+MERGE (loc2:Location {
   location_id: 'test-loc-full-002',
   name: 'Ancient Ruins',
-  description: 'Crumbling stone arches.',
-  created_at: datetime(),
-  updated_at: datetime()
+  description: 'Crumbling stone arches.'
 })
 
-CREATE (npc1:NPC {
+MERGE (npc1:NPC {
   npc_id: 'test-npc-full-001',
-  name: 'King Aldric',
-  created_at: datetime(),
-  updated_at: datetime()
+  name: 'King Aldric'
 })
 
-CREATE (npc2:NPC {
+MERGE (npc2:NPC {
   npc_id: 'test-npc-full-002',
-  name: 'Sorceress Mira',
-  created_at: datetime(),
-  updated_at: datetime()
+  name: 'Sorceress Mira'
 })
 
-CREATE (item1:Item {
+MERGE (item1:Item {
   item_id: 'test-item-full-001',
-  name: 'Enchanted Sword',
-  created_at: datetime(),
-  updated_at: datetime()
+  name: 'Enchanted Sword'
 })
 
-CREATE (item2:Item {
+MERGE (item2:Item {
   item_id: 'test-item-full-002',
-  name: 'Ancient Tome',
-  created_at: datetime(),
-  updated_at: datetime()
+  name: 'Ancient Tome'
 })
 
-CREATE (ev1:Event {
+MERGE (ev1:Event {
   event_id: 'test-event-full-001',
   event_type: 'npc_encounter',
-  description: 'King met the sorceress.',
-  created_at: datetime(),
-  updated_at: datetime()
+  description: 'King met the sorceress.'
 })
 
-CREATE (q1:Quest {
+MERGE (q1:Quest {
   quest_id: 'test-quest-full-001',
   name: 'Find the Ancient Tome',
-  status: 'active',
-  created_at: datetime(),
-  updated_at: datetime()
+  status: 'active'
 })
 
 // Relationships
