@@ -107,7 +107,9 @@ async def main():
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         report_path = OUTPUT_DIR / "smoke_result.json"
         composite = (
-            result.quality_reports[0].composite_score if result.quality_reports else None
+            result.quality_reports[0].composite_score
+            if result.quality_reports
+            else None
         )
         report_path.write_text(
             json.dumps(

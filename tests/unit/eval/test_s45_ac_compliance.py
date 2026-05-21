@@ -15,12 +15,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tta.eval.__main__ import _main
 from tta.eval.models import (
     BatchConfig,
     BatchEvalResult,
     RegressionResult,
 )
-from tta.eval.__main__ import _main
 from tta.eval.pipeline import EvaluationPipeline
 
 # ---------------------------------------------------------------------------
