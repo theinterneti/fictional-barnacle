@@ -361,11 +361,18 @@ class EvaluationPipeline:
                         + cat_score.category_id.lower().replace("-", "_")
                     )
                     try:
-                        client.score(  # type: ignore[attr-defined]
-                            name=score_name,
-                            value=cat_score.score,
-                            trace_id=report.session_id,
-                        )
+                        if hasattr(client, "create_score"):
+                            client.create_score(
+                                name=score_name,
+                                value=cat_score.score,
+                                trace_id=report.session_id,
+                            )
+                        else:
+                            client.score(  # type: ignore[attr-defined]
+                                name=score_name,
+                                value=cat_score.score,
+                                trace_id=report.session_id,
+                            )
                     except Exception as exc:
                         log.warning(
                             "langfuse_score_failed",

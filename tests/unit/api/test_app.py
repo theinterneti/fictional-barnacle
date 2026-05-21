@@ -21,7 +21,7 @@ def _settings() -> Settings:
 
 @pytest.fixture()
 def app(_settings: Settings) -> FastAPI:
-    return create_app(settings=_settings)
+    return create_app(_settings)
 
 
 @pytest.fixture()
@@ -61,7 +61,6 @@ class TestRequestIDMiddleware:
 
     def test_generated_id_is_valid_uuid(self, client: TestClient) -> None:
         resp = client.get("/api/v1/health")
-        # Should not raise
         uuid.UUID(resp.headers["x-request-id"])
 
     def test_preserves_provided_id(self, client: TestClient) -> None:
@@ -80,7 +79,7 @@ class TestRequestIDMiddleware:
         assert resp.headers["x-trace-id"] == "abc-trace-123"
 
     def test_x_trace_id_falls_back_to_request_id(self, client: TestClient) -> None:
-        """When no X-Trace-Id is sent, the response still has one (from request_id)."""
+        """When no X-Trace-Id is sent, the response still has one."""
         resp = client.get("/api/v1/health")
         assert "x-trace-id" in resp.headers
         assert "x-request-id" in resp.headers
@@ -122,3 +121,32 @@ class TestLifespanWiring:
     def test_world_service_injected(self, app: FastAPI) -> None:
         with TestClient(app) as c:
             assert c.app.state.world_service is not None  # type: ignore[union-attr]
+
+    def test_summary_service_qualifies_explicit_summary_model_alias(self) -> None:
+        app = create_app(
+            Settings(
+                database_url="postgresql://test@localhost/test",
+                neo4j_password="test",
+                neo4j_uri="",
+                summary_model="tta",
+                llm_backend="openai",
+            )
+        )
+
+        with TestClient(app) as c:
+            assert c.app.state.summary_service._model == "openai/tta"  # type: ignore[union-attr]
+
+    def test_summary_service_uses_qualified_litellm_model_fallback(self) -> None:
+        app = create_app(
+            Settings(
+                database_url="postgresql://test@localhost/test",
+                neo4j_password="test",
+                neo4j_uri="",
+                summary_model="",
+                litellm_model="tta",
+                llm_backend="openai",
+            )
+        )
+
+        with TestClient(app) as c:
+            assert c.app.state.summary_service._model == "openai/tta"  # type: ignore[union-attr]

@@ -20,6 +20,7 @@ import functools
 import hashlib
 import time
 from collections.abc import Callable
+from contextlib import nullcontext
 from typing import Any, ParamSpec, TypeVar
 
 import structlog
@@ -70,6 +71,59 @@ def init_langfuse(settings: Any) -> None:
 def get_langfuse() -> Any:
     """Return the current Langfuse client, or ``None`` if disabled."""
     return _langfuse_client
+
+
+def _langfuse_uses_v4_sdk(client: Any) -> bool:
+    """Detect Langfuse SDK v4+, which removed ``client.trace()``."""
+    return hasattr(client, "start_observation") and not hasattr(client, "trace")
+
+
+def _start_generation_observation(
+    client: Any,
+    *,
+    trace_id: str | None,
+    name: str,
+    input_data: Any,
+    output_data: Any,
+    metadata: dict[str, Any],
+    model: str | None = None,
+    usage: dict[str, int | None] | None = None,
+    prompt: Any | None = None,
+    session_id: str | None = None,
+    user_id: str | None = None,
+    tags: list[str] | None = None,
+    trace_name: str | None = None,
+) -> Any:
+    """Create a generation observation compatible with Langfuse SDK v4+."""
+    from langfuse import propagate_attributes
+
+    usage_details = None
+    if usage:
+        usage_details = {
+            key: value for key, value in usage.items() if value is not None
+        }
+
+    trace_context = {"trace_id": trace_id} if trace_id else None
+    attr_ctx = propagate_attributes(
+        user_id=user_id,
+        session_id=session_id,
+        tags=tags,
+        trace_name=trace_name,
+    )
+    with attr_ctx if attr_ctx is not None else nullcontext():
+        obs = client.start_observation(
+            trace_context=trace_context,
+            name=name,
+            as_type="generation",
+            input=input_data,
+            output=output_data,
+            metadata=metadata,
+            model=model,
+            usage_details=usage_details,
+            prompt=prompt,
+        )
+        obs.end()
+        return obs
 
 
 def shutdown_langfuse() -> None:
@@ -136,12 +190,6 @@ def record_llm_generation(
     if player_id:
         trace_kwargs["user_id"] = pseudonymize_player_id(str(player_id))
 
-    try:
-        trace_obj = _langfuse_client.trace(**trace_kwargs)
-    except Exception:
-        _warn_langfuse_error("langfuse_trace_failed", name=name)
-        return
-
     # Build generation kwargs using the LLMResponse
     sanitized_input = [
         {
@@ -199,7 +247,25 @@ def record_llm_generation(
         gen["output"] = str(result)
 
     try:
-        trace_obj.generation(**gen)
+        if _langfuse_uses_v4_sdk(_langfuse_client):
+            _start_generation_observation(
+                _langfuse_client,
+                trace_id=turn_id,
+                name=name,
+                input_data=sanitized_input,
+                output_data=gen["output"],
+                metadata=gen["metadata"],
+                model=gen.get("model"),
+                usage=gen.get("usage"),
+                prompt=langfuse_prompt,
+                session_id=ctx.get("session_id"),
+                user_id=trace_kwargs.get("user_id"),
+                tags=[role],
+                trace_name=trace_kwargs["name"],
+            )
+        else:
+            trace_obj = _langfuse_client.trace(**trace_kwargs)
+            trace_obj.generation(**gen)
     except Exception:
         _warn_langfuse_error("langfuse_generation_failed", name=name)
 
@@ -235,12 +301,6 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
             if player_id:
                 trace_kwargs["user_id"] = pseudonymize_player_id(str(player_id))
 
-            try:
-                trace = _langfuse_client.trace(**trace_kwargs)
-            except Exception:
-                _warn_langfuse_error("langfuse_trace_failed", name=name)
-                return await func(*args, **kwargs)  # type: ignore[misc]
-
             start = time.monotonic()
             try:
                 result = await func(*args, **kwargs)  # type: ignore[misc]
@@ -254,7 +314,24 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
                     ctx,
                 )
                 try:
-                    trace.generation(**gen_kwargs)
+                    if _langfuse_uses_v4_sdk(_langfuse_client):
+                        _start_generation_observation(
+                            _langfuse_client,
+                            trace_id=ctx.get("turn_id"),
+                            name=name,
+                            input_data=gen_kwargs["input"],
+                            output_data=gen_kwargs["output"],
+                            metadata=gen_kwargs["metadata"],
+                            model=gen_kwargs.get("model"),
+                            usage=gen_kwargs.get("usage"),
+                            session_id=ctx.get("session_id"),
+                            user_id=trace_kwargs.get("user_id"),
+                            tags=["user_input"],
+                            trace_name=trace_kwargs["name"],
+                        )
+                    else:
+                        trace = _langfuse_client.trace(**trace_kwargs)
+                        trace.generation(**gen_kwargs)
                 except Exception:
                     _warn_langfuse_error(
                         "langfuse_generation_failed",
@@ -262,16 +339,18 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
                     )
                 return result  # type: ignore[return-value]
             except Exception as exc:
-                try:
-                    trace.update(
-                        level="ERROR",
-                        status_message=_sanitize_error(str(exc)),
-                    )
-                except Exception:
-                    _warn_langfuse_error(
-                        "langfuse_update_failed",
-                        name=name,
-                    )
+                if not _langfuse_uses_v4_sdk(_langfuse_client):
+                    try:
+                        trace = _langfuse_client.trace(**trace_kwargs)
+                        trace.update(
+                            level="ERROR",
+                            status_message=_sanitize_error(str(exc)),
+                        )
+                    except Exception:
+                        _warn_langfuse_error(
+                            "langfuse_update_failed",
+                            name=name,
+                        )
                 raise
 
         return wrapper  # type: ignore[return-value]

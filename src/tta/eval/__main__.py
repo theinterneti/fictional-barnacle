@@ -10,8 +10,10 @@ import argparse
 import asyncio
 import sys
 
+from tta.config import get_settings
 from tta.eval.models import BatchConfig
 from tta.eval.pipeline import EvaluationPipeline
+from tta.observability.langfuse import init_langfuse, shutdown_langfuse
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -54,19 +56,24 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 async def _main(args: argparse.Namespace) -> int:
-    config = BatchConfig(
-        mode=args.mode,
-        baseline_path=args.baseline,
-        output_dir=args.output_dir,
-        human_feedback_dir=args.human_feedback_dir,
-    )
-    pipeline = EvaluationPipeline(
-        config=config,
-        api_base_url=args.api_base_url,
-        api_key=args.api_key,
-    )
-    _, exit_code = await pipeline.run()
-    return exit_code
+    settings = get_settings()
+    init_langfuse(settings)
+    try:
+        config = BatchConfig(
+            mode=args.mode,
+            baseline_path=args.baseline,
+            output_dir=args.output_dir,
+            human_feedback_dir=args.human_feedback_dir,
+        )
+        pipeline = EvaluationPipeline(
+            config=config,
+            api_base_url=args.api_base_url,
+            api_key=args.api_key,
+        )
+        _, exit_code = await pipeline.run()
+        return exit_code
+    finally:
+        shutdown_langfuse()
 
 
 def main() -> None:

@@ -1,6 +1,8 @@
 """Tests for TTA configuration model."""
 
 import os
+from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -9,9 +11,19 @@ from tta.config import Environment, LogLevel, Settings, get_settings
 
 # Required env vars for a valid Settings instance
 REQUIRED_ENV = {
-    "TTA_DATABASE_URL": "postgresql://user:pass@localhost/tta",
+    "TTA_DATABASE_URL": "postgresql://user:password@localhost/tta",
     "TTA_NEO4J_PASSWORD": "secret",
 }
+
+_SENTINEL = object()
+
+
+def build_settings(*, env_file: object = _SENTINEL, **overrides: Any) -> Settings:
+    """Construct ``Settings`` while allowing tests to control dotenv loading."""
+    kwargs: dict[str, Any] = dict(overrides)
+    if env_file is not _SENTINEL:
+        kwargs["_env_file"] = env_file
+    return Settings(**kwargs)  # type: ignore[reportCallIssue]
 
 
 @pytest.fixture(autouse=True)
@@ -35,42 +47,45 @@ class TestSettingsInstantiation:
     def test_with_required_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         for key, val in REQUIRED_ENV.items():
             monkeypatch.setenv(key, val)
-        s = Settings()
+        s = build_settings(env_file=None)
         assert s.database_url == REQUIRED_ENV["TTA_DATABASE_URL"]
         assert s.neo4j_password == REQUIRED_ENV["TTA_NEO4J_PASSWORD"]
 
     def test_missing_database_url_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TTA_NEO4J_PASSWORD", "secret")
         with pytest.raises(ValidationError):
-            Settings()
+            build_settings(env_file=None)
 
     def test_missing_neo4j_password_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("TTA_DATABASE_URL", "postgresql://x@localhost/tta")
         with pytest.raises(ValidationError):
-            Settings()
+            build_settings(env_file=None)
 
 
 class TestDefaults:
-    """Default values are applied correctly."""
+    """Unset optional fields fall back to code defaults."""
 
     @pytest.mark.usefixtures("_set_required_env")
     def test_default_values(self) -> None:
-        s = Settings()
+        s = build_settings(env_file=None)
         assert s.redis_url == "redis://localhost:6379"
         assert s.neo4j_uri == ""
         assert s.neo4j_user == "neo4j"
+        assert s.llm_backend == "openai"
+        assert s.openai_api_base == "http://localhost:3456/v1"
+        assert s.openai_api_key == ""
         assert s.litellm_model == "openai/gpt-4o-mini"
         assert s.litellm_fallback_model == "openai/gpt-4o-mini"
-        assert s.session_token_ttl == 86400
-        assert s.log_level == LogLevel.INFO
-        assert s.log_format == "json"
         assert s.environment == Environment.DEVELOPMENT
+        assert s.log_level == LogLevel.INFO
+        assert s.idle_timeout_minutes == 30
+        assert s.session_token_ttl == 86400
 
     @pytest.mark.usefixtures("_set_required_env")
     def test_langfuse_defaults_none(self) -> None:
-        s = Settings()
+        s = build_settings(env_file=None)
         assert s.langfuse_host is None
         assert s.langfuse_public_key is None
         assert s.langfuse_secret_key is None
@@ -81,7 +96,8 @@ class TestEnumValidation:
 
     def test_valid_log_levels(self) -> None:
         for level in LogLevel:
-            s = Settings(
+            s = build_settings(
+                env_file=None,
                 database_url="postgresql://x@localhost/tta",
                 neo4j_password="s",
                 log_level=level,
@@ -90,7 +106,8 @@ class TestEnumValidation:
 
     def test_valid_environments(self) -> None:
         for env in Environment:
-            s = Settings(
+            s = build_settings(
+                env_file=None,
                 database_url="postgresql://x@localhost/tta",
                 neo4j_password="s",
                 environment=env,
@@ -100,18 +117,20 @@ class TestEnumValidation:
 
     def test_invalid_log_level_rejected(self) -> None:
         with pytest.raises(ValidationError):
-            Settings(
+            build_settings(
+                env_file=None,
                 database_url="postgresql://x@localhost/tta",
                 neo4j_password="s",
-                log_level="TRACE",  # type: ignore[arg-type]
+                log_level="TRACE",
             )
 
     def test_invalid_environment_rejected(self) -> None:
         with pytest.raises(ValidationError):
-            Settings(
+            build_settings(
+                env_file=None,
                 database_url="postgresql://x@localhost/tta",
                 neo4j_password="s",
-                environment="local",  # type: ignore[arg-type]
+                environment="local",
             )
 
 
@@ -124,9 +143,43 @@ class TestEnvPrefix:
         monkeypatch.setenv("TTA_LOG_LEVEL", "DEBUG")
         monkeypatch.setenv("TTA_ENVIRONMENT", "production")
         monkeypatch.setenv("TTA_JWT_SECRET", "test-secret-not-default")
-        s = Settings()
+        s = build_settings(env_file=None)
         assert s.log_level == LogLevel.DEBUG
         assert s.environment == Environment.PRODUCTION
+
+    def test_dotenv_file_is_loaded_from_cwd(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        dotenv = tmp_path / ".env"
+        dotenv.write_text(
+            "TTA_DATABASE_URL=postgresql://dotenv@localhost/tta\n"
+            "TTA_NEO4J_PASSWORD=dotenv-secret\n",
+            encoding="utf-8",
+        )
+        monkeypatch.chdir(tmp_path)
+
+        s = build_settings()
+
+        assert s.database_url == "postgresql://dotenv@localhost/tta"
+        assert s.neo4j_password == "dotenv-secret"
+
+    def test_environment_variables_override_dotenv(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        dotenv = tmp_path / ".env"
+        dotenv.write_text(
+            "TTA_DATABASE_URL=postgresql://dotenv@localhost/tta\n"
+            "TTA_NEO4J_PASSWORD=dotenv-secret\n",
+            encoding="utf-8",
+        )
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("TTA_DATABASE_URL", "postgresql://env@localhost/tta")
+        monkeypatch.setenv("TTA_NEO4J_PASSWORD", "env-secret")
+
+        s = build_settings(env_file=dotenv)
+
+        assert s.database_url == "postgresql://env@localhost/tta"
+        assert s.neo4j_password == "env-secret"
 
 
 class TestGetSettings:
@@ -135,7 +188,7 @@ class TestGetSettings:
     def test_returns_same_instance(self, monkeypatch: pytest.MonkeyPatch) -> None:
         for key, val in REQUIRED_ENV.items():
             monkeypatch.setenv(key, val)
-        # Clear any prior cache
+        monkeypatch.chdir("/")
         get_settings.cache_clear()
         first = get_settings()
         second = get_settings()

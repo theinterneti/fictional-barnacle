@@ -486,8 +486,9 @@ db-reset:
 - **Multi-stage Dockerfile** — production image with non-root user, minimal layers,
   health-check instruction
 - **`docker-compose.test.yml`** — isolated test environment for CI
-- **Environment variable configuration** — all secrets via env vars; `.env.template`
-  with 1Password URI placeholders
+- **Environment variable configuration** — all secrets via env vars; `.env.example`
+  is the committed canonical template, and developers may use `op inject` to
+  materialize a local `.env` from 1Password references
 - **Alembic migrations** — schema management via `alembic.ini` and `migrations/`
 - **GitHub Actions CI** — `.github/workflows/ci.yml` runs quality gate + tests on every push
 - **Makefile targets** — `make quality`, `make test`, `make validate-all`
@@ -504,8 +505,9 @@ db-reset:
    not attempted
 2. **No container image registry** — images are built locally; no registry push or pull
 3. **No Kubernetes manifests** — entire deployment is Docker Compose only
-4. **No secrets management integration at deploy time** — relies on developer running
-   `op run --env-file=.env --` locally; no CI secret injection pipeline
+4. **No secrets management integration at deploy time** — local developer workflow now
+   supports generating a real `.env` via `op inject`, but there is still no CI/CD
+   secret injection pipeline
 5. **No rollback automation** — manual docker-compose down/up only
 
 ### Deferred to v2

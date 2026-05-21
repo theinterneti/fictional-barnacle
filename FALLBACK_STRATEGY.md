@@ -1,89 +1,74 @@
 # =============================================================================
-# 1Password Secret Injection - Fallback Strategy
+# TTA — 1Password Fallback / Resolved .env Workflow
 # =============================================================================
-# This document explains the fallback workflow if 1Password CLI fails
-# or if agents have trouble with op run.
+# Preferred pattern when you want a normal .env on disk:
+#   1. cp .env.example .env
+#   2. replace selected values with op:// references
+#   3. op inject -i .env -o .env.resolved
+#   4. mv .env.resolved .env
+#   5. run commands normally (the app loads .env itself)
+#
+# `.env` stays gitignored. Agents should not inspect it.
 #
 # =============================================================================
-# SITUATION: op run fails or agents can't use 1Password
+# SITUATION: You need a resolved local .env instead of runtime op wrapping
 # =============================================================================
 #
-# Step 1: Create a local .env with actual values (not 1Password URIs)
+# Step 1: Start from the committed example
 # -----------------------------------------------------------------------------
-# Copy .env.template to .env, then replace op:// URIs with actual keys
-# You can read keys from 1Password directly:
+#   cp .env.example .env
 #
-#   op read op://TTA/Groq/credential
-#   op read op://TTA/OpenRouter/credential
-#   etc.
-#
-# Step 2: Keep .env in gitignore
+# Step 2: Swap placeholders for 1Password references where useful
 # -----------------------------------------------------------------------------
-# The .env file should NEVER be committed:
-#   - It's already in .gitignore: .env
-#   - Verify with: grep "\.env$" .gitignore
+# Example:
+#   TTA_LANGFUSE_PUBLIC_KEY=op://TTA/Langfuse Public/credential
+#   TTA_LANGFUSE_SECRET_KEY=op://TTA/Langfuse Secret/credential
 #
-# Step 3: Run without 1Password
+# Step 3: Materialize a real .env once
 # -----------------------------------------------------------------------------
-# Now you can run directly without op run:
-#   python -m tta                          # fictional-barnacle
-#   python src/main.py start               # TTA
-#   uv run python -m ttadev.observability  # TTA.dev
+#   op inject -i .env -o .env.resolved
+#   mv .env.resolved .env
+#
+# Step 4: Run normally
+# -----------------------------------------------------------------------------
+#   python -m tta
+#   uv run uvicorn tta.api.app:create_app --factory --reload --host 0.0.0.0 --port 8000
+#   uv run pytest
 #
 # =============================================================================
-# REESTABLISHING 1PASSWORD AFTER FALLBACK
+# REGENERATING .env AFTER SECRET CHANGES
 # =============================================================================
 #
-# To return to 1Password workflow:
-#
-# 1. Delete the real values in .env
-# 2. Replace with op:// URIs (copy from .env.template)
-# 3. Run with op run again:
-#    op run --env-file=.env -- python -m tta
+# Re-run:
+#   op inject -i .env -o .env.resolved
+#   mv .env.resolved .env
 #
 # =============================================================================
-# PREVENTION: If op run hangs
+# IF 1PASSWORD CLI FAILS
 # =============================================================================
-#
-# If op run times out or hangs:
 #
 # 1. Check 1Password Desktop is running
-# 2. Run: op account list  (should show your account)
-# 3. Try: op vault list    (should show TTA vault)
-# 4. If still failing, kill and restart 1Password Desktop
+# 2. Run: op account list
+# 3. Run: op vault list
+# 4. If still failing, restart 1Password Desktop and retry inject
 #
 # =============================================================================
-# DEBUGGING 1PASSWORD CLI ISSUES
+# QUICK REFERENCE
 # =============================================================================
 #
-# Common issues and fixes:
-#
-#-"Not signed in":
-#   op signin my.1password.com
-#
-#-"Authorization prompt dismissed":
-#   Unlock 1Password Desktop and try again
-#   Or run: eval $(op signin --)
-#
-#-"Item not found":
-#   op item list --vault TTA
-#   Verify the item exists
-#
-# =============================================================================
-# QUICK REFERENCE: Common Commands
-# =============================================================================
-#
-# Read a secret:
+# Read a secret directly:
 #   op read op://TTA/Groq/credential
 #
-# List vault items:
-#   op item list --vault TTA
+# Materialize .env from references:
+#   op inject -i .env -o .env.resolved && mv .env.resolved .env
 #
-# Run with secret injection:
-#   op run --env-file=.env -- YOUR_COMMAND
-#
-# Test env file loads without printing secret values:
-#   op run --env-file=.env -- sh -c '[ -n "${KEY_NAME:-}" ] && echo "KEY_NAME is set" || echo "KEY_NAME is missing"'
+# Verify a resolved .env without printing secrets:
+#   python - <<'PY'
+#   from tta.config import Settings
+#   s = Settings()
+#   print('database configured:', bool(s.database_url))
+#   print('neo4j configured:', bool(s.neo4j_password))
+#   PY
 #
 # =============================================================================
 # CREATED: April 2026
