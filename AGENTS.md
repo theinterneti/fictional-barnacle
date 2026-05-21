@@ -142,7 +142,7 @@ LLM integration uses LiteLLM in library mode (not proxy). The client is at
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **fictional-barnacle** (16925 symbols, 27058 relationships, 121 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **fictional-barnacle** (17926 symbols, 29034 relationships, 159 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

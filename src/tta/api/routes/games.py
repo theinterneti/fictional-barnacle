@@ -14,7 +14,6 @@ import sqlalchemy as sa
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field, field_validator
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 if TYPE_CHECKING:
@@ -32,7 +31,19 @@ from tta.api.sse import SseEventBuffer
 from tta.config import Settings, get_settings
 from tta.errors import ErrorCategory
 from tta.logging import bind_context
-from tta.models.game import GameState, GameStatus
+from tta.models.game import (
+    CreateGameRequest,
+    DeleteGameRequest,
+    GameData,
+    GameState,
+    GameStatus,
+    GameSummary,
+    PaginationMeta,
+    SaveResult,
+    SubmitTurnRequest,
+    TurnAccepted,
+    UpdateGameRequest,
+)
 from tta.models.player import Player
 from tta.models.turn import TurnState, TurnStatus
 from tta.models.world import (
@@ -573,104 +584,6 @@ _PUBLIC_STATE_MAP: dict[str, str] = {
     "expired": "abandoned",
     "abandoned": "abandoned",
 }
-
-
-# --- Request / Response schemas ---
-
-
-class CreateGameRequest(BaseModel):
-    world_id: str | None = None
-    preferences: dict[str, str] = Field(default_factory=dict)
-
-
-class GameData(BaseModel):
-    game_id: str
-    player_id: str
-    status: str
-    turn_count: int
-    title: str | None = None
-    summary: str | None = None
-    narrative_intro: str | None = None
-    created_at: datetime
-    updated_at: datetime
-    last_played_at: datetime | None = None
-
-
-class GameSummary(BaseModel):
-    game_id: str
-    status: str
-    turn_count: int
-    title: str | None = None
-    summary: str | None = None
-    created_at: datetime
-    updated_at: datetime
-    last_played_at: datetime | None = None
-
-
-class PaginationMeta(BaseModel):
-    next_cursor: str | None
-    has_more: bool
-
-
-_ZERO_WIDTH_CHARS = str.maketrans(
-    "",
-    "",
-    "\u200b\u200c\u200d\u2060\ufeff\ufffe",
-)
-
-
-class SubmitTurnRequest(BaseModel):
-    input: str = Field(
-        ...,
-        max_length=2000,
-        description="Player's natural-language input.",
-    )
-    idempotency_key: UUID | None = Field(
-        None,
-        description="Client-generated UUID for deduplication.",
-    )
-
-    @field_validator("input")
-    @classmethod
-    def strip_zero_width_chars(cls, v: str) -> str:
-        """Remove invisible Unicode chars that defeat .strip()."""
-        return v.translate(_ZERO_WIDTH_CHARS)
-
-
-class TurnAccepted(BaseModel):
-    turn_id: str
-    turn_number: int
-    stream_url: str
-
-
-class SaveResult(BaseModel):
-    game_id: str
-    saved_at: datetime
-    turn_count: int
-
-
-class UpdateGameRequest(BaseModel):
-    status: str = Field(
-        ...,
-        description=(
-            "Target status. Supported transitions depend on current "
-            "game status (e.g. active → paused, paused → active/ended)."
-        ),
-    )
-
-
-class GameEndedData(BaseModel):
-    game_id: str
-    status: str
-    turn_count: int
-    ended_at: datetime
-
-
-class DeleteGameRequest(BaseModel):
-    confirm: bool = Field(
-        ...,
-        description="Must be true to confirm deletion (S27 FR-27.18).",
-    )
 
 
 # --- Command router (S01 AC-1.10) ---
