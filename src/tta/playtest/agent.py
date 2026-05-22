@@ -355,6 +355,7 @@ class PlaytesterAgent:
             status=status,
             genesis_phases_completed=self._genesis_phases_completed,
             gameplay_turns_completed=len(completed),
+            game_id=self._game_id or "",
             turns=list(self._turns),
             overall_agent_rating=round(overall_rating, 4),
             overall_agent_notes="",

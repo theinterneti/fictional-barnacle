@@ -215,7 +215,7 @@ async def test_verdict_fail_when_individual_category_below_threshold() -> None:
     ]
     report = make_report(turns=turns, gameplay_turns_completed=5)
     evaluator = NarrativeQualityEvaluator()
-    result = await evaluator.evaluate(report)
+    result = await evaluator.evaluate(report, consequence_count=0)
 
     assert result.verdict == "fail"
     assert len(result.fail_reasons) > 0
@@ -431,3 +431,61 @@ async def test_composite_score_within_range() -> None:
     evaluator = NarrativeQualityEvaluator()
     result = await evaluator.evaluate(report)
     assert 0.0 <= result.composite_score <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Regression: QC-06 consequence_count wiring
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_qc06_nonzero_when_consequence_count_provided() -> None:
+    """QC-06 is non-zero when consequence_count > 0 is passed."""
+    report = make_report(gameplay_turns_completed=5)
+    evaluator = NarrativeQualityEvaluator()
+    result = await evaluator.evaluate(
+        report,
+        feedback=None,
+        consequence_count=5,
+    )
+    qc06 = result.category(QC_CONSEQUENCE_WEIGHT)
+    assert qc06 is not None
+    assert qc06.status == "scored"
+    assert qc06.score is not None
+    assert qc06.score > 0.0, (
+        f"QC-06 should be > 0 when consequence_count=5, got {qc06.score}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_qc06_not_evaluated_when_consequence_count_none() -> None:
+    """QC-06 is not_evaluated when consequence_count is None (no data)."""
+    report = make_report(gameplay_turns_completed=5)
+    evaluator = NarrativeQualityEvaluator()
+    result = await evaluator.evaluate(report, feedback=None)
+    qc06 = result.category(QC_CONSEQUENCE_WEIGHT)
+    assert qc06 is not None
+    assert qc06.status == "not_evaluated", (
+        f"QC-06 should be not_evaluated when consequence_count is None, "
+        f"got status={qc06.status}"
+    )
+    assert qc06.score is None
+
+
+@pytest.mark.asyncio
+async def test_qc06_scored_with_human_feedback_when_no_auto_data() -> None:
+    """QC-06 uses human-only score when consequence_count is None but
+    human feedback is available."""
+    report = make_report(gameplay_turns_completed=5)
+    feedback = _good_feedback()
+    evaluator = NarrativeQualityEvaluator()
+    result = await evaluator.evaluate(
+        report,
+        feedback=feedback,
+        consequence_count=None,
+    )
+    qc06 = result.category(QC_CONSEQUENCE_WEIGHT)
+    assert qc06 is not None
+    assert qc06.status == "scored"
+    assert "human" in qc06.sources
+    assert "automated" not in qc06.sources

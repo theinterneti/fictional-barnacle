@@ -1,11 +1,11 @@
 ---
 name: simulation
-description: "Skill for the Simulation area of fictional-barnacle. 130 symbols across 13 files."
+description: "Skill for the Simulation area of fictional-barnacle. 135 symbols across 16 files."
 ---
 
 # Simulation
 
-130 symbols | 13 files | Cohesion: 87%
+135 symbols | 16 files | Cohesion: 92%
 
 ## When to Use
 
@@ -19,14 +19,14 @@ description: "Skill for the Simulation area of fictional-barnacle. 130 symbols a
 |------|---------|
 | `tests/unit/simulation/test_npc_autonomy.py` | _make_npc, test_default_processor_returns_world_delta, test_empty_npcs_returns_empty_delta, test_key_npc_with_schedule_is_processed, test_key_npc_without_schedule_is_skipped (+14) |
 | `tests/simulation/test_gameplay_simulation.py` | _bootstrap_world, _run_turn, _play_script, _success_rate, _unique_narrative_ratio (+13) |
-| `tests/unit/simulation/test_consequence.py` | _make_source, test_propagate_returns_list_of_propagation_results, test_hop0_record_created_when_affected_entity_id_set, test_no_hop0_when_no_affected_entity_id, test_faction_shortcut_creates_hop1_record (+11) |
-| `tests/unit/simulation/test_world_time.py` | _make_state, _make_deps, _wt_dict, test_deliver_advances_world_time_one_tick, test_failed_turn_no_time_advance (+9) |
+| `tests/unit/simulation/test_consequence.py` | _make_source, test_propagate_returns_list_of_propagation_results, test_propagate_empty_sources_returns_empty_list, test_propagate_one_result_per_source_event, test_hop0_record_created_when_affected_entity_id_set (+11) |
+| `tests/unit/simulation/test_world_time.py` | test_initial_world_time_starting_hour_8, test_initial_world_time_returns_WorldTime_instance, test_tick_from_inherited_tick_5, _make_state, _make_deps (+9) |
 | `tests/unit/simulation/test_npc_memory.py` | _make_edge, test_gossip_propagates_max_two_hops, test_reliability_floor_stops_propagation, test_gossip_idempotency_same_episode_not_re_recorded, test_get_relationship_returns_edge (+8) |
 | `tests/unit/simulation/test_world_memory.py` | _record, test_record_returns_memory_record, test_get_context_returns_three_tiers, test_get_context_working_tier_is_most_recent, test_budget_cap_drops_records (+7) |
 | `tests/simulation/conftest.py` | _classify_input, _pick_narrative, _pick_suggestions, _extract_player_input, _respond (+5) |
 | `src/tta/simulation/npc_autonomy.py` | process, _resolve_npc_field, _in_salience_window, _process_rule_based, _process_llm_batch (+1) |
-| `src/tta/simulation/npc_memory.py` | _distort_content, propagate_gossip, get_relationship, update_relationship, record_episode (+1) |
 | `src/tta/simulation/consequence.py` | propagate, _decay_severity, _fidelity_description, _propagate_one, _make_record (+1) |
+| `src/tta/simulation/npc_memory.py` | _distort_content, propagate_gossip, get_relationship, update_relationship, record_episode (+1) |
 
 ## Entry Points
 
@@ -67,22 +67,24 @@ Start here when exploring this area:
 
 | Flow | Type | Steps |
 |------|------|-------|
-| `Generate → _extract_player_input` | intra_community | 4 |
-| `Generate → _pick_narrative` | intra_community | 4 |
-| `Generate → _pick_suggestions` | intra_community | 4 |
-| `Generate → _classify_input` | intra_community | 4 |
-| `Stream → _extract_player_input` | intra_community | 4 |
-| `Stream → _pick_narrative` | intra_community | 4 |
-| `Stream → _pick_suggestions` | intra_community | 4 |
-| `Stream → _classify_input` | intra_community | 4 |
-| `Process → _resolve_npc_field` | cross_community | 4 |
-| `Record → _estimate_tokens` | intra_community | 3 |
+| `Main → _submit_and_poll` | cross_community | 7 |
+| `Main → _build_report` | cross_community | 7 |
+| `Main → _blank_commentary` | cross_community | 6 |
+| `Main → _count_contradictions` | cross_community | 6 |
+| `Main → _check_first_turn_character` | cross_community | 6 |
+| `Run_npc_autonomy → _resolve_npc_field` | cross_community | 5 |
+| `Main → Setup` | cross_community | 5 |
+| `Main → _score_qc02` | cross_community | 5 |
+| `Main → _score_qc03` | cross_community | 5 |
+| `Run_npc_autonomy → _make_record` | cross_community | 4 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
 | World | 2 calls |
+| Jobs | 1 calls |
+| Eval | 1 calls |
 
 ## How to Explore
 

@@ -71,6 +71,7 @@ class PlaytestReport:
     status: RunStatus
     genesis_phases_completed: int
     gameplay_turns_completed: int
+    game_id: str = ""
     turns: list[TurnRecord] = field(default_factory=list)
     overall_agent_rating: float = 0.0
     overall_agent_notes: str = ""
@@ -86,6 +87,7 @@ class PlaytestReport:
             "status": self.status,
             "genesis_phases_completed": self.genesis_phases_completed,
             "gameplay_turns_completed": self.gameplay_turns_completed,
+            "game_id": self.game_id,
             "turns": [t.to_dict() for t in self.turns],
             "overall_agent_rating": self.overall_agent_rating,
             "overall_agent_notes": self.overall_agent_notes,

@@ -58,16 +58,6 @@ Start here when exploring this area:
 | `test_valid_seeds_survive_invalid_peer` | Function | `tests/unit/seeds/test_s41_ac_compliance.py` | 180 |
 | `get` | Function | `src/tta/seeds/registry.py` | 80 |
 
-## Execution Flows
-
-| Flow | Type | Steps |
-|------|------|-------|
-| `__init__ → _load_yaml` | cross_community | 4 |
-| `__init__ → _check_required` | cross_community | 4 |
-| `__init__ → _check_schema_version` | cross_community | 4 |
-| `__init__ → _check_id` | cross_community | 4 |
-| `__init__ → Get` | intra_community | 3 |
-
 ## How to Explore
 
 1. `gitnexus_context({name: "test_wrong_version_raises"})` — see callers and callees

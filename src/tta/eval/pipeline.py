@@ -269,6 +269,11 @@ class EvaluationPipeline:
                 ].to_feedback_record()
 
             try:
+                # QC-06 consequence_count: not available from the playtest
+                # report alone (requires ConsequenceRecord data from the
+                # live game session or world_events table).  When missing,
+                # the evaluator marks the automated QC-06 component as
+                # not_evaluated — see _score_qc06 for details.
                 quality_report = await evaluator.evaluate(
                     result.playtest_report,
                     feedback=feedback,
@@ -347,7 +352,14 @@ class EvaluationPipeline:
     # Step 8 — ship to Langfuse
 
     def ship_to_langfuse(self, quality_reports: list[NarrativeQualityReport]) -> None:
-        """Log per-category scores to Langfuse (best-effort, never fatal)."""
+        """Log per-category scores to Langfuse (best-effort, never fatal).
+
+        Scores are keyed by NarrativeQualityReport.session_id, which is set
+        to the game's actual session UUID (or the playtest run_id as a
+        fallback).  This groups evaluation scores by game session rather
+        than the transient playtest run, making scores durable across
+        re-evaluations of the same game session.
+        """
         try:
             client = get_langfuse()
             if client is None:
