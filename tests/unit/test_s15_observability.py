@@ -283,7 +283,7 @@ def test_record_llm_generation_calls_langfuse():
     trace_kwargs = mock_client.trace.call_args[1]
     # FR-15.18: trace keyed by turn_id, name is "turn-<turn_id>"
     assert trace_kwargs["name"] == "turn-turn-1"
-    assert trace_kwargs["id"] == "turn-1"
+    assert trace_kwargs["id"] == "turn1"
     assert trace_kwargs["metadata"]["otel_trace_id"] == "abc123"
 
     mock_trace.generation.assert_called_once()
@@ -326,7 +326,7 @@ def test_record_llm_generation_uses_v4_observation_api_when_trace_missing():
 
     mock_client.start_observation.assert_called_once()
     obs_kwargs = mock_client.start_observation.call_args.kwargs
-    assert obs_kwargs["trace_context"] == {"trace_id": "turn-1"}
+    assert obs_kwargs["trace_context"] == {"trace_id": "turn1"}
     assert obs_kwargs["name"] == "pipeline.generation"
     assert obs_kwargs["as_type"] == "generation"
     assert obs_kwargs["model"] == "openai/gpt-4o"
@@ -711,8 +711,8 @@ def test_record_llm_generation_reuses_trace_for_same_turn():
     # Both calls should create a trace with the same turn_id as trace id
     trace_call_1 = mock_client.trace.call_args_list[0][1]
     trace_call_2 = mock_client.trace.call_args_list[1][1]
-    assert trace_call_1["id"] == "turn-42"
-    assert trace_call_2["id"] == "turn-42"
+    assert trace_call_1["id"] == "turn42"
+    assert trace_call_2["id"] == "turn42"
     assert trace_call_1["name"] == "turn-turn-42"
     assert trace_call_2["name"] == "turn-turn-42"
 
