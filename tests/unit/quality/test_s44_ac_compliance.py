@@ -431,3 +431,41 @@ async def test_composite_score_within_range() -> None:
     evaluator = NarrativeQualityEvaluator()
     result = await evaluator.evaluate(report)
     assert 0.0 <= result.composite_score <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Regression: QC-06 consequence_count wiring
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_qc06_nonzero_when_consequence_count_provided() -> None:
+    """QC-06 is non-zero when consequence_count > 0 is passed."""
+    report = make_report(gameplay_turns_completed=5)
+    evaluator = NarrativeQualityEvaluator()
+    result = await evaluator.evaluate(
+        report,
+        feedback=None,
+        consequence_count=5,
+    )
+    qc06 = result.category(QC_CONSEQUENCE_WEIGHT)
+    assert qc06 is not None
+    assert qc06.status == "scored"
+    assert qc06.score is not None
+    assert qc06.score > 0.0, (
+        f"QC-06 should be > 0 when consequence_count=5, got {qc06.score}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_qc06_zero_when_consequence_count_defaults() -> None:
+    """QC-06 is 0.0 when consequence_count defaults to 0 (no consequences)."""
+    report = make_report(gameplay_turns_completed=5)
+    evaluator = NarrativeQualityEvaluator()
+    result = await evaluator.evaluate(report, feedback=None)
+    qc06 = result.category(QC_CONSEQUENCE_WEIGHT)
+    assert qc06 is not None
+    assert qc06.status == "scored"
+    assert qc06.score == 0.0, (
+        f"QC-06 should be 0.0 when consequence_count defaults, got {qc06.score}"
+    )

@@ -269,6 +269,11 @@ class EvaluationPipeline:
                 ].to_feedback_record()
 
             try:
+                # QC-06 consequence_count: use gameplay_turns_completed as an
+                # approximation. Each turn typically generates at least one
+                # consequence event. TODO: query world_events or expose a
+                # consequence-count API endpoint for an accurate count.
+                consequence_count = result.playtest_report.gameplay_turns_completed
                 quality_report = await evaluator.evaluate(
                     result.playtest_report,
                     feedback=feedback,
@@ -276,6 +281,7 @@ class EvaluationPipeline:
                     # QC-05 will be not_evaluated; compute_batch_medians omits
                     # empty categories so this propagates correctly downstream.
                     seed=None,
+                    consequence_count=consequence_count,
                 )
                 reports.append(quality_report)
             except Exception as exc:
@@ -347,7 +353,14 @@ class EvaluationPipeline:
     # Step 8 — ship to Langfuse
 
     def ship_to_langfuse(self, quality_reports: list[NarrativeQualityReport]) -> None:
-        """Log per-category scores to Langfuse (best-effort, never fatal)."""
+        """Log per-category scores to Langfuse (best-effort, never fatal).
+
+        Scores are keyed by NarrativeQualityReport.session_id, which is set
+        to the game's actual session UUID (or the playtest run_id as a
+        fallback).  This groups evaluation scores by game session rather
+        than the transient playtest run, making scores durable across
+        re-evaluations of the same game session.
+        """
         try:
             client = get_langfuse()
             if client is None:

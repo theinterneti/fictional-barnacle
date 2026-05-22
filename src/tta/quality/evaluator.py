@@ -108,7 +108,7 @@ class NarrativeQualityEvaluator:
 
         return NarrativeQualityReport(
             report_id=str(uuid.uuid4()),
-            session_id=report.run_id,
+            session_id=report.game_id or report.run_id,
             run_id=report.run_id,
             scenario_seed_id=report.scenario_seed_id,
             evaluated_at=datetime.now(UTC),

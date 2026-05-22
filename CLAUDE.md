@@ -110,7 +110,7 @@ Pipeline stages map to LLM calls via the turn pipeline orchestrator — see
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **fictional-barnacle** (17926 symbols, 29034 relationships, 159 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **fictional-barnacle** (17994 symbols, 28548 relationships, 140 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
