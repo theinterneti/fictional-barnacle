@@ -269,11 +269,11 @@ class EvaluationPipeline:
                 ].to_feedback_record()
 
             try:
-                # QC-06 consequence_count: use gameplay_turns_completed as an
-                # approximation. Each turn typically generates at least one
-                # consequence event. TODO: query world_events or expose a
-                # consequence-count API endpoint for an accurate count.
-                consequence_count = result.playtest_report.gameplay_turns_completed
+                # QC-06 consequence_count: not available from the playtest
+                # report alone (requires ConsequenceRecord data from the
+                # live game session or world_events table).  When missing,
+                # the evaluator marks the automated QC-06 component as
+                # not_evaluated — see _score_qc06 for details.
                 quality_report = await evaluator.evaluate(
                     result.playtest_report,
                     feedback=feedback,
@@ -281,7 +281,6 @@ class EvaluationPipeline:
                     # QC-05 will be not_evaluated; compute_batch_medians omits
                     # empty categories so this propagates correctly downstream.
                     seed=None,
-                    consequence_count=consequence_count,
                 )
                 reports.append(quality_report)
             except Exception as exc:

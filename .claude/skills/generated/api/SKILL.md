@@ -1,11 +1,11 @@
 ---
 name: api
-description: "Skill for the Api area of fictional-barnacle. 279 symbols across 27 files."
+description: "Skill for the Api area of fictional-barnacle. 276 symbols across 29 files."
 ---
 
 # Api
 
-279 symbols | 27 files | Cohesion: 91%
+276 symbols | 29 files | Cohesion: 91%
 
 ## When to Use
 
@@ -22,11 +22,11 @@ description: "Skill for the Api area of fictional-barnacle. 279 symbols across 2
 | `tests/unit/api/test_auth_routes.py` | _make_result, test_creates_anon_player_and_returns_tokens, test_sets_auth_cookie, test_commits_to_database, test_inserts_player_and_session (+19) |
 | `tests/unit/api/test_s27_ac_compliance.py` | _make_result, test_post_games_returns_201, test_post_games_returns_required_fields, test_post_games_player_id_matches_authenticated_player, test_get_game_not_found_returns_404 (+17) |
 | `tests/unit/api/test_health.py` | _make_stub, _make_failing_stub, _build_client, client, test_redis_down_returns_degraded (+16) |
-| `tests/unit/api/test_s11_ac_compliance.py` | _make_result, _game_row, test_anonymous_returns_201, test_anonymous_response_contains_player_id, test_anonymous_response_contains_access_token (+14) |
 | `tests/unit/api/test_s01_ac_compliance.py` | _make_result, _game_row, test_empty_string_returns_400, test_whitespace_only_returns_400, test_save_returns_confirmation_message (+8) |
 | `tests/unit/api/test_gameplay_e2e.py` | _make_result, _game_row, test_step1_create_game, test_step2_submit_narrative_turn, test_step3_empty_input_returns_400 (+8) |
 | `tests/unit/api/test_sse_replay.py` | _make_redis, test_get_next_id_increments_counter, test_append_stores_event_and_refreshes_ttl, test_append_evicts_oldest_when_over_cap, test_replay_after_hit_returns_events (+7) |
 | `tests/unit/api/test_genesis_integration.py` | _make_result, _genesis_result_mock, test_genesis_success_returns_narrative_intro, test_genesis_failure_still_creates_game, test_genesis_uses_world_id_for_template_lookup (+7) |
+| `tests/unit/api/test_auth_login.py` | _settings, _make_pg, _make_redis, client, test_login_rejects_deleted_player (+7) |
 
 ## Entry Points
 

@@ -1,11 +1,11 @@
 ---
 name: choices
-description: "Skill for the Choices area of fictional-barnacle. 68 symbols across 9 files."
+description: "Skill for the Choices area of fictional-barnacle. 64 symbols across 6 files."
 ---
 
 # Choices
 
-68 symbols | 9 files | Cohesion: 67%
+64 symbols | 6 files | Cohesion: 66%
 
 ## When to Use
 
@@ -23,9 +23,6 @@ description: "Skill for the Choices area of fictional-barnacle. 68 symbols acros
 | `tests/unit/choices/test_consequence_performance.py` | _populate_service, test_evaluate_30_chains_under_300ms, test_prune_chains_under_100ms, test_calculate_divergence_under_100ms |
 | `tests/unit/choices/test_classifier.py` | _llm_response, test_successful_llm_classification, test_llm_invalid_types_falls_back, test_llm_partial_valid_types |
 | `tests/unit/pipeline/test_s05_choice_consequence.py` | test_last_active_turn_only_on_activation, test_divergence_guidance_injected_when_high |
-| `src/tta/choices/classifier.py` | classify_choice, classify_choice_with_llm |
-| `src/tta/llm/client.py` | generate |
-| `src/tta/genesis/genesis_lite.py` | _generate_intro |
 
 ## Entry Points
 
@@ -61,12 +58,6 @@ Start here when exploring this area:
 | `test_hidden_entries_foreshadow` | Function | `tests/unit/choices/test_consequence_service.py` | 306 |
 | `test_no_hints_for_visible` | Function | `tests/unit/choices/test_consequence_service.py` | 319 |
 | `test_reveal_hidden` | Function | `tests/unit/choices/test_consequence_service.py` | 337 |
-
-## Execution Flows
-
-| Flow | Type | Steps |
-|------|------|-------|
-| `Run_genesis_lite → Generate` | cross_community | 3 |
 
 ## Connected Areas
 

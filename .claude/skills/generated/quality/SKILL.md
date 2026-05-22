@@ -64,13 +64,14 @@ Start here when exploring this area:
 |------|------|-------|
 | `Main → _count_contradictions` | cross_community | 7 |
 | `Main → _check_first_turn_character` | cross_community | 7 |
+| `Main → _count_contradictions` | cross_community | 6 |
+| `Main → _check_first_turn_character` | cross_community | 6 |
 | `Main → _score_qc02` | cross_community | 6 |
 | `Main → _score_qc03` | cross_community | 6 |
 | `Main → _count_contradictions` | cross_community | 5 |
 | `Main → _check_first_turn_character` | cross_community | 5 |
-| `Main → _score_qc02` | cross_community | 4 |
-| `Main → _score_qc03` | cross_community | 4 |
-| `Full_report → Make_turn` | cross_community | 3 |
+| `Main → _score_qc02` | cross_community | 5 |
+| `Main → _score_qc03` | cross_community | 5 |
 
 ## How to Explore
 

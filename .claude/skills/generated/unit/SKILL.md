@@ -1,11 +1,11 @@
 ---
 name: unit
-description: "Skill for the Unit area of fictional-barnacle. 100 symbols across 8 files."
+description: "Skill for the Unit area of fictional-barnacle. 120 symbols across 9 files."
 ---
 
 # Unit
 
-100 symbols | 8 files | Cohesion: 99%
+120 symbols | 9 files | Cohesion: 100%
 
 ## When to Use
 
@@ -19,10 +19,11 @@ description: "Skill for the Unit area of fictional-barnacle. 100 symbols across 
 |------|---------|
 | `tests/unit/test_wave18.py` | _make, test_normal_text_unchanged, test_strips_zero_width_space, test_strips_bom, test_strips_zero_width_joiner (+22) |
 | `tests/unit/test_observability.py` | _fake_llm_response, _install_mock_client, test_trace_created, _call, test_generation_recorded (+21) |
+| `tests/unit/test_s15_observability.py` | test_record_llm_generation_no_output_truncation, _make_llm_response, test_record_llm_generation_noop_when_disabled, test_record_llm_generation_calls_langfuse, test_record_llm_generation_uses_v4_observation_api_when_trace_missing (+10) |
 | `tests/unit/test_wave19.py` | _sample_value, test_after_observes_duration, test_error_cleans_timing_and_observes, test_get_increments, test_set_increments (+9) |
+| `tests/unit/test_config.py` | build_settings, test_with_required_env, test_missing_database_url_raises, test_missing_neo4j_password_raises, test_default_values (+8) |
 | `tests/unit/test_logging.py` | _make_settings, test_redacts_player_input_by_default, test_allows_player_input_when_sensitive, test_redacts_all_pii_content_fields, test_credential_fields_always_redacted (+6) |
 | `tests/unit/test_context_and_cost.py` | _make_chunk, test_all_fit, test_p3_dropped_first, test_p2_dropped_after_p3, test_p0_never_dropped (+5) |
-| `tests/unit/test_s15_observability.py` | test_record_llm_generation_no_output_truncation, _make_llm_response, test_record_llm_generation_noop_when_disabled, test_record_llm_generation_calls_langfuse, test_record_llm_generation_strips_pii (+3) |
 | `tests/unit/llm/test_s07_ac_compliance.py` | test_session_budget_check_returns_exceeded_at_cap, test_session_budget_check_returns_warning_near_cap, test_session_budget_check_returns_ok_under_cap |
 | `src/tta/privacy/cost.py` | check_session_budget |
 
@@ -53,13 +54,13 @@ Start here when exploring this area:
 | `test_error_update_failure` | Function | `tests/unit/test_observability.py` | 325 |
 | `test_trace_tagged_user_input` | Function | `tests/unit/test_observability.py` | 358 |
 | `test_error_message_sanitized_in_trace` | Function | `tests/unit/test_observability.py` | 403 |
-| `test_normal_text_unchanged` | Function | `tests/unit/test_wave18.py` | 191 |
-| `test_strips_zero_width_space` | Function | `tests/unit/test_wave18.py` | 195 |
-| `test_strips_bom` | Function | `tests/unit/test_wave18.py` | 199 |
-| `test_strips_zero_width_joiner` | Function | `tests/unit/test_wave18.py` | 203 |
-| `test_strips_zero_width_non_joiner` | Function | `tests/unit/test_wave18.py` | 207 |
-| `test_strips_word_joiner` | Function | `tests/unit/test_wave18.py` | 211 |
-| `test_strips_multiple_zero_width` | Function | `tests/unit/test_wave18.py` | 215 |
+| `test_record_llm_generation_no_output_truncation` | Function | `tests/unit/test_s15_observability.py` | 175 |
+| `test_record_llm_generation_noop_when_disabled` | Function | `tests/unit/test_s15_observability.py` | 236 |
+| `test_record_llm_generation_calls_langfuse` | Function | `tests/unit/test_s15_observability.py` | 251 |
+| `test_record_llm_generation_uses_v4_observation_api_when_trace_missing` | Function | `tests/unit/test_s15_observability.py` | 295 |
+| `test_record_llm_generation_strips_pii` | Function | `tests/unit/test_s15_observability.py` | 336 |
+| `test_record_llm_generation_pseudonymizes_player` | Function | `tests/unit/test_s15_observability.py` | 380 |
+| `test_record_llm_generation_includes_prompt_provenance_metadata` | Function | `tests/unit/test_s15_observability.py` | 415 |
 
 ## Connected Areas
 

@@ -1,11 +1,11 @@
 ---
 name: observability
-description: "Skill for the Observability area of fictional-barnacle. 46 symbols across 5 files."
+description: "Skill for the Observability area of fictional-barnacle. 48 symbols across 5 files."
 ---
 
 # Observability
 
-46 symbols | 5 files | Cohesion: 100%
+48 symbols | 5 files | Cohesion: 100%
 
 ## When to Use
 
@@ -19,7 +19,7 @@ description: "Skill for the Observability area of fictional-barnacle. 46 symbols
 |------|---------|
 | `tests/unit/observability/test_s15_ac_compliance.py` | _settings, test_json_processor_added_when_log_format_json, test_privacy_filter_in_processor_chain, test_merge_contextvars_in_chain, test_log_level_configurable (+15) |
 | `tests/unit/observability/test_tracing.py` | _make_in_memory_provider, test_shutdown_with_provider, test_tracer_name, test_returns_hex_inside_span, test_consistent_within_span (+5) |
-| `src/tta/observability/langfuse.py` | record_llm_generation, wrapper, _get_context_ids, _warn_langfuse_error, _sanitize_input (+3) |
+| `src/tta/observability/langfuse.py` | _langfuse_uses_v4_sdk, _start_generation_observation, record_llm_generation, wrapper, _get_context_ids (+5) |
 | `src/tta/observability/daily_cost.py` | get_daily_costs, get_daily_turns, reset_daily_costs, _seconds_until_midnight_utc, daily_cost_summary_loop |
 | `src/tta/observability/pool_metrics.py` | _sample_once, _sampler_loop, start_pool_metrics_sampler |
 
@@ -46,6 +46,9 @@ Start here when exploring this area:
 | `test_pipeline_creates_parent_and_child_spans` | Function | `tests/unit/observability/test_tracing.py` | 226 |
 | `test_pipeline_span_attributes` | Function | `tests/unit/observability/test_tracing.py` | 258 |
 | `test_all_stages_share_trace_id` | Function | `tests/unit/observability/test_tracing.py` | 279 |
+| `record_llm_generation` | Function | `src/tta/observability/langfuse.py` | 134 |
+| `wrapper` | Function | `src/tta/observability/langfuse.py` | 286 |
+| `pseudonymize_player_id` | Function | `src/tta/observability/langfuse.py` | 395 |
 | `test_json_processor_added_when_log_format_json` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 69 |
 | `test_privacy_filter_in_processor_chain` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 79 |
 | `test_merge_contextvars_in_chain` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 86 |
@@ -54,9 +57,6 @@ Start here when exploring this area:
 | `test_no_host_leaves_client_none` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 302 |
 | `test_init_with_host_instantiates_client` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 315 |
 | `test_http_requests_total_registered` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 231 |
-| `test_turn_total_registered` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 236 |
-| `test_turn_processing_duration_histogram_registered` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 241 |
-| `test_session_duration_histogram_registered` | Function | `tests/unit/observability/test_s15_ac_compliance.py` | 246 |
 
 ## Execution Flows
 
