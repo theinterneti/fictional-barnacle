@@ -43,6 +43,15 @@ _PII_FIELDS = frozenset(
 )
 
 
+def _to_langfuse_id(uuid_str: str) -> str:
+    """Convert a standard UUID string to Langfuse 32-char hex format.
+
+    Langfuse SDK v4+ requires trace IDs to be 32 lowercase hex characters
+    (UUID without dashes). Standard UUIDs with dashes are silently ignored.
+    """
+    return uuid_str.replace("-", "")
+
+
 # -- public API --------------------------------------------------------
 
 
@@ -180,7 +189,7 @@ def record_llm_generation(
         "metadata": {"correlation_id": ctx.get("correlation_id")},
     }
     if turn_id:
-        trace_kwargs["id"] = turn_id
+        trace_kwargs["id"] = _to_langfuse_id(turn_id)
     if ctx.get("session_id"):
         trace_kwargs["session_id"] = ctx["session_id"]
     if otel_trace_id:
@@ -250,7 +259,7 @@ def record_llm_generation(
         if _langfuse_uses_v4_sdk(_langfuse_client):
             _start_generation_observation(
                 _langfuse_client,
-                trace_id=turn_id,
+                trace_id=_to_langfuse_id(turn_id) if turn_id else None,
                 name=name,
                 input_data=sanitized_input,
                 output_data=gen["output"],
@@ -317,7 +326,7 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
                     if _langfuse_uses_v4_sdk(_langfuse_client):
                         _start_generation_observation(
                             _langfuse_client,
-                            trace_id=ctx.get("turn_id"),
+                            trace_id=_to_langfuse_id(ctx.get("turn_id") or ""),
                             name=name,
                             input_data=gen_kwargs["input"],
                             output_data=gen_kwargs["output"],
