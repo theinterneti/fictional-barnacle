@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 
 from tta.models.turn import TurnState
+from tta.prompts.registry import RenderedPrompt
 
 if TYPE_CHECKING:
     from tta.choices.consequence_service import ConsequenceService
@@ -77,12 +78,12 @@ class PipelineDeps:
         self,
         template_id: str,
         variables: dict[str, Any] | None = None,
-    ) -> Any:
-        """Render a prompt through the bridge if available, falling back to
-        file registry.
+    ) -> RenderedPrompt:
+        """Render a prompt through the bridge if available, falling back to file
+        registry.
 
         When the bridge is active, this adds Langfuse prompt metadata
-        (``langfuse_prompt``, version, label) enabling per-version metrics
+        (langfuse_prompt, version, label) enabling per-version metrics
         in Langfuse (AC-09.7 / FB-005).
         """
         if variables is None:

@@ -256,7 +256,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         )
 
     # 3. Call LLM with transient-failure retry cascade
-    gen_system, rendered_system_prompt = _resolve_system_prompt(deps)
+    gen_system, rendered_system_prompt = await _resolve_system_prompt(deps)
     messages = [
         Message(role=MessageRole.SYSTEM, content=gen_system),
         Message(role=MessageRole.USER, content=prompt),
@@ -358,10 +358,12 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     )
 
 
-def _resolve_system_prompt(deps: PipelineDeps) -> tuple[str, RenderedPrompt]:
+async def _resolve_system_prompt(deps: PipelineDeps) -> tuple[str, RenderedPrompt]:
     """Resolve generation system prompt from registry (AC-09.1).
 
     Templates are the single source of truth — no inline fallback.
+    When the Langfuse bridge is active, rendering goes through it to
+    attach prompt provenance metadata (AC-09.7 / FB-005).
     """
     if not deps.prompt_registry or not deps.prompt_registry.has("narrative.generate"):
         log.error("generation_template_missing")
@@ -370,7 +372,7 @@ def _resolve_system_prompt(deps: PipelineDeps) -> tuple[str, RenderedPrompt]:
             "TEMPLATE_MISSING",
             "Narrative generation template not available",
         )
-    rendered = deps.prompt_registry.render("narrative.generate", {})
+    rendered = await deps.render_prompt("narrative.generate")
     return rendered.text, rendered
 
 
@@ -472,7 +474,7 @@ async def _extract_world_changes(
         log.debug("extraction_template_missing")
         return [], []
     try:
-        extraction_prompt = deps.prompt_registry.render("extraction.world-changes", {})
+        extraction_prompt = await deps.render_prompt("extraction.world-changes")
     except Exception:
         log.error(
             "extraction_template_render_failed",
