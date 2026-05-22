@@ -161,6 +161,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         app.state.prompt_bridge = None
         log.info("prompt_bridge_disabled", reason="langfuse_not_configured")
+    # Helper: qualify model name with backend prefix when bare
+    def _qualify_model_name(model_name: str | None) -> str | None:
+        _backend = settings.llm_backend
+        if not model_name or "/" in model_name:
+            return model_name
+        return f"{_backend}/{model_name}"
+
     # 4. LLM client
     if settings.llm_mock:
         from tta.llm.testing import MockLLMClient
@@ -194,11 +201,6 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             # (via 1Password or direct env var).
             os.environ.pop("OPENAI_API_BASE", None)
             os.environ.pop("OPENAI_API_KEY", None)
-
-        def _qualify_model_name(model_name: str | None) -> str | None:
-            if not model_name or "/" in model_name:
-                return model_name
-            return f"{_backend}/{model_name}"
 
         _primary_override = _qualify_model_name(settings.litellm_model)
         _fallback_override = _qualify_model_name(settings.litellm_fallback_model)

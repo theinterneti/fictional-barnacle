@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import pytest
 
-from tta.api.routes.games import _parse_relationship_delta
+from tta.pipeline.world_changes import parse_relationship_delta
 from tta.models.world import (
     RelationshipChange,
     RelationshipDimensions,
@@ -85,7 +85,7 @@ class TestAC604RelationshipHelp:
 
     def test_positive_trust_direction_yields_plus_five_trust(self) -> None:
         """AC-6.4: Positive trust direction → trust delta = +5, familiarity = +3."""
-        change = _parse_relationship_delta(
+        change = parse_relationship_delta(
             {"dimension": "trust", "direction": "increased"}
         )
         assert change.trust == 5
@@ -93,7 +93,7 @@ class TestAC604RelationshipHelp:
 
     def test_positive_affinity_direction_yields_plus_five_affinity(self) -> None:
         """AC-6.4: Positive affinity direction → affinity delta = +5."""
-        change = _parse_relationship_delta(
+        change = parse_relationship_delta(
             {"dimension": "affinity", "direction": "grew warmer"}
         )
         assert change.affinity == 5
@@ -101,7 +101,7 @@ class TestAC604RelationshipHelp:
 
     def test_positive_respect_direction_yields_plus_five_respect(self) -> None:
         """AC-6.4: Positive respect direction → respect delta = +5."""
-        change = _parse_relationship_delta(
+        change = parse_relationship_delta(
             {"dimension": "respect", "direction": "positive"}
         )
         assert change.respect == 5
@@ -110,7 +110,7 @@ class TestAC604RelationshipHelp:
 
     def test_negative_trust_direction_yields_minus_five(self) -> None:
         """AC-6.4: Negative trust direction → trust delta = -5."""
-        change = _parse_relationship_delta(
+        change = parse_relationship_delta(
             {"dimension": "trust", "direction": "decreased"}
         )
         assert change.trust == -5
@@ -118,21 +118,21 @@ class TestAC604RelationshipHelp:
 
     def test_negative_affinity_via_cold_keyword(self) -> None:
         """AC-6.4: 'cold' in direction string → negative affinity delta."""
-        change = _parse_relationship_delta(
+        change = parse_relationship_delta(
             {"dimension": "affinity", "direction": "cold"}
         )
         assert change.affinity == -5
 
     def test_fear_positive_direction_yields_positive_fear(self) -> None:
         """AC-6.4: Positive fear direction → fear delta = +5."""
-        change = _parse_relationship_delta(
+        change = parse_relationship_delta(
             {"dimension": "fear", "direction": "increased"}
         )
         assert change.fear == 5
 
     def test_unmapped_dimension_sets_both_trust_and_affinity(self) -> None:
         """AC-6.4: Unknown dimension → generic trust + affinity shift."""
-        change = _parse_relationship_delta(
+        change = parse_relationship_delta(
             {"dimension": "bond", "direction": "positive"}
         )
         assert change.trust == 5
@@ -141,7 +141,7 @@ class TestAC604RelationshipHelp:
     def test_any_interaction_increments_familiarity_by_three(self) -> None:
         """AC-6.4: familiarity += 3 regardless of dimension/direction."""
         for dim in ("trust", "affinity", "respect", "fear", "bond"):
-            change = _parse_relationship_delta(
+            change = parse_relationship_delta(
                 {"dimension": dim, "direction": "positive"}
             )
             assert change.familiarity == 3, (
@@ -175,7 +175,7 @@ class TestAC604RelationshipHelp:
         session_id = uuid4()
 
         # Simulate LLM extracting a 'trust increased' payload
-        change = _parse_relationship_delta(
+        change = parse_relationship_delta(
             {"dimension": "trust", "direction": "increased"}
         )
         rel = await svc.update_relationship(session_id, "player", "npc_elder", change)
