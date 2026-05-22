@@ -58,7 +58,7 @@ async def list_turns(
     limit: int = Query(default=20, ge=1, le=100),
     cursor: str | None = Query(default=None),
 ) -> dict:
-    """Paginated turn history for a game (FR-10.13)."""
+    """Paginated turn history for a game session."""
     await _get_owned_game(pg, game_id, player)
 
     # Decode cursor (base64-encoded turn_number)

@@ -6,6 +6,7 @@ Extracted from games.py during code health decomposition.
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import sqlalchemy as sa
@@ -13,6 +14,9 @@ import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 from tta.api.deps import get_current_player, get_pg, get_redis
 from tta.api.routes.games_helpers import _get_owned_game
@@ -27,12 +31,6 @@ from tta.observability.metrics import (
 )
 from tta.pipeline.world_changes import translate_world_updates
 from tta.transport import SSETransport
-
-if True:  # imports needed for nested event_stream closure
-    from typing import TYPE_CHECKING
-
-    if TYPE_CHECKING:
-        from redis.asyncio import Redis
 
 log = structlog.get_logger(__name__)
 
