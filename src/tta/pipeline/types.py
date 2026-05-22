@@ -78,8 +78,9 @@ class PipelineDeps:
         self,
         template_id: str,
         variables: dict[str, Any] | None = None,
-    ) -> Any:
-        """Render a prompt through the bridge if available, falling back to file registry.
+    ) -> RenderedPrompt | None:
+        """Render a prompt through the bridge if available, falling back to file
+        registry.
 
         When the bridge is active, this adds Langfuse prompt metadata
         (langfuse_prompt, version, label) enabling per-version metrics
@@ -95,7 +96,6 @@ class PipelineDeps:
             f"Cannot render prompt '{template_id}': "
             "no prompt_registry or prompt_bridge configured"
         )
-
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState

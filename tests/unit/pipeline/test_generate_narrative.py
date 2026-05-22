@@ -77,8 +77,10 @@ def _make_deps(
     # render_prompt: bridge-aware rendering (FB-005 / AC-09.2).
     # Falls back to prompt_registry.render when bridge is not configured.
     deps.prompt_bridge = None
+
     async def _mock_render_prompt(template_id, variables=None):
         return deps.prompt_registry.render(template_id, variables or {})
+
     deps.render_prompt = AsyncMock(side_effect=_mock_render_prompt)
 
     return deps
