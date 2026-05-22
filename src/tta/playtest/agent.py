@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 PLAYTEST_TURN_TIMEOUT: float = float(os.environ.get("PLAYTEST_TURN_TIMEOUT", "180"))
 PLAYTEST_MIN_TURNS: int = int(os.environ.get("PLAYTEST_MIN_TURNS", "5"))
 POLL_INTERVAL: float = 1.0
+POLL_MAX_SECONDS: float = float(os.environ.get("PLAYTEST_POLL_MAX_SECONDS", "240"))
 MAX_CONSECUTIVE_TIMEOUTS: int = 3
 _TURN_PHASE = "gameplay"
 
@@ -302,12 +303,20 @@ class PlaytesterAgent:
         resp.raise_for_status()
         turn_number = resp.json()["data"]["turn_number"]
 
+        import time
+        started = time.monotonic()
         while True:
             turns_resp = await client.get(f"/api/v1/games/{self._game_id}/turns")
             turns_resp.raise_for_status()
             for turn in turns_resp.json().get("data", []):
                 if turn["turn_number"] == turn_number and turn.get("narrative_output"):
                     return str(turn["narrative_output"])
+            if time.monotonic() - started > POLL_MAX_SECONDS:
+                msg = (
+                    f"Turn {turn_number} narrative_output "
+                    f"not ready after {POLL_MAX_SECONDS}s"
+                )
+                raise TimeoutError(msg)
             await asyncio.sleep(POLL_INTERVAL)
 
     async def _generate_commentary(

@@ -7,7 +7,7 @@ on first use when it is not already running.
 Environment variables
 ---------------------
 FREE_MODEL_ROUTER_URL
-    Base URL of the running server (default: http://localhost:3000).
+    Base URL of the running server (default: http://localhost:3456).
 FREE_MODEL_ROUTER_BIN
     Path to the built Node.js server entry-point
     (default: ~/Repos/free-model-router/dist/src/server.js).
@@ -34,7 +34,7 @@ from tta.models.turn import TokenCount
 
 log = structlog.get_logger(__name__)
 
-_ROUTER_BASE_URL = os.getenv("FREE_MODEL_ROUTER_URL", "http://localhost:3000")
+_ROUTER_BASE_URL = os.getenv("FREE_MODEL_ROUTER_URL", "http://localhost:3456")
 _ROUTER_BIN = Path(
     os.getenv(
         "FREE_MODEL_ROUTER_BIN",
