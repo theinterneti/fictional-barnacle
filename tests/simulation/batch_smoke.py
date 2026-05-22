@@ -1,7 +1,10 @@
-"""Batch smoke: 2 personas x 2 seeds = 4 runs."""
+"""Batch smoke: 2 personas x 2 seeds = 4 runs.
+
+Each run: create player → run pipeline → print progress → next.
+Runs sequentially with per-run progress to avoid silent hangs.
+"""
 
 import asyncio
-import json
 import os
 import sys
 from pathlib import Path
@@ -20,15 +23,26 @@ TTA_URL = os.getenv("TTA_URL", "http://localhost:8000")
 TIMEOUT = float(os.getenv("TTA_SMOKE_HTTP_TIMEOUT", "30"))
 
 
-async def setup_player():
+def _flush_print(*args, **kwargs):
+    """Print and immediately flush to avoid buffering in background processes."""
+    print(*args, **kwargs)
+    sys.stdout.flush()
+
+
+async def setup_player(handle_suffix: str = "") -> str:
+    """Create an anonymous player and accept consent. Returns auth token."""
+    handle = f"batch-smoke{handle_suffix}"
     async with httpx.AsyncClient(base_url=TTA_URL, timeout=httpx.Timeout(TIMEOUT)) as c:
         r = await c.post(
             "/api/v1/auth/anonymous",
             json={
-                "handle": "batch-runner",
+                "handle": handle,
                 "age_13_plus_confirmed": True,
                 "consent_version": "1.0",
-                "consent_categories": {"core_gameplay": True, "llm_processing": True},
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
             },
         )
         r.raise_for_status()
@@ -39,56 +53,82 @@ async def setup_player():
             headers=h,
             json={
                 "consent_version": "1.0",
-                "consent_categories": {"core_gameplay": True, "llm_processing": True},
+                "consent_categories": {
+                    "core_gameplay": True,
+                    "llm_processing": True,
+                },
                 "age_13_plus_confirmed": True,
             },
         )
         return token
 
 
-async def main():
+async def run_one_combination(
+    llm: SmartRouterLLMClient,
+    seed_id: str,
+    persona_id: str,
+    run_num: int,
+    total: int,
+) -> int:
+    """Run a single seed × persona combination with progress output."""
+    label = f"[{run_num}/{total}]"
+    _flush_print(f"{label} Starting: seed={seed_id}, persona={persona_id}")
+
+    token = await setup_player(handle_suffix=f"-{run_num}")
+    config = BatchConfig(
+        scenario_seed_ids=[seed_id],
+        persona_ids=[persona_id],
+        runs_per_combination=1,
+        max_parallel_runs=1,
+        mode="local",
+    )
+    pipeline = EvaluationPipeline(
+        config=config,
+        api_base_url=TTA_URL,
+        api_key=token,
+        llm_client=llm,
+    )
+    try:
+        result, _exit_code = await pipeline.run()
+        c = result.complete_runs
+        e = result.error_runs
+        _flush_print(
+            f"{label} Done: {c} complete, {e} errors, verdict={result.batch_verdict}"
+        )
+        return 0 if c > 0 and e == 0 else 1
+    except Exception as exc:
+        _flush_print(f"{label} FAILED: {type(exc).__name__}: {exc}")
+        return 1
+
+
+async def main() -> int:
     settings = get_settings()
     init_langfuse(settings)
-    llm = None
+
+    seeds = ["bus-stop-shimmer", "seed-fantasy-tavern"]
+    personas = ["curious-explorer", "terse-minimalist"]
+    total = len(seeds) * len(personas)
+
+    _flush_print(
+        f"Batch smoke: {total} runs ({len(seeds)} seeds x {len(personas)} personas)"
+    )
+    _flush_print(f"TTA_URL={TTA_URL}")
+
+    llm = SmartRouterLLMClient()
     try:
-        token = await setup_player()
-        print(f"Player ready. Token: {token[:30]}...")
+        run_num = 0
+        failures = 0
+        for seed_id in seeds:
+            for persona_id in personas:
+                run_num += 1
+                failures += await run_one_combination(
+                    llm, seed_id, persona_id, run_num, total
+                )
 
-        config = BatchConfig(
-            scenario_seed_ids=["bus-stop-shimmer", "seed-fantasy-tavern"],
-            persona_ids=["curious-explorer", "terse-minimalist"],
-            runs_per_combination=1,
-            max_parallel_runs=1,
-            mode="local",
-        )
-        llm = SmartRouterLLMClient()
-        pipeline = EvaluationPipeline(
-            config=config, api_base_url=TTA_URL, api_key=token, llm_client=llm
-        )
-        n_seeds = len(config.scenario_seed_ids)
-        n_personas = len(config.persona_ids)
-        total = n_seeds * n_personas
-        print(f"\nBatch: {total} runs ({n_seeds} seeds x {n_personas} personas)\n")
-
-        result, exit_code = await pipeline.run()
-
-        print("\n=== Results ===")
-        c = result.complete_runs
-        t = result.total_runs
-        e = result.error_runs
-        print(f"Complete: {c}/{t}  Errors: {e}")
-        print(f"Verdict: {result.batch_verdict}")
-        if result.batch_category_medians:
-            print(f"Medians: {json.dumps(result.batch_category_medians, indent=2)}")
-        for i, r in enumerate(result.quality_reports[:4]):
-            print(f"\n  Run {i + 1}: composite={r.composite_score:.3f} ({r.verdict})")
-            for c in r.categories:
-                if c.status == "scored":
-                    print(f"    {c.category_id}: {c.score:.3f}")
-        return exit_code
+        _flush_print(f"\n=== Done: {run_num - failures}/{run_num} passed ===")
+        return 0 if failures == 0 else 1
     finally:
-        if llm:
-            await llm.aclose()
+        await llm.aclose()
         shutdown_langfuse()
 
 

@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tta.admin.auth import require_admin
-from tta.api.routes.admin import router as admin_router
+from tta.api.routes.admin_prompts import router as admin_router
 
 # ── fixtures ──────────────────────────────────────────────────────
 
