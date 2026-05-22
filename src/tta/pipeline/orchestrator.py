@@ -207,6 +207,7 @@ async def dispatch_pipeline(
     player_input: str,
     game_state: dict,
     session_cost_usd: float = 0.0,
+    player_id: str = "",
 ) -> None:
     """Run the pipeline as a background task and persist results.
 
@@ -218,8 +219,8 @@ async def dispatch_pipeline(
     deps = app_state.pipeline_deps  # type: ignore[attr-defined]
     turn_repo = deps.turn_repo
 
-    # Bind game/turn context for correlated logging (S15 §7).
-    bind_context(session_id=game_id, turn_id=turn_id)
+    # Bind game/turn/player context for correlated logging (S15 §7).
+    bind_context(session_id=game_id, turn_id=turn_id, player_id=player_id)
 
     # Seed cost tracker with session total from DB (FR-07.19).
     reset_cost_tracker(
