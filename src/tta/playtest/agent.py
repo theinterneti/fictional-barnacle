@@ -304,6 +304,7 @@ class PlaytesterAgent:
         turn_number = resp.json()["data"]["turn_number"]
 
         import time
+
         started = time.monotonic()
         while True:
             turns_resp = await client.get(f"/api/v1/games/{self._game_id}/turns")

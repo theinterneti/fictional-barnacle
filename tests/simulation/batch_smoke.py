@@ -32,9 +32,7 @@ def _flush_print(*args, **kwargs):
 async def setup_player(handle_suffix: str = "") -> str:
     """Create an anonymous player and accept consent. Returns auth token."""
     handle = f"batch-smoke{handle_suffix}"
-    async with httpx.AsyncClient(
-        base_url=TTA_URL, timeout=httpx.Timeout(TIMEOUT)
-    ) as c:
+    async with httpx.AsyncClient(base_url=TTA_URL, timeout=httpx.Timeout(TIMEOUT)) as c:
         r = await c.post(
             "/api/v1/auth/anonymous",
             json={
@@ -95,8 +93,7 @@ async def run_one_combination(
         c = result.complete_runs
         e = result.error_runs
         _flush_print(
-            f"{label} Done: {c} complete, {e} errors, "
-            f"verdict={result.batch_verdict}"
+            f"{label} Done: {c} complete, {e} errors, verdict={result.batch_verdict}"
         )
         return 0 if c > 0 and e == 0 else 1
     except Exception as exc:
@@ -113,8 +110,7 @@ async def main() -> int:
     total = len(seeds) * len(personas)
 
     _flush_print(
-        f"Batch smoke: {total} runs "
-        f"({len(seeds)} seeds x {len(personas)} personas)"
+        f"Batch smoke: {total} runs ({len(seeds)} seeds x {len(personas)} personas)"
     )
     _flush_print(f"TTA_URL={TTA_URL}")
 
