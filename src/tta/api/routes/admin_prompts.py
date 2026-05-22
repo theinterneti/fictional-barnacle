@@ -11,33 +11,13 @@ from fastapi.responses import JSONResponse
 
 from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
+from tta.api.routes._admin_helpers import audit
 from tta.errors import ErrorCategory
 from tta.models.admin import ActivatePromptRequest, PreviewPromptRequest
 from tta.prompts.langfuse_bridge import _from_langfuse_name
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger(__name__)
-
-
-async def _audit(
-    request: Request,
-    admin: AdminIdentity,
-    *,
-    action: str,
-    target_type: str,
-    target_id: str,
-    reason: str = "",
-) -> None:
-    """Create an immutable audit-log entry for admin actions (FR-26.24)."""
-    audit_repo = request.app.state.audit_repo
-    if audit_repo is not None:
-        await audit_repo.create_and_append(
-            admin_id=admin.admin_id,
-            action=action,
-            target_type=target_type,
-            target_id=target_id,
-            reason=reason,
-        )
 
 
 @router.post("/prompts/{name}/activate")
@@ -63,7 +43,7 @@ async def activate_prompt(
     template_id = _from_langfuse_name(name)
     await bridge.activate(template_id, label=body.label)
 
-    await _audit(
+    await audit(
         request,
         admin,
         action="prompt_activate",
@@ -111,7 +91,7 @@ async def preview_prompt(
         label=body.label,
     )
 
-    await _audit(
+    await audit(
         request,
         admin,
         action="prompt_preview",

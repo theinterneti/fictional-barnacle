@@ -23,17 +23,22 @@ router = APIRouter(tags=["admin"])
 log = structlog.get_logger(__name__)
 
 
-def _serialize_flags(flags: list) -> list[dict[str, object]]:
-    """Serialize moderation flag objects to dicts for JSON response."""
-    serialized: list[dict[str, object]] = []
+def _serialize_flags(
+    flags: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Convert moderation records to JSON-safe dicts."""
+    out: list[dict[str, object]] = []
     for f in flags:
-        if hasattr(f, "to_dict"):
-            serialized.append(f.to_dict())
-        elif isinstance(f, dict):
-            serialized.append(f)
-        else:
-            serialized.append({"raw": str(f)})
-    return serialized
+        entry: dict[str, object] = {}
+        for k, v in f.items():
+            if hasattr(v, "isoformat"):
+                entry[k] = v.isoformat()  # type: ignore[union-attr]
+            elif hasattr(v, "value"):
+                entry[k] = v.value  # type: ignore[union-attr]
+            else:
+                entry[k] = str(v) if isinstance(v, UUID) else v
+        out.append(entry)
+    return out
 
 
 @router.get("/games/{game_id}")

@@ -103,8 +103,10 @@ async def review_moderation_flag(
     if body.action == "suspend_player":
         import sqlalchemy as sa
 
-        # Look up the player_id from the moderation record
-        flags = await recorder.query(limit=1)
+        # Look up the player_id from the moderation record.
+        # Query with a larger limit so the client-side filter
+        # can find the target flag_id reliably.
+        flags = await recorder.query(limit=100)
         flag_record = next(
             (f for f in flags if str(f.get("moderation_id")) == flag_id), None
         )

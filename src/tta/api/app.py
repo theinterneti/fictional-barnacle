@@ -27,27 +27,7 @@ from tta.api.middleware import (
     RequestIDMiddleware,
 )
 from tta.api.prometheus_middleware import PrometheusMiddleware
-from tta.api.routes.admin import (
-    games_router as admin_games_router,
-)
-from tta.api.routes.admin import (
-    moderation_router as admin_moderation_router,
-)
-from tta.api.routes.admin import (
-    operations_router as admin_operations_router,
-)
-from tta.api.routes.admin import (
-    players_router as admin_players_router,
-)
-from tta.api.routes.admin import (
-    prompts_router as admin_prompts_router,
-)
-from tta.api.routes.admin import (
-    rate_limits_router as admin_rate_limits_router,
-)
-from tta.api.routes.admin import (
-    system_router as admin_system_router,
-)
+from tta.api.routes.admin import router as admin_router
 from tta.api.routes.auth import router as auth_router
 from tta.api.routes.games import router as games_router
 from tta.api.routes.metrics import router as metrics_router
@@ -587,13 +567,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(players_router, prefix="/api/v1")
     app.include_router(games_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
-    app.include_router(admin_players_router, prefix="/admin")
-    app.include_router(admin_games_router, prefix="/admin")
-    app.include_router(admin_system_router, prefix="/admin")
-    app.include_router(admin_moderation_router, prefix="/admin")
-    app.include_router(admin_rate_limits_router, prefix="/admin")
-    app.include_router(admin_operations_router, prefix="/admin")
-    app.include_router(admin_prompts_router, prefix="/admin")
+    app.include_router(admin_router, prefix="/admin")
 
     from tta.api.routes.disclaimer import router as disclaimer_router
 
