@@ -219,8 +219,15 @@ async def dispatch_pipeline(
     deps = app_state.pipeline_deps  # type: ignore[attr-defined]
     turn_repo = deps.turn_repo
 
-    # Bind game/turn/player context for correlated logging (S15 §7).
-    bind_context(session_id=game_id, turn_id=turn_id, player_id=player_id)
+    # Bind game/turn context for correlated logging (S15 §7).
+    # player_id is pseudonymized per FR-15.21 before entering logs.
+    from tta.observability.langfuse import pseudonymize_player_id
+
+    bind_context(
+        session_id=game_id,
+        turn_id=turn_id,
+        player_id=pseudonymize_player_id(player_id) if player_id else None,
+    )
 
     # Seed cost tracker with session total from DB (FR-07.19).
     reset_cost_tracker(
