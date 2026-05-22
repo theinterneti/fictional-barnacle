@@ -78,7 +78,7 @@ class PipelineDeps:
         self,
         template_id: str,
         variables: dict[str, Any] | None = None,
-    ) -> RenderedPrompt | None:
+    ) -> RenderedPrompt:
         """Render a prompt through the bridge if available, falling back to file
         registry.
 
