@@ -124,8 +124,8 @@ class TestTurnAtomicity:
     @pytest.mark.asyncio
     async def test_dispatch_pipeline_marks_turn_failed(self) -> None:
         """Pipeline exception → fail_turn called with no partial narrative."""
-        from tta.pipeline.orchestrator import dispatch_pipeline
         from tta.models.turn import TurnStatus
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         turn_repo = AsyncMock()
         turn_repo.fail_turn = AsyncMock()
@@ -165,8 +165,8 @@ class TestTurnAtomicity:
     @pytest.mark.asyncio
     async def test_dispatch_pipeline_preserves_partial_narrative(self) -> None:
         """FR-23.18: partial narrative preserved on failure."""
-        from tta.pipeline.orchestrator import dispatch_pipeline
         from tta.models.turn import TurnState, TurnStatus
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         partial_text = "You step into the darkness..."
 

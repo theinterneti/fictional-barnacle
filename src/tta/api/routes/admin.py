@@ -1094,7 +1094,6 @@ async def enqueue_job(
 # ==================================================================
 
 
-
 @router.post("/prompts/{name}/activate")
 async def activate_prompt(
     name: str,

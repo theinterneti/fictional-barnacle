@@ -10,9 +10,9 @@ from uuid import uuid4
 
 import pytest
 
-from tta.pipeline.world_changes import translate_world_updates
 from tta.models.turn import TurnState, TurnStatus
 from tta.models.world import TemplateMetadata, WorldChangeType, WorldTemplate
+from tta.pipeline.world_changes import translate_world_updates
 
 # ------------------------------------------------------------------
 # _translate_world_updates unit tests

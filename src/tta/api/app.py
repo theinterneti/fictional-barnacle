@@ -161,6 +161,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         app.state.prompt_bridge = None
         log.info("prompt_bridge_disabled", reason="langfuse_not_configured")
+
     # Helper: qualify model name with backend prefix when bare
     def _qualify_model_name(model_name: str | None) -> str | None:
         _backend = settings.llm_backend

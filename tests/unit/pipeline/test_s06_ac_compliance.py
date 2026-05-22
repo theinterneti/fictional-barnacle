@@ -34,13 +34,13 @@ from __future__ import annotations
 
 import pytest
 
-from tta.pipeline.world_changes import parse_relationship_delta
 from tta.models.world import (
     RelationshipChange,
     RelationshipDimensions,
     apply_relationship_change,
 )
 from tta.pipeline.stages.generate import _build_npc_section
+from tta.pipeline.world_changes import parse_relationship_delta
 from tta.world.relationship_service import (
     InMemoryRelationshipService,
 )
