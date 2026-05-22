@@ -1,11 +1,11 @@
 ---
 name: prompts
-description: "Skill for the Prompts area of fictional-barnacle. 98 symbols across 5 files."
+description: "Skill for the Prompts area of fictional-barnacle. 117 symbols across 7 files."
 ---
 
 # Prompts
 
-98 symbols | 5 files | Cohesion: 72%
+117 symbols | 7 files | Cohesion: 73%
 
 ## When to Use
 
@@ -21,6 +21,8 @@ description: "Skill for the Prompts area of fictional-barnacle. 98 symbols acros
 | `tests/unit/prompts/test_prompt_loader.py` | test_render_unknown_template_raises, test_render_narrative_generate, test_render_classification_intent, test_render_extraction_world_changes, test_get_unknown_template_raises (+21) |
 | `tests/unit/prompts/test_golden_snapshots.py` | test_renders_without_variables, test_contains_core_instructions, test_tone_variable_renders, test_word_range_overridable, test_prompt_hash_stable (+14) |
 | `src/tta/prompts/loader.py` | _estimate_tokens, render, get, _detect_circular_refs, _dfs (+12) |
+| `tests/unit/prompts/test_langfuse_bridge.py` | test_refresh_raises_when_langfuse_disabled, test_preview_renders_with_label, test_render_fetches_when_not_cached, test_seed_creates_new_prompts, test_seed_skips_when_hash_matches (+5) |
+| `src/tta/prompts/langfuse_bridge.py` | _to_langfuse_name, _seed_one, refresh, render, preview (+4) |
 | `tests/unit/prompts/test_guardrails.py` | test_generation_role_gets_preamble, test_classification_role_gets_preamble, test_extraction_role_no_preamble, test_current_templates_have_no_cycles, test_validate_passes_with_all_templates (+1) |
 
 ## Entry Points
@@ -62,6 +64,8 @@ Start here when exploring this area:
 
 | Flow | Type | Steps |
 |------|------|-------|
+| `Preview → _to_langfuse_name` | intra_community | 4 |
+| `Preview → _sha256` | intra_community | 4 |
 | `__init__ → _parse_front_matter` | intra_community | 4 |
 | `__init__ → _path_to_template_id` | intra_community | 4 |
 | `__init__ → Get` | cross_community | 4 |

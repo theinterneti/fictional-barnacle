@@ -74,7 +74,7 @@ class NarrativeQualityEvaluator:
         seed: SeedManifest | None = None,
         genesis_character_name: str = "",
         genesis_traits: list[str] | None = None,
-        consequence_count: int = 0,
+        consequence_count: int | None = None,
         expected_consequence_turns: int | None = None,
     ) -> NarrativeQualityReport:
         """Produce a NarrativeQualityReport for a completed playtesting run.
@@ -108,7 +108,7 @@ class NarrativeQualityEvaluator:
 
         return NarrativeQualityReport(
             report_id=str(uuid.uuid4()),
-            session_id=report.run_id,
+            session_id=report.game_id or report.run_id,
             run_id=report.run_id,
             scenario_seed_id=report.scenario_seed_id,
             evaluated_at=datetime.now(UTC),
@@ -398,10 +398,38 @@ class NarrativeQualityEvaluator:
         self,
         report: PlaytestReport,
         feedback: FeedbackRecord | None,
-        consequence_count: int,
+        consequence_count: int | None,
         expected_consequence_turns: int | None,
     ) -> CategoryScore:
-        """Score consequence weight from records count and human feedback."""
+        """Score consequence weight from records count and human feedback.
+
+        When *consequence_count* is None, the automated component is
+        marked not_evaluated (real ConsequenceRecord data is unavailable).
+        When 0, zero consequences were observed in the session.
+        """
+        if consequence_count is None:
+            # No automated data available — score from human feedback only,
+            # or mark not_evaluated if neither source is available.
+            if feedback is not None:
+                return CategoryScore(
+                    category_id=QC_CONSEQUENCE_WEIGHT,
+                    score=feedback.consequence_normalized,
+                    status="scored",
+                    sources=["human"],
+                    notes=(
+                        "automated not_evaluated (no ConsequenceRecord data); "
+                        f"human_q_consequence={feedback.q_consequence}"
+                    ),
+                )
+            return CategoryScore(
+                category_id=QC_CONSEQUENCE_WEIGHT,
+                score=None,
+                status="not_evaluated",
+                sources=[],
+                notes="No ConsequenceRecord data and no human feedback.",
+            )
+
+        # Automated data available
         expected = (
             expected_consequence_turns
             if expected_consequence_turns is not None
