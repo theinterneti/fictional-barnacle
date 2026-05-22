@@ -129,7 +129,7 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                 }
             )
         try:
-            rendered = deps.prompt_registry.render("classification.intent", {})
+            rendered = await deps.render_prompt("classification.intent")
         except Exception:
             log.error(
                 "classification_template_render_failed",

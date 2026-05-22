@@ -158,6 +158,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             file_registry=app.state.prompt_registry,
         )
         log.info("prompt_bridge_initialized")
+        # Seed Langfuse with current file-based templates (FB-005 / AC-09.2).
+        # Hash-based — skips unchanged content. Non-fatal: gameplay continues
+        # if Langfuse is unreachable.
+        try:
+            seed_results = await app.state.prompt_bridge.seed_from_files()
+            log.info("prompt_bridge_seeded", results=seed_results)
+        except Exception:
+            log.exception("prompt_bridge_seed_failed")
     else:
         app.state.prompt_bridge = None
         log.info("prompt_bridge_disabled", reason="langfuse_not_configured")
@@ -406,6 +414,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         consequence_service=consequence_svc,
         relationship_service=relationship_svc,
         prompt_registry=app.state.prompt_registry,
+        prompt_bridge=getattr(app.state, "prompt_bridge", None),
         llm_semaphore=app.state.llm_semaphore,
         llm_circuit_breaker=llm_circuit_breaker,
         db_session_factory=session_factory,

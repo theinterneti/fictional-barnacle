@@ -73,6 +73,14 @@ def _make_deps(
     deps.prompt_registry = (
         make_mock_registry() if prompt_registry is _UNSET else prompt_registry
     )
+
+    # render_prompt: bridge-aware rendering (FB-005 / AC-09.2).
+    # Falls back to prompt_registry.render when bridge is not configured.
+    deps.prompt_bridge = None
+    async def _mock_render_prompt(template_id, variables=None):
+        return deps.prompt_registry.render(template_id, variables or {})
+    deps.render_prompt = AsyncMock(side_effect=_mock_render_prompt)
+
     return deps
 
 
@@ -116,14 +124,14 @@ class TestAdaptiveWordCounts:
 class TestNarratorConstraints:
     """System prompt (from registry template) includes hard constraints."""
 
-    def test_constraints_in_system_prompt(self) -> None:
+    async def test_constraints_in_system_prompt(self) -> None:
         registry = MagicMock()
         registry.has.return_value = True
         rendered = MagicMock()
         rendered.text = "Never break the fourth wall. Never reveal you are an AI."
         registry.render.return_value = rendered
         deps = _make_deps(prompt_registry=registry)
-        result_text, _ = _resolve_system_prompt(deps)
+        result_text, _ = await _resolve_system_prompt(deps)
         assert "fourth wall" in result_text.lower()
         assert "ai" in result_text.lower()
 
@@ -204,7 +212,7 @@ class TestSummaryInjection:
 class TestPromptRegistryResolution:
     """_resolve_system_prompt uses registry when available."""
 
-    def test_uses_registry_when_template_exists(self) -> None:
+    async def test_uses_registry_when_template_exists(self) -> None:
         registry = MagicMock()
         registry.has.return_value = True
         rendered = MagicMock()
@@ -212,20 +220,20 @@ class TestPromptRegistryResolution:
         registry.render.return_value = rendered
 
         deps = _make_deps(prompt_registry=registry)
-        result_text, _ = _resolve_system_prompt(deps)
+        result_text, _ = await _resolve_system_prompt(deps)
         assert result_text == "Custom system prompt from registry"
 
-    def test_raises_when_no_registry(self) -> None:
+    async def test_raises_when_no_registry(self) -> None:
         deps = _make_deps(prompt_registry=None)
         with pytest.raises(AppError):
-            _resolve_system_prompt(deps)
+            await _resolve_system_prompt(deps)
 
-    def test_raises_when_template_missing(self) -> None:
+    async def test_raises_when_template_missing(self) -> None:
         registry = MagicMock()
         registry.has.return_value = False
         deps = _make_deps(prompt_registry=registry)
         with pytest.raises(AppError):
-            _resolve_system_prompt(deps)
+            await _resolve_system_prompt(deps)
 
 
 # ===================================================================

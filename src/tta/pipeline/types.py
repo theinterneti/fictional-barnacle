@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 
 from tta.models.turn import TurnState
+from tta.prompts.registry import RenderedPrompt
 
 if TYPE_CHECKING:
     from tta.choices.consequence_service import ConsequenceService
@@ -59,6 +60,7 @@ class PipelineDeps:
     consequence_service: ConsequenceService | None = None
     relationship_service: RelationshipService | None = None
     prompt_registry: FilePromptRegistry | None = None
+    prompt_bridge: Any | None = None  # LangfusePromptBridge (FB-005 / AC-09.2)
     llm_semaphore: LLMSemaphore | None = None
     llm_circuit_breaker: CircuitBreaker | None = None
     db_session_factory: Any | None = None  # async_sessionmaker for direct DB access
@@ -71,6 +73,29 @@ class PipelineDeps:
     memory_writer: MemoryWriter | None = None  # v2 S37
     social_memory_writer: SocialMemoryWriter | None = None  # v2 S38
     arq_queue: Any | None = None  # ArqQueue for fire-and-forget job dispatch
+
+    async def render_prompt(
+        self,
+        template_id: str,
+        variables: dict[str, Any] | None = None,
+    ) -> Any:
+        """Render a prompt through the bridge if available, falling back to file registry.
+
+        When the bridge is active, this adds Langfuse prompt metadata
+        (langfuse_prompt, version, label) enabling per-version metrics
+        in Langfuse (AC-09.7 / FB-005).
+        """
+        if variables is None:
+            variables = {}
+        if self.prompt_bridge is not None:
+            return await self.prompt_bridge.render(template_id, variables)
+        if self.prompt_registry is not None:
+            return self.prompt_registry.render(template_id, variables)
+        raise RuntimeError(
+            f"Cannot render prompt '{template_id}': "
+            "no prompt_registry or prompt_bridge configured"
+        )
+
 
 
 # Each stage takes (TurnState, PipelineDeps) and returns enriched TurnState
