@@ -295,7 +295,7 @@ class TestAC106StoryCompletion:
         )
         pg.commit = AsyncMock()
 
-        with patch("tta.api.routes.games._execute_end_command") as mock_end:
+        with patch("tta.api.routes.games_commands._execute_end_command") as mock_end:
             mock_end.return_value = {
                 "type": "command",
                 "command": "end",

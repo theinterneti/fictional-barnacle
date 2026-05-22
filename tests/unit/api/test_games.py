@@ -1123,7 +1123,9 @@ class TestResumeGame:
 
             return _noop()
 
-        monkeypatch.setattr("tta.api.routes.games._regen_summary_bg", _mock_regen)
+        monkeypatch.setattr(
+            "tta.api.routes.games_lifecycle._regen_summary_bg", _mock_regen
+        )
 
         resp = client.post(f"/api/v1/games/{_GAME_ID}/resume")
 
