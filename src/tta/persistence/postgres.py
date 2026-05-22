@@ -18,7 +18,9 @@ from tta.persistence.postgres_game import PostgresGameRepository  # noqa: F401
 from tta.persistence.postgres_player import PostgresPlayerRepository  # noqa: F401
 from tta.persistence.postgres_session import PostgresSessionRepository  # noqa: F401
 from tta.persistence.postgres_turn import PostgresTurnRepository  # noqa: F401
-from tta.persistence.postgres_world_event import PostgresWorldEventRepository  # noqa: F401
+from tta.persistence.postgres_world_event import (
+    PostgresWorldEventRepository,  # noqa: F401
+)
 
 
 async def create_player(handle: str) -> Player:
