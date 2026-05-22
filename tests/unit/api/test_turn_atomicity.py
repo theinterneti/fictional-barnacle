@@ -124,7 +124,7 @@ class TestTurnAtomicity:
     @pytest.mark.asyncio
     async def test_dispatch_pipeline_marks_turn_failed(self) -> None:
         """Pipeline exception → fail_turn called with no partial narrative."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
         from tta.models.turn import TurnStatus
 
         turn_repo = AsyncMock()
@@ -139,10 +139,10 @@ class TestTurnAtomicity:
         turn_id = uuid4()
 
         with patch(
-            "tta.api.routes.games.run_pipeline",
+            "tta.pipeline.orchestrator.run_pipeline",
             side_effect=RuntimeError("LLM boom"),
         ):
-            await _dispatch_pipeline(
+            await dispatch_pipeline(
                 app_state=app_state,
                 game_id=uuid4(),
                 turn_id=turn_id,
@@ -165,7 +165,7 @@ class TestTurnAtomicity:
     @pytest.mark.asyncio
     async def test_dispatch_pipeline_preserves_partial_narrative(self) -> None:
         """FR-23.18: partial narrative preserved on failure."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
         from tta.models.turn import TurnState, TurnStatus
 
         partial_text = "You step into the darkness..."
@@ -194,10 +194,10 @@ class TestTurnAtomicity:
         )
 
         with patch(
-            "tta.api.routes.games.run_pipeline",
+            "tta.pipeline.orchestrator.run_pipeline",
             return_value=failed_state,
         ):
-            await _dispatch_pipeline(
+            await dispatch_pipeline(
                 app_state=app_state,
                 game_id=game_id,
                 turn_id=turn_id,
@@ -216,7 +216,7 @@ class TestTurnAtomicity:
     @pytest.mark.asyncio
     async def test_dispatch_pipeline_failsafe_on_persist_error(self) -> None:
         """If fail_turn raises, fallback to update_status('failed')."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         turn_repo = AsyncMock()
         turn_repo.fail_turn = AsyncMock(side_effect=RuntimeError("DB down"))
@@ -231,10 +231,10 @@ class TestTurnAtomicity:
         turn_id = uuid4()
 
         with patch(
-            "tta.api.routes.games.run_pipeline",
+            "tta.pipeline.orchestrator.run_pipeline",
             side_effect=RuntimeError("LLM fail"),
         ):
-            await _dispatch_pipeline(
+            await dispatch_pipeline(
                 app_state=app_state,
                 game_id=uuid4(),
                 turn_id=turn_id,

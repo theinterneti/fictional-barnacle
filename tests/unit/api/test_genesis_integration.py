@@ -479,14 +479,14 @@ class TestDispatchPipelineWorldChanges:
 
     @pytest.mark.asyncio
     @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)
-    @patch("tta.api.routes.games.run_pipeline", new_callable=AsyncMock)
+    @patch("tta.pipeline.orchestrator.run_pipeline", new_callable=AsyncMock)
     async def test_world_changes_applied_after_successful_turn(
         self,
         mock_pipeline: AsyncMock,
         mock_apply: AsyncMock,
     ) -> None:
         """After a successful turn with world_state_updates, apply_changes is called."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         game_id = uuid4()
         turn_id = uuid4()
@@ -527,7 +527,7 @@ class TestDispatchPipelineWorldChanges:
             turn_result_store=store,
         )
 
-        await _dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
+        await dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
 
         mock_apply.assert_awaited_once()
         applied_changes = mock_apply.call_args[0][0]
@@ -536,14 +536,14 @@ class TestDispatchPipelineWorldChanges:
 
     @pytest.mark.asyncio
     @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)
-    @patch("tta.api.routes.games.run_pipeline", new_callable=AsyncMock)
+    @patch("tta.pipeline.orchestrator.run_pipeline", new_callable=AsyncMock)
     async def test_world_changes_failure_does_not_block_turn(
         self,
         mock_pipeline: AsyncMock,
         mock_apply: AsyncMock,
     ) -> None:
         """apply_changes failure doesn't prevent turn result from publishing."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         game_id = uuid4()
         turn_id = uuid4()
@@ -578,21 +578,21 @@ class TestDispatchPipelineWorldChanges:
             turn_result_store=store,
         )
 
-        await _dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
+        await dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
 
         # Turn result still published despite world change failure
         store.publish.assert_awaited_once()
 
     @pytest.mark.asyncio
     @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)
-    @patch("tta.api.routes.games.run_pipeline", new_callable=AsyncMock)
+    @patch("tta.pipeline.orchestrator.run_pipeline", new_callable=AsyncMock)
     async def test_no_world_changes_skips_apply(
         self,
         mock_pipeline: AsyncMock,
         mock_apply: AsyncMock,
     ) -> None:
         """When world_state_updates is None, apply_changes is not called."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         game_id = uuid4()
         turn_id = uuid4()
@@ -624,6 +624,6 @@ class TestDispatchPipelineWorldChanges:
             turn_result_store=store,
         )
 
-        await _dispatch_pipeline(app_state, game_id, turn_id, 1, "look around", {})
+        await dispatch_pipeline(app_state, game_id, turn_id, 1, "look around", {})
 
         mock_apply.assert_not_awaited()
