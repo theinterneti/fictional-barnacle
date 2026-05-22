@@ -5,16 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-if TYPE_CHECKING:
-    pass
 
 from tta.api.deps import (
     get_current_player,
