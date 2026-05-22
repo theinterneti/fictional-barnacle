@@ -1198,3 +1198,15 @@ async def end_game(
     SESSION_DURATION.observe(duration_s)
 
     return None
+
+
+# ── Re-exports for backward compatibility ──
+# Symbols extracted to games_commands.py
+from tta.api.routes.games_commands import (  # noqa: E402, F401
+    _KNOWN_COMMANDS,
+    _build_character_response,
+    _build_relationships_response,
+    _dimension_label,
+    _execute_end_command,
+    _generate_epilogue,
+)
