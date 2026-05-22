@@ -1,10 +1,12 @@
-"""Game-session and game-state domain models."""
+"""Game-session and game-state domain models plus API request/response schemas."""
 
 from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# ── Domain models ────────────────────────────────────────────────────────────
 
 
 class GameStatus(StrEnum):
@@ -53,3 +55,104 @@ class GameState(BaseModel):
     world_time: dict = Field(
         default_factory=lambda: {"total_ticks": 0}
     )  # v2 S34 — serialised WorldTime; default is tick-0 (FR-34.06a)
+
+
+# ── API request schemas ──────────────────────────────────────────────────────
+
+
+class CreateGameRequest(BaseModel):
+    world_id: str | None = None
+    preferences: dict[str, str] = Field(default_factory=dict)
+
+
+_ZERO_WIDTH_CHARS = str.maketrans(
+    "",
+    "",
+    "\u200b\u200c\u200d\u2060\ufeff\ufffe",
+)
+
+
+class SubmitTurnRequest(BaseModel):
+    input: str = Field(
+        ...,
+        max_length=2000,
+        description="Player's natural-language input.",
+    )
+    idempotency_key: UUID | None = Field(
+        None,
+        description="Client-generated UUID for deduplication.",
+    )
+
+    @field_validator("input")
+    @classmethod
+    def strip_zero_width_chars(cls, v: str) -> str:
+        """Remove invisible Unicode chars that defeat .strip()."""
+        return v.translate(_ZERO_WIDTH_CHARS)
+
+
+class UpdateGameRequest(BaseModel):
+    status: str = Field(
+        ...,
+        description=(
+            "Target status. Supported transitions depend on current "
+            "game status (e.g. active → paused, paused → active/ended)."
+        ),
+    )
+
+
+class DeleteGameRequest(BaseModel):
+    confirm: bool = Field(
+        ...,
+        description="Must be true to confirm deletion (S27 FR-27.18).",
+    )
+
+
+# ── API response schemas ─────────────────────────────────────────────────────
+
+
+class GameData(BaseModel):
+    game_id: str
+    player_id: str
+    status: str
+    turn_count: int
+    title: str | None = None
+    summary: str | None = None
+    narrative_intro: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    last_played_at: datetime | None = None
+
+
+class GameSummary(BaseModel):
+    game_id: str
+    status: str
+    turn_count: int
+    title: str | None = None
+    summary: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    last_played_at: datetime | None = None
+
+
+class PaginationMeta(BaseModel):
+    next_cursor: str | None
+    has_more: bool
+
+
+class TurnAccepted(BaseModel):
+    turn_id: str
+    turn_number: int
+    stream_url: str
+
+
+class SaveResult(BaseModel):
+    game_id: str
+    saved_at: datetime
+    turn_count: int
+
+
+class GameEndedData(BaseModel):
+    game_id: str
+    status: str
+    turn_count: int
+    ended_at: datetime

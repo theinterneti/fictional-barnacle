@@ -113,20 +113,26 @@ External packages and services used by TTA:
 | Dependency | Purpose | Integration |
 |---|---|---|
 | **LiteLLM** | LLM client for provider abstraction | Direct import from `tta.llm` |
-| **1Password** | Secret management | Use `op run --env-file=.env` for secret injection |
+| **1Password** | Secret management | Generate a local `.env` from `.env.example` via `op inject`, then run normally |
 
 ## Running with 1Password
 
 ```bash
-# First time: copy template and add your keys
-cp .env.template .env
+# First time: create a local working file
+cp .env.example .env
 
-# Run with secret injection:
-op run --env-file=.env -- python -m tta
+# Replace selected values with op:// references, then materialize them once
+op inject -i .env -o .env.resolved
+mv .env.resolved .env
+
+# Run normally — the app loads .env directly
+python -m tta
 ```
 
-The `.env.template` file uses 1Password URIs (e.g., `op://TTA/Groq/credential`)
-that get resolved at runtime — no actual keys committed to version control.
+The committed `.env.example` is the canonical template. You may keep `op://...`
+references in the working `.env` temporarily while preparing it, then use
+`op inject` to write a resolved `.env` with actual values for local runtime.
+The resolved `.env` stays gitignored and must never be committed.
 
 LLM integration uses LiteLLM in library mode (not proxy). The client is at
 `src/tta/llm/litellm_client.py`. See `specs/07-llm-integration.md` and
@@ -142,7 +148,7 @@ LLM integration uses LiteLLM in library mode (not proxy). The client is at
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **fictional-barnacle** (16925 symbols, 27058 relationships, 121 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **fictional-barnacle** (17926 symbols, 29034 relationships, 159 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

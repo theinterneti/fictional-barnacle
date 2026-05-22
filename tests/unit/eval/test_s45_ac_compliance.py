@@ -10,10 +10,12 @@ AC-45.05  Human feedback ingestion: consent gate respected
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from argparse import Namespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tta.eval.__main__ import _main
 from tta.eval.models import (
     BatchConfig,
     BatchEvalResult,
@@ -149,6 +151,7 @@ def test_regression_result_contains_correct_delta():
 @pytest.mark.spec("AC-45.03")
 def test_langfuse_scores_shipped_for_scored_categories():
     mock_client = MagicMock()
+    mock_client.create_score = MagicMock()
     mock_cat = MagicMock()
     mock_cat.category_id = "QC-01"
     mock_cat.score = 0.85
@@ -162,16 +165,18 @@ def test_langfuse_scores_shipped_for_scored_categories():
     with patch("tta.eval.pipeline.get_langfuse", return_value=mock_client):
         pipeline.ship_to_langfuse([mock_report])
 
-    mock_client.score.assert_called_once_with(
+    mock_client.create_score.assert_called_once_with(
         name="narrative_quality_qc_01",
         value=0.85,
         trace_id="sess-abc",
     )
+    mock_client.score.assert_not_called()
 
 
 @pytest.mark.spec("AC-45.03")
 def test_langfuse_skips_none_score():
     mock_client = MagicMock()
+    mock_client.create_score = MagicMock()
     mock_cat = MagicMock()
     mock_cat.category_id = "QC-02"
     mock_cat.score = None
@@ -185,12 +190,14 @@ def test_langfuse_skips_none_score():
     with patch("tta.eval.pipeline.get_langfuse", return_value=mock_client):
         pipeline.ship_to_langfuse([mock_report])
 
+    mock_client.create_score.assert_not_called()
     mock_client.score.assert_not_called()
 
 
 @pytest.mark.spec("AC-45.03")
 def test_langfuse_skips_not_evaluated_status():
     mock_client = MagicMock()
+    mock_client.create_score = MagicMock()
     mock_cat = MagicMock()
     mock_cat.category_id = "QC-03"
     mock_cat.score = 0.75
@@ -204,13 +211,14 @@ def test_langfuse_skips_not_evaluated_status():
     with patch("tta.eval.pipeline.get_langfuse", return_value=mock_client):
         pipeline.ship_to_langfuse([mock_report])
 
+    mock_client.create_score.assert_not_called()
     mock_client.score.assert_not_called()
 
 
 @pytest.mark.spec("AC-45.03")
 def test_langfuse_failure_does_not_abort_pipeline():
     mock_client = MagicMock()
-    mock_client.score.side_effect = RuntimeError("Langfuse down")
+    mock_client.create_score = MagicMock(side_effect=RuntimeError("Langfuse down"))
 
     mock_cat = MagicMock()
     mock_cat.category_id = "QC-01"
@@ -233,6 +241,35 @@ def test_langfuse_none_client_skips_shipping():
     with patch("tta.eval.pipeline.get_langfuse", return_value=None):
         # Should not raise, nothing to ship
         pipeline.ship_to_langfuse([MagicMock()])
+
+
+@pytest.mark.spec("AC-45.03")
+@pytest.mark.asyncio
+async def test_eval_cli_initializes_and_shuts_down_langfuse() -> None:
+    args = Namespace(
+        mode="ci",
+        api_base_url="",
+        api_key=None,
+        baseline="data/eval_baseline.json",
+        output_dir="data/eval_output",
+        human_feedback_dir=None,
+    )
+
+    with (
+        patch("tta.eval.__main__.get_settings", return_value=MagicMock()),
+        patch("tta.eval.__main__.init_langfuse") as init_langfuse,
+        patch("tta.eval.__main__.shutdown_langfuse") as shutdown_langfuse,
+        patch("tta.eval.__main__.EvaluationPipeline") as pipeline_cls,
+    ):
+        pipeline = pipeline_cls.return_value
+        pipeline.run = AsyncMock(return_value=(MagicMock(), 0))
+
+        exit_code = await _main(args)
+
+    assert exit_code == 0
+    init_langfuse.assert_called_once()
+    shutdown_langfuse.assert_called_once()
+    pipeline.run.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------

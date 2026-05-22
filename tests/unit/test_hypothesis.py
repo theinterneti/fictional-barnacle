@@ -16,7 +16,6 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from tta.api.routes.games import SubmitTurnRequest
 from tta.api.routes.players import CreatePlayerRequest
 from tta.models.choice import (
     ChoiceClassification,
@@ -24,7 +23,7 @@ from tta.models.choice import (
     ImpactLevel,
     Reversibility,
 )
-from tta.models.game import GameSession, GameState, GameStatus
+from tta.models.game import GameSession, GameState, GameStatus, SubmitTurnRequest
 from tta.models.player import Player, PlayerSession
 from tta.models.turn import ParsedIntent, TokenCount, TurnRequest
 

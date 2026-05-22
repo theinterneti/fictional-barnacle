@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import textwrap
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -289,6 +290,48 @@ def test_record_llm_generation_calls_langfuse():
     gen_kwargs = mock_trace.generation.call_args[1]
     assert gen_kwargs["model"] == "openai/gpt-4o"
     assert gen_kwargs["usage"]["input"] == 100
+
+
+@pytest.mark.spec("AC-07.06")
+def test_record_llm_generation_uses_v4_observation_api_when_trace_missing():
+    """Langfuse v4 path should use start_observation without client.trace()."""
+    from tta.observability.langfuse import record_llm_generation
+
+    mock_client = MagicMock(spec=["start_observation"])
+    mock_obs = MagicMock()
+    mock_client.start_observation.return_value = mock_obs
+
+    with (
+        patch("tta.observability.langfuse._langfuse_client", mock_client),
+        patch(
+            "tta.observability.langfuse._get_context_ids",
+            return_value={
+                "correlation_id": "corr-1",
+                "session_id": "sess-1",
+                "turn_id": "turn-1",
+                "player_id": None,
+            },
+        ),
+        patch("langfuse.propagate_attributes", return_value=nullcontext()),
+    ):
+        record_llm_generation(
+            name="pipeline.generation",
+            role="generation",
+            messages=[{"role": "user", "content": "hello"}],
+            result=_make_llm_response(),
+            latency_ms=200,
+            cost_usd=0.003,
+            otel_trace_id="abc123",
+        )
+
+    mock_client.start_observation.assert_called_once()
+    obs_kwargs = mock_client.start_observation.call_args.kwargs
+    assert obs_kwargs["trace_context"] == {"trace_id": "turn-1"}
+    assert obs_kwargs["name"] == "pipeline.generation"
+    assert obs_kwargs["as_type"] == "generation"
+    assert obs_kwargs["model"] == "openai/gpt-4o"
+    assert obs_kwargs["usage_details"] == {"input": 100, "output": 50, "total": 150}
+    mock_obs.end.assert_called_once()
 
 
 def test_record_llm_generation_strips_pii():

@@ -32,6 +32,16 @@ from redis.asyncio import Redis
 from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
 from tta.errors import ErrorCategory
+from tta.models.admin import (
+    ActivatePromptRequest,
+    LogLevelBody,
+    PreviewPromptRequest,
+    ReasonRequest,
+    ReviewRequest,
+    SuspendRequest,
+    TerminateRequest,
+    UniverseConfigPatchRequest,
+)
 from tta.observability.metrics import REGISTRY, SESSIONS_ACTIVE, generate_latest
 from tta.persistence.redis_session import evict_game_state
 from tta.prompts.langfuse_bridge import _from_langfuse_name
@@ -41,25 +51,8 @@ log = structlog.get_logger()
 
 
 # ------------------------------------------------------------------
-# Request / response models
+# Helpers
 # ------------------------------------------------------------------
-
-
-class SuspendRequest(BaseModel):
-    reason: str = Field(..., min_length=10)
-
-
-class TerminateRequest(BaseModel):
-    reason: str = Field(..., min_length=10)
-
-
-class ReviewRequest(BaseModel):
-    action: str = Field(..., pattern=r"^(dismiss|warn|suspend_player)$")
-    notes: str = Field(..., min_length=10)
-
-
-class ReasonRequest(BaseModel):
-    reason: str = Field(..., min_length=1)
 
 
 # ------------------------------------------------------------------
@@ -552,7 +545,7 @@ class _LogLevelBody(BaseModel):
 
 @router.post("/log-level")
 async def set_log_level(
-    body: _LogLevelBody,
+    body: LogLevelBody,
     request: Request,
     _admin: AdminIdentity = Depends(require_admin),
 ) -> dict[str, Any]:
@@ -934,12 +927,6 @@ async def run_consistency_check(
 # ==================================================================
 
 
-class UniverseConfigPatchRequest(BaseModel):
-    """Payload for ``PATCH /admin/universes/{universe_id}``."""
-
-    config: dict = Field(default_factory=dict)
-
-
 @router.patch("/universes/{universe_id}")
 async def patch_universe_config(
     universe_id: UUID,
@@ -1105,26 +1092,6 @@ async def enqueue_job(
 # ==================================================================
 # §3.8  Prompt management (FB-005 / AC-09.02)
 # ==================================================================
-
-
-class ActivatePromptRequest(BaseModel):
-    label: str = Field(
-        default="production",
-        pattern=r"^[a-z0-9_\-]{1,36}$",
-        description="Langfuse label to apply (e.g. 'production', 'staging')",
-    )
-
-
-class PreviewPromptRequest(BaseModel):
-    label: str = Field(
-        default="production",
-        pattern=r"^[a-z0-9_\-]{1,36}$",
-        description="Label to preview (e.g. 'staging')",
-    )
-    variables: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Template variables for rendering",
-    )
 
 
 @router.post("/prompts/{name}/activate")

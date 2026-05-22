@@ -74,13 +74,15 @@ op read op://TTA/Groq/credential
 # Navigate to project directory
 cd ~/Repos/fictional-barnacle  # or TTA, TTA.dev
 
-# Copy the template
-cp .env.template .env
+# Create a local .env from the committed template
+cp .env.example .env
 
-# Add your keys (edit .env with actual values from 1Password)
+# Optionally replace selected values with op:// references, then resolve once
+op inject -i .env -o .env.resolved
+mv .env.resolved .env
 
-# Run the project
-op run --env-file=.env -- python -m tta
+# Run the project normally
+python -m tta
 ```
 
 ## Project-Specific Setup
@@ -89,34 +91,38 @@ op run --env-file=.env -- python -m tta
 
 ```bash
 cd ~/Repos/fictional-barnacle
-cp .env.template .env
-# Add your LLM keys to .env
+cp .env.example .env
+# Optionally swap selected values to op:// references first
+op inject -i .env -o .env.resolved
+mv .env.resolved .env
 
 # Start (requires Docker for databases)
 docker compose up -d
-op run --env-file=.env -- python -m tta
+python -m tta
 ```
 
 ### TTA (Main Project)
 
 ```bash
 cd ~/Repos/TTA
-cp .env.template .env
-# Add your LLM keys to .env
+cp .env.example .env
+op inject -i .env -o .env.resolved
+mv .env.resolved .env
 
 # Start
-op run --env-file=.env -- python src/main.py start
+python src/main.py start
 ```
 
 ### TTA.dev (Library)
 
 ```bash
 cd ~/Repos/TTA.dev
-cp .env.template .env
-# Add your keys to .env
+cp .env.example .env
+op inject -i .env -o .env.resolved
+mv .env.resolved .env
 
 # Run
-op run --env-file=.env -- uv run python -m ttadev.observability
+uv run python -m ttadev.observability
 ```
 
 ## Available Secrets
@@ -170,8 +176,8 @@ Contact: Project lead (you)
 # Read a secret
 op read op://TTA/KEY_NAME/credential
 
-# Run with secret injection
-op run --env-file=.env -- YOUR_COMMAND
+# Materialize .env from any op:// references
+op inject -i .env -o .env.resolved && mv .env.resolved .env
 
 # List all secrets
 op item list --vault TTA

@@ -54,7 +54,12 @@ class _TtaEnvSource(EnvSettingsSource):
 class Settings(BaseSettings):
     """TTA application configuration from environment variables."""
 
-    model_config = SettingsConfigDict(env_prefix="TTA_")
+    model_config = SettingsConfigDict(
+        env_prefix="TTA_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     @classmethod
     def settings_customise_sources(  # type: ignore[override]

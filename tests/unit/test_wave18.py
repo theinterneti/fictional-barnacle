@@ -185,7 +185,7 @@ class TestSubmitTurnRequestValidation:
     """SubmitTurnRequest strips zero-width Unicode characters."""
 
     def _make(self, text: str) -> Any:
-        from tta.api.routes.games import SubmitTurnRequest
+        from tta.models.game import SubmitTurnRequest
 
         return SubmitTurnRequest(input=text)
 

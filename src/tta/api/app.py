@@ -161,6 +161,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         app.state.prompt_bridge = None
         log.info("prompt_bridge_disabled", reason="langfuse_not_configured")
+
+    # Helper: qualify model name with backend prefix when bare
+    def _qualify_model_name(model_name: str | None) -> str | None:
+        _backend = settings.llm_backend
+        if not model_name or "/" in model_name:
+            return model_name
+        return f"{_backend}/{model_name}"
+
     # 4. LLM client
     if settings.llm_mock:
         from tta.llm.testing import MockLLMClient
@@ -184,41 +192,50 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         # Configure LiteLLM environment for the selected backend.
         if _backend == "openai":
-            os.environ.setdefault("OPENAI_API_BASE", settings.openai_api_base)
+            os.environ["OPENAI_API_BASE"] = settings.openai_api_base
             if settings.openai_api_key:
                 os.environ["OPENAI_API_KEY"] = settings.openai_api_key
+            else:
+                os.environ.pop("OPENAI_API_KEY", None)
         elif _backend == "openrouter":
             # OPENROUTER_API_KEY is expected in the environment already
             # (via 1Password or direct env var).
-            pass
+            os.environ.pop("OPENAI_API_BASE", None)
+            os.environ.pop("OPENAI_API_KEY", None)
+
+        _primary_override = _qualify_model_name(settings.litellm_model)
+        _fallback_override = _qualify_model_name(settings.litellm_fallback_model)
 
         # Allow env-var overrides for primary/fallback model per FR-17.30 audit.
         # If TTA_LITELLM_MODEL is non-default, override ALL roles so that
         # operators can switch providers without code changes.
         _default_primary = "openai/gpt-4o-mini"
-        if settings.litellm_model and settings.litellm_model != _default_primary:
+        _effective_role_configs = _role_configs
+        if _primary_override and _primary_override != _default_primary:
             _overridden = dict(_role_configs)
             for _role in ModelRole:
                 _base = _overridden[_role]
                 _overridden[_role] = ModelRoleConfig(
-                    primary=settings.litellm_model,
-                    fallback=settings.litellm_fallback_model or _base.fallback,
+                    primary=_primary_override,
+                    fallback=_fallback_override or _base.fallback,
                     temperature=_base.temperature,
                     max_tokens=_base.max_tokens,
                     timeout_seconds=_base.timeout_seconds,
                 )
-            app.state.llm_client = LiteLLMClient(role_configs=_overridden)
-        else:
-            app.state.llm_client = LiteLLMClient(role_configs=_role_configs)
+            _effective_role_configs = _overridden
+
+        app.state.llm_client = LiteLLMClient(role_configs=_effective_role_configs)
 
         # S17 FR-17.30: log configured LLM provider on startup for audit trail
         log.info(
             "llm_provider_configured",
             backend=_backend,
             api_base=settings.openai_api_base if _backend == "openai" else "default",
-            model=settings.litellm_model,
-            generation_model=_role_configs[ModelRole.GENERATION].primary,
-            fallback_model=settings.litellm_fallback_model or "none",
+            model=_primary_override or "default",
+            generation_model=_effective_role_configs[ModelRole.GENERATION].primary,
+            fallback_model=(
+                _effective_role_configs[ModelRole.GENERATION].fallback or "none"
+            ),
         )
 
     # 5. World service — Neo4j when explicitly configured, in-memory fallback
@@ -335,8 +352,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     consequence_svc = InMemoryConsequenceService()
     # Use explicit summary_model if set; otherwise fall back to the litellm_model
     # override (so all LLM calls use the same provider), then the built-in default.
-    _summary_model = settings.summary_model or settings.litellm_model or ""
-    app.state.summary_service = ContextSummaryService(model=_summary_model)
+    _summary_model = _qualify_model_name(
+        settings.summary_model or settings.litellm_model or ""
+    )
+    app.state.summary_service = ContextSummaryService(model=_summary_model or "")
     app.state.snapshot_service = GameSnapshotService(session_factory)
     relationship_svc = InMemoryRelationshipService()
     llm_circuit_breaker = CircuitBreaker(LLM_BREAKER)

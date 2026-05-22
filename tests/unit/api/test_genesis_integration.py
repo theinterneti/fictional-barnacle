@@ -10,9 +10,9 @@ from uuid import uuid4
 
 import pytest
 
-from tta.api.routes.games import _translate_world_updates
 from tta.models.turn import TurnState, TurnStatus
 from tta.models.world import TemplateMetadata, WorldChangeType, WorldTemplate
+from tta.pipeline.world_changes import translate_world_updates
 
 # ------------------------------------------------------------------
 # _translate_world_updates unit tests
@@ -24,7 +24,7 @@ class TestTranslateWorldUpdates:
 
     def test_maps_location_keyword_to_player_moved(self) -> None:
         raw = [{"entity": "player", "attribute": "location", "new_value": "cave"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert len(changes) == 1
         assert changes[0].type == WorldChangeType.PLAYER_MOVED
         assert changes[0].entity_id == "player"
@@ -32,7 +32,7 @@ class TestTranslateWorldUpdates:
 
     def test_maps_mood_keyword_to_npc_disposition(self) -> None:
         raw = [{"entity": "npc_guard", "attribute": "mood", "new_value": "hostile"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].type == WorldChangeType.NPC_DISPOSITION_CHANGED
 
     def test_maps_quest_keyword(self) -> None:
@@ -43,29 +43,29 @@ class TestTranslateWorldUpdates:
                 "new_value": "complete",
             }
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].type == WorldChangeType.QUEST_STATUS_CHANGED
 
     def test_maps_locked_keyword(self) -> None:
         raw = [{"entity": "door_1", "attribute": "locked", "new_value": "true"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].type == WorldChangeType.CONNECTION_LOCKED
 
     def test_maps_unlocked_keyword(self) -> None:
         raw = [{"entity": "door_1", "attribute": "unlocked", "new_value": "true"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].type == WorldChangeType.CONNECTION_UNLOCKED
 
     def test_maps_taken_keyword_to_item_taken(self) -> None:
         raw = [{"entity": "sword", "attribute": "taken", "new_value": "true"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].type == WorldChangeType.ITEM_TAKEN
 
     def test_maps_visibility_keyword(self) -> None:
         raw = [
             {"entity": "secret_door", "attribute": "visibility", "new_value": "shown"}
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].type == WorldChangeType.ITEM_VISIBILITY_CHANGED
 
     def test_maps_relationship_keyword(self) -> None:
@@ -76,26 +76,26 @@ class TestTranslateWorldUpdates:
                 "new_value": "friendly",
             }
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].type == WorldChangeType.RELATIONSHIP_CHANGED
 
     def test_unknown_attribute_defaults_to_location_state(self) -> None:
         raw = [{"entity": "torch", "attribute": "brightness", "new_value": "dim"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].type == WorldChangeType.LOCATION_STATE_CHANGED
 
     def test_skips_empty_entity(self) -> None:
         raw = [{"entity": "", "attribute": "location", "new_value": "cave"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert len(changes) == 0
 
     def test_skips_missing_entity(self) -> None:
         raw = [{"attribute": "location", "new_value": "cave"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert len(changes) == 0
 
     def test_empty_list_returns_empty(self) -> None:
-        assert _translate_world_updates([]) == []
+        assert translate_world_updates([]) == []
 
     def test_multiple_changes_translated(self) -> None:
         raw = [
@@ -103,7 +103,7 @@ class TestTranslateWorldUpdates:
             {"entity": "npc_1", "attribute": "disposition", "new_value": "angry"},
             {"entity": "door", "attribute": "state", "new_value": "open"},
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert len(changes) == 3
         assert changes[0].type == WorldChangeType.PLAYER_MOVED
         assert changes[1].type == WorldChangeType.NPC_DISPOSITION_CHANGED
@@ -119,7 +119,7 @@ class TestTranslateWorldUpdates:
                 "reason": "player pulled lever",
             }
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         payload = changes[0].payload
         assert payload["attribute"] == "state"
         assert payload["old_value"] == "closed"
@@ -128,7 +128,7 @@ class TestTranslateWorldUpdates:
 
     def test_missing_optional_fields_default_to_none(self) -> None:
         raw = [{"entity": "e1", "attribute": "state"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         payload = changes[0].payload
         assert payload["old_value"] is None
         assert payload["new_value"] is None
@@ -137,7 +137,7 @@ class TestTranslateWorldUpdates:
     def test_none_attribute_handled_gracefully(self) -> None:
         """Attribute key with None value should not raise."""
         raw = [{"entity": "e1", "attribute": None, "new_value": "x"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert len(changes) == 1
         assert changes[0].payload["attribute"] == ""
 
@@ -150,14 +150,14 @@ class TestTranslateWorldUpdates:
                 "new_value": "cave",
             }
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         p = changes[0].payload
         assert p["from_id"] == "town"
         assert p["to_id"] == "cave"
 
     def test_npc_disposition_payload_has_disposition(self) -> None:
         raw = [{"entity": "guard", "attribute": "mood", "new_value": "hostile"}]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].payload["disposition"] == "hostile"
 
     def test_quest_status_payload_has_new_status(self) -> None:
@@ -168,7 +168,7 @@ class TestTranslateWorldUpdates:
                 "new_value": "complete",
             }
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].payload["new_status"] == "complete"
 
     def test_item_visibility_payload_has_hidden_bool(self) -> None:
@@ -179,7 +179,7 @@ class TestTranslateWorldUpdates:
                 "new_value": "true",
             }
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         assert changes[0].payload["hidden"] is True
 
     def test_extra_keys_passed_through(self) -> None:
@@ -194,7 +194,7 @@ class TestTranslateWorldUpdates:
                 "to_id": "loc_b",
             }
         ]
-        changes = _translate_world_updates(raw)
+        changes = translate_world_updates(raw)
         p = changes[0].payload
         assert p["from_id"] == "loc_a"
         assert p["to_id"] == "loc_b"
@@ -479,14 +479,14 @@ class TestDispatchPipelineWorldChanges:
 
     @pytest.mark.asyncio
     @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)
-    @patch("tta.api.routes.games.run_pipeline", new_callable=AsyncMock)
+    @patch("tta.pipeline.orchestrator.run_pipeline", new_callable=AsyncMock)
     async def test_world_changes_applied_after_successful_turn(
         self,
         mock_pipeline: AsyncMock,
         mock_apply: AsyncMock,
     ) -> None:
         """After a successful turn with world_state_updates, apply_changes is called."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         game_id = uuid4()
         turn_id = uuid4()
@@ -527,7 +527,7 @@ class TestDispatchPipelineWorldChanges:
             turn_result_store=store,
         )
 
-        await _dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
+        await dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
 
         mock_apply.assert_awaited_once()
         applied_changes = mock_apply.call_args[0][0]
@@ -536,14 +536,14 @@ class TestDispatchPipelineWorldChanges:
 
     @pytest.mark.asyncio
     @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)
-    @patch("tta.api.routes.games.run_pipeline", new_callable=AsyncMock)
+    @patch("tta.pipeline.orchestrator.run_pipeline", new_callable=AsyncMock)
     async def test_world_changes_failure_does_not_block_turn(
         self,
         mock_pipeline: AsyncMock,
         mock_apply: AsyncMock,
     ) -> None:
         """apply_changes failure doesn't prevent turn result from publishing."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         game_id = uuid4()
         turn_id = uuid4()
@@ -578,21 +578,21 @@ class TestDispatchPipelineWorldChanges:
             turn_result_store=store,
         )
 
-        await _dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
+        await dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
 
         # Turn result still published despite world change failure
         store.publish.assert_awaited_once()
 
     @pytest.mark.asyncio
     @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)
-    @patch("tta.api.routes.games.run_pipeline", new_callable=AsyncMock)
+    @patch("tta.pipeline.orchestrator.run_pipeline", new_callable=AsyncMock)
     async def test_no_world_changes_skips_apply(
         self,
         mock_pipeline: AsyncMock,
         mock_apply: AsyncMock,
     ) -> None:
         """When world_state_updates is None, apply_changes is not called."""
-        from tta.api.routes.games import _dispatch_pipeline
+        from tta.pipeline.orchestrator import dispatch_pipeline
 
         game_id = uuid4()
         turn_id = uuid4()
@@ -624,6 +624,6 @@ class TestDispatchPipelineWorldChanges:
             turn_result_store=store,
         )
 
-        await _dispatch_pipeline(app_state, game_id, turn_id, 1, "look around", {})
+        await dispatch_pipeline(app_state, game_id, turn_id, 1, "look around", {})
 
         mock_apply.assert_not_awaited()

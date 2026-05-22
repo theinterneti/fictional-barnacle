@@ -1632,7 +1632,7 @@ def _mock_session_factory() -> tuple[MagicMock, AsyncMock]:
 class TestGenerateTitleBg:
     @pytest.mark.asyncio
     async def test_title_persisted_on_success(self) -> None:
-        from tta.api.routes.games import _generate_title_bg
+        from tta.pipeline.orchestrator import _generate_title_bg
 
         mock_svc = AsyncMock()
         mock_svc.generate_title = AsyncMock(return_value="Epic Adventure")
@@ -1652,7 +1652,7 @@ class TestGenerateTitleBg:
     @pytest.mark.asyncio
     async def test_title_failure_logs_warning(self) -> None:
         """LLM failure doesn't raise — just logs."""
-        from tta.api.routes.games import _generate_title_bg
+        from tta.pipeline.orchestrator import _generate_title_bg
 
         mock_svc = AsyncMock()
         mock_svc.generate_title = AsyncMock(side_effect=RuntimeError("boom"))
@@ -1668,7 +1668,7 @@ class TestGenerateTitleBg:
 
     @pytest.mark.asyncio
     async def test_empty_title_skips_persist(self) -> None:
-        from tta.api.routes.games import _generate_title_bg
+        from tta.pipeline.orchestrator import _generate_title_bg
 
         mock_svc = AsyncMock()
         mock_svc.generate_title = AsyncMock(return_value="")
@@ -1688,7 +1688,7 @@ class TestGenerateTitleBg:
 class TestRegenSummaryBg:
     @pytest.mark.asyncio
     async def test_summary_persisted_on_success(self) -> None:
-        from tta.api.routes.games import _regen_summary_bg
+        from tta.pipeline.orchestrator import _regen_summary_bg
 
         mock_svc = AsyncMock()
         mock_svc.generate_context_summary = AsyncMock(
@@ -1717,7 +1717,7 @@ class TestRegenSummaryBg:
 
     @pytest.mark.asyncio
     async def test_no_turns_skips_summary(self) -> None:
-        from tta.api.routes.games import _regen_summary_bg
+        from tta.pipeline.orchestrator import _regen_summary_bg
 
         mock_turn_repo = AsyncMock()
         mock_turn_repo.get_recent_turns = AsyncMock(return_value=[])
@@ -1738,7 +1738,7 @@ class TestRegenSummaryBg:
 
     @pytest.mark.asyncio
     async def test_summary_failure_does_not_raise(self) -> None:
-        from tta.api.routes.games import _regen_summary_bg
+        from tta.pipeline.orchestrator import _regen_summary_bg
 
         mock_svc = AsyncMock()
         mock_svc.generate_context_summary = AsyncMock(
