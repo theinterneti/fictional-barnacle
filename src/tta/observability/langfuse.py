@@ -277,6 +277,13 @@ def record_llm_generation(
             trace_obj.generation(**gen)
     except Exception:
         _warn_langfuse_error("langfuse_generation_failed", name=name)
+    else:
+        # Flush immediately so traces appear without waiting for the
+        # SDK background flush interval. Best-effort only.
+        try:
+            _langfuse_client.flush()
+        except Exception:
+            pass
 
 
 def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
