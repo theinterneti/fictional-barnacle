@@ -297,7 +297,9 @@ class TestConcurrentTurnRejection:
             side_effect=[
                 _make_result([_game_row()]),  # _get_owned_game
                 _make_result(),  # advisory lock
-                _make_result([{"id": uuid4()}]),  # in-flight turn exists
+                _make_result(
+                    [{"id": uuid4(), "created_at": datetime.now(UTC)}]
+                ),  # in-flight turn exists
             ]
         )
 

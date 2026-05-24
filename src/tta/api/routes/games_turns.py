@@ -224,8 +224,17 @@ async def submit_turn(
     )
     stuck = in_flight.one_or_none()
     if stuck is not None:
-        stuck_id, stuck_at = stuck.id, stuck.created_at
-        stuck_age = (datetime.now(UTC) - stuck_at.replace(tzinfo=UTC)).total_seconds()
+        stuck_id = stuck.id
+        stuck_at = getattr(stuck, "created_at", None)
+        if stuck_at is None:
+            raise AppError(
+                ErrorCategory.CONFLICT,
+                "TURN_IN_PROGRESS",
+                "A turn is already being processed for this game.",
+            )
+        if stuck_at.tzinfo is None:
+            stuck_at = stuck_at.replace(tzinfo=UTC)
+        stuck_age = (datetime.now(UTC) - stuck_at).total_seconds()
         # Recovery: if a turn has been processing longer than 2x the
         # pipeline timeout, mark it failed and allow the next turn.
         timeout = settings.pipeline_timeout_seconds * 2

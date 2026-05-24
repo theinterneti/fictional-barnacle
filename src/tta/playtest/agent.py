@@ -1,4 +1,5 @@
 """PlaytesterAgent — S42 LLM Playtester Agent Harness."""
+
 from __future__ import annotations
 
 import asyncio
@@ -332,8 +333,7 @@ class PlaytesterAgent:
         turn_data = resp.json()["data"]
         turn_id = str(turn_data["turn_id"])
         stream_url = str(
-            turn_data.get("stream_url")
-            or f"/api/v1/games/{self._game_id}/stream"
+            turn_data.get("stream_url") or f"/api/v1/games/{self._game_id}/stream"
         )
         return await self._consume_turn_stream(client, stream_url, turn_id)
 

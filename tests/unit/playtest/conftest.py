@@ -140,12 +140,12 @@ def _make_http_mock(
             stream_url = f"/api/v1/games/{game_id}/stream"
             narrative_event = (
                 "event: narrative\n"
-                f"data: {{\"turn_id\": \"{turn_id}\", "
-                f"\"text\": \"Narrative for turn {turn_number}.\"}}\n\n"
+                f'data: {{"turn_id": "{turn_id}", '
+                f'"text": "Narrative for turn {turn_number}."}}\n\n'
             )
             end_event = (
                 "event: narrative_end\n"
-                f"data: {{\"turn_id\": \"{turn_id}\", \"total_chunks\": 1}}\n\n"
+                f'data: {{"turn_id": "{turn_id}", "total_chunks": 1}}\n\n'
             )
             stream_payloads[turn_id] = [narrative_event, end_event]
             resp.status_code = 202
