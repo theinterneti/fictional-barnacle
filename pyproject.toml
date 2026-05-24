@@ -36,7 +36,11 @@ dependencies = [
     "arq>=0.25",
     "httpx-sse>=0.4.3",
     "ttadev",
+    "textual>=8.2.7",
 ]
+
+[project.scripts]
+tta-playtest = "tta.playtest.tui:main"
 
 [dependency-groups]
 dev = [

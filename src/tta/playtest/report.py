@@ -75,6 +75,8 @@ class PlaytestReport:
     turns: list[TurnRecord] = field(default_factory=list)
     overall_agent_rating: float = 0.0
     overall_agent_notes: str = ""
+    genesis_character_name: str = ""
+    genesis_traits: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -91,4 +93,6 @@ class PlaytestReport:
             "turns": [t.to_dict() for t in self.turns],
             "overall_agent_rating": self.overall_agent_rating,
             "overall_agent_notes": self.overall_agent_notes,
+            "genesis_character_name": self.genesis_character_name,
+            "genesis_traits": list(self.genesis_traits),
         }

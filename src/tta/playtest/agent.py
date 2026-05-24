@@ -99,6 +99,17 @@ class PlaytesterAgent:
             headers=headers,
             timeout=PLAYTEST_TURN_TIMEOUT + 10,
         ) as client:
+            # FR-42.01: If no API key provided, register an anonymous player
+            # and obtain a session token for consent + game creation.
+            if not self._api_key:
+                # Stagger auth calls to avoid rate-limiting when running
+                # multiple playtesters concurrently from localhost.
+                await asyncio.sleep(random.uniform(0.5, 3.0))
+                auth_resp = await client.post("/api/v1/auth/anonymous")
+                auth_resp.raise_for_status()
+                token = auth_resp.json()["data"]["access_token"]
+                client.headers["Authorization"] = f"Bearer {token}"
+
             # Accept consent before game creation (required since S17 v2).
             # Without this, POST /api/v1/games returns 403 CONSENT_REQUIRED.
             consent_resp = await client.patch(
@@ -158,6 +169,8 @@ class PlaytesterAgent:
                     "genesis_phases_completed", 7
                 )
                 current_narrative = game_data.get("narrative_intro", "")
+                self._character_name = game_data.get("character_name") or ""
+                self._character_traits = game_data.get("character_traits", [])
 
             consecutive_timeouts = 0
             turn_index = 0
@@ -369,6 +382,8 @@ class PlaytesterAgent:
             turns=list(self._turns),
             overall_agent_rating=round(overall_rating, 4),
             overall_agent_notes="",
+            genesis_character_name=getattr(self, "_character_name", ""),
+            genesis_traits=list(getattr(self, "_character_traits", [])),
         )
 
 

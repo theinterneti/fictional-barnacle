@@ -1,246 +1,145 @@
 #!/usr/bin/env python3
-"""Interactive CLI playtest for TTA.
+"""TTA Playtest CLI — quick interactive playtest session."""
 
-Usage:
-    uv run python scripts/playtest.py [--base-url URL]
-
-Connects to a running TTA API server, registers a player, creates a game,
-and opens an interactive turn loop. SSE narrative is streamed in real-time.
-"""
-
-from __future__ import annotations
-
-import argparse
+import asyncio
 import json
 import os
-import signal
 import sys
-import uuid
 
 import httpx
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.prompt import Prompt
 
-DEFAULT_BASE = os.getenv("TTA_BASE_URL", "http://localhost:8000/api/v1")
-STREAM_TIMEOUT = 120.0
+TTA_URL = os.getenv("TTA_URL", "http://localhost:8010")
+API = f"{TTA_URL}/api/v1"
+TIMEOUT = 120
 
-
-def _color(text: str, code: int) -> str:
-    """Wrap text in ANSI color if stdout is a terminal."""
-    if not sys.stdout.isatty():
-        return text
-    return f"\033[{code}m{text}\033[0m"
-
-
-def _dim(text: str) -> str:
-    return _color(text, 2)
+console = Console()
 
 
-def _green(text: str) -> str:
-    return _color(text, 32)
+async def api(client, method, path, body=None):
+    """Call the TTA API and return parsed JSON data."""
+    kwargs = {"timeout": TIMEOUT}
+    if body is not None:
+        kwargs["json"] = body
+    resp = await client.request(method, f"{API}{path}", **kwargs)
+    if not resp.is_success:
+        console.print(f"[red]API error {resp.status_code}: {resp.text[:200]}[/red]")
+        sys.exit(1)
+    return resp.json()["data"]
 
 
-def _cyan(text: str) -> str:
-    return _color(text, 36)
+async def stream_sse(client, game_id, token):
+    """Stream SSE events and print narrative chunks."""
+    url = f"{API}/games/{game_id}/stream"
+    headers = {"Authorization": f"Bearer {token}"}
+    current_event = None
+    current_data = ""
+
+    async with client.stream("GET", url, headers=headers, timeout=None) as resp:
+        async for line in resp.aiter_lines():
+            if line.startswith("event:"):
+                current_event = line[6:].strip()
+            elif line.startswith("data:"):
+                current_data = line[5:].strip()
+            elif line == "" and current_event:
+                _handle_sse(current_event, current_data)
+                if current_event == "narrative_end":
+                    return
+                current_event = None
+                current_data = ""
 
 
-def _red(text: str) -> str:
-    return _color(text, 31)
-
-
-def _yellow(text: str) -> str:
-    return _color(text, 33)
-
-
-def _parse_sse_lines(
-    lines: list[str],
-) -> tuple[str | None, str | None]:
-    """Parse SSE event type and data from accumulated lines."""
-    event_type = None
-    data_parts: list[str] = []
-    for line in lines:
-        if line.startswith("event:"):
-            event_type = line[6:].strip()
-        elif line.startswith("data:"):
-            data_parts.append(line[5:].strip())
-    data = "\n".join(data_parts) if data_parts else None
-    return event_type, data
-
-
-def register_player(client: httpx.Client) -> tuple[str, str]:
-    """Register an anonymous player. Returns (player_id, token)."""
-    handle = f"playtester-{uuid.uuid4().hex[:8]}"
-    resp = client.post("/players", json={"handle": handle})
-    resp.raise_for_status()
-    data = resp.json()["data"]
-    return data["player_id"], data["session_token"]
-
-
-def create_game(client: httpx.Client) -> str:
-    """Create a new game session. Returns game_id."""
-    resp = client.post("/games", json={})
-    resp.raise_for_status()
-    return resp.json()["data"]["game_id"]
-
-
-def submit_turn(client: httpx.Client, game_id: str, text: str) -> str:
-    """Submit a turn. Returns stream_url."""
-    resp = client.post(
-        f"/games/{game_id}/turns",
-        json={"input": text},
-    )
-    resp.raise_for_status()
-    return resp.json()["data"]["stream_url"]
-
-
-def stream_narrative(client: httpx.Client, stream_url: str) -> None:
-    """Connect to SSE endpoint and print narrative as it arrives."""
-    buf: list[str] = []
-
-    with client.stream("GET", stream_url, timeout=STREAM_TIMEOUT) as resp:
-        resp.raise_for_status()
-        for raw_line in resp.iter_lines():
-            line = (
-                raw_line.decode() if isinstance(raw_line, bytes) else raw_line
-            ).rstrip("\r\n")
-
-            if not line:
-                if buf:
-                    event_type, data = _parse_sse_lines(buf)
-                    _handle_sse_event(event_type, data)
-                    buf.clear()
-                continue
-            buf.append(line)
-
-        # Flush remaining buffer
-        if buf:
-            event_type, data = _parse_sse_lines(buf)
-            _handle_sse_event(event_type, data)
-
-
-def _handle_sse_event(event_type: str | None, data: str | None) -> None:
-    """Process a single SSE event."""
-    if data is None:
-        return
-
+def _handle_sse(event_type, data):
+    """Parse and display an SSE event."""
     try:
         payload = json.loads(data)
-    except json.JSONDecodeError:
-        return
+    except (json.JSONDecodeError, TypeError):
+        payload = {}
 
-    if event_type == "turn_start":
-        turn = payload.get("turn_number", "?")
-        print(_dim(f"\n--- Turn {turn} ---"))
-
-    elif event_type in {"narrative", "narrative_block"}:
-        text = payload.get("full_text") or payload.get("text", "")
-        if text:
-            print(f"\n{_cyan(text)}")
-
-    elif event_type == "narrative_token":
-        text = payload.get("text", "")
-        if text:
-            print(_cyan(text), end="", flush=True)
-
-    elif event_type == "turn_complete":
-        model = payload.get("model_used", "?")
-        latency = payload.get("latency_ms", 0)
-        print(_dim(f"\n  [{model} · {latency:.0f}ms]"))
-
+    if event_type == "narrative":
+        console.print(payload.get("text", ""), end="", highlight=False)
+    elif event_type == "narrative_end":
+        console.print()
     elif event_type == "error":
-        code = payload.get("code", "UNKNOWN")
-        msg = payload.get("message", "")
-        print(_red(f"\n  Error: {code} — {msg}"))
-
-    elif event_type == "choices":
-        choices = payload.get("choices", [])
-        if choices:
-            print(_yellow("\n  Choices:"))
-            for i, c in enumerate(choices, 1):
-                label = c.get("text", c.get("label", str(c)))
-                print(_yellow(f"    {i}. {label}"))
+        console.print(f"[yellow]{payload.get('message', 'SSE error')}[/yellow]")
+    elif event_type == "heartbeat":
+        pass
+    elif event_type == "narrative_block":
+        console.print(Markdown(payload.get("text", "")))
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="TTA interactive playtest")
-    parser.add_argument(
-        "--base-url",
-        default=DEFAULT_BASE,
-        help=f"API base URL (default: {DEFAULT_BASE})",
-    )
-    args = parser.parse_args()
-    base_url = args.base_url.rstrip("/")
+async def main():
+    console.print("[bold cyan]TTA Playtest CLI[/bold cyan]")
+    console.print(f"API: {TTA_URL}\n")
 
-    # Ctrl+C exits cleanly
-    signal.signal(signal.SIGINT, lambda *_: (print("\n\nBye!"), sys.exit(0)))
+    async with httpx.AsyncClient() as client:
+        # 1. Create anonymous player
+        with console.status("Creating player..."):
+            auth = await api(client, "POST", "/auth/anonymous")
+        token = auth["access_token"]
+        pid = auth["player_id"]
+        console.print(f"[green]Player: {pid}[/green]")
 
-    print(_green("═" * 60))
-    print(_green("  TTA Playtest CLI"))
-    print(_green("═" * 60))
-    print(_dim(f"  Server: {base_url}\n"))
+        # 2. Accept consent
+        with console.status("Accepting consent..."):
+            await api(client, "PATCH", "/players/me/consent", {
+                "consent_version": "1.0",
+                "consent_categories": {"core_gameplay": True, "llm_processing": True},
+                "age_13_plus_confirmed": True,
+            })
+        console.print("[green]Consent accepted[/green]")
 
-    with httpx.Client(base_url=base_url, timeout=30.0) as client:
-        # 1. Register
-        print(_dim("Registering player..."), end=" ", flush=True)
-        try:
-            player_id, token = register_player(client)
-        except httpx.HTTPStatusError as e:
-            print(_red(f"FAILED: {e.response.status_code} {e.response.text}"))
-            sys.exit(1)
-        except httpx.ConnectError:
-            print(_red(f"FAILED: Cannot connect to {base_url}"))
-            print(_dim("  Is the server running? Try: make dev"))
-            sys.exit(1)
+        # 3. Create game
+        with console.status("Creating game..."):
+            game = await api(client, "POST", "/games", {
+                "preferences": {"tone": "adventurous", "genre": "fantasy"},
+            })
+        game_id = game["game_id"]
+        console.print(f"[green]Game: {game_id}[/green]")
 
-        print(_green("OK"))
-        print(_dim(f"  Player: {player_id}"))
+        # Show narrative intro
+        intro = game.get("narrative_intro")
+        if intro:
+            console.print()
+            console.print(Markdown(intro))
+            console.print()
 
-        # Set auth header for all subsequent requests
-        client.headers["Authorization"] = f"Bearer {token}"
+        turn_count = game.get("turn_count", 0)
+        console.print(f"[dim]Turns played: {turn_count}[/dim]")
+        console.print(
+            "[dim]Commands: /save /status /character /relationships /end /quit[/dim]"
+        )
+        console.print()
 
-        # 2. Create game
-        print(_dim("Creating game..."), end=" ", flush=True)
-        try:
-            game_id = create_game(client)
-        except httpx.HTTPStatusError as e:
-            print(_red(f"FAILED: {e.response.status_code} {e.response.text}"))
-            sys.exit(1)
-        print(_green("OK"))
-        print(_dim(f"  Game: {game_id}\n"))
-
-        print(_green("Ready! Type your actions below. Ctrl+C to quit.\n"))
-
-        # 3. Turn loop
-        turn_num = 0
+        # 4. Turn loop
         while True:
-            turn_num += 1
-            prompt = _green(f"[Turn {turn_num}] > ")
             try:
-                user_input = input(prompt)
-            except EOFError:
-                print("\n\nBye!")
+                text = Prompt.ask("[bold]>[/bold]")
+            except (EOFError, KeyboardInterrupt):
+                console.print("\n[dimmer]Goodbye.[/dimmer]")
                 break
 
-            if not user_input.strip():
-                turn_num -= 1
+            if not text.strip():
+                continue
+            if text.strip() == "/quit":
+                break
+
+            # Slash commands
+            if text.strip().startswith("/"):
+                result = await api(client, "POST", f"/games/{game_id}/turns", {
+                    "input": text.strip(),
+                })
+                msg = result.get("message", str(result))
+                console.print(Markdown(msg))
                 continue
 
-            # Submit turn
-            try:
-                stream_url = submit_turn(client, game_id, user_input)
-            except httpx.HTTPStatusError as e:
-                print(_red(f"  Error: {e.response.status_code} {e.response.text}"))
-                turn_num -= 1
-                continue
-
-            # Stream narrative
-            try:
-                stream_narrative(client, stream_url)
-            except httpx.HTTPStatusError as e:
-                print(_red(f"  Stream error: {e.response.status_code}"))
-            except httpx.ReadTimeout:
-                print(_red("  Stream timed out."))
-
-            print()  # blank line between turns
+            # Normal turn — submit then stream narrative in real-time
+            await api(client, "POST", f"/games/{game_id}/turns", {"input": text})
+            await stream_sse(client, game_id, token)
+            console.print()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -85,6 +85,22 @@ class EvaluationPipeline:
         # Fallback: inline execution (existing behavior)
         from tta.playtest.agent import PlaytesterAgent
 
+        # Initialize LLM client for playtesters if not provided
+        llm = self._llm
+        if llm is None:
+            import os
+
+            from tta.config import get_settings
+            settings = get_settings()
+            os.environ.setdefault("OPENAI_API_BASE", settings.openai_api_base)
+            if settings.openai_api_key:
+                os.environ["OPENAI_API_KEY"] = settings.openai_api_key
+            else:
+                os.environ.pop("OPENAI_API_KEY", None)
+            from tta.llm.litellm_client import LiteLLMClient
+            llm = LiteLLMClient()
+            log.info("playtester_llm_initialized", client=type(llm).__name__)
+
         sem = asyncio.Semaphore(self._config.max_parallel_runs)
 
         async def _run_one(p: PlannedRun) -> RunResult:
@@ -93,7 +109,7 @@ class EvaluationPipeline:
                     try:
                         agent = PlaytesterAgent(
                             api_base_url=self._api_base_url,
-                            llm_client=self._llm,
+                            llm_client=llm,
                             api_key=self._api_key,
                         )
                         agent.setup(
@@ -277,10 +293,13 @@ class EvaluationPipeline:
                 quality_report = await evaluator.evaluate(
                     result.playtest_report,
                     feedback=feedback,
-                    # seed=None: SeedRegistry is not injected into the pipeline.
-                    # QC-05 will be not_evaluated; compute_batch_medians omits
-                    # empty categories so this propagates correctly downstream.
                     seed=None,
+                    genesis_character_name=(
+                        result.playtest_report.genesis_character_name
+                    ),
+                    genesis_traits=(
+                        result.playtest_report.genesis_traits or None
+                    ),
                 )
                 reports.append(quality_report)
             except Exception as exc:
