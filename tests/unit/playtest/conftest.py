@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -80,8 +79,18 @@ class _AlternatingMockLLM:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
-    ) -> AsyncIterator[str]:
-        raise NotImplementedError
+    ) -> LLMResponse:
+        self.call_history.append(
+            {"method": "stream", "role": role, "messages": messages, "params": params}
+        )
+        return LLMResponse(
+            content=self._player_response,
+            model_used="mock",
+            token_count=TokenCount(
+                prompt_tokens=0, completion_tokens=0, total_tokens=0
+            ),
+            latency_ms=0.0,
+        )
 
 
 @pytest.fixture
@@ -107,33 +116,48 @@ def _make_http_mock(
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=None)
 
-    # Track turn submissions independently from GET polls
     post_turn_count: list[int] = [0]
-    # Build a list of all turns submitted so GET can see them
-    submitted_turns: list[dict[str, Any]] = []
+    stream_payloads: dict[str, list[str]] = {}
 
     async def _mock_post(url: str, *, json: Any = None, **kwargs: Any) -> MagicMock:
         resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {}
         resp.raise_for_status = MagicMock()
-        if "turns" in str(url):
-            post_turn_count[0] += 1
-            turn_number = post_turn_count[0]
-            submitted_turns.append(
-                {
-                    "turn_number": turn_number,
-                    "narrative_output": f"Narrative for turn {turn_number}.",
-                    "status": "complete",
-                }
-            )
+        url_str = str(url)
+        if url_str.endswith("/api/v1/auth/anonymous"):
+            resp.status_code = 201
             resp.json.return_value = {
                 "data": {
-                    "turn_id": f"turn-{turn_number}",
+                    "access_token": "test-token",
+                    "player": {"player_id": "player-1", "handle": "eval-smoke"},
+                }
+            }
+        elif "turns" in url_str:
+            post_turn_count[0] += 1
+            turn_number = post_turn_count[0]
+            turn_id = f"turn-{turn_number}"
+            stream_url = f"/api/v1/games/{game_id}/stream"
+            narrative_event = (
+                "event: narrative\n"
+                f"data: {{\"turn_id\": \"{turn_id}\", "
+                f"\"text\": \"Narrative for turn {turn_number}.\"}}\n\n"
+            )
+            end_event = (
+                "event: narrative_end\n"
+                f"data: {{\"turn_id\": \"{turn_id}\", \"total_chunks\": 1}}\n\n"
+            )
+            stream_payloads[turn_id] = [narrative_event, end_event]
+            resp.status_code = 202
+            resp.json.return_value = {
+                "data": {
+                    "turn_id": turn_id,
                     "turn_number": turn_number,
-                    "stream_url": "",
+                    "stream_url": stream_url,
                 }
             }
         else:
-            # POST /games
+            resp.status_code = 201
             resp.json.return_value = {
                 "data": {
                     "game_id": game_id,
@@ -143,14 +167,48 @@ def _make_http_mock(
             }
         return resp
 
+    async def _mock_request(method: str, url: str, **kwargs: Any) -> MagicMock:
+        if method.upper() == "POST":
+            return await _mock_post(url, **kwargs)
+        if method.upper() == "PATCH":
+            return await _mock_patch(url, **kwargs)
+        raise AssertionError(f"Unexpected request method: {method} {url}")
+
+    def _mock_stream(method: str, url: str, **kwargs: Any) -> MagicMock:
+        del method, url, kwargs
+        turn_id = sorted(stream_payloads)[-1] if stream_payloads else ""
+        payloads = stream_payloads.get(turn_id, [])
+
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {}
+        response.raise_for_status = MagicMock()
+
+        async def _aiter_lines():
+            for raw_event in payloads:
+                for line in raw_event.splitlines():
+                    yield line
+                yield ""
+
+        response.aiter_lines = _aiter_lines
+
+        stream_cm = MagicMock()
+        stream_cm.__aenter__ = AsyncMock(return_value=response)
+        stream_cm.__aexit__ = AsyncMock(return_value=None)
+        return stream_cm
+
     async def _mock_get(url: str, **kwargs: Any) -> MagicMock:
         resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {}
         resp.raise_for_status = MagicMock()
-        resp.json.return_value = {"data": list(submitted_turns)}
+        resp.json.return_value = {"data": []}
         return resp
 
     async def _mock_patch(url: str, *, json: Any = None, **kwargs: Any) -> MagicMock:
         resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {}
         resp.raise_for_status = MagicMock()
         resp.json.return_value = {
             "data": {
@@ -164,6 +222,8 @@ def _make_http_mock(
     mock_client.post = AsyncMock(side_effect=_mock_post)
     mock_client.get = AsyncMock(side_effect=_mock_get)
     mock_client.patch = AsyncMock(side_effect=_mock_patch)
+    mock_client.request = AsyncMock(side_effect=_mock_request)
+    mock_client.stream = MagicMock(side_effect=_mock_stream)
     return mock_client
 
 

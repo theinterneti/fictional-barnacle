@@ -1,10 +1,11 @@
 """Smoke test: run a single eval pipeline session against live TTA + FMR."""
-
 import asyncio
 import json
 import os
 import sys
+import uuid
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -18,20 +19,64 @@ from tta.observability.langfuse import init_langfuse, shutdown_langfuse
 
 TTA_URL = os.getenv("TTA_URL", "http://localhost:8000")
 OUTPUT_DIR = Path(os.getenv("TTA_EVAL_OUTPUT_DIR", "data/eval_smoke_output"))
-REQUEST_TIMEOUT = float(os.getenv("TTA_SMOKE_HTTP_TIMEOUT", "30"))
+REQUEST_TIMEOUT = float(os.getenv("TTA_SMOKE_HTTP_TIMEOUT", "150"))
+RETRYABLE_STATUS_CODES = {429, 503}
+DEFAULT_RETRY_DELAY_SECONDS = 2.0
 
 
-async def setup_player() -> str:
+async def _request_with_backoff(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    *,
+    timeout_budget_seconds: float = 120.0,
+    **kwargs: Any,
+) -> httpx.Response:
+    started = asyncio.get_running_loop().time()
+    while True:
+        resp = await client.request(method, url, **kwargs)
+        if resp.status_code not in RETRYABLE_STATUS_CODES:
+            resp.raise_for_status()
+            return resp
+        retry_after = _retry_after_seconds(resp)
+        elapsed = asyncio.get_running_loop().time() - started
+        if elapsed + retry_after > timeout_budget_seconds:
+            raise TimeoutError(
+                "Retry budget exceeded for "
+                f"{method} {url} after HTTP {resp.status_code}"
+            )
+        print(
+            "Retrying "
+            f"{method} {url} after HTTP {resp.status_code} "
+            f"in {retry_after:.1f}s"
+        )
+        await asyncio.sleep(retry_after)
+
+
+def _retry_after_seconds(response: httpx.Response) -> float:
+    header = response.headers.get("Retry-After", "").strip()
+    if not header:
+        return DEFAULT_RETRY_DELAY_SECONDS
+    try:
+        value = float(header)
+    except ValueError:
+        return DEFAULT_RETRY_DELAY_SECONDS
+    return max(value, DEFAULT_RETRY_DELAY_SECONDS)
+
+
+async def setup_player(handle_suffix: str = "") -> str:
     """Create anonymous player, accept consent, return auth token."""
+    handle = f"eval-smoke{handle_suffix}"
     async with httpx.AsyncClient(
         base_url=TTA_URL,
         timeout=httpx.Timeout(REQUEST_TIMEOUT),
     ) as client:
-        # 1. Create anonymous player
-        resp = await client.post(
+        resp = await _request_with_backoff(
+            client,
+            "POST",
             "/api/v1/auth/anonymous",
             json={
-                "handle": "eval-smoke",
+                "handle": handle,
                 "age_13_plus_confirmed": True,
                 "consent_version": "1.0",
                 "consent_categories": {
@@ -40,12 +85,12 @@ async def setup_player() -> str:
                 },
             },
         )
-        resp.raise_for_status()
         token = resp.json()["data"]["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # 2. Accept consent with age confirmation
-        resp = await client.patch(
+        resp = await _request_with_backoff(
+            client,
+            "PATCH",
             "/api/v1/players/me/consent",
             headers=headers,
             json={
@@ -54,8 +99,55 @@ async def setup_player() -> str:
                 "age_13_plus_confirmed": True,
             },
         )
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            raise RuntimeError(f"Consent patch failed: {resp.status_code} {resp.text}")
         return token
+
+
+async def run_live_preflight(token: str) -> None:
+    """Prove live stack can create a game and accept a real first turn."""
+    headers = {"Authorization": f"Bearer {token}"}
+    async with httpx.AsyncClient(
+        base_url=TTA_URL,
+        timeout=httpx.Timeout(REQUEST_TIMEOUT),
+        headers=headers,
+    ) as client:
+        create_resp = await _request_with_backoff(
+            client,
+            "POST",
+            "/api/v1/games",
+            json={
+                "world_id": None,
+                "preferences": {},
+                "scenario_seed_id": "bus-stop-shimmer",
+            },
+        )
+        create_data = create_resp.json()["data"]
+        game_id = str(create_data["game_id"])
+        intro = str(create_data.get("narrative_intro") or "").strip()
+        if not intro:
+            raise RuntimeError("Preflight create_game returned empty narrative_intro")
+        print(f"Preflight game ready: {game_id}")
+
+        turn_resp = await _request_with_backoff(
+            client,
+            "POST",
+            f"/api/v1/games/{game_id}/turns",
+            json={"input": "Look around and describe the immediate situation."},
+        )
+        if turn_resp.status_code != 202:
+            raise RuntimeError(
+                "Preflight turn submit failed: "
+                f"{turn_resp.status_code} {turn_resp.text}"
+            )
+        turn_data = turn_resp.json()["data"]
+        stream_url = str(turn_data.get("stream_url") or "").strip()
+        if not stream_url:
+            raise RuntimeError("Preflight turn submit returned empty stream_url")
+        print(
+            "Preflight turn accepted: "
+            f"turn_id={turn_data['turn_id']} stream_url={stream_url}"
+        )
 
 
 async def main():
@@ -65,8 +157,12 @@ async def main():
     init_langfuse(settings)
     llm: SmartRouterLLMClient | None = None
     try:
-        token = await setup_player()
-        print(f"Player ready. Token: {token[:30]}...")
+        preflight_token = await setup_player(f"-preflight-{uuid.uuid4().hex[:8]}")
+        print(f"Preflight player ready. Token: {preflight_token[:30]}...")
+        await run_live_preflight(preflight_token)
+
+        token = await setup_player(f"-pipeline-{uuid.uuid4().hex[:8]}")
+        print(f"Pipeline player ready. Token: {token[:30]}...")
 
         config = BatchConfig(
             scenario_seed_ids=["bus-stop-shimmer"],

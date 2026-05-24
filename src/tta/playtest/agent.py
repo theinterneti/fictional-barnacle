@@ -1,5 +1,4 @@
 """PlaytesterAgent — S42 LLM Playtester Agent Harness."""
-
 from __future__ import annotations
 
 import asyncio
@@ -7,7 +6,8 @@ import json
 import os
 import random
 import uuid
-from typing import TYPE_CHECKING
+from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -26,6 +26,10 @@ PLAYTEST_MIN_TURNS: int = int(os.environ.get("PLAYTEST_MIN_TURNS", "5"))
 POLL_INTERVAL: float = 1.0
 POLL_MAX_SECONDS: float = float(os.environ.get("PLAYTEST_POLL_MAX_SECONDS", "240"))
 MAX_CONSECUTIVE_TIMEOUTS: int = 3
+RETRYABLE_STATUS_CODES = {429, 503}
+DEFAULT_RETRY_DELAY_SECONDS = 2.0
+MAX_PLAYER_INPUT_CHARS = 2000
+DEFAULT_PLAYER_INPUT = "Look around and assess the situation."
 _TURN_PHASE = "gameplay"
 
 
@@ -105,14 +109,19 @@ class PlaytesterAgent:
                 # Stagger auth calls to avoid rate-limiting when running
                 # multiple playtesters concurrently from localhost.
                 await asyncio.sleep(random.uniform(0.5, 3.0))
-                auth_resp = await client.post("/api/v1/auth/anonymous")
-                auth_resp.raise_for_status()
+                auth_resp = await self._request_with_backoff(
+                    client,
+                    "POST",
+                    "/api/v1/auth/anonymous",
+                )
                 token = auth_resp.json()["data"]["access_token"]
                 client.headers["Authorization"] = f"Bearer {token}"
 
             # Accept consent before game creation (required since S17 v2).
             # Without this, POST /api/v1/games returns 403 CONSENT_REQUIRED.
-            consent_resp = await client.patch(
+            consent_resp = await self._request_with_backoff(
+                client,
+                "PATCH",
                 "/api/v1/players/me/consent",
                 json={
                     "consent_version": CURRENT_CONSENT_VERSION,
@@ -125,13 +134,16 @@ class PlaytesterAgent:
             )
             consent_resp.raise_for_status()
 
-            resp = await client.post(
+            resp = await self._request_with_backoff(
+                client,
+                "POST",
                 "/api/v1/games",
                 json={
                     "world_id": None,
                     "preferences": {},
                     "scenario_seed_id": self._scenario_seed_id or None,
                 },
+                raise_for_status=False,
             )
             # ANON_GAME_LIMIT means a game already exists (likely from a timed-out
             # previous attempt). Reuse it instead of creating a new one.
@@ -151,10 +163,11 @@ class PlaytesterAgent:
                     # does not include it; only POST /{id}/resume does).
                     existing = games[0]
                     self._game_id = existing["game_id"]
-                    resume_resp = await client.post(
-                        f"/api/v1/games/{self._game_id}/resume"
+                    resume_resp = await self._request_with_backoff(
+                        client,
+                        "POST",
+                        f"/api/v1/games/{self._game_id}/resume",
                     )
-                    resume_resp.raise_for_status()
                     resume_data = resume_resp.json()["data"]
                     current_narrative = resume_data.get("recap", "")
                     self._genesis_phases_completed = 7  # genesis is done
@@ -299,7 +312,7 @@ class PlaytesterAgent:
             messages=messages,
             params=params,
         )
-        return response.content.strip()
+        return _normalize_player_input(response.content)
 
     async def _submit_and_poll(
         self,
@@ -307,31 +320,130 @@ class PlaytesterAgent:
         player_input: str,
         turn_index: int,
     ) -> str:
-        """Submit turn to API (202) then poll GET /turns until complete."""
+        """Submit turn to API (202) then consume SSE until narrative_end."""
+        del turn_index  # completion is keyed by turn_id/stream events, not loop index
         assert self._game_id is not None
-        resp = await client.post(
+        resp = await self._request_with_backoff(
+            client,
+            "POST",
             f"/api/v1/games/{self._game_id}/turns",
             json={"input": player_input},
         )
-        resp.raise_for_status()
-        turn_number = resp.json()["data"]["turn_number"]
+        turn_data = resp.json()["data"]
+        turn_id = str(turn_data["turn_id"])
+        stream_url = str(
+            turn_data.get("stream_url")
+            or f"/api/v1/games/{self._game_id}/stream"
+        )
+        return await self._consume_turn_stream(client, stream_url, turn_id)
 
-        import time
+    async def _consume_turn_stream(
+        self,
+        client: httpx.AsyncClient,
+        stream_url: str,
+        turn_id: str,
+    ) -> str:
+        """Read SSE until the target turn emits narrative_end, then join chunks."""
+        narrative_chunks: list[str] = []
+        retry_after_sse_error = False
 
-        started = time.monotonic()
+        async for event_type, payload in self._stream_events_with_backoff(
+            client, stream_url
+        ):
+            data = _parse_sse_payload(payload)
+            if event_type == "error":
+                if data.get("turn_id") not in (None, turn_id):
+                    continue
+                code = str(data.get("code") or "sse_error")
+                message = str(data.get("message") or "Turn stream returned error event")
+                if code == "rate_limited":
+                    retry_after_sse_error = True
+                    continue
+                raise RuntimeError(f"{code}: {message}")
+            if data.get("turn_id") != turn_id:
+                continue
+            if event_type == "narrative":
+                text = data.get("text")
+                if text:
+                    narrative_chunks.append(str(text))
+                continue
+            if event_type == "narrative_end":
+                narrative_output = "".join(narrative_chunks).strip()
+                if narrative_output:
+                    return narrative_output
+                raise RuntimeError(f"Turn {turn_id} completed without narrative chunks")
+
+        if retry_after_sse_error:
+            raise TimeoutError(
+                f"Turn {turn_id} SSE stream exhausted after rate-limit retry"
+            )
+        raise TimeoutError(
+            f"Turn {turn_id} narrative stream ended before narrative_end"
+        )
+
+    async def _stream_events_with_backoff(
+        self,
+        client: httpx.AsyncClient,
+        stream_url: str,
+    ) -> AsyncIterator[tuple[str, str]]:
+        """Connect to SSE, retrying 429/503 with Retry-After guidance."""
+        started = asyncio.get_running_loop().time()
         while True:
-            turns_resp = await client.get(f"/api/v1/games/{self._game_id}/turns")
-            turns_resp.raise_for_status()
-            for turn in turns_resp.json().get("data", []):
-                if turn["turn_number"] == turn_number and turn.get("narrative_output"):
-                    return str(turn["narrative_output"])
-            if time.monotonic() - started > POLL_MAX_SECONDS:
-                msg = (
-                    f"Turn {turn_number} narrative_output "
-                    f"not ready after {POLL_MAX_SECONDS}s"
-                )
-                raise TimeoutError(msg)
-            await asyncio.sleep(POLL_INTERVAL)
+            try:
+                async with client.stream(
+                    "GET",
+                    stream_url,
+                    headers={"Accept": "text/event-stream"},
+                    timeout=httpx.Timeout(None),
+                ) as resp:
+                    if resp.status_code in RETRYABLE_STATUS_CODES:
+                        await _sleep_for_retry_delay(resp, started, POLL_MAX_SECONDS)
+                        continue
+                    resp.raise_for_status()
+                    event_type = ""
+                    data_lines: list[str] = []
+                    async for line in resp.aiter_lines():
+                        if line.startswith("event: "):
+                            event_type = line[7:].strip()
+                        elif line.startswith("data: "):
+                            data_lines.append(line[6:])
+                        elif line == "":
+                            if data_lines:
+                                yield event_type, "\n".join(data_lines)
+                            event_type = ""
+                            data_lines = []
+                    if data_lines:
+                        yield event_type, "\n".join(data_lines)
+                    return
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in RETRYABLE_STATUS_CODES:
+                    await _sleep_for_retry_delay(
+                        exc.response,
+                        started,
+                        POLL_MAX_SECONDS,
+                    )
+                    continue
+                raise
+
+    async def _request_with_backoff(
+        self,
+        client: httpx.AsyncClient,
+        method: str,
+        url: str,
+        *,
+        raise_for_status: bool = True,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Issue a request, honoring Retry-After for transient 429/503 responses."""
+        started = asyncio.get_running_loop().time()
+        while True:
+            resp = await client.request(method, url, **kwargs)
+            if resp.status_code in RETRYABLE_STATUS_CODES:
+                await _sleep_for_retry_delay(resp, started, POLL_MAX_SECONDS)
+                continue
+            if raise_for_status:
+                resp.raise_for_status()
+            return resp
 
     async def _generate_commentary(
         self,
@@ -423,6 +535,51 @@ def _blank_commentary(turn_index: int) -> Commentary:
         coherence_rating=0.0,
         coherence_note="",
     )
+
+
+def _normalize_player_input(content: str) -> str:
+    """Constrain generated player text to the live API contract."""
+    normalized = content.strip()
+    if not normalized:
+        return DEFAULT_PLAYER_INPUT
+    if len(normalized) <= MAX_PLAYER_INPUT_CHARS:
+        return normalized
+    truncated = normalized[:MAX_PLAYER_INPUT_CHARS].rstrip()
+    return truncated or DEFAULT_PLAYER_INPUT
+
+
+def _parse_retry_after_seconds(response: httpx.Response) -> float:
+    header = response.headers.get("Retry-After", "").strip()
+    if not header:
+        return DEFAULT_RETRY_DELAY_SECONDS
+    try:
+        delay = float(header)
+    except ValueError:
+        return DEFAULT_RETRY_DELAY_SECONDS
+    return max(delay, DEFAULT_RETRY_DELAY_SECONDS)
+
+
+async def _sleep_for_retry_delay(
+    response: httpx.Response,
+    started: float,
+    timeout_seconds: float,
+) -> None:
+    now = asyncio.get_running_loop().time()
+    delay = _parse_retry_after_seconds(response)
+    if now + delay - started > timeout_seconds:
+        raise TimeoutError(
+            "Retry budget exceeded after "
+            f"HTTP {response.status_code} waiting {delay:.1f}s"
+        )
+    await asyncio.sleep(delay)
+
+
+def _parse_sse_payload(payload: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _parse_commentary(turn_index: int, content: str) -> Commentary:
