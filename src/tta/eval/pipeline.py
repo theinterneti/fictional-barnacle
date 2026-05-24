@@ -91,6 +91,7 @@ class EvaluationPipeline:
             import os
 
             from tta.config import get_settings
+
             settings = get_settings()
             os.environ.setdefault("OPENAI_API_BASE", settings.openai_api_base)
             if settings.openai_api_key:
@@ -98,6 +99,7 @@ class EvaluationPipeline:
             else:
                 os.environ.pop("OPENAI_API_KEY", None)
             from tta.llm.litellm_client import LiteLLMClient
+
             llm = LiteLLMClient()
             log.info("playtester_llm_initialized", client=type(llm).__name__)
 
@@ -297,9 +299,7 @@ class EvaluationPipeline:
                     genesis_character_name=(
                         result.playtest_report.genesis_character_name
                     ),
-                    genesis_traits=(
-                        result.playtest_report.genesis_traits or None
-                    ),
+                    genesis_traits=(result.playtest_report.genesis_traits or None),
                 )
                 reports.append(quality_report)
             except Exception as exc:

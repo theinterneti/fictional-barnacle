@@ -137,8 +137,7 @@ class GameScreen(Vertical):
             yield Static("", id="choices-display")
             with Horizontal(id="input-row"):
                 yield Input(
-                    placeholder="What do you do?",
-                    id="turn-input", disabled=True
+                    placeholder="What do you do?", id="turn-input", disabled=True
                 )
                 yield Button("Send", variant="primary", id="send-btn", disabled=True)
         with Container(id="meta-footer"):
@@ -304,7 +303,9 @@ class TTAPlaytestApp(App):
                 changes = payload.get("changes", [])
                 if changes:
                     n = len(changes)
-                    self._log(f"[dim italic]({n} world change{'s' if n!=1 else ''})[/]")
+                    self._log(
+                        f"[dim italic]({n} world change{'s' if n != 1 else ''})[/]"
+                    )
 
             case "heartbeat":
                 pass

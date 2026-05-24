@@ -15,13 +15,32 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from typing import TypedDict
 
 CK = [
-    "podman", "exec", "infra-data-clickhouse",
-    "clickhouse-client", "--user", "langfuse", "--password", "langfuse",
+    "podman",
+    "exec",
+    "infra-data-clickhouse",
+    "clickhouse-client",
+    "--user",
+    "langfuse",
+    "--password",
+    "langfuse",
     "--query",
 ]
 PROJECT = "cmonj12g70006guxy9z6qo25g"
+
+
+class ObservationPayload(TypedDict):
+    input: str
+    output: str
+
+
+class ObservationRow(TypedDict):
+    generation: ObservationPayload | None
+    extraction: ObservationPayload | None
+    ts: str | None
+    session: str | None
 
 
 def clickhouse(query: str) -> str:
@@ -29,7 +48,7 @@ def clickhouse(query: str) -> str:
     return subprocess.check_output(cmd, text=True, stderr=subprocess.PIPE)
 
 
-def get_observations(project: str, hours: int = 4) -> dict:
+def get_observations(project: str, hours: int = 4) -> dict[str, ObservationRow]:
     """Fetch generation + extraction observations grouped by trace."""
     raw = clickhouse(f"""
         SELECT t.id, t.timestamp, o.name, o.input, o.output, t.session_id
@@ -41,9 +60,14 @@ def get_observations(project: str, hours: int = 4) -> dict:
         ORDER BY t.session_id, t.timestamp, o.name
     """)
 
-    results = defaultdict(lambda: {
-        "generation": None, "extraction": None, "ts": None, "session": None,
-    })
+    results: defaultdict[str, ObservationRow] = defaultdict(
+        lambda: {
+            "generation": None,
+            "extraction": None,
+            "ts": None,
+            "session": None,
+        }
+    )
     for line in raw.strip().split("\n"):
         if not line.strip():
             continue
@@ -76,7 +100,7 @@ def extract_world_changes(ext_output: str) -> list[dict]:
     clean = ext_output.strip()
     # Strip markdown
     if clean.startswith("```"):
-        clean = clean[clean.find("\n") + 1:] if "\n" in clean else clean[3:]
+        clean = clean[clean.find("\n") + 1 :] if "\n" in clean else clean[3:]
         if clean.endswith("```"):
             clean = clean[:-3]
     elif clean.startswith("json\n"):
@@ -94,17 +118,24 @@ def audit(hours: int = 4) -> dict:
     sessions = defaultdict(list)
 
     for tid, data in obs.items():
-        if not (data["generation"] and data["extraction"]):
+        generation = data["generation"]
+        extraction = data["extraction"]
+        session_id = data["session"]
+        ts = data["ts"]
+        if generation is None or extraction is None or session_id is None or ts is None:
             continue
-        sessions[data["session"]].append({
-            "trace_id": tid[:8],
-            "ts": data["ts"],
-            "location_id": extract_location_id(data["generation"]["input"]),
-            "location_changes": [
-                c for c in extract_world_changes(data["extraction"]["output"])
-                if c.get("attribute") == "location"
-            ],
-        })
+        sessions[session_id].append(
+            {
+                "trace_id": tid[:8],
+                "ts": ts,
+                "location_id": extract_location_id(generation["input"]),
+                "location_changes": [
+                    c
+                    for c in extract_world_changes(extraction["output"])
+                    if c.get("attribute") == "location"
+                ],
+            }
+        )
 
     findings = {"sessions_checked": 0, "turns_checked": 0, "violations": []}
     for sid, turns in sorted(sessions.items()):
@@ -124,23 +155,26 @@ def audit(hours: int = 4) -> dict:
             if cur["location_id"] and nxt["location_id"]:
                 if cur["location_id"] == nxt["location_id"]:
                     claimed = cur["location_changes"][0].get("new_value", "?")
-                    findings["violations"].append({
-                        "session": sid,
-                        "turn_n": cur["trace_id"],
-                        "turn_n+1": nxt["trace_id"],
-                        "claimed": claimed,
-                        "stuck_at": cur["location_id"][:12],
-                        "issue": (
-                            f"Extraction claims '{claimed}' but location "
-                            f"unchanged: {cur['location_id'][:12]}"
-                        ),
-                    })
+                    findings["violations"].append(
+                        {
+                            "session": sid,
+                            "turn_n": cur["trace_id"],
+                            "turn_n+1": nxt["trace_id"],
+                            "claimed": claimed,
+                            "stuck_at": cur["location_id"][:12],
+                            "issue": (
+                                f"Extraction claims '{claimed}' but location "
+                                f"unchanged: {cur['location_id'][:12]}"
+                            ),
+                        }
+                    )
 
     return findings
 
 
 def main():
     import argparse
+
     p = argparse.ArgumentParser(description="TTA coherence audit")
     p.add_argument("--hours", type=int, default=4)
     p.add_argument("--json", action="store_true")

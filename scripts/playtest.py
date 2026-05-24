@@ -84,18 +84,31 @@ async def main():
 
         # 2. Accept consent
         with console.status("Accepting consent..."):
-            await api(client, "PATCH", "/players/me/consent", {
-                "consent_version": "1.0",
-                "consent_categories": {"core_gameplay": True, "llm_processing": True},
-                "age_13_plus_confirmed": True,
-            })
+            await api(
+                client,
+                "PATCH",
+                "/players/me/consent",
+                {
+                    "consent_version": "1.0",
+                    "consent_categories": {
+                        "core_gameplay": True,
+                        "llm_processing": True,
+                    },
+                    "age_13_plus_confirmed": True,
+                },
+            )
         console.print("[green]Consent accepted[/green]")
 
         # 3. Create game
         with console.status("Creating game..."):
-            game = await api(client, "POST", "/games", {
-                "preferences": {"tone": "adventurous", "genre": "fantasy"},
-            })
+            game = await api(
+                client,
+                "POST",
+                "/games",
+                {
+                    "preferences": {"tone": "adventurous", "genre": "fantasy"},
+                },
+            )
         game_id = game["game_id"]
         console.print(f"[green]Game: {game_id}[/green]")
 
@@ -128,9 +141,14 @@ async def main():
 
             # Slash commands
             if text.strip().startswith("/"):
-                result = await api(client, "POST", f"/games/{game_id}/turns", {
-                    "input": text.strip(),
-                })
+                result = await api(
+                    client,
+                    "POST",
+                    f"/games/{game_id}/turns",
+                    {
+                        "input": text.strip(),
+                    },
+                )
                 msg = result.get("message", str(result))
                 console.print(Markdown(msg))
                 continue
