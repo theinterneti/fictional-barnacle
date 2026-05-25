@@ -416,8 +416,10 @@ class TestAC108SecondPlaythrough:
                 side_effect=[
                     _make_result(scalar=0),  # count active games (first)
                     _make_result(),  # INSERT game (first)
+                    _make_result(),  # UPDATE world_seed (first genesis persist)
                     _make_result(scalar=0),  # count active games (second)
                     _make_result(),  # INSERT game (second)
+                    _make_result(),  # UPDATE world_seed (second genesis persist)
                 ]
             )
             pg.commit = AsyncMock()

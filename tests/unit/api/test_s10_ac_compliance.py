@@ -188,6 +188,7 @@ class TestAC1001GameplayFlow:
             side_effect=[
                 _make_result(scalar=0),  # count active games
                 _make_result(),  # INSERT game
+                _make_result(),  # UPDATE world_seed (genesis persist)
                 _make_result([_game_row()]),  # _get_owned_game (for turn)
                 _make_result(),  # advisory lock
                 _make_result(),  # in-flight check

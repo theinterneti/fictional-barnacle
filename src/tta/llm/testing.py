@@ -72,6 +72,9 @@ class MockLLMClient:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        *,
+        generation_profile: GenerationServingProfile | None = None,
+        traffic_class: GenerationTrafficClass | None = None,
     ) -> LLMResponse:
         """Buffer-then-stream: returns complete LLMResponse like generate()."""
         self.call_history.append(

@@ -298,8 +298,8 @@ class LiteLLMClient:
                 if response_format is not None:
                     call_kwargs["response_format"] = response_format
                 raw = await litellm.acompletion(**call_kwargs)
-                content = raw.choices[0].message.content or ""
-                usage = raw.usage
+                content = raw.choices[0].message.content or ""  # pyright: ignore[reportAttributeAccessIssue]
+                usage = raw.usage  # pyright: ignore[reportAttributeAccessIssue]
         except (TransientLLMError, PermanentLLMError):
             raise
         except Exception as exc:
@@ -394,7 +394,7 @@ class LiteLLMClient:
             }
         if response_format is not None:
             call_kwargs["response_format"] = response_format
-        response = await litellm.acompletion(**call_kwargs)
+        response: Any = await litellm.acompletion(**call_kwargs)
 
         content_parts: list[str] = []
         usage: Any = None

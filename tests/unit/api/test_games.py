@@ -129,6 +129,7 @@ class TestCreateGame:
             side_effect=[
                 _make_result(scalar=0),  # count active games
                 _make_result(),  # INSERT
+                _make_result(),  # UPDATE world_seed (genesis persist)
             ]
         )
         pg.commit = AsyncMock()
@@ -160,6 +161,7 @@ class TestCreateGame:
             side_effect=[
                 _make_result(scalar=0),  # count active games
                 _make_result(),  # INSERT
+                _make_result(),  # UPDATE world_seed (genesis persist)
             ]
         )
         pg.commit = AsyncMock()
@@ -182,10 +184,12 @@ class TestCreateGame:
         )
         pg.execute = AsyncMock(
             side_effect=[
-                _make_result(scalar=0),
-                _make_result(),
-                _make_result(scalar=1),
-                _make_result(),
+                _make_result(scalar=0),  # count active games (game 1)
+                _make_result(),  # INSERT (game 1)
+                _make_result(),  # UPDATE world_seed (game 1)
+                _make_result(scalar=1),  # count active games (game 2)
+                _make_result(),  # INSERT (game 2)
+                _make_result(),  # UPDATE world_seed (game 2)
             ]
         )
         pg.commit = AsyncMock()
@@ -241,6 +245,7 @@ class TestCreateGame:
             side_effect=[
                 _make_result(scalar=0),  # count active games (create)
                 _make_result(),  # INSERT game (create)
+                _make_result(),  # UPDATE world_seed (create genesis persist)
                 _make_result([game_row]),  # SELECT games (list)
             ]
         )
