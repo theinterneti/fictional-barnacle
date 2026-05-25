@@ -135,7 +135,7 @@ class LiteLLMClient:
 
         policy = (
             resolve_generation_policy(generation_profile, traffic_class)
-            if role == ModelRole.GENERATION
+            if role == ModelRole.GENERATION and generation_profile is not None
             else None
         )
 
