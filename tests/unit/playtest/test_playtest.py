@@ -11,8 +11,11 @@ import json
 import pytest
 
 from tta.playtest.agent import (
+    DEFAULT_PLAYER_INPUT,
+    MAX_PLAYER_INPUT_CHARS,
     _blank_commentary,
     _boldness_description,
+    _normalize_player_input,
     _parse_commentary,
     _verbosity_description,
 )
@@ -39,6 +42,19 @@ def test_parse_commentary_empty_string() -> None:
 
     assert c.coherence_rating == 0.5
     assert c.agent_intent == ""
+
+
+def test_normalize_player_input_empty_falls_back() -> None:
+    """Whitespace-only LLM output becomes a safe default turn."""
+    assert _normalize_player_input("   \n\t  ") == DEFAULT_PLAYER_INPUT
+
+
+def test_normalize_player_input_truncates_to_api_limit() -> None:
+    """Generated input is capped to the SubmitTurnRequest max_length."""
+    normalized = _normalize_player_input("x" * (MAX_PLAYER_INPUT_CHARS + 25))
+
+    assert len(normalized) == MAX_PLAYER_INPUT_CHARS
+    assert normalized == "x" * MAX_PLAYER_INPUT_CHARS
 
 
 def test_parse_commentary_fenced_json() -> None:

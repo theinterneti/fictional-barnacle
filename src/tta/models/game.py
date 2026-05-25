@@ -62,7 +62,7 @@ class GameState(BaseModel):
 
 class CreateGameRequest(BaseModel):
     world_id: str | None = None
-    preferences: dict[str, str] = Field(default_factory=dict)
+    preferences: dict[str, str | list[str]] = Field(default_factory=dict)
 
 
 _ZERO_WIDTH_CHARS = str.maketrans(
@@ -118,6 +118,8 @@ class GameData(BaseModel):
     title: str | None = None
     summary: str | None = None
     narrative_intro: str | None = None
+    character_name: str | None = None
+    character_traits: list[str] = []
     created_at: datetime
     updated_at: datetime
     last_played_at: datetime | None = None

@@ -47,6 +47,20 @@ log = structlog.get_logger()
 
 router = APIRouter(prefix="/games", tags=["games"])
 
+
+_GENESIS_SEED_KEYS = {
+    "tone",
+    "tech_level",
+    "magic_presence",
+    "world_scale",
+    "player_position",
+    "power_source",
+    "defining_detail",
+    "character_name",
+    "character_concept",
+}
+
+
 router.include_router(_lifecycle)
 router.include_router(_turns)
 router.include_router(_stream)
@@ -60,6 +74,22 @@ _PUBLIC_STATE_MAP: dict[str, str] = {
     "expired": "abandoned",
     "abandoned": "abandoned",
 }
+
+
+def _string_pref(preferences: dict[str, str | list[str]], key: str) -> str | None:
+    value = preferences.get(key)
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _traits_pref(preferences: dict[str, str | list[str]]) -> list[str]:
+    raw = preferences.get("traits")
+    if isinstance(raw, list):
+        return [trait for trait in raw if isinstance(trait, str) and trait.strip()]
+    if isinstance(raw, str) and raw.strip():
+        return [raw]
+    return []
+
+
 # --- Routes ---
 
 
@@ -82,9 +112,15 @@ async def create_game(
 
     game_id = uuid4()
     now = datetime.now(UTC)
+    pref = body.preferences
+    seed_preferences = {
+        key: value
+        for key, value in pref.items()
+        if key in _GENESIS_SEED_KEYS and isinstance(value, str)
+    }
     world_seed_json = {
         "world_id": body.world_id,
-        "preferences": body.preferences,
+        "preferences": seed_preferences,
     }
 
     # Persist game row first — game exists even if genesis fails (S01)
@@ -119,18 +155,17 @@ async def create_game(
             template = registry.select_by_preferences(body.preferences)
 
         # Build WorldSeed with selected template + preferences
-        pref = body.preferences
         seed = WorldSeed(
             template=template,
-            tone=pref.get("tone"),
-            tech_level=pref.get("tech_level"),
-            magic_presence=pref.get("magic_presence"),
-            world_scale=pref.get("world_scale"),
-            player_position=pref.get("player_position"),
-            power_source=pref.get("power_source"),
-            defining_detail=pref.get("defining_detail"),
-            character_name=pref.get("character_name"),
-            character_concept=pref.get("character_concept"),
+            tone=_string_pref(pref, "tone"),
+            tech_level=_string_pref(pref, "tech_level"),
+            magic_presence=_string_pref(pref, "magic_presence"),
+            world_scale=_string_pref(pref, "world_scale"),
+            player_position=_string_pref(pref, "player_position"),
+            power_source=_string_pref(pref, "power_source"),
+            defining_detail=_string_pref(pref, "defining_detail"),
+            character_name=_string_pref(pref, "character_name"),
+            character_concept=_string_pref(pref, "character_concept"),
         )
 
         from tta.genesis.genesis_lite import run_genesis_lite
@@ -183,6 +218,8 @@ async def create_game(
             status=GameStatus.active.value,
             turn_count=0,
             narrative_intro=narrative_intro,
+            character_name=_string_pref(pref, "character_name"),
+            character_traits=_traits_pref(pref),
             created_at=now,
             updated_at=now,
             last_played_at=now,

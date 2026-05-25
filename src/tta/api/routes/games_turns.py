@@ -137,6 +137,7 @@ async def submit_turn(
     pg: AsyncSession = Depends(get_pg),
 ) -> dict | JSONResponse:
     """Submit a player turn for processing."""
+    settings = request.app.state.settings
     row = await _get_owned_game(pg, game_id, player)
 
     # FR-27.15: attempt recovery before accepting new turns
@@ -216,16 +217,47 @@ async def submit_turn(
     )
     in_flight = await pg.execute(
         sa.text(
-            "SELECT id FROM turns WHERE session_id = :sid AND status = 'processing'"
+            "SELECT id, created_at FROM turns "
+            "WHERE session_id = :sid AND status = 'processing'"
         ),
         {"sid": game_id},
     )
-    if in_flight.one_or_none() is not None:
-        raise AppError(
-            ErrorCategory.CONFLICT,
-            "TURN_IN_PROGRESS",
-            "A turn is already being processed for this game.",
-        )
+    stuck = in_flight.one_or_none()
+    if stuck is not None:
+        stuck_id = stuck.id
+        stuck_at = getattr(stuck, "created_at", None)
+        if stuck_at is None:
+            raise AppError(
+                ErrorCategory.CONFLICT,
+                "TURN_IN_PROGRESS",
+                "A turn is already being processed for this game.",
+            )
+        if stuck_at.tzinfo is None:
+            stuck_at = stuck_at.replace(tzinfo=UTC)
+        stuck_age = (datetime.now(UTC) - stuck_at).total_seconds()
+        # Recovery: if a turn has been processing longer than 2x the
+        # pipeline timeout, mark it failed and allow the next turn.
+        timeout = settings.pipeline_timeout_seconds * 2
+        if stuck_age > timeout:
+            log.warning(
+                "stuck_turn_cleared",
+                turn_id=str(stuck_id),
+                age_seconds=stuck_age,
+                game_id=str(game_id),
+            )
+            await pg.execute(
+                sa.text(
+                    "UPDATE turns SET status = 'failed', "
+                    "completed_at = :now WHERE id = :tid"
+                ),
+                {"tid": stuck_id, "now": datetime.now(UTC)},
+            )
+        else:
+            raise AppError(
+                ErrorCategory.CONFLICT,
+                "TURN_IN_PROGRESS",
+                "A turn is already being processed for this game.",
+            )
 
     # Idempotency check
     if body.idempotency_key is not None:

@@ -100,13 +100,7 @@
     <!-- v2.1: hx-post submits turns, response goes to #turn-response -->
     <input id="turn-input" name="input" placeholder="What do you do?" autofocus
            onkeydown="if(event.key==='Enter')document.getElementById('send-btn').click()">
-    <button id="send-btn"
-            hx-post="/api/v1/games/TURN_PLACEHOLDER/turns"
-            hx-include="#turn-input"
-            hx-target="#turn-response"
-            hx-swap="none"
-            hx-indicator=".htmx-indicator"
-            onclick="onTurnSubmit()">
+    <button id="send-btn" onclick="onTurnSubmit()">
       Send
     </button>
     <div id="turn-response" style="display:none"></div>
@@ -175,11 +169,8 @@ async function startSession() {
     // Update htmx attributes with actual game ID
     const narrative = $('narrative');
     narrative.setAttribute('sse-connect', BASE + '/games/' + gameId + '/stream');
-    const sendBtn = $('send-btn');
-    sendBtn.setAttribute('hx-post', BASE + '/games/' + gameId + '/turns');
-    // htmx needs to be re-processed after attribute changes
+    // Turns submitted via fetch (onTurnSubmit) — no htmx needed
     htmx.process(narrative);
-    htmx.process(sendBtn);
 
     // Show game UI
     $('config').style.display = 'none';
@@ -282,7 +273,7 @@ function connectSSE() {
   };
 }
 
-function onTurnSubmit() {
+async function onTurnSubmit() {
   const input = $('turn-input');
   const text = input.value.trim();
   if (!text || input.disabled) return;
@@ -290,6 +281,33 @@ function onTurnSubmit() {
   setInputEnabled(false);
   setStatus('processing...', 'connected');
   addMsg('> ' + text, 'system');
+
+  // Connect SSE stream on first turn
+  if (!eventSource) connectSSE();
+
+  // Submit turn as JSON (API expects application/json)
+  try {
+    const resp = await fetch(BASE + '/games/' + gameId + '/turns', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify({ input: text }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      addMsg('Error: ' + (err.error?.code || resp.status), 'error');
+      setInputEnabled(true);
+      setStatus('connected', 'connected');
+      return;
+    }
+    // Turn accepted — SSE will stream the narrative
+  } catch (e) {
+    addMsg('Error: ' + e.message, 'error');
+    setInputEnabled(true);
+    setStatus('connected', 'connected');
+  }
 }
 </script>
 </body>

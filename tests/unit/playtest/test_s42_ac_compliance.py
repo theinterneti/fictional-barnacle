@@ -98,7 +98,7 @@ async def test_ac42_03_reproducibility() -> None:
 
 @pytest.mark.spec("AC-42.04")
 async def test_ac42_04_verbosity_brevity_constraint() -> None:
-    """verbosity=0.05 → all player-input system prompts include '8 words'."""
+    """verbosity=0.05 → all player-input system prompts include brevity constraint."""
     mock_llm = _AlternatingMockLLM()
     agent = PlaytesterAgent(api_base_url="http://test", llm_client=mock_llm)
     agent.setup("seed-cosmos", "curious-explorer", run_seed=42)
