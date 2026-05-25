@@ -178,7 +178,9 @@ async def create_game(
     genesis_error_code: str | None = None
     genesis_error_message: str | None = None
     try:
-        registry = request.app.state.template_registry
+        registry = getattr(request.app.state, "template_registry", None)
+        if registry is None:
+            raise NotImplementedError("template_registry not configured on app state")
 
         # Select template: explicit key or best-match by preferences
         if body.world_id:
