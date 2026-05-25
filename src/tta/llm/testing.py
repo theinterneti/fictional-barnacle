@@ -6,6 +6,10 @@ from tta.llm.client import (
     Message,
 )
 from tta.llm.roles import ModelRole
+from tta.llm.serving_profiles import (
+    GenerationServingProfile,
+    GenerationTrafficClass,
+)
 from tta.models.turn import TokenCount
 
 MOCK_RESPONSE = "You enter a dimly lit chamber."
@@ -49,6 +53,9 @@ class MockLLMClient:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        *,
+        generation_profile: GenerationServingProfile | None = None,
+        traffic_class: GenerationTrafficClass | None = None,
     ) -> LLMResponse:
         self.call_history.append(
             {
