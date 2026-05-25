@@ -328,6 +328,15 @@ async def submit_turn(
     game_state = row.world_seed if row.world_seed else {}
     if isinstance(game_state, str):
         game_state = json.loads(game_state)
+    log.info(
+        "turn_dispatch_task_created",
+        game_id=str(game_id),
+        turn_id=str(turn_id),
+        turn_number=turn_number,
+        input_len=len(normalized),
+        game_state_keys=sorted(game_state.keys()) if isinstance(game_state, dict) else [],
+        game_state_size=len(json.dumps(game_state, default=str)) if game_state is not None else 0,
+    )
     asyncio.create_task(
         dispatch_pipeline(
             app_state=request.app.state,

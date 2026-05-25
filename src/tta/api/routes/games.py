@@ -170,12 +170,23 @@ async def create_game(
 
         from tta.genesis.genesis_lite import run_genesis_lite
 
-        result = await run_genesis_lite(
-            session_id=game_id,
-            player_id=player.id,
-            world_seed=seed,
-            llm=request.app.state.llm_client,
-            world_service=request.app.state.world_service,
+        abort_seconds = settings.latency_budget_abort_ms / 1000.0
+        genesis_budget_seconds = max(
+            0.05,
+            min(
+                settings.pipeline_timeout_seconds,
+                abort_seconds * 0.8,
+            ),
+        )
+        result = await asyncio.wait_for(
+            run_genesis_lite(
+                session_id=game_id,
+                player_id=player.id,
+                world_seed=seed,
+                llm=request.app.state.llm_client,
+                world_service=request.app.state.world_service,
+            ),
+            timeout=genesis_budget_seconds,
         )
         narrative_intro = result.narrative_intro
 
@@ -203,7 +214,10 @@ async def create_game(
         await pg.commit()
         log.info("genesis_complete", game_id=str(game_id))
     except asyncio.CancelledError:
-        raise
+        log.warning(
+            "genesis_cancelled_graceful_degradation",
+            game_id=str(game_id),
+        )
     except Exception:
         log.warning(
             "genesis_failed_graceful_degradation",
