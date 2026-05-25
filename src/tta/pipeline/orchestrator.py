@@ -96,6 +96,12 @@ async def run_pipeline(
                 for stage_config in config.stages:
                     stage_fn = STAGE_MAP[stage_config.name]
                     stage_name = stage_config.name.value
+                    log.debug(
+                        "stage_start",
+                        stage=stage_name,
+                        timeout=stage_config.timeout_seconds,
+                        status=state.status,
+                    )
 
                     with tracer.start_as_current_span(
                         f"stage_{stage_name}",
@@ -154,6 +160,10 @@ async def run_pipeline(
                             "stage_complete",
                             stage=stage_name,
                             duration_ms=round(stage_elapsed * 1000, 1),
+                            status=state.status,
+                            context_partial=state.context_partial,
+                            narrative_len=len(state.narrative_output or ""),
+                            world_updates_count=len(state.world_state_updates or []),
                         )
 
                     # Early return if stage marked turn as failed
@@ -243,15 +253,50 @@ async def dispatch_pipeline(
         game_state=game_state,
     )
 
+    log.info(
+        "pipeline_dispatch_start",
+        game_id=str(game_id),
+        turn_id=str(turn_id),
+        turn_number=turn_number,
+        player_input_len=len(player_input or ""),
+        game_state_keys=(
+            sorted(game_state.keys()) if isinstance(game_state, dict) else []
+        ),
+        game_state_size=len(str(game_state)) if game_state is not None else 0,
+        session_cost_usd=session_cost_usd,
+    )
+
+    dispatch_exception: Exception | None = None
+    failure_persist_succeeded = False
+
     start = time.monotonic()
     try:
         result = await run_pipeline(state, deps)
-    except Exception:
-        log.error("pipeline_dispatch_failed", game_id=str(game_id), exc_info=True)
+    except Exception as exc:
+        dispatch_exception = exc
+        log.error(
+            "pipeline_dispatch_failed",
+            game_id=str(game_id),
+            turn_id=str(turn_id),
+            exception_type=type(exc).__name__,
+            exc_info=True,
+        )
         result = state.model_copy(update={"status": TurnStatus.failed})
 
     elapsed_ms = (time.monotonic() - start) * 1000
     result = result.model_copy(update={"latency_ms": elapsed_ms})
+    log.info(
+        "pipeline_dispatch_result",
+        game_id=str(game_id),
+        turn_id=str(turn_id),
+        status=result.status,
+        latency_ms=round(elapsed_ms, 1),
+        context_partial=result.context_partial,
+        model_used=result.model_used,
+        narrative_len=len(result.narrative_output or ""),
+        world_updates_count=len(result.world_state_updates or []),
+        suggested_actions_count=len(result.suggested_actions or []),
+    )
 
     # Persist turn result via repository
     turn_persisted = False
@@ -272,6 +317,14 @@ async def dispatch_pipeline(
                 latency_ms=elapsed_ms,
                 token_count=token_dict,
             )
+            log.info(
+                "turn_persist_complete",
+                turn_id=str(turn_id),
+                status=result.status,
+                model_used=result.model_used or "unknown",
+                narrative_len=len(result.narrative_output or ""),
+                token_count=token_dict,
+            )
             # FR-24.06 item 5: mark moderated turns distinctly
             if result.status == TurnStatus.moderated:
                 await turn_repo.update_status(turn_id, "moderated")
@@ -279,8 +332,33 @@ async def dispatch_pipeline(
         else:
             # FR-23.18: preserve partial narrative on failure
             await turn_repo.fail_turn(turn_id, narrative_output=result.narrative_output)
+            failure_persist_succeeded = True
+            log.info(
+                "turn_persist_failed_status",
+                turn_id=str(turn_id),
+                status=result.status,
+                narrative_len=len(result.narrative_output or ""),
+            )
+            if dispatch_exception is not None:
+                log.error(
+                    "pipeline_dispatch_exception_persisted_failure",
+                    game_id=str(game_id),
+                    turn_id=str(turn_id),
+                    exception_type=type(dispatch_exception).__name__,
+                    failure_persist_succeeded=failure_persist_succeeded,
+                )
     except Exception:
-        log.error("turn_persist_failed", turn_id=str(turn_id), exc_info=True)
+        log.error(
+            "turn_persist_failed",
+            turn_id=str(turn_id),
+            failure_persist_succeeded=failure_persist_succeeded,
+            dispatch_exception_type=(
+                type(dispatch_exception).__name__
+                if dispatch_exception is not None
+                else None
+            ),
+            exc_info=True,
+        )
         # Last-resort: ensure turn exits processing state to prevent
         # permanent concurrent-turn lock (critique finding #5).
         try:
@@ -472,6 +550,13 @@ async def dispatch_pipeline(
     try:
         store = app_state.turn_result_store  # type: ignore[attr-defined]
         await store.publish(str(turn_id), result)
+        log.info(
+            "turn_result_published",
+            turn_id=str(turn_id),
+            status=result.status,
+            narrative_len=len(result.narrative_output or ""),
+            world_updates_count=len(result.world_state_updates or []),
+        )
     except Exception:
         log.error(
             "turn_result_publish_failed",

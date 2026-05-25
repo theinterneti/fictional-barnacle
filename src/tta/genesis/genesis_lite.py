@@ -16,7 +16,7 @@ from tta.genesis.prompts import (
     INTRO_SYSTEM_PROMPT,
     INTRO_USER_PROMPT,
 )
-from tta.llm.client import LLMClient, Message, MessageRole
+from tta.llm.client import GenerationParams, LLMClient, Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.models.world import WorldSeed, WorldTemplate
 from tta.world.service import WorldService
@@ -77,6 +77,18 @@ class GenesisResult(BaseModel):
         ),
     )
     created_at: datetime
+
+
+def _enrichment_response_format() -> dict[str, object]:
+    """Structured output contract for enrichment calls via FMR."""
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "enriched_template",
+            "schema": EnrichedTemplate.model_json_schema(),
+            "strict": True,
+        },
+    }
 
 
 # -- Public API --------------------------------------------------
@@ -243,6 +255,11 @@ async def enrich_template(
     response = await llm.generate(
         ModelRole.EXTRACTION,
         messages,
+        GenerationParams(
+            temperature=0.0,
+            max_tokens=2048,
+            response_format=_enrichment_response_format(),
+        ),
     )
     first_error_msg: str | None = None
     try:
@@ -274,6 +291,11 @@ async def enrich_template(
     response = await llm.generate(
         ModelRole.EXTRACTION,
         retry_messages,
+        GenerationParams(
+            temperature=0.0,
+            max_tokens=2048,
+            response_format=_enrichment_response_format(),
+        ),
     )
     try:
         return _parse_enrichment(response.content)

@@ -254,3 +254,145 @@ class TestDenyList:
     async def test_no_redis_non_prod_not_denied(self) -> None:
         """Without Redis in dev, is_token_denied returns False."""
         assert await is_token_denied(None, "some-jti") is False
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Swarm-generated edge case tests — 2026-05-24
+# Workers: hermes-pipeline (qwen3-coder-480b → kimi-k2 → gemma-31b)
+# Reviewer: hermes-reasoning (mistral-large)
+# Recomposed by: orchestrator (deepseek-v4-pro)
+# Git trailer: Swarm: 2026-05-24-run-1/jwt-edge-cases
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ── JTI uniqueness ───────────────────────────────────────────────
+
+
+class TestJtiUniqueness:
+    """JTI values must be unique across calls — verified by swarm worker C."""
+
+    def test_access_token_jtis_are_unique(self) -> None:
+        t1 = create_access_token(_PID)
+        t2 = create_access_token(_PID)
+        c1 = pyjwt.decode(
+            t1, "test-secret-key-minimum-32-bytes-long!!", algorithms=["HS256"]
+        )
+        c2 = pyjwt.decode(
+            t2, "test-secret-key-minimum-32-bytes-long!!", algorithms=["HS256"]
+        )
+        assert c1["jti"] != c2["jti"]
+
+    def test_refresh_token_jtis_are_unique(self) -> None:
+        _, jti1 = create_refresh_token(_PID, session_family_id=_SFID)
+        _, jti2 = create_refresh_token(_PID, session_family_id=_SFID)
+        assert jti1 != jti2
+
+
+# ── decode_token — wrong algorithm ───────────────────────────────
+
+
+class TestDecodeTokenWrongAlgorithm:
+    """Verified by swarm worker A — tokens signed with wrong key must fail."""
+
+    def test_rejects_token_signed_with_different_secret(self) -> None:
+        """Token signed with a different secret must be rejected."""
+        different_secret = "a-different-secret-key-32-bytes-xx"
+        now = datetime.now(UTC)
+        claims = {
+            "sub": str(_PID),
+            "typ": "access",
+            "iat": now,
+            "exp": now + timedelta(hours=1),
+            "jti": "test-jti",
+        }
+        token = pyjwt.encode(claims, different_secret, algorithm="HS256")
+        with pytest.raises(TokenError, match="Invalid token"):
+            decode_token(token)
+
+
+# ── deny-list — PRODUCTION-mode error paths ──────────────────────
+
+
+@pytest.fixture
+def _prod_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Override environment to PRODUCTION for deny-list error tests."""
+    from tta.config import Environment
+
+    s = Settings(
+        database_url="postgresql://test@localhost/test",
+        neo4j_password="test",
+        jwt_secret="test-secret-key-minimum-32-bytes-long!!",
+        jwt_algorithm="HS256",
+        access_token_ttl=3600,
+        anon_access_token_ttl=86400,
+        refresh_token_ttl=2592000,
+        anon_refresh_token_ttl=604800,
+        environment=Environment.PRODUCTION,
+    )
+    monkeypatch.setattr("tta.auth.jwt.get_settings", lambda: s)
+
+
+class TestDenyListProdErrors:
+    """Verified by swarm worker B — PRODUCTION-mode error handling."""
+
+    @pytest.mark.anyio
+    async def test_deny_without_redis_in_prod_raises(
+        self, _prod_settings: None
+    ) -> None:
+        exp = datetime.now(UTC) + timedelta(hours=1)
+        with pytest.raises(RuntimeError, match="Redis is required"):
+            await deny_token(None, "jti-001", exp)
+
+    @pytest.mark.anyio
+    async def test_check_without_redis_in_prod_raises(
+        self, _prod_settings: None
+    ) -> None:
+        with pytest.raises(RuntimeError, match="Redis is required"):
+            await is_token_denied(None, "jti-001")
+
+    @pytest.mark.anyio
+    async def test_deny_redis_connection_error_in_prod_raises(
+        self, _prod_settings: None
+    ) -> None:
+        redis = AsyncMock()
+        redis.setex = AsyncMock(side_effect=ConnectionError("down"))
+        exp = datetime.now(UTC) + timedelta(hours=1)
+        with pytest.raises(RuntimeError, match="Redis connection failed"):
+            await deny_token(redis, "jti-001", exp)
+
+    @pytest.mark.anyio
+    async def test_check_redis_connection_error_in_prod_raises(
+        self, _prod_settings: None
+    ) -> None:
+        redis = AsyncMock()
+        redis.exists = AsyncMock(side_effect=ConnectionError("down"))
+        with pytest.raises(RuntimeError, match="Redis connection failed"):
+            await is_token_denied(redis, "jti-001")
+
+
+# ── deny-list — non-PROD error resilience ────────────────────────
+
+
+class TestDenyListNonProdResilience:
+    """Verified by swarm worker B — non-PROD must degrade gracefully."""
+
+    @pytest.mark.anyio
+    async def test_deny_redis_connection_error_non_prod_warns(
+        self,
+    ) -> None:
+        redis = AsyncMock()
+        redis.setex = AsyncMock(side_effect=ConnectionError("down"))
+        exp = datetime.now(UTC) + timedelta(hours=1)
+        # Should NOT raise — the warning goes to structlog stdout, not caplog
+        await deny_token(redis, "jti-001", exp)
+        # No exception = pass
+
+    @pytest.mark.anyio
+    async def test_check_redis_connection_error_non_prod_warns(
+        self,
+    ) -> None:
+        redis = AsyncMock()
+        redis.exists = AsyncMock(side_effect=ConnectionError("down"))
+        result = await is_token_denied(redis, "jti-001")
+        assert result is False
+        # No exception = pass

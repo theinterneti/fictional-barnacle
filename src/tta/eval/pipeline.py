@@ -8,6 +8,7 @@ import json
 import os
 import statistics
 import uuid
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -272,9 +273,12 @@ class EvaluationPipeline:
         """Run NarrativeQualityEvaluator on each completed session."""
         from tta.quality.evaluator import NarrativeQualityEvaluator
         from tta.quality.feedback import FeedbackRecord
+        from tta.seeds import SeedRegistry
 
         evaluator = NarrativeQualityEvaluator(llm_client=self._llm)
         reports: list[NarrativeQualityReport] = []
+        seeds_dir = Path(__file__).resolve().parents[3] / "data" / "seeds"
+        seed_registry = SeedRegistry(seeds_dir)
 
         for result in run_results:
             if result.status != "complete" or result.playtest_report is None:
@@ -286,6 +290,8 @@ class EvaluationPipeline:
                     result.playtest_report.run_id
                 ].to_feedback_record()
 
+            seed_manifest = seed_registry.get(result.scenario_seed_id)
+
             try:
                 # QC-06 consequence_count: not available from the playtest
                 # report alone (requires ConsequenceRecord data from the
@@ -295,7 +301,7 @@ class EvaluationPipeline:
                 quality_report = await evaluator.evaluate(
                     result.playtest_report,
                     feedback=feedback,
-                    seed=None,
+                    seed=seed_manifest,
                     genesis_character_name=(
                         result.playtest_report.genesis_character_name
                     ),
@@ -354,7 +360,9 @@ class EvaluationPipeline:
         """Flag categories where batch median is more than 0.10 below baseline."""
         regressions: list[RegressionResult] = []
         for cat, base_score in baseline.items():
-            batch_score = batch_medians.get(cat, 0.0)
+            if cat not in batch_medians:
+                continue
+            batch_score = batch_medians[cat]
             delta = round(batch_score - base_score, 10)
             if delta < -_REGRESSION_DELTA:
                 regressions.append(

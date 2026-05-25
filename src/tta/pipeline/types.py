@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from tta.choices.consequence_service import ConsequenceService
     from tta.config import Settings
     from tta.llm.client import LLMClient
+    from tta.llm.roles import ModelRole, ModelRoleConfig
     from tta.llm.semaphore import LLMSemaphore
     from tta.persistence.repositories import (
         SessionRepository,
@@ -61,6 +62,7 @@ class PipelineDeps:
     relationship_service: RelationshipService | None = None
     prompt_registry: FilePromptRegistry | None = None
     prompt_bridge: Any | None = None  # LangfusePromptBridge (FB-005 / AC-09.2)
+    llm_role_configs: dict[ModelRole, ModelRoleConfig] | None = None
     llm_semaphore: LLMSemaphore | None = None
     llm_circuit_breaker: CircuitBreaker | None = None
     db_session_factory: Any | None = None  # async_sessionmaker for direct DB access

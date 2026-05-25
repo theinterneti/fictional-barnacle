@@ -29,6 +29,7 @@ import httpx
 import structlog
 
 from tta.llm.client import GenerationParams, LLMResponse, Message
+from tta.llm.errors import PermanentLLMError, TransientLLMError
 from tta.llm.roles import ModelRole
 from tta.models.turn import TokenCount
 
@@ -45,7 +46,7 @@ _STARTUP_TIMEOUT = float(os.getenv("FREE_MODEL_ROUTER_STARTUP_TIMEOUT", "15"))
 _ROUTER_API_KEY = os.getenv("FREE_MODEL_ROUTER_API_KEY", "free-model-router")
 
 _ROLE_TO_TASK: dict[ModelRole, str] = {
-    ModelRole.GENERATION: "creative",
+    ModelRole.GENERATION: "generation",
     ModelRole.CLASSIFICATION: "classification",
     ModelRole.EXTRACTION: "extraction",
     ModelRole.SUMMARIZATION: "summarization",
@@ -95,15 +96,27 @@ class SmartRouterLLMClient:
             resp = await self._client.post("/v1/chat/completions", json=payload)
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
             log.warning(
                 "free_model_router.http_error",
-                status=exc.response.status_code,
+                status=status,
                 body=exc.response.text[:200],
             )
-            return self._error_response(messages, str(exc))
+            if status in {400, 401, 403, 404, 422}:
+                raise PermanentLLMError(
+                    f"free-model-router HTTP {status}: {exc.response.text[:200]}",
+                    model="free-model-router",
+                ) from exc
+            raise TransientLLMError(
+                f"free-model-router HTTP {status}: {exc.response.text[:200]}",
+                model="free-model-router",
+            ) from exc
         except httpx.TransportError as exc:
             log.warning("free_model_router.transport_error", error=str(exc))
-            return self._error_response(messages, str(exc))
+            raise TransientLLMError(
+                f"free-model-router transport error: {exc}",
+                model="free-model-router",
+            ) from exc
 
         elapsed_ms = (time.monotonic() - t0) * 1000.0
         data = resp.json()

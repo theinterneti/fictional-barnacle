@@ -254,6 +254,15 @@ class NarrativeQualityEvaluator:
             report, genesis_character_name, traits
         )
 
+        if not genesis_character_name.strip():
+            return CategoryScore(
+                category_id=QC_CHARACTER_DEPTH,
+                score=None,
+                status="not_evaluated",
+                sources=["automated"],
+                notes="QC-04 not evaluated: missing genesis character metadata.",
+            )
+
         if feedback is not None:
             human_score = feedback.character_normalized
             score = 0.5 * auto_score + 0.5 * human_score

@@ -104,7 +104,18 @@ async def guarded_llm_call(
         attributes={"llm.role": role_name},
     ) as llm_span:
         if deps.llm_semaphore:
-            response = await deps.llm_semaphore.execute(_call)
+            timeout_seconds: float | None = None
+            if deps.llm_role_configs is not None:
+                role_config = deps.llm_role_configs.get(role)
+                if role_config is not None:
+                    timeout_seconds = role_config.timeout_seconds
+            if timeout_seconds is not None:
+                response = await deps.llm_semaphore.execute(
+                    _call,
+                    timeout=timeout_seconds,
+                )
+            else:
+                response = await deps.llm_semaphore.execute(_call)
         else:
             response = await _call()
 

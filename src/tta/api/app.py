@@ -179,9 +179,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # 4. LLM client
     if settings.llm_mock:
+        from tta.llm.roles import DEFAULT_ROLE_CONFIGS
         from tta.llm.testing import MockLLMClient
 
         app.state.llm_client = MockLLMClient()
+        app.state.llm_role_configs = DEFAULT_ROLE_CONFIGS
         log.info("llm_client_mock_enabled")
     else:
         import os
@@ -233,6 +235,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             _effective_role_configs = _overridden
 
         app.state.llm_client = LiteLLMClient(role_configs=_effective_role_configs)
+        app.state.llm_role_configs = _effective_role_configs
 
         # S17 FR-17.30: log configured LLM provider on startup for audit trail
         log.info(
@@ -415,6 +418,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         relationship_service=relationship_svc,
         prompt_registry=app.state.prompt_registry,
         prompt_bridge=getattr(app.state, "prompt_bridge", None),
+        llm_role_configs=app.state.llm_role_configs,
         llm_semaphore=app.state.llm_semaphore,
         llm_circuit_breaker=llm_circuit_breaker,
         db_session_factory=session_factory,

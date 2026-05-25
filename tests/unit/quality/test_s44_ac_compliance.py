@@ -199,6 +199,23 @@ async def test_qc04_notes_mention_enforcement_miss() -> None:
     assert "AC-2.3 enforcement miss" in qc04.notes
 
 
+@pytest.mark.spec("AC-44.03")
+@pytest.mark.asyncio
+async def test_qc04_not_evaluated_when_genesis_character_missing() -> None:
+    """AC-44.03: QC-04 is not_evaluated when genesis character metadata is absent."""
+    turns = [make_turn(turn_index=0, narrative="The dungeon is dark.")]
+    report = make_report(turns=turns, gameplay_turns_completed=1)
+    evaluator = NarrativeQualityEvaluator()
+
+    result = await evaluator.evaluate(report, genesis_character_name="")
+
+    qc04 = result.category(QC_CHARACTER_DEPTH)
+    assert qc04 is not None
+    assert qc04.status == "not_evaluated"
+    assert qc04.score is None
+    assert "missing genesis character metadata" in qc04.notes.lower()
+
+
 # ---------------------------------------------------------------------------
 # AC-44.04 — verdict=fail when any scored category < 0.40
 # ---------------------------------------------------------------------------
@@ -208,14 +225,24 @@ async def test_qc04_notes_mention_enforcement_miss() -> None:
 @pytest.mark.asyncio
 async def test_verdict_fail_when_individual_category_below_threshold() -> None:
     """AC-44.04: verdict=fail when any scored category < 0.40; fail_reasons set."""
-    # Force QC-01 low: coherence_rating = 0.1 across all turns → below 0.4
+    # Keep QC-04 evaluable so the verdict exercises the fail threshold, not
+    # the inconclusive path from missing metadata.
     turns = [
-        make_turn(turn_index=i, coherence_rating=0.1, surprise_level=0.8)
+        make_turn(
+            turn_index=i,
+            narrative="Arika presses deeper into the ruins.",
+            coherence_rating=0.1,
+            surprise_level=0.8,
+        )
         for i in range(5)
     ]
     report = make_report(turns=turns, gameplay_turns_completed=5)
     evaluator = NarrativeQualityEvaluator()
-    result = await evaluator.evaluate(report, consequence_count=0)
+    result = await evaluator.evaluate(
+        report,
+        genesis_character_name="Arika",
+        consequence_count=0,
+    )
 
     assert result.verdict == "fail"
     assert len(result.fail_reasons) > 0

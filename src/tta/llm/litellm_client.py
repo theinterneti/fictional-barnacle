@@ -34,6 +34,12 @@ from tta.llm.roles import (
     ModelRole,
     ModelRoleConfig,
 )
+from tta.llm.serving_profiles import (
+    GenerationPolicy,
+    GenerationServingProfile,
+    GenerationTrafficClass,
+    resolve_generation_policy,
+)
 from tta.models.turn import TokenCount
 from tta.observability.metrics import (
     TURN_LLM_CALLS,
@@ -44,6 +50,19 @@ from tta.observability.metrics import (
 log = structlog.get_logger(__name__)
 
 TierName = Literal["primary", "fallback"]
+
+
+def _router_task_for_model(
+    model: str,
+    role: ModelRole,
+    policy: GenerationPolicy | None = None,
+) -> str | None:
+    """Return FMR task hint for OpenAI-compatible router-backed models."""
+    if not model.startswith("openai/"):
+        return None
+    if role == ModelRole.GENERATION and policy is not None:
+        return policy.router_task
+    return role.value
 
 
 class LiteLLMClient:
@@ -66,22 +85,38 @@ class LiteLLMClient:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        *,
+        generation_profile: GenerationServingProfile | None = None,
+        traffic_class: GenerationTrafficClass | None = None,
     ) -> LLMResponse:
         """Generate a complete response (non-streaming)."""
-        return await self._call_with_fallback(role, messages, params, stream=False)
+        return await self._call_with_fallback(
+            role,
+            messages,
+            params,
+            stream=False,
+            generation_profile=generation_profile,
+            traffic_class=traffic_class,
+        )
 
     async def stream(
         self,
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        *,
+        generation_profile: GenerationServingProfile | None = None,
+        traffic_class: GenerationTrafficClass | None = None,
     ) -> LLMResponse:
         """Buffer-then-stream: streams internally, returns LLMResponse."""
-        return await self._call_with_fallback(role, messages, params, stream=True)
-
-    # ------------------------------------------------------------------
-    # Internal: fallback chain
-    # ------------------------------------------------------------------
+        return await self._call_with_fallback(
+            role,
+            messages,
+            params,
+            stream=True,
+            generation_profile=generation_profile,
+            traffic_class=traffic_class,
+        )
 
     async def _call_with_fallback(
         self,
@@ -90,16 +125,32 @@ class LiteLLMClient:
         params: GenerationParams | None,
         *,
         stream: bool,
+        generation_profile: GenerationServingProfile | None,
+        traffic_class: GenerationTrafficClass | None,
     ) -> LLMResponse:
         config = self._role_configs.get(role)
         if config is None:
             msg = f"No model config for role={role}"
             raise PermanentLLMError(msg)
 
+        policy = (
+            resolve_generation_policy(generation_profile, traffic_class)
+            if role == ModelRole.GENERATION and generation_profile is not None
+            else None
+        )
+
         effective_params = params or GenerationParams(
             temperature=config.temperature,
-            max_tokens=config.max_tokens,
+            max_tokens=(policy.max_tokens if policy is not None else config.max_tokens),
         )
+        if (
+            policy is not None
+            and params is not None
+            and params.max_tokens == GenerationParams().max_tokens
+        ):
+            effective_params = params.model_copy(
+                update={"max_tokens": policy.max_tokens}
+            )
 
         tiers: list[tuple[str, TierName]] = [
             (config.primary, "primary"),
@@ -110,7 +161,7 @@ class LiteLLMClient:
         errors: list[Exception] = []
         for model, tier_name in tiers:
             try:
-                return await self._call_with_retries(
+                response = await self._call_with_retries(
                     model=model,
                     messages=messages,
                     params=effective_params,
@@ -118,7 +169,26 @@ class LiteLLMClient:
                     stream=stream,
                     tier=tier_name,
                     role=role,
+                    policy=policy,
                 )
+                if policy is not None:
+                    requested_profile = policy.profile.value
+                    effective_profile = policy.profile.value
+                    traffic_value = policy.traffic_class.value
+                    degraded = tier_name != "primary"
+                    degradation_reason = (
+                        "router_primary_tier_unavailable" if degraded else ""
+                    )
+                    return response.model_copy(
+                        update={
+                            "requested_profile": requested_profile,
+                            "effective_profile": effective_profile,
+                            "traffic_class": traffic_value,
+                            "degraded": degraded,
+                            "degradation_reason": degradation_reason,
+                        }
+                    )
+                return response
             except PermanentLLMError:
                 raise
             except TransientLLMError as exc:
@@ -129,13 +199,16 @@ class LiteLLMClient:
                     model=model,
                     tier=tier_name,
                     error=str(exc),
+                    requested_profile=(policy.profile.value if policy else ""),
+                    traffic_class=(policy.traffic_class.value if policy else ""),
                 )
 
+        if role == ModelRole.GENERATION and policy is not None:
+            raise AllTiersFailedError(
+                role=str(role),
+                errors=errors,
+            )
         raise AllTiersFailedError(role=str(role), errors=errors)
-
-    # ------------------------------------------------------------------
-    # Internal: per-tier retries (tenacity)
-    # ------------------------------------------------------------------
 
     @retry(
         retry=retry_if_exception_type(TransientLLMError),
@@ -153,6 +226,7 @@ class LiteLLMClient:
         stream: bool,
         tier: TierName,
         role: ModelRole,
+        policy: GenerationPolicy | None,
     ) -> LLMResponse:
         """Single-tier call wrapped with tenacity retries."""
         return await self._call_llm(
@@ -163,11 +237,8 @@ class LiteLLMClient:
             stream=stream,
             tier=tier,
             role=role,
+            policy=policy,
         )
-
-    # ------------------------------------------------------------------
-    # Internal: raw litellm call
-    # ------------------------------------------------------------------
 
     async def _call_llm(
         self,
@@ -179,29 +250,56 @@ class LiteLLMClient:
         stream: bool,
         tier: TierName,
         role: ModelRole,
+        policy: GenerationPolicy | None,
     ) -> LLMResponse:
         msg_dicts: list[dict[str, str]] = [
             {"role": m.role.value, "content": m.content} for m in messages
         ]
         stop = params.stop if params.stop else None
+        response_format = params.response_format
         start = time.monotonic()
 
         try:
             if stream:
                 content, usage = await self._stream_and_buffer(
-                    model, msg_dicts, params, config, stop
+                    model,
+                    msg_dicts,
+                    params,
+                    config,
+                    stop,
+                    response_format,
+                    role,
+                    policy,
                 )
             else:
-                raw = await litellm.acompletion(  # type: ignore[reportUnknownMemberType]
-                    model=model,
-                    messages=msg_dicts,  # type: ignore[reportArgumentType]
-                    temperature=params.temperature,
-                    max_tokens=params.max_tokens,
-                    stop=stop,
-                    timeout=config.timeout_seconds,
-                )
-                content = raw.choices[0].message.content or ""  # type: ignore[reportUnknownMemberType]
-                usage = raw.usage  # type: ignore[reportUnknownMemberType]
+                call_kwargs: dict[str, Any] = {
+                    "model": model,
+                    "messages": msg_dicts,
+                    "temperature": params.temperature,
+                    "max_tokens": params.max_tokens,
+                    "stop": stop,
+                    "timeout": (
+                        policy.timeout_seconds
+                        if policy is not None
+                        else config.timeout_seconds
+                    ),
+                }
+                router_task = _router_task_for_model(model, role, policy)
+                if router_task is not None:
+                    call_kwargs["task"] = router_task
+                if policy is not None:
+                    call_kwargs["metadata"] = {
+                        "generation_profile": policy.profile.value,
+                        "traffic_class": policy.traffic_class.value,
+                        "router_task": policy.router_task,
+                        "latency_class": policy.latency_class,
+                        "dispatch_preference": policy.dispatch_preference,
+                    }
+                if response_format is not None:
+                    call_kwargs["response_format"] = response_format
+                raw = await litellm.acompletion(**call_kwargs)
+                content = raw.choices[0].message.content or ""  # pyright: ignore[reportAttributeAccessIssue]
+                usage = raw.usage  # pyright: ignore[reportAttributeAccessIssue]
         except (TransientLLMError, PermanentLLMError):
             raise
         except Exception as exc:
@@ -231,9 +329,17 @@ class LiteLLMClient:
             prompt_tokens=token_count.prompt_tokens,
             completion_tokens=token_count.completion_tokens,
             cost_usd=cost_usd,
+            requested_profile=(policy.profile.value if policy else ""),
+            effective_profile=(policy.profile.value if policy else ""),
+            traffic_class=(policy.traffic_class.value if policy else ""),
+            degraded=(tier != "primary" if policy else False),
+            degradation_reason=(
+                "router_primary_tier_unavailable"
+                if policy and tier != "primary"
+                else ""
+            ),
         )
 
-        # Prometheus instrumentation (S15 FR-15.6/7/8)
         provider = model.split("/", 1)[0] if "/" in model else "unknown"
         TURN_LLM_CALLS.labels(model=model, provider=provider).inc()
         TURN_LLM_DURATION.labels(model=model).observe(elapsed_ms / 1000)
@@ -256,25 +362,44 @@ class LiteLLMClient:
         params: GenerationParams,
         config: ModelRoleConfig,
         stop: list[str] | None,
+        response_format: dict[str, Any] | None,
+        role: ModelRole,
+        policy: GenerationPolicy | None,
     ) -> tuple[str, Any]:
         """Stream from litellm and buffer all chunks.
 
         Returns (content, usage_or_None).
         """
-        response = await litellm.acompletion(  # type: ignore[reportUnknownMemberType]
-            model=model,
-            messages=msg_dicts,  # type: ignore[reportArgumentType]
-            temperature=params.temperature,
-            max_tokens=params.max_tokens,
-            stop=stop,
-            timeout=config.timeout_seconds,
-            stream=True,
-        )
+        call_kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": msg_dicts,
+            "temperature": params.temperature,
+            "max_tokens": params.max_tokens,
+            "stop": stop,
+            "timeout": (
+                policy.timeout_seconds if policy is not None else config.timeout_seconds
+            ),
+            "stream": True,
+        }
+        router_task = _router_task_for_model(model, role, policy)
+        if router_task is not None:
+            call_kwargs["task"] = router_task
+        if policy is not None:
+            call_kwargs["metadata"] = {
+                "generation_profile": policy.profile.value,
+                "traffic_class": policy.traffic_class.value,
+                "router_task": policy.router_task,
+                "latency_class": policy.latency_class,
+                "dispatch_preference": policy.dispatch_preference,
+            }
+        if response_format is not None:
+            call_kwargs["response_format"] = response_format
+        response: Any = await litellm.acompletion(**call_kwargs)
 
         content_parts: list[str] = []
         usage: Any = None
 
-        async for chunk in response:  # type: ignore[reportUnknownVariableType]
+        async for chunk in response:
             choices = getattr(chunk, "choices", None)
             if choices:
                 delta = getattr(choices[0], "delta", None)
@@ -287,16 +412,12 @@ class LiteLLMClient:
 
         return "".join(content_parts), usage
 
-    # ------------------------------------------------------------------
-    # Internal: cost calculation
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _calculate_cost(model: str, token_count: TokenCount) -> float:
         """Best-effort cost via litellm's cost tables."""
         try:
             return float(
-                litellm.completion_cost(  # type: ignore[reportUnknownMemberType]
+                litellm.completion_cost(
                     model=model,
                     prompt_tokens=token_count.prompt_tokens,
                     completion_tokens=token_count.completion_tokens,

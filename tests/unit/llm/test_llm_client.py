@@ -46,12 +46,20 @@ class TestGenerationParams:
         assert params.temperature == 0.7
         assert params.max_tokens == 1024
         assert params.stop == []
+        assert params.response_format is None
 
     def test_custom_values(self) -> None:
-        params = GenerationParams(temperature=0.3, max_tokens=512, stop=["END"])
+        response_format = {"type": "json_object"}
+        params = GenerationParams(
+            temperature=0.3,
+            max_tokens=512,
+            stop=["END"],
+            response_format=response_format,
+        )
         assert params.temperature == 0.3
         assert params.max_tokens == 512
         assert params.stop == ["END"]
+        assert params.response_format == response_format
 
 
 class TestLLMResponse:

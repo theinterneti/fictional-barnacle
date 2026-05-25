@@ -7,6 +7,7 @@ needing async infrastructure or mocked HTTP/LLM.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -113,6 +114,161 @@ def test_blank_commentary_fields() -> None:
     assert c.agent_intent == "(turn timed out)"
     assert c.coherence_rating == 0.0
     assert c.surprise_level == 0.0
+
+
+@pytest.mark.asyncio
+async def test_run_reuses_created_game_without_resume(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ANON_GAME_LIMIT recovery reuses an internal 'created' game directly."""
+    from tta.llm.client import LLMResponse
+    from tta.models.turn import TokenCount
+    from tta.playtest.agent import PlaytesterAgent
+
+    class _DummyLLM:
+        async def generate(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            del args, kwargs
+            return LLMResponse(
+                content="look around",
+                model_used="dummy",
+                token_count=TokenCount(
+                    prompt_tokens=1,
+                    completion_tokens=1,
+                    total_tokens=2,
+                ),
+                latency_ms=0.0,
+            )
+
+    class _FakeResponse:
+        def __init__(self, status_code: int, payload: dict) -> None:
+            self.status_code = status_code
+            self._payload = payload
+            self.headers: dict[str, str] = {}
+
+        def json(self) -> dict:
+            return self._payload
+
+        def raise_for_status(self) -> None:
+            if self.status_code >= 400:
+                raise RuntimeError(f"HTTP {self.status_code}")
+
+    agent = PlaytesterAgent("http://example.test", _DummyLLM())
+    agent.setup("seed-1", "curious-explorer", 123)
+
+    request_log: list[tuple[str, str]] = []
+    game_id = "11111111-1111-1111-1111-111111111111"
+
+    async def _fake_request_with_backoff(self, client, method, url, **kwargs):  # type: ignore[no-untyped-def]
+        del self, client, kwargs
+        request_log.append((method, url))
+        if (method, url) == ("POST", "/api/v1/auth/anonymous"):
+            return _FakeResponse(200, {"data": {"access_token": "tok"}})
+        if (method, url) == ("PATCH", "/api/v1/players/me/consent"):
+            return _FakeResponse(200, {"data": {"ok": True}})
+        if (method, url) == ("POST", "/api/v1/games"):
+            return _FakeResponse(403, {"error": {"code": "ANON_GAME_LIMIT"}})
+        if (method, url) == ("POST", f"/api/v1/games/{game_id}/turns"):
+            return _FakeResponse(
+                202,
+                {
+                    "data": {
+                        "turn_id": "turn-1",
+                        "stream_url": f"/api/v1/games/{game_id}/stream",
+                    }
+                },
+            )
+        raise AssertionError(f"unexpected request: {(method, url)!r}")
+
+    async def _fake_consume_turn_stream(self, client, stream_url, turn_id):  # type: ignore[no-untyped-def]
+        del self, client, stream_url, turn_id
+        return "You see a quiet tavern."
+
+    async def _fake_generate_player_input(self, narrative, turn_index, temperature):  # type: ignore[no-untyped-def]
+        del self, narrative, turn_index, temperature
+        return "Look around"
+
+    async def _fake_generate_commentary(  # type: ignore[no-untyped-def]
+        self, turn_index, prev_narrative, player_input, narrative_output
+    ):
+        del self, prev_narrative, player_input, narrative_output
+        return SimpleNamespace(
+            turn_index=turn_index,
+            agent_intent="look around",
+            surprise_level=0.1,
+            surprise_note="steady",
+            coherence_rating=0.9,
+            coherence_note="coherent",
+        )
+
+    monkeypatch.setattr(
+        "tta.playtest.agent.PLAYTEST_MIN_TURNS",
+        1,
+    )
+    monkeypatch.setattr(
+        "tta.playtest.agent.PlaytesterAgent._request_with_backoff",
+        _fake_request_with_backoff,
+    )
+    monkeypatch.setattr(
+        "tta.playtest.agent.PlaytesterAgent._consume_turn_stream",
+        _fake_consume_turn_stream,
+    )
+    monkeypatch.setattr(
+        "tta.playtest.agent.PlaytesterAgent._generate_player_input",
+        _fake_generate_player_input,
+    )
+    monkeypatch.setattr(
+        "tta.playtest.agent.PlaytesterAgent._generate_commentary",
+        _fake_generate_commentary,
+    )
+
+    class _ListClient:
+        headers: dict[str, str] = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url: str):
+            request_log.append(("GET", url))
+            if url == "/api/v1/games":
+                return _FakeResponse(
+                    200,
+                    {
+                        "data": [
+                            {
+                                "game_id": game_id,
+                                "status": "active",
+                            }
+                        ]
+                    },
+                )
+            if url == f"/api/v1/games/{game_id}":
+                return _FakeResponse(
+                    200,
+                    {
+                        "data": {
+                            "game_id": game_id,
+                            "status": "created",
+                            "recent_turns": [],
+                        }
+                    },
+                )
+            raise AssertionError(f"unexpected GET: {url!r}")
+
+    monkeypatch.setattr(
+        "tta.playtest.agent.httpx.AsyncClient",
+        lambda *a, **k: _ListClient(),
+    )
+
+    report = await agent.run()
+
+    assert report.status == "complete"
+    assert report.game_id == game_id
+    assert ("GET", f"/api/v1/games/{game_id}") in request_log
+    assert ("POST", f"/api/v1/games/{game_id}/resume") not in request_log
+    assert ("POST", f"/api/v1/games/{game_id}/turns") in request_log
 
 
 # ---------------------------------------------------------------------------

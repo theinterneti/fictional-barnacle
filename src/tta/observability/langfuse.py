@@ -142,6 +142,41 @@ def shutdown_langfuse() -> None:
         _langfuse_client.flush()
 
 
+def _score_generation(
+    obs: Any,
+    *,
+    name: str,
+    role: str,
+    latency_ms: int,
+    cost_usd: float,
+    model: str | None,
+    turn_id: str | None,
+) -> None:
+    """Attach per-generation quality scores for Langfuse UI (FB-005, AC-09.8).
+
+    Fire-and-forget — scoring failures are silently swallowed.
+    """
+    if obs is None or _langfuse_client is None:
+        return
+    try:
+        scores: list[dict[str, Any]] = [
+            {"name": "llm_role", "value": role},
+            {"name": "llm_latency_ms", "value": float(latency_ms)},
+            {"name": "llm_cost_usd", "value": cost_usd},
+        ]
+        if model:
+            scores.append({"name": "llm_model", "value": model})
+        if turn_id:
+            scores.append({"name": "llm_turn_id", "value": turn_id})
+
+        # Score on the generation observation (SDK infers data_type from value)
+        for s in scores:
+            if hasattr(obs, "score"):
+                obs.score(name=s["name"], value=s["value"])
+    except Exception:
+        _warn_langfuse_error("langfuse_scoring_failed", name=name)
+
+
 def record_llm_generation(
     *,
     name: str,
@@ -258,7 +293,7 @@ def record_llm_generation(
 
     try:
         if _langfuse_uses_v4_sdk(_langfuse_client):
-            _start_generation_observation(
+            obs = _start_generation_observation(
                 _langfuse_client,
                 trace_id=_to_langfuse_id(turn_id) if turn_id else None,
                 name=name,
@@ -275,10 +310,20 @@ def record_llm_generation(
             )
         else:
             trace_obj = _langfuse_client.trace(**trace_kwargs)
-            trace_obj.generation(**gen)
+            obs = trace_obj.generation(**gen)
     except Exception:
         _warn_langfuse_error("langfuse_generation_failed", name=name)
     else:
+        # Inline scoring — per-generation quality signals (FB-005, AC-09.8)
+        _score_generation(
+            obs,
+            name=name,
+            role=role,
+            latency_ms=latency_ms,
+            cost_usd=cost_usd,
+            model=gen.get("model"),
+            turn_id=turn_id,
+        )
         # Flush immediately so traces appear without waiting for the
         # SDK background flush interval. Best-effort only.
         try:

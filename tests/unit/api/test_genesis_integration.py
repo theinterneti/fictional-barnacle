@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+from collections.abc import Generator
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -9,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+import structlog
 
 from tta.models.turn import TurnState, TurnStatus
 from tta.models.world import TemplateMetadata, WorldChangeType, WorldTemplate
@@ -300,6 +304,7 @@ def _genesis_result_mock() -> MagicMock:
     result.player_location_id = "loc_1"
     result.template_key = "fantasy"
     result.narrative_intro = "You awaken in a dark forest..."
+    result.genesis_elements = []
     return result
 
 
@@ -374,6 +379,9 @@ class TestCreateGameGenesis:
         assert resp.status_code == 201
         data = resp.json()["data"]
         assert data["narrative_intro"] == "You awaken in a dark forest..."
+        assert data["genesis_status"] == "complete"
+        assert data["genesis_error_code"] is None
+        assert data["genesis_error_message"] is None
         mock_genesis.assert_awaited_once()
 
     @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
@@ -389,6 +397,7 @@ class TestCreateGameGenesis:
             side_effect=[
                 _make_result(scalar=0),  # count active games
                 _make_result(),  # INSERT game
+                _make_result(),  # UPDATE degraded genesis metadata
             ]
         )
         pg.commit = AsyncMock()
@@ -398,6 +407,9 @@ class TestCreateGameGenesis:
         assert resp.status_code == 201
         data = resp.json()["data"]
         assert data["narrative_intro"] is None
+        assert data["genesis_status"] == "degraded"
+        assert data["genesis_error_code"] == "GENESIS_FAILED"
+        assert data["genesis_error_message"]
 
     @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
     def test_genesis_uses_world_id_for_template_lookup(
@@ -459,6 +471,7 @@ class TestCreateGameGenesis:
             side_effect=[
                 _make_result(scalar=0),
                 _make_result(),
+                _make_result(),
             ]
         )
         pg.commit = AsyncMock()
@@ -466,7 +479,95 @@ class TestCreateGameGenesis:
         resp = client.post("/api/v1/games", json={})
 
         assert resp.status_code == 201
-        assert resp.json()["data"]["narrative_intro"] is None
+        data = resp.json()["data"]
+        assert data["narrative_intro"] is None
+        assert data["genesis_status"] == "degraded"
+        assert data["genesis_error_code"] == "GENESIS_UNAVAILABLE"
+
+    @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
+    def test_genesis_timeout_degrades_before_latency_abort(
+        self,
+        mock_genesis: AsyncMock,
+        _app_for_genesis: tuple,
+    ) -> None:
+        """Slow genesis degrades gracefully before middleware returns 503."""
+        app, client, pg = _app_for_genesis
+        app.state.settings.latency_budget_abort_ms = 200
+        app.state.settings.latency_budget_warn_ms = 0
+
+        async def _slow_genesis(*args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+            await asyncio.sleep(0.35)
+
+        mock_genesis.side_effect = _slow_genesis
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),
+                _make_result(),
+                _make_result(),
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post("/api/v1/games", json={})
+
+        assert resp.status_code == 201
+        data = resp.json()["data"]
+        assert data["narrative_intro"] is None
+        assert data["genesis_status"] == "degraded"
+        assert data["genesis_error_code"] == "GENESIS_TIMEOUT"
+
+    @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
+    def test_genesis_cancellation_degrades_gracefully(
+        self,
+        mock_genesis: AsyncMock,
+        _app_for_genesis: tuple,
+    ) -> None:
+        """Cancelled genesis still returns the created game instead of 503."""
+        _, client, pg = _app_for_genesis
+        mock_genesis.side_effect = asyncio.CancelledError()
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),
+                _make_result(),
+                _make_result(),
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post("/api/v1/games", json={})
+
+        assert resp.status_code == 201
+        data = resp.json()["data"]
+        assert data["narrative_intro"] is None
+        assert data["genesis_status"] == "degraded"
+        assert data["genesis_error_code"] == "GENESIS_CANCELLED"
+
+    @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
+    def test_genesis_degradation_persists_explicit_metadata(
+        self,
+        mock_genesis: AsyncMock,
+        _app_for_genesis: tuple,
+    ) -> None:
+        """Degraded genesis persists status/code into the stored world seed."""
+        _, client, pg = _app_for_genesis
+        mock_genesis.side_effect = RuntimeError("router offline")
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),
+                _make_result(),
+                _make_result(),
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post("/api/v1/games", json={})
+
+        assert resp.status_code == 201
+        update_params = pg.execute.await_args_list[-1].args[1]
+        persisted_seed = json.loads(update_params["seed"])
+        assert persisted_seed["genesis"]["status"] == "degraded"
+        assert persisted_seed["genesis"]["error_code"] == "GENESIS_FAILED"
 
 
 # ------------------------------------------------------------------
@@ -476,6 +577,106 @@ class TestCreateGameGenesis:
 
 class TestDispatchPipelineWorldChanges:
     """Tests that _dispatch_pipeline applies world changes correctly."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_structlog(self) -> Generator[None, None, None]:
+        structlog.reset_defaults()
+        from tta.pipeline import orchestrator as orchestrator_module
+
+        if "bind" in orchestrator_module.log.__dict__:
+            del orchestrator_module.log.bind
+        yield
+        structlog.reset_defaults()
+
+    @pytest.mark.asyncio
+    @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)
+    @patch("tta.pipeline.orchestrator.run_pipeline", new_callable=AsyncMock)
+    async def test_dispatch_exception_logs_persistence_outcome(
+        self,
+        mock_pipeline: AsyncMock,
+        mock_apply: AsyncMock,
+    ) -> None:
+        """Dispatch exceptions log type and failed-turn persist success."""
+        from tta.pipeline.orchestrator import dispatch_pipeline
+
+        game_id = uuid4()
+        turn_id = uuid4()
+
+        mock_pipeline.side_effect = RuntimeError("boom")
+        turn_repo = AsyncMock()
+        store = AsyncMock()
+
+        app_state = SimpleNamespace(
+            pipeline_deps=SimpleNamespace(
+                turn_repo=turn_repo,
+                world=AsyncMock(),
+                llm=MagicMock(),
+                prompt_registry=MagicMock(),
+                relationship_service=None,
+            ),
+            settings=_settings(),
+            turn_result_store=store,
+        )
+
+        with structlog.testing.capture_logs() as logs:
+            await dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
+
+        mock_apply.assert_not_awaited()
+        turn_repo.fail_turn.assert_awaited_once_with(turn_id, narrative_output=None)
+        dispatch_failed = [
+            e for e in logs if e.get("event") == "pipeline_dispatch_failed"
+        ]
+        persisted = [
+            e
+            for e in logs
+            if e.get("event") == "pipeline_dispatch_exception_persisted_failure"
+        ]
+        assert dispatch_failed
+        assert dispatch_failed[0]["exception_type"] == "RuntimeError"
+        assert persisted
+        assert persisted[0]["exception_type"] == "RuntimeError"
+        assert persisted[0]["failure_persist_succeeded"] is True
+
+    @pytest.mark.asyncio
+    @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)
+    @patch("tta.pipeline.orchestrator.run_pipeline", new_callable=AsyncMock)
+    async def test_dispatch_exception_log_marks_failed_persist_when_fail_turn_raises(
+        self,
+        mock_pipeline: AsyncMock,
+        mock_apply: AsyncMock,
+    ) -> None:
+        """Persist failure log includes dispatch exception type and outcome."""
+        from tta.pipeline.orchestrator import dispatch_pipeline
+
+        game_id = uuid4()
+        turn_id = uuid4()
+
+        mock_pipeline.side_effect = RuntimeError("boom")
+        turn_repo = AsyncMock()
+        turn_repo.fail_turn.side_effect = RuntimeError("db write failed")
+        store = AsyncMock()
+
+        app_state = SimpleNamespace(
+            pipeline_deps=SimpleNamespace(
+                turn_repo=turn_repo,
+                world=AsyncMock(),
+                llm=MagicMock(),
+                prompt_registry=MagicMock(),
+                relationship_service=None,
+            ),
+            settings=_settings(),
+            turn_result_store=store,
+        )
+
+        with structlog.testing.capture_logs() as logs:
+            await dispatch_pipeline(app_state, game_id, turn_id, 1, "go north", {})
+
+        mock_apply.assert_not_awaited()
+        turn_repo.update_status.assert_awaited_once_with(turn_id, "failed")
+        persist_failed = [e for e in logs if e.get("event") == "turn_persist_failed"]
+        assert persist_failed
+        assert persist_failed[0]["dispatch_exception_type"] == "RuntimeError"
+        assert persist_failed[0]["failure_persist_succeeded"] is False
 
     @pytest.mark.asyncio
     @patch("tta.world.changes.apply_changes", new_callable=AsyncMock)

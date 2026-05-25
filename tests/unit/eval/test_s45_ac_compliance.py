@@ -144,6 +144,16 @@ def test_regression_result_contains_correct_delta():
     assert regressions[0].batch_median == pytest.approx(0.50)
 
 
+@pytest.mark.spec("AC-45.02")
+def test_detect_regressions_skips_categories_absent_from_batch_medians():
+    pipeline = _make_pipeline()
+    baseline = {"QC-03": 0.78}
+
+    regressions = pipeline.detect_regressions(batch_medians={}, baseline=baseline)
+
+    assert regressions == []
+
+
 # ---------------------------------------------------------------------------
 # AC-45.03 — Langfuse logging
 
@@ -270,6 +280,51 @@ async def test_eval_cli_initializes_and_shuts_down_langfuse() -> None:
     init_langfuse.assert_called_once()
     shutdown_langfuse.assert_called_once()
     pipeline.run.assert_awaited_once()
+
+
+@pytest.mark.spec("AC-45.02")
+@pytest.mark.asyncio
+async def test_evaluate_sessions_passes_seed_manifest_to_evaluator() -> None:
+    pipeline = _make_pipeline()
+
+    playtest_report = MagicMock()
+    playtest_report.run_id = "run-123"
+    playtest_report.genesis_character_name = "Mira"
+    playtest_report.genesis_traits = ["cautious", "curious"]
+
+    run_result = MagicMock()
+    run_result.status = "complete"
+    run_result.run_id = "run-123"
+    run_result.scenario_seed_id = "bus-stop-shimmer"
+    run_result.playtest_report = playtest_report
+
+    fake_manifest = MagicMock()
+    fake_report = MagicMock()
+
+    evaluator = MagicMock()
+    evaluator.evaluate = AsyncMock(return_value=fake_report)
+
+    registry = MagicMock()
+    registry.get.return_value = fake_manifest
+
+    with (
+        patch(
+            "tta.quality.evaluator.NarrativeQualityEvaluator",
+            return_value=evaluator,
+        ),
+        patch("tta.seeds.SeedRegistry", return_value=registry),
+    ):
+        reports = await pipeline.evaluate_sessions([run_result])
+
+    assert reports == [fake_report]
+    registry.get.assert_called_once_with("bus-stop-shimmer")
+    evaluator.evaluate.assert_awaited_once_with(
+        playtest_report,
+        feedback=None,
+        seed=fake_manifest,
+        genesis_character_name="Mira",
+        genesis_traits=["cautious", "curious"],
+    )
 
 
 # ---------------------------------------------------------------------------

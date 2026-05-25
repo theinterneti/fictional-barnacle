@@ -126,6 +126,13 @@ async def run_live_preflight(token: str) -> None:
         create_data = create_resp.json()["data"]
         game_id = str(create_data["game_id"])
         intro = str(create_data.get("narrative_intro") or "").strip()
+        genesis_status = str(create_data.get("genesis_status") or "").strip()
+        if genesis_status == "degraded":
+            raise RuntimeError(
+                "Preflight create_game degraded: "
+                f"{create_data.get('genesis_error_code')}: "
+                f"{create_data.get('genesis_error_message')}"
+            )
         if not intro:
             raise RuntimeError("Preflight create_game returned empty narrative_intro")
         print(f"Preflight game ready: {game_id}")

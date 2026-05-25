@@ -532,6 +532,69 @@ async def test_guarded_llm_call_creates_otel_span():
     assert "llm.latency_ms" in recorded_attrs
 
 
+@pytest.mark.asyncio
+async def test_guarded_llm_call_passes_role_timeout_to_semaphore():
+    """Role-config timeout is forwarded to the semaphore wrapper."""
+    from tta.llm.roles import ModelRole, ModelRoleConfig
+    from tta.pipeline.llm_guard import guarded_llm_call
+
+    response = _make_llm_response()
+    mock_llm = AsyncMock()
+    mock_llm.generate = AsyncMock(return_value=response)
+    mock_semaphore = AsyncMock(return_value=response)
+
+    deps = SimpleNamespace(
+        llm=mock_llm,
+        llm_semaphore=SimpleNamespace(execute=mock_semaphore),
+        llm_circuit_breaker=None,
+        llm_role_configs={
+            ModelRole.GENERATION: ModelRoleConfig(
+                primary="openai/tta",
+                fallback="openai/tta",
+                temperature=0.85,
+                max_tokens=1024,
+                timeout_seconds=90.0,
+            )
+        },
+        settings=SimpleNamespace(
+            session_cost_cap_usd=100.0,
+            session_cost_warn_pct=0.8,
+            turn_cost_cap_usd=10.0,
+        ),
+    )
+
+    mock_tracker = MagicMock()
+    mock_tracker.check_session_budget.return_value = "ok"
+    mock_tracker.turn_cost_usd = 0.0
+
+    class FakeSpan:
+        def set_attribute(self, key: str, value: Any) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: Any):
+            pass
+
+    class FakeTracer:
+        def start_as_current_span(self, name: str, **kwargs: Any):
+            return FakeSpan()
+
+    with (
+        patch("tta.pipeline.llm_guard.get_cost_tracker", return_value=mock_tracker),
+        patch("tta.pipeline.llm_guard.trace") as mock_trace,
+        patch("tta.pipeline.llm_guard.record_llm_generation"),
+        patch("tta.pipeline.llm_guard.record_daily_cost"),
+        patch("tta.pipeline.llm_guard.current_trace_id", return_value="trace-abc"),
+    ):
+        mock_trace.get_tracer.return_value = FakeTracer()
+        await guarded_llm_call(deps, ModelRole.GENERATION, [])  # type: ignore[arg-type]
+
+    mock_semaphore.assert_called_once()
+    assert mock_semaphore.call_args.kwargs["timeout"] == 90.0
+
+
 # ---------------------------------------------------------------------------
 # Langfuse–OTel linkage (AC-14)
 # ---------------------------------------------------------------------------

@@ -159,20 +159,46 @@ class PlaytesterAgent:
                         raise RuntimeError(
                             "ANON_GAME_LIMIT but no existing games found"
                         )
-                    # Use the most recently created game, then resume
-                    # to get the genesis narrative_intro (GameSummary
-                    # does not include it; only POST /{id}/resume does).
-                    existing = games[0]
-                    self._game_id = existing["game_id"]
-                    resume_resp = await self._request_with_backoff(
-                        client,
-                        "POST",
-                        f"/api/v1/games/{self._game_id}/resume",
-                    )
-                    resume_data = resume_resp.json()["data"]
-                    current_narrative = resume_data.get("recap", "")
-                    self._genesis_phases_completed = 7  # genesis is done
-                    # Skip the game creation block below
+
+                    reusable_found = False
+                    for existing in games:
+                        candidate_game_id = existing["game_id"]
+                        detail_resp = await client.get(
+                            f"/api/v1/games/{candidate_game_id}"
+                        )
+                        detail_resp.raise_for_status()
+                        detail_data = detail_resp.json().get("data", {})
+                        detail_status = detail_data.get("status")
+
+                        if detail_status == "created":
+                            self._game_id = candidate_game_id
+                            recent_turns = detail_data.get("recent_turns", [])
+                            current_narrative = (
+                                recent_turns[-1].get("narrative_output", "")
+                                if recent_turns
+                                else ""
+                            )
+                            self._genesis_phases_completed = 0
+                            reusable_found = True
+                            break
+
+                        if detail_status in {"active", "paused", "expired"}:
+                            self._game_id = candidate_game_id
+                            resume_resp = await self._request_with_backoff(
+                                client,
+                                "POST",
+                                f"/api/v1/games/{self._game_id}/resume",
+                            )
+                            resume_data = resume_resp.json()["data"]
+                            current_narrative = resume_data.get("recap", "")
+                            self._genesis_phases_completed = 7
+                            reusable_found = True
+                            break
+
+                    if not reusable_found:
+                        raise RuntimeError(
+                            "ANON_GAME_LIMIT but no reusable existing games found"
+                        )
                 else:
                     resp.raise_for_status()
             else:

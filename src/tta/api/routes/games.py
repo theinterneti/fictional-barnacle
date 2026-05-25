@@ -33,6 +33,7 @@ from tta.models.game import (
     GameData,
     GameStatus,
     GameSummary,
+    GenesisStatus,
     PaginationMeta,
 )
 from tta.models.player import Player
@@ -75,6 +76,11 @@ _PUBLIC_STATE_MAP: dict[str, str] = {
     "abandoned": "abandoned",
 }
 
+_GENESIS_TIMEOUT_CODE = "GENESIS_TIMEOUT"
+_GENESIS_CANCELLED_CODE = "GENESIS_CANCELLED"
+_GENESIS_FAILED_CODE = "GENESIS_FAILED"
+_GENESIS_UNAVAILABLE_CODE = "GENESIS_UNAVAILABLE"
+
 
 def _string_pref(preferences: dict[str, str | list[str]], key: str) -> str | None:
     value = preferences.get(key)
@@ -88,6 +94,36 @@ def _traits_pref(preferences: dict[str, str | list[str]]) -> list[str]:
     if isinstance(raw, str) and raw.strip():
         return [raw]
     return []
+
+
+async def _persist_genesis_metadata(
+    pg: AsyncSession,
+    *,
+    game_id: UUID,
+    world_seed_json: dict,
+) -> None:
+    """Persist the latest genesis metadata into the stored world seed."""
+    try:
+        await pg.execute(
+            sa.text(
+                "UPDATE game_sessions "
+                "SET world_seed = cast(:seed AS jsonb), "
+                "updated_at = :now "
+                "WHERE id = :gid"
+            ),
+            {
+                "seed": json.dumps(world_seed_json),
+                "now": datetime.now(UTC),
+                "gid": game_id,
+            },
+        )
+        await pg.commit()
+    except Exception:
+        log.warning(
+            "genesis_metadata_persist_failed",
+            game_id=str(game_id),
+            exc_info=True,
+        )
 
 
 # --- Routes ---
@@ -145,8 +181,13 @@ async def create_game(
 
     # --- Genesis (best-effort) ---
     narrative_intro: str | None = None
+    genesis_status = GenesisStatus.complete
+    genesis_error_code: str | None = None
+    genesis_error_message: str | None = None
     try:
-        registry = request.app.state.template_registry
+        registry = getattr(request.app.state, "template_registry", None)
+        if registry is None:
+            raise NotImplementedError("template_registry not configured on app state")
 
         # Select template: explicit key or best-match by preferences
         if body.world_id:
@@ -170,44 +211,122 @@ async def create_game(
 
         from tta.genesis.genesis_lite import run_genesis_lite
 
-        result = await run_genesis_lite(
-            session_id=game_id,
-            player_id=player.id,
-            world_seed=seed,
-            llm=request.app.state.llm_client,
-            world_service=request.app.state.world_service,
+        abort_seconds = settings.latency_budget_abort_ms / 1000.0
+        genesis_budget_seconds = max(
+            0.05,
+            min(
+                settings.pipeline_timeout_seconds,
+                abort_seconds * 0.8,
+            ),
+        )
+        result = await asyncio.wait_for(
+            run_genesis_lite(
+                session_id=game_id,
+                player_id=player.id,
+                world_seed=seed,
+                llm=request.app.state.llm_client,
+                world_service=request.app.state.world_service,
+            ),
+            timeout=genesis_budget_seconds,
         )
         narrative_intro = result.narrative_intro
 
         # Persist genesis result alongside original seed
         world_seed_json["genesis"] = {
+            "status": GenesisStatus.complete.value,
             "world_id": result.world_id,
             "player_location_id": result.player_location_id,
             "template_key": result.template_key,
             "narrative_intro": result.narrative_intro,
             "genesis_elements": result.genesis_elements,
         }
-        await pg.execute(
-            sa.text(
-                "UPDATE game_sessions "
-                "SET world_seed = cast(:seed AS jsonb), "
-                "updated_at = :now "
-                "WHERE id = :gid"
-            ),
-            {
-                "seed": json.dumps(world_seed_json),
-                "now": datetime.now(UTC),
-                "gid": game_id,
-            },
+        await _persist_genesis_metadata(
+            pg,
+            game_id=game_id,
+            world_seed_json=world_seed_json,
         )
-        await pg.commit()
         log.info("genesis_complete", game_id=str(game_id))
+    except TimeoutError:
+        genesis_status = GenesisStatus.degraded
+        genesis_error_code = _GENESIS_TIMEOUT_CODE
+        genesis_error_message = (
+            "World generation timed out before the narrative intro was ready."
+        )
+        world_seed_json["genesis"] = {
+            "status": genesis_status.value,
+            "error_code": genesis_error_code,
+            "error_message": genesis_error_message,
+        }
+        await _persist_genesis_metadata(
+            pg,
+            game_id=game_id,
+            world_seed_json=world_seed_json,
+        )
+        log.warning(
+            "genesis_timeout_graceful_degradation",
+            game_id=str(game_id),
+            genesis_error_code=genesis_error_code,
+        )
     except asyncio.CancelledError:
-        raise
+        genesis_status = GenesisStatus.degraded
+        genesis_error_code = _GENESIS_CANCELLED_CODE
+        genesis_error_message = (
+            "World generation was interrupted before the narrative intro was ready."
+        )
+        world_seed_json["genesis"] = {
+            "status": genesis_status.value,
+            "error_code": genesis_error_code,
+            "error_message": genesis_error_message,
+        }
+        await _persist_genesis_metadata(
+            pg,
+            game_id=game_id,
+            world_seed_json=world_seed_json,
+        )
+        log.warning(
+            "genesis_cancelled_graceful_degradation",
+            game_id=str(game_id),
+            genesis_error_code=genesis_error_code,
+        )
+    except NotImplementedError:
+        genesis_status = GenesisStatus.degraded
+        genesis_error_code = _GENESIS_UNAVAILABLE_CODE
+        genesis_error_message = "World generation is not available in this environment."
+        world_seed_json["genesis"] = {
+            "status": genesis_status.value,
+            "error_code": genesis_error_code,
+            "error_message": genesis_error_message,
+        }
+        await _persist_genesis_metadata(
+            pg,
+            game_id=game_id,
+            world_seed_json=world_seed_json,
+        )
+        log.warning(
+            "genesis_unavailable_graceful_degradation",
+            game_id=str(game_id),
+            genesis_error_code=genesis_error_code,
+        )
     except Exception:
+        genesis_status = GenesisStatus.degraded
+        genesis_error_code = _GENESIS_FAILED_CODE
+        genesis_error_message = (
+            "World generation failed before the narrative intro was ready."
+        )
+        world_seed_json["genesis"] = {
+            "status": genesis_status.value,
+            "error_code": genesis_error_code,
+            "error_message": genesis_error_message,
+        }
+        await _persist_genesis_metadata(
+            pg,
+            game_id=game_id,
+            world_seed_json=world_seed_json,
+        )
         log.warning(
             "genesis_failed_graceful_degradation",
             game_id=str(game_id),
+            genesis_error_code=genesis_error_code,
             exc_info=True,
         )
 
@@ -218,6 +337,9 @@ async def create_game(
             status=GameStatus.active.value,
             turn_count=0,
             narrative_intro=narrative_intro,
+            genesis_status=genesis_status,
+            genesis_error_code=genesis_error_code,
+            genesis_error_message=genesis_error_message,
             character_name=_string_pref(pref, "character_name"),
             character_traits=_traits_pref(pref),
             created_at=now,
