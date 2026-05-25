@@ -103,20 +103,27 @@ async def _persist_genesis_metadata(
     world_seed_json: dict,
 ) -> None:
     """Persist the latest genesis metadata into the stored world seed."""
-    await pg.execute(
-        sa.text(
-            "UPDATE game_sessions "
-            "SET world_seed = cast(:seed AS jsonb), "
-            "updated_at = :now "
-            "WHERE id = :gid"
-        ),
-        {
-            "seed": json.dumps(world_seed_json),
-            "now": datetime.now(UTC),
-            "gid": game_id,
-        },
-    )
-    await pg.commit()
+    try:
+        await pg.execute(
+            sa.text(
+                "UPDATE game_sessions "
+                "SET world_seed = cast(:seed AS jsonb), "
+                "updated_at = :now "
+                "WHERE id = :gid"
+            ),
+            {
+                "seed": json.dumps(world_seed_json),
+                "now": datetime.now(UTC),
+                "gid": game_id,
+            },
+        )
+        await pg.commit()
+    except Exception:
+        log.warning(
+            "genesis_metadata_persist_failed",
+            game_id=str(game_id),
+            exc_info=True,
+        )
 
 
 # --- Routes ---
