@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Generator
 from typing import cast
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+import structlog
 
 from tta.llm.client import LLMResponse
 from tta.llm.testing import MockLLMClient
@@ -21,6 +23,13 @@ from tta.pipeline.stages.generate import generate_stage
 from tta.pipeline.types import PipelineDeps
 from tta.prompts.loader import FilePromptRegistry
 from tta.safety.hooks import SafetyResult
+
+
+@pytest.fixture(autouse=True)
+def _reset_structlog() -> Generator[None, None, None]:
+    structlog.reset_defaults()
+    yield
+    structlog.reset_defaults()
 
 
 def _make_state(**overrides: object) -> TurnState:
@@ -355,6 +364,70 @@ async def test_extraction_returns_empty_on_invalid_json() -> None:
 
     # Mock response is "You enter a dimly lit chamber." — not JSON
     assert result.world_state_updates == []
+
+
+@pytest.mark.asyncio
+async def test_extraction_timeout_degrades_and_preserves_narrative() -> None:
+    """Extraction timeout should not discard a successful narrative."""
+    state = _make_state()
+    deps = _make_deps()
+    generation_response = LLMResponse(
+        content="Narrative text.",
+        model_used="mock",
+        token_count=TokenCount(prompt_tokens=5, completion_tokens=3, total_tokens=8),
+        latency_ms=0.0,
+    )
+
+    with (
+        patch(
+            "tta.pipeline.stages.generate._llm_with_retries",
+            new=AsyncMock(return_value=generation_response),
+        ),
+        patch(
+            "tta.pipeline.stages.generate._extract_world_changes",
+            new=AsyncMock(side_effect=TimeoutError()),
+        ),
+    ):
+        result = await generate_stage(state, deps)
+
+    assert result.narrative_output == "Narrative text."
+    assert result.model_used == "mock"
+    assert result.token_count == generation_response.token_count
+    assert result.world_state_updates == []
+    assert result.suggested_actions is None
+
+
+@pytest.mark.asyncio
+async def test_extraction_timeout_logs_boundary_details() -> None:
+    """Timeout logs should show we failed after narrative generation succeeded."""
+    state = _make_state()
+    deps = _make_deps()
+    generation_response = LLMResponse(
+        content="Narrative text.",
+        model_used="mock",
+        token_count=TokenCount(prompt_tokens=5, completion_tokens=3, total_tokens=8),
+        latency_ms=0.0,
+    )
+
+    with (
+        patch(
+            "tta.pipeline.stages.generate._llm_with_retries",
+            new=AsyncMock(return_value=generation_response),
+        ),
+        patch(
+            "tta.pipeline.stages.generate._extract_world_changes",
+            new=AsyncMock(side_effect=TimeoutError()),
+        ),
+        structlog.testing.capture_logs() as logs,
+    ):
+        await generate_stage(state, deps)
+
+    extraction_timeout_logs = [
+        entry for entry in logs if entry.get("event") == "generation_extraction_timeout"
+    ]
+    assert extraction_timeout_logs
+    assert extraction_timeout_logs[0]["model_used"] == "mock"
+    assert extraction_timeout_logs[0]["narrative_len"] == len("Narrative text.")
 
 
 async def test_extraction_returns_parsed_list() -> None:

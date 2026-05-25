@@ -51,7 +51,12 @@ class MockLLMClient:
         params: GenerationParams | None = None,
     ) -> LLMResponse:
         self.call_history.append(
-            {"method": "generate", "role": role, "messages": messages}
+            {
+                "method": "generate",
+                "role": role,
+                "messages": messages,
+                "params": params,
+            }
         )
         return self._build_response(messages, role)
 
@@ -63,6 +68,11 @@ class MockLLMClient:
     ) -> LLMResponse:
         """Buffer-then-stream: returns complete LLMResponse like generate()."""
         self.call_history.append(
-            {"method": "stream", "role": role, "messages": messages}
+            {
+                "method": "stream",
+                "role": role,
+                "messages": messages,
+                "params": params,
+            }
         )
         return self._build_response(messages, role)

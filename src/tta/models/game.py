@@ -21,6 +21,13 @@ class GameStatus(StrEnum):
     abandoned = "abandoned"
 
 
+class GenesisStatus(StrEnum):
+    """Outcome of synchronous genesis during game creation."""
+
+    complete = "complete"
+    degraded = "degraded"
+
+
 class GameSession(BaseModel):
     """Top-level container for a single play-through."""
 
@@ -118,6 +125,9 @@ class GameData(BaseModel):
     title: str | None = None
     summary: str | None = None
     narrative_intro: str | None = None
+    genesis_status: GenesisStatus = GenesisStatus.complete
+    genesis_error_code: str | None = None
+    genesis_error_message: str | None = None
     character_name: str | None = None
     character_traits: list[str] = []
     created_at: datetime

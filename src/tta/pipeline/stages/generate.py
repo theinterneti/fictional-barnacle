@@ -8,6 +8,8 @@ hooks, calls the LLM for narrative, then extracts world changes.
 from __future__ import annotations
 
 import json
+import re
+import time
 from typing import Any
 
 import structlog
@@ -68,6 +70,46 @@ _CONTEXT_META_KEYS = {
     "npc_dialogue_contexts",
     "active_companions",
 }
+
+
+def _parse_extraction_response(content: str) -> dict[str, Any] | list[Any] | None:
+    """Extract JSON payload from extraction-model output.
+
+    Handles raw JSON, fenced JSON, and JSON objects/lists embedded in prose.
+    Returns None when no parseable JSON payload is found.
+    """
+    stripped = content.strip()
+    if not stripped:
+        return None
+
+    decoder = json.JSONDecoder()
+    candidates = [stripped]
+
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", content, re.DOTALL)
+    if fence_match:
+        candidates.append(fence_match.group(1).strip())
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+        else:
+            if isinstance(parsed, (dict, list)):
+                return parsed
+
+    start_positions = sorted(
+        {idx for idx in (content.find("{"), content.find("[")) if idx != -1}
+    )
+    for start in start_positions:
+        try:
+            parsed, _ = decoder.raw_decode(content[start:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, (dict, list)):
+            return parsed
+
+    return None
 
 
 def _build_npc_section(npc_contexts: list[dict]) -> str:
@@ -235,6 +277,21 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     """
     # 1. Build generation prompt
     prompt = _build_generation_prompt(state)
+    wc = state.world_context or {}
+    context_data = {k: v for k, v in wc.items() if k not in _CONTEXT_META_KEYS}
+    log.info(
+        "generation_prompt_built",
+        session_id=str(state.session_id),
+        turn_number=state.turn_number,
+        context_partial=state.context_partial,
+        prompt_len=len(prompt),
+        world_context_keys=sorted(wc.keys()),
+        world_context_size=len(json.dumps(wc, default=str)),
+        context_data_size=len(json.dumps(context_data, default=str)),
+        active_consequences_count=len(state.active_consequences or []),
+        consequence_hints_count=len(state.consequence_hints or []),
+        pruned_chain_closures_count=len(state.pruned_chain_closures or []),
+    )
     state = state.model_copy(update={"generation_prompt": prompt})
 
     # Observe-only injection signal scan on USER content (AC-09.8)
@@ -267,6 +324,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     response: LLMResponse | None = None
 
     try:
+        llm_start = time.monotonic()
         response = await _llm_with_retries(
             messages,
             deps,
@@ -277,7 +335,19 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             prompt_hash=rendered_system_prompt.prompt_hash,
             langfuse_prompt=rendered_system_prompt.metadata.get("langfuse_prompt"),
         )
+        llm_elapsed_ms = (time.monotonic() - llm_start) * 1000
         narrative = response.content
+        log.info(
+            "generation_llm_succeeded",
+            session_id=str(state.session_id),
+            turn_number=state.turn_number,
+            model_used=response.model_used,
+            llm_elapsed_ms=round(llm_elapsed_ms, 1),
+            narrative_len=len(narrative or ""),
+            token_count=(
+                response.token_count.model_dump() if response.token_count else None
+            ),
+        )
     except (BudgetExceededError, AppError, PermanentLLMError):
         raise  # Non-transient — propagate immediately
     except (TransientLLMError, AllTiersFailedError):
@@ -340,9 +410,34 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             }
         )
 
-    world_updates, suggestions = await _extract_world_changes(
-        narrative, state.player_input, deps
-    )
+    extract_start = time.monotonic()
+    try:
+        world_updates, suggestions = await _extract_world_changes(
+            narrative, state.player_input, deps
+        )
+    except TimeoutError:
+        extract_elapsed_ms = (time.monotonic() - extract_start) * 1000
+        log.warning(
+            "generation_extraction_timeout",
+            session_id=str(state.session_id),
+            turn_number=state.turn_number,
+            extraction_elapsed_ms=round(extract_elapsed_ms, 1),
+            model_used=response.model_used if response else "fallback",
+            narrative_len=len(narrative),
+            exc_info=True,
+        )
+        world_updates = []
+        suggestions = []
+    else:
+        extract_elapsed_ms = (time.monotonic() - extract_start) * 1000
+        log.info(
+            "generation_extraction_complete",
+            session_id=str(state.session_id),
+            turn_number=state.turn_number,
+            extraction_elapsed_ms=round(extract_elapsed_ms, 1),
+            world_updates_count=len(world_updates or []),
+            suggested_actions_count=len(suggestions or []),
+        )
 
     prior = list(state.world_state_updates or [])
     merged = prior + (world_updates or [])
@@ -500,7 +595,9 @@ async def _extract_world_changes(
             prompt_hash=extraction_prompt.prompt_hash,
             langfuse_prompt=extraction_prompt.metadata.get("langfuse_prompt"),
         )
-        parsed = json.loads(response.content)
+        parsed = _parse_extraction_response(response.content)
+        if parsed is None:
+            return [], []
 
         # New format: {"world_changes": [...], "suggested_actions": [...]}
         if isinstance(parsed, dict):

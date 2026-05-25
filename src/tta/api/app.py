@@ -179,8 +179,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # 4. LLM client
     if settings.llm_mock:
-        from tta.llm.testing import MockLLMClient
         from tta.llm.roles import DEFAULT_ROLE_CONFIGS
+        from tta.llm.testing import MockLLMClient
 
         app.state.llm_client = MockLLMClient()
         app.state.llm_role_configs = DEFAULT_ROLE_CONFIGS

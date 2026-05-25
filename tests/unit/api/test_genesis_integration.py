@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Generator
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -303,6 +304,7 @@ def _genesis_result_mock() -> MagicMock:
     result.player_location_id = "loc_1"
     result.template_key = "fantasy"
     result.narrative_intro = "You awaken in a dark forest..."
+    result.genesis_elements = []
     return result
 
 
@@ -377,6 +379,9 @@ class TestCreateGameGenesis:
         assert resp.status_code == 201
         data = resp.json()["data"]
         assert data["narrative_intro"] == "You awaken in a dark forest..."
+        assert data["genesis_status"] == "complete"
+        assert data["genesis_error_code"] is None
+        assert data["genesis_error_message"] is None
         mock_genesis.assert_awaited_once()
 
     @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
@@ -392,6 +397,7 @@ class TestCreateGameGenesis:
             side_effect=[
                 _make_result(scalar=0),  # count active games
                 _make_result(),  # INSERT game
+                _make_result(),  # UPDATE degraded genesis metadata
             ]
         )
         pg.commit = AsyncMock()
@@ -401,6 +407,9 @@ class TestCreateGameGenesis:
         assert resp.status_code == 201
         data = resp.json()["data"]
         assert data["narrative_intro"] is None
+        assert data["genesis_status"] == "degraded"
+        assert data["genesis_error_code"] == "GENESIS_FAILED"
+        assert data["genesis_error_message"]
 
     @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
     def test_genesis_uses_world_id_for_template_lookup(
@@ -462,6 +471,7 @@ class TestCreateGameGenesis:
             side_effect=[
                 _make_result(scalar=0),
                 _make_result(),
+                _make_result(),
             ]
         )
         pg.commit = AsyncMock()
@@ -469,7 +479,10 @@ class TestCreateGameGenesis:
         resp = client.post("/api/v1/games", json={})
 
         assert resp.status_code == 201
-        assert resp.json()["data"]["narrative_intro"] is None
+        data = resp.json()["data"]
+        assert data["narrative_intro"] is None
+        assert data["genesis_status"] == "degraded"
+        assert data["genesis_error_code"] == "GENESIS_UNAVAILABLE"
 
     @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
     def test_genesis_timeout_degrades_before_latency_abort(
@@ -491,6 +504,7 @@ class TestCreateGameGenesis:
             side_effect=[
                 _make_result(scalar=0),
                 _make_result(),
+                _make_result(),
             ]
         )
         pg.commit = AsyncMock()
@@ -498,7 +512,10 @@ class TestCreateGameGenesis:
         resp = client.post("/api/v1/games", json={})
 
         assert resp.status_code == 201
-        assert resp.json()["data"]["narrative_intro"] is None
+        data = resp.json()["data"]
+        assert data["narrative_intro"] is None
+        assert data["genesis_status"] == "degraded"
+        assert data["genesis_error_code"] == "GENESIS_TIMEOUT"
 
     @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
     def test_genesis_cancellation_degrades_gracefully(
@@ -513,6 +530,7 @@ class TestCreateGameGenesis:
             side_effect=[
                 _make_result(scalar=0),
                 _make_result(),
+                _make_result(),
             ]
         )
         pg.commit = AsyncMock()
@@ -520,7 +538,36 @@ class TestCreateGameGenesis:
         resp = client.post("/api/v1/games", json={})
 
         assert resp.status_code == 201
-        assert resp.json()["data"]["narrative_intro"] is None
+        data = resp.json()["data"]
+        assert data["narrative_intro"] is None
+        assert data["genesis_status"] == "degraded"
+        assert data["genesis_error_code"] == "GENESIS_CANCELLED"
+
+    @patch("tta.genesis.genesis_lite.run_genesis_lite", new_callable=AsyncMock)
+    def test_genesis_degradation_persists_explicit_metadata(
+        self,
+        mock_genesis: AsyncMock,
+        _app_for_genesis: tuple,
+    ) -> None:
+        """Degraded genesis persists status/code into the stored world seed."""
+        _, client, pg = _app_for_genesis
+        mock_genesis.side_effect = RuntimeError("router offline")
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result(scalar=0),
+                _make_result(),
+                _make_result(),
+            ]
+        )
+        pg.commit = AsyncMock()
+
+        resp = client.post("/api/v1/games", json={})
+
+        assert resp.status_code == 201
+        update_params = pg.execute.await_args_list[-1].args[1]
+        persisted_seed = json.loads(update_params["seed"])
+        assert persisted_seed["genesis"]["status"] == "degraded"
+        assert persisted_seed["genesis"]["error_code"] == "GENESIS_FAILED"
 
 
 # ------------------------------------------------------------------

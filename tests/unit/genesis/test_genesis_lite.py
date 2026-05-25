@@ -183,6 +183,7 @@ class _SequenceMockLLM:
                 "method": "generate",
                 "role": role,
                 "messages": messages,
+                "params": params,
             }
         )
         prompt_tokens = sum(len(m.content.split()) for m in messages)
@@ -409,6 +410,27 @@ class TestEnrichTemplate:
         assert len(result.locations) == 2
         assert result.locations[0].key == "tavern"
         assert "cozy tavern" in (result.locations[0].name.lower())
+
+    async def test_uses_structured_output_schema(self) -> None:
+        """Enrichment requests FMR structured output with the model schema."""
+        template = _make_test_template()
+        seed = _make_world_seed(template)
+        enrichment_json = _make_enrichment_json(template)
+        llm = MockLLMClient(response=enrichment_json)
+
+        await enrich_template(
+            template,
+            seed,
+            llm,
+        )
+
+        params = llm.call_history[0]["params"]
+        assert params is not None
+        assert params.response_format is not None
+        assert params.response_format["type"] == "json_schema"
+        json_schema = params.response_format["json_schema"]
+        assert json_schema["name"] == "enriched_template"
+        assert json_schema["strict"] is True
 
 
 # -- Tests: _default_enrichment ----------------------------------

@@ -39,6 +39,13 @@ def _role_configs(
             max_tokens=100,
             timeout_seconds=5.0,
         ),
+        ModelRole.EXTRACTION: ModelRoleConfig(
+            primary=primary,
+            fallback=fallback,
+            temperature=0.0,
+            max_tokens=200,
+            timeout_seconds=5.0,
+        ),
     }
 
 
@@ -148,6 +155,43 @@ class TestGenerate:
         assert call_kwargs["temperature"] == 0.7
         assert call_kwargs["max_tokens"] == 100
 
+    @pytest.mark.asyncio
+    @patch(_COST, return_value=0.0)
+    @patch(_ACOMPLETION)
+    async def test_openai_models_pass_task_hint(
+        self, mock_ac: AsyncMock, mock_cost: MagicMock
+    ) -> None:
+        mock_ac.return_value = _mock_response()
+        client = LiteLLMClient(role_configs=_role_configs(primary="openai/tta"))
+
+        await client.generate(ModelRole.EXTRACTION, MESSAGES, PARAMS)
+
+        call_kwargs = mock_ac.call_args.kwargs
+        assert call_kwargs["task"] == "extraction"
+
+    @pytest.mark.asyncio
+    @patch(_COST, return_value=0.0)
+    @patch(_ACOMPLETION)
+    async def test_response_format_passed_through(
+        self, mock_ac: AsyncMock, mock_cost: MagicMock
+    ) -> None:
+        mock_ac.return_value = _mock_response(content='{"ok": true}')
+        client = LiteLLMClient(role_configs=_role_configs())
+        response_format = {"type": "json_object"}
+
+        await client.generate(
+            ModelRole.GENERATION,
+            MESSAGES,
+            GenerationParams(
+                temperature=0.0,
+                max_tokens=64,
+                response_format=response_format,
+            ),
+        )
+
+        call_kwargs = mock_ac.call_args.kwargs
+        assert call_kwargs["response_format"] == response_format
+
 
 # ── stream() tests ──────────────────────────────────────────────────
 
@@ -156,7 +200,9 @@ class TestStream:
     @pytest.mark.asyncio
     @patch(_COST, return_value=0.0)
     @patch(_ACOMPLETION)
-    async def test_happy_path(self, mock_ac: AsyncMock, mock_cost: MagicMock) -> None:
+    async def test_stream_happy_path(
+        self, mock_ac: AsyncMock, mock_cost: MagicMock
+    ) -> None:
         chunks = _mock_stream_chunks("Hello world")
         mock_ac.return_value = _async_iter(chunks)
         client = LiteLLMClient(role_configs=_role_configs())
@@ -168,6 +214,20 @@ class TestStream:
         assert "world" in resp.content
         assert resp.token_count.prompt_tokens == 10
         assert resp.token_count.completion_tokens == 5
+
+    @pytest.mark.asyncio
+    @patch(_COST, return_value=0.0)
+    @patch(_ACOMPLETION)
+    async def test_stream_openai_models_pass_task_hint(
+        self, mock_ac: AsyncMock, mock_cost: MagicMock
+    ) -> None:
+        mock_ac.return_value = _async_iter(_mock_stream_chunks("hi"))
+        client = LiteLLMClient(role_configs=_role_configs(primary="openai/tta"))
+
+        await client.stream(ModelRole.GENERATION, MESSAGES, PARAMS)
+
+        call_kwargs = mock_ac.call_args.kwargs
+        assert call_kwargs["task"] == "generation"
 
     @pytest.mark.asyncio
     @patch(_COST, return_value=0.0)

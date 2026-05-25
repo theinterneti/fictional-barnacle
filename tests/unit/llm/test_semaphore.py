@@ -96,6 +96,20 @@ async def test_timeout_cancels_request() -> None:
 
 
 @pytest.mark.asyncio
+async def test_execute_allows_per_call_timeout_override() -> None:
+    """A call-specific timeout can exceed the semaphore default."""
+    sem = LLMSemaphore(max_concurrent=1, queue_size=5, timeout=1)
+
+    async def slow() -> str:
+        await asyncio.sleep(1.2)
+        return "done"
+
+    result = await sem.execute(slow, timeout=2)
+
+    assert result == "done"
+
+
+@pytest.mark.asyncio
 async def test_active_and_waiting_counts() -> None:
     """active and waiting properties reflect real state."""
     sem = LLMSemaphore(max_concurrent=1, queue_size=5, timeout=5)

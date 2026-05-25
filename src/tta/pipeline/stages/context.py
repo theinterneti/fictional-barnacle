@@ -7,6 +7,8 @@ with graceful fallback to a basic context dict from game_state.
 
 from __future__ import annotations
 
+import json
+
 import structlog
 
 from tta.models.turn import TurnState
@@ -41,6 +43,13 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         world_context["intent"] = intent
         world_context["turn_number"] = state.turn_number
         context_partial = False
+        log.debug(
+            "context_live_world_loaded",
+            session_id=str(state.session_id),
+            turn_number=state.turn_number,
+            world_context_keys=sorted(world_context.keys()),
+            world_context_size=len(json.dumps(world_context, default=str)),
+        )
     except Exception as exc:
         # Fallback: still try to get recent events from Postgres
         log.warning(
@@ -68,6 +77,18 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             "recent_events": recent_events,
         }
         context_partial = True
+        log.warning(
+            "context_fallback_summary",
+            session_id=str(state.session_id),
+            turn_number=state.turn_number,
+            recent_events_count=len(recent_events),
+            fallback_game_state_keys=(
+                sorted(state.game_state.keys())
+                if isinstance(state.game_state, dict)
+                else []
+            ),
+            fallback_game_state_size=len(json.dumps(state.game_state, default=str)),
+        )
 
     # v2.1 Decision #6: NPC autonomy + consequence propagation moved to arq worker.
     # Fire-and-forget via ArqQueue — NPC state changes visible on NEXT turn.
@@ -158,6 +179,8 @@ async def context_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
         intent=intent,
         turn_number=state.turn_number,
         partial=context_partial,
+        world_context_keys=sorted(world_context.keys()),
+        world_context_size=len(json.dumps(world_context, default=str)),
     )
 
     update: dict = {

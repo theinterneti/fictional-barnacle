@@ -71,12 +71,14 @@ class LLMSemaphore:
         self,
         fn: Callable[..., Awaitable[T]],
         *args: object,
+        timeout: float | None = None,
         **kwargs: object,
     ) -> T:
         """Execute *fn* under semaphore with queue and timeout.
 
         Raises 503 if queue is full, cancels on timeout.
         """
+        effective_timeout = self._timeout if timeout is None else timeout
         async with self._lock:
             if self._waiting >= self._queue_size:
                 log.warning(
@@ -93,10 +95,10 @@ class LLMSemaphore:
             LLM_SEMAPHORE_WAITING.set(self._waiting)
 
         try:
-            async with asyncio.timeout(self._timeout):
+            async with asyncio.timeout(effective_timeout):
                 await self._semaphore.acquire()
         except TimeoutError:
-            log.warning("llm_queue_timeout", timeout=self._timeout)
+            log.warning("llm_queue_timeout", timeout=effective_timeout)
             raise AppError(
                 ErrorCategory.SERVICE_UNAVAILABLE,
                 "LLM_TIMEOUT",
@@ -109,10 +111,10 @@ class LLMSemaphore:
         self._active += 1
         LLM_SEMAPHORE_ACTIVE.set(self._active)
         try:
-            async with asyncio.timeout(self._timeout):
+            async with asyncio.timeout(effective_timeout):
                 return await fn(*args, **kwargs)  # type: ignore[return-value]
         except TimeoutError:
-            log.warning("llm_call_timeout", timeout=self._timeout)
+            log.warning("llm_call_timeout", timeout=effective_timeout)
             raise AppError(
                 ErrorCategory.SERVICE_UNAVAILABLE,
                 "LLM_CALL_TIMEOUT",
