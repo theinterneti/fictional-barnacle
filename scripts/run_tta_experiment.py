@@ -18,7 +18,11 @@ Usage:
 
 from __future__ import annotations
 
-import argparse, json, os, sys, time
+import argparse
+import json
+import os
+import sys
+import time
 from typing import Any
 
 os.environ.setdefault("OTEL_TRACES_EXPORTER", "none")
@@ -35,8 +39,14 @@ TTA_URL = os.environ.get("TTA_URL", "http://localhost:8010")
 
 def tta_task(*, item: Any, **kwargs: Any) -> str:
     """Send a player input to TTA and return the narrative response."""
-    player_input = item.input.get("player_input", "") if isinstance(item.input, dict) else str(item.input)
-    dimension = item.metadata.get("dimension", "unknown") if item.metadata else "unknown"
+    player_input = (
+        item.input.get("player_input", "")
+        if isinstance(item.input, dict)
+        else str(item.input)
+    )
+    dimension = (
+        item.metadata.get("dimension", "unknown") if item.metadata else "unknown"
+    )
 
     try:
         start = time.monotonic()
@@ -92,7 +102,6 @@ def narrative_coherence(*, output: str, **kwargs: Any) -> float:
     """Check for basic coherence markers in narrative text."""
     if not output or output.startswith("ERROR"):
         return 0.0
-    output_lower = output.lower()
     # Coherence heuristics: has sentences, no excessive repetition, logical connectors
     sentences = [s.strip() for s in output.replace("\n", ". ").split(".") if s.strip()]
     if len(sentences) < 1:
@@ -100,12 +109,18 @@ def narrative_coherence(*, output: str, **kwargs: Any) -> float:
     if len(sentences) < 2:
         return 0.4
     # Check for variety
-    unique_sentences = len(set(s[:30] for s in sentences))
+    unique_sentences = len({s[:30] for s in sentences})
     variety = min(1.0, unique_sentences / len(sentences))
     return 0.5 + variety * 0.5
 
 
-def dimension_match(*, output: str, metadata: dict | None = None, expected_output: Any = None, **kwargs: Any) -> float:
+def dimension_match(
+    *,
+    output: str,
+    metadata: dict | None = None,
+    expected_output: Any = None,
+    **kwargs: Any,
+) -> float:
     """Check if output addresses the evaluation dimension."""
     if not output or not metadata:
         return 0.0
@@ -122,14 +137,27 @@ def dimension_match(*, output: str, metadata: dict | None = None, expected_outpu
         return 1.0 if len(output) > 20 and "error" not in output.lower() else 0.3
 
     if dimension == "persona_curious":
-        return 0.8 if any(w in output.lower() for w in ["examine", "curious", "study", "observe", "careful"]) else 0.4
+        curious_words = ["examine", "curious", "study", "observe", "careful"]
+        return 0.8 if any(w in output.lower() for w in curious_words) else 0.4
 
     if dimension == "persona_warrior":
-        return 0.8 if any(w in output.lower() for w in ["attack", "strike", "charge", "slash", "blade", "axe", "weapon"]) else 0.4
+        warrior_words = [
+            "attack",
+            "strike",
+            "charge",
+            "slash",
+            "blade",
+            "axe",
+            "weapon",
+        ]
+        return 0.8 if any(w in output.lower() for w in warrior_words) else 0.4
 
     if dimension == "choice_quality":
         # Choice quality: response should present options
-        return 0.8 if "?" in output or "choice" in output.lower() or "decide" in output.lower() else 0.4
+        has_choice_markers = (
+            "?" in output or "choice" in output.lower() or "decide" in output.lower()
+        )
+        return 0.8 if has_choice_markers else 0.4
 
     # Default: check criteria keywords
     keywords = criteria.lower().split(",") if criteria else []
@@ -202,7 +230,12 @@ def run(args: argparse.Namespace) -> None:
         name=args.name or "tta-narrative-baseline",
         description="Baseline TTA narrative quality evaluation",
         task=tta_task,
-        evaluators=[narrative_length, narrative_coherence, dimension_match, latency_quality],
+        evaluators=[
+            narrative_length,
+            narrative_coherence,
+            dimension_match,
+            latency_quality,
+        ],
         run_evaluators=[composite_score],
         max_concurrency=1,
         include_item_results=True,
