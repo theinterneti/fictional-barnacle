@@ -28,6 +28,14 @@ from tta.safety.hooks import SafetyResult
 @pytest.fixture(autouse=True)
 def _reset_structlog() -> Generator[None, None, None]:
     structlog.reset_defaults()
+    # Clear cached BoundLoggerLazyProxy bindings so capture_logs()
+    # mutates the correct default_processors list — same pattern as
+    # tests/unit/universe/conftest.py (_reset_structlog_for_universe).
+    from tta.pipeline.stages import generate as _gen_mod
+
+    gen_log = getattr(_gen_mod, "log", None)
+    if gen_log is not None and "bind" in gen_log.__dict__:
+        del gen_log.bind
     yield
     structlog.reset_defaults()
 
