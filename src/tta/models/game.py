@@ -95,6 +95,14 @@ class SubmitTurnRequest(BaseModel):
         None,
         description="Client-generated UUID for deduplication.",
     )
+    traffic_class: str | None = Field(
+        None,
+        description=(
+            "Optional generation traffic class for non-interactive clients "
+            "such as eval batches."
+        ),
+        pattern="^(interactive_player|interactive_smoke|bulk_eval|quality_benchmark)$",
+    )
 
     @field_validator("input")
     @classmethod

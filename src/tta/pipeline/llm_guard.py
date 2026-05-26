@@ -22,7 +22,11 @@ from opentelemetry import trace
 from tta.llm.client import LLMResponse, Message
 from tta.llm.errors import BudgetExceededError
 from tta.llm.roles import ModelRole
-from tta.llm.serving_profiles import coerce_generation_profile
+from tta.llm.serving_profiles import (
+    GenerationTrafficClass,
+    coerce_generation_profile,
+    coerce_generation_traffic_class,
+)
 from tta.observability.daily_cost import record_daily_cost
 from tta.observability.langfuse import record_llm_generation
 from tta.observability.metrics import (
@@ -48,6 +52,7 @@ async def guarded_llm_call(
     prompt_hash: str | None = None,
     langfuse_prompt: Any | None = None,
     generation_profile: str | None = None,
+    traffic_class: GenerationTrafficClass | str | None = None,
 ) -> LLMResponse:
     """Call LLM with cost enforcement, semaphore, and circuit breaker.
 
@@ -89,6 +94,19 @@ async def guarded_llm_call(
                 model="",
             )
 
+    resolved_generation_profile = (
+        coerce_generation_profile(generation_profile) if generation_profile else None
+    )
+    resolved_traffic_class = (
+        coerce_generation_traffic_class(traffic_class) if traffic_class else None
+    )
+
+    llm_kwargs: dict[str, Any] = {}
+    if resolved_generation_profile is not None:
+        llm_kwargs["generation_profile"] = resolved_generation_profile
+    if resolved_traffic_class is not None:
+        llm_kwargs["traffic_class"] = resolved_traffic_class
+
     # --- LLM call with semaphore + circuit breaker ---
     async def _call() -> LLMResponse:
         if deps.llm_circuit_breaker:
@@ -96,20 +114,12 @@ async def guarded_llm_call(
                 return await deps.llm.generate(
                     role=role,
                     messages=messages,
-                    generation_profile=(
-                        coerce_generation_profile(generation_profile)
-                        if generation_profile
-                        else None
-                    ),
+                    **llm_kwargs,
                 )
         return await deps.llm.generate(
             role=role,
             messages=messages,
-            generation_profile=(
-                coerce_generation_profile(generation_profile)
-                if generation_profile
-                else None
-            ),
+            **llm_kwargs,
         )
 
     # Create OTel child span for this specific LLM call (AC-10)

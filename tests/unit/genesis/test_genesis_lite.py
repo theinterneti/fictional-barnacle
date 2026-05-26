@@ -17,6 +17,7 @@ from tta.llm.client import (
     Message,
 )
 from tta.llm.roles import ModelRole
+from tta.llm.serving_profiles import GenerationServingProfile
 from tta.llm.testing import MockLLMClient
 from tta.models.turn import TokenCount
 from tta.models.world import (
@@ -171,6 +172,9 @@ class _SequenceMockLLM:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        *,
+        generation_profile: str | None = None,
+        traffic_class: str | None = None,
     ) -> LLMResponse:
         idx = min(
             self._index,
@@ -184,6 +188,8 @@ class _SequenceMockLLM:
                 "role": role,
                 "messages": messages,
                 "params": params,
+                "generation_profile": generation_profile,
+                "traffic_class": traffic_class,
             }
         )
         prompt_tokens = sum(len(m.content.split()) for m in messages)
@@ -327,6 +333,36 @@ class TestRunGenesisLite:
         assert len(llm.call_history) == 2
         assert llm.call_history[0]["role"] == ModelRole.EXTRACTION
         assert llm.call_history[1]["role"] == ModelRole.GENERATION
+
+    async def test_generation_profile_propagates_to_genesis_llm_calls(
+        self,
+    ) -> None:
+        """Game-scoped serving profile is applied during genesis."""
+        # Arrange
+        template = _make_test_template()
+        seed = _make_world_seed(template)
+        enrichment_json = _make_enrichment_json(template)
+        llm = _SequenceMockLLM(
+            [enrichment_json, "Quality-profile intro."],
+        )
+        world_svc = InMemoryWorldService()
+
+        # Act
+        await run_genesis_lite(
+            session_id=uuid4(),
+            player_id=uuid4(),
+            world_seed=seed,
+            llm=llm,
+            world_service=world_svc,
+            generation_profile="quality",
+        )
+
+        # Assert — enrichment and intro calls both inherit game profile.
+        assert len(llm.call_history) == 2
+        assert [call["generation_profile"] for call in llm.call_history] == [
+            GenerationServingProfile.QUALITY,
+            GenerationServingProfile.QUALITY,
+        ]
 
     async def test_world_service_called_with_session(
         self,

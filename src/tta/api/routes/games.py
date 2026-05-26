@@ -229,6 +229,7 @@ async def create_game(
                 world_seed=seed,
                 llm=request.app.state.llm_client,
                 world_service=request.app.state.world_service,
+                generation_profile=profile,
             ),
             timeout=genesis_budget_seconds,
         )
@@ -486,8 +487,9 @@ async def get_game_state(
             "player_id": str(row.player_id),
             "status": row.status,
             "turn_count": turn_count,
-            "generation_profile": getattr(row, "generation_profile", None)
-            or "balanced",
+            "generation_profile": (
+                getattr(row, "generation_profile", None) or "balanced"
+            ),
             "title": row.title,
             "summary": row.summary,
             "created_at": row.created_at.isoformat(),

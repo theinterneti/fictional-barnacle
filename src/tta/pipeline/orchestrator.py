@@ -219,6 +219,7 @@ async def dispatch_pipeline(
     session_cost_usd: float = 0.0,
     player_id: str = "",
     generation_profile: str | None = None,
+    traffic_class: str | None = None,
 ) -> None:
     """Run the pipeline as a background task and persist results.
 
@@ -253,6 +254,7 @@ async def dispatch_pipeline(
         player_input=player_input,
         game_state=game_state,
         generation_profile=generation_profile,
+        traffic_class=traffic_class,
     )
 
     log.info(
