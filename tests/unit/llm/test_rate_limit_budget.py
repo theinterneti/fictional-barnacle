@@ -220,9 +220,9 @@ class TestQueuingAtCap:
         )
 
 
-@pytest.mark.spec("AC-50.06")
+@pytest.mark.spec("AC-66.06")
 class TestBackpressure:
-    """AC-50.06: BEST_EFFORT drops when queue exceeds backpressure limit."""
+    """AC-66.06: BEST_EFFORT drops when queue exceeds backpressure limit."""
 
     async def test_best_effort_dropped_at_backpressure_limit(self) -> None:
         """BEST_EFFORT call dropped when queue depth reaches backpressure limit."""

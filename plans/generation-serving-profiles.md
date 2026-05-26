@@ -2,7 +2,7 @@
 
 > **Phase**: SDD Phase 2 — Component Plan
 > **Scope**: generation-serving-profile policy, LLM routing integration, evaluation/profile comparison, session preference plumbing
-> **Input specs**: S64 (Generation Serving Profiles), S07 (LLM Integration), S45 (Evaluation Pipeline), S50 (Rate-Limit Budget & Task Prioritization)
+> **Input specs**: S64 (Generation Serving Profiles), S07 (LLM Integration), S45 (Evaluation Pipeline), S66 (Rate-Limit Budget & Task Prioritization)
 > **Parent plans**: `plans/system.md`, `plans/llm-and-pipeline.md`, `plans/v2_1-evaluation-and-playtesting.md`
 > **Implementation wave**: v2.2
 > **Status**: 📝 Draft

@@ -1,7 +1,7 @@
 {
-  "plan_count": 11,
-  "total_lines": 13226,
-  "total_words": 58826,
+  "plan_count": 12,
+  "total_lines": 13289,
+  "total_words": 59117,
   "plans": [
     {
       "file": "system.md",
@@ -63,8 +63,8 @@
         "7.3 \u2014 Branching Strategy",
         "7.4 \u2014 Configuration"
       ],
-      "word_count": 5830,
-      "line_count": 1047,
+      "word_count": 5843,
+      "line_count": 1048,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
@@ -278,7 +278,7 @@
         "S64 (Generation Serving Profiles)",
         "S07 (LLM Integration)",
         "S45 (Evaluation Pipeline)",
-        "S50 (Rate-Limit Budget & Task Prioritization)"
+        "S66 (Rate-Limit Budget & Task Prioritization)"
       ],
       "sections": [
         "0. Why This Plan Exists",
@@ -350,8 +350,8 @@
       "spec_refs": [
         "S07",
         "S45",
-        "S50",
-        "S64"
+        "S64",
+        "S66"
       ],
       "plan_refs": [
         "generation-serving-profiles.md",
@@ -835,6 +835,55 @@
       "warnings": [
         "No technology/framework section found",
         "No testing section found"
+      ]
+    },
+    {
+      "file": "serving-profiles-phase3.md",
+      "title": "S64 Phase 3 \u2014 Session Preference Plumbing",
+      "scope": "",
+      "wave": "",
+      "status": "\ud83d\udcdd Draft \u2192 executing",
+      "last_updated": "",
+      "specs_covered": [],
+      "sections": [
+        "Goal",
+        "Steps",
+        "Files touched"
+      ],
+      "subsections": [
+        "1. DB migration (014)",
+        "2. Domain model",
+        "3. API models",
+        "4. API routes",
+        "5. Pipeline threading",
+        "6. Lifecycle",
+        "7. Admin",
+        "8. Tests"
+      ],
+      "word_count": 278,
+      "line_count": 62,
+      "has_tech_stack": false,
+      "has_architecture": false,
+      "has_data_models": false,
+      "has_interfaces": true,
+      "has_testing": true,
+      "has_code_blocks": false,
+      "code_block_count": 0,
+      "has_normative_markers": false,
+      "normative_sections": [],
+      "spec_refs": [
+        "S64"
+      ],
+      "plan_refs": [
+        "generation-serving-profiles.md"
+      ],
+      "section_refs": [
+        "\u00a711"
+      ],
+      "warnings": [
+        "No technology/framework section found",
+        "No code examples found",
+        "Very short (278 words) \u2014 may lack detail"
       ]
     },
     {

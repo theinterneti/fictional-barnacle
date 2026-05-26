@@ -6,8 +6,8 @@ import pytest
 
 
 # This test is skipped because it is planned, but not yet implemented in v1.
-@pytest.mark.spec("AC-50.06")
+@pytest.mark.spec("AC-66.06")
 @pytest.mark.skip(reason="Not yet implemented in v1.")
-def test_ac50_06_backpressure_not_yet_implemented():
-    # This is a stub for AC-50.06 coverage deferral
+def test_ac66_06_backpressure_not_yet_implemented():
+    # This is a stub for AC-66.06 coverage deferral
     pass

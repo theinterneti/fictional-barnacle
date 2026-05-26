@@ -210,7 +210,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   providers.
 - **Verdict**: **BUILD**. In-process component: asyncio semaphores keyed by
   task type, provider-aware via LiteLLM hooks.
-- **Action**: ✅ Spec written: `specs/50-rate-limit-budget.md`. Implement as
+- **Action**: ✅ Spec written: `specs/66-rate-limit-budget.md`. Implement as
   `src/tta/llm/rate_limiter.py`. Success: under 3× concurrent playtester load,
   player turn latency stays within budget.
 
@@ -250,7 +250,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   - [x] #5 (structured output): **spike complete** — prompt + Pydantic wins
   - [x] #6 (arq worker): **spike complete** — infrastructure ready, call sites mapped
   - [x] #8 (htmx UI): **spike complete** — htmx via script tags, zero deps
-  - [x] #12 (rate-limit): **spec written** — `specs/50-rate-limit-budget.md`
+  - [x] #12 (rate-limit): **spec written** — `specs/66-rate-limit-budget.md`
 - [x] Decisions reflected in `plans/v2_1-evaluation-and-playtesting.md`.
 - [x] Anti-decisions documented and signed off.
 - [x] No v2.1 spec work begins on a call site whose architectural choice is TBD.

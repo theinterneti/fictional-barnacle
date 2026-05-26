@@ -4,6 +4,8 @@ import asyncio
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
+
 from tta.choices.consequence_service import InMemoryConsequenceService
 from tta.genesis.genesis_lite import run_genesis_lite
 from tta.llm.smart_router_client import SmartRouterLLMClient
@@ -17,6 +19,8 @@ from tta.world.memory_service import InMemoryWorldService
 from tta.world.template_registry import TemplateRegistry
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+
+pytestmark = pytest.mark.e2e
 
 
 async def test_with_smart_router():

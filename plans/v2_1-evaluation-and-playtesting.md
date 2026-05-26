@@ -41,7 +41,7 @@ are **locked** and affect v2.1 evaluation/playtesting implementation:
 | #5 | Structured output: prompt + Pydantic validation | Quality evaluators (`quality/evaluator.py`) use strong prompt template with JSON example, Pydantic `model_validate()`, 1 retry. No instructor/pydantic-ai. |
 | #6 | arq workers for background tasks | Playtester sessions run in arq workers, not the API process. `EvaluationPipeline` enqueues `run_playtester_session` jobs. NPC autonomy fire-and-forget after turns. |
 | #8 | htmx UI | Playtester feedback intake uses htmx-enhanced `static/index.html` with SSE streaming + choice buttons. No SPA framework. |
-| #12 | Rate-limit budget | Playtester sessions use HIGH tier (cap: 3 concurrent). Quality evaluation LLM calls use HIGH tier. Player turns use CRITICAL tier (never throttled). Spec: `specs/50-rate-limit-budget.md`. |
+| #12 | Rate-limit budget | Playtester sessions use HIGH tier (cap: 3 concurrent). Quality evaluation LLM calls use HIGH tier. Player turns use CRITICAL tier (never throttled). Spec: `specs/66-rate-limit-budget.md`. |
 | #13 | ttadev dependency | `ttadev>=0.1.0-alpha` from GitHub release. RetryPrimitive wraps LLM calls in playtester sessions. CachePrimitive caches scenario seeds and Genesis phase outputs. |
 
 ### Task routing (Decision #6)
