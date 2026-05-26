@@ -26,7 +26,6 @@ dependencies = [
     "jinja2>=3.1",
     "tenacity>=9.0",
     "httpx>=0.27",
-    "shared-langfuse",
     "prometheus-client>=0.24.1",
     "opentelemetry-api>=1.40.0",
     "opentelemetry-sdk>=1.40.0",
@@ -133,4 +132,3 @@ exclude_lines = [
 
 [tool.uv.sources]
 ttadev = { git = "https://github.com/theinterneti/TTA.dev.git", rev = "v0.1.2-alpha" }
-shared-langfuse = { path = "/home/theinterneti/Repos/shared-langfuse" }
