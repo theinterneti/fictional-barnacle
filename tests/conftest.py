@@ -82,3 +82,24 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
 def mock_llm_client() -> MockLLMClient:
     """Provide a deterministic ``MockLLMClient`` with a canned response."""
     return MockLLMClient()
+
+
+# ---------------------------------------------------------------------------
+# shared-langfuse mock mode (FB-005 / observability migration)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _mock_shared_langfuse() -> None:
+    """Configure shared-langfuse in mock mode for all tests.
+
+    Suppresses OTEL exporter noise and initializes shared-langfuse with
+    empty credentials so that ``is_configured()`` reports True (enabling
+    the code paths) but ``llm_chat()`` uses deterministic mock responses.
+    """
+    import os
+
+    os.environ.setdefault("OTEL_TRACES_EXPORTER", "none")
+    from shared_langfuse import init_langfuse
+
+    init_langfuse(host="http://localhost:3001", public_key="pk-test", secret_key="sk-test")
