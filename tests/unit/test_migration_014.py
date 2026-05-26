@@ -6,15 +6,9 @@ against a live database (no Postgres required).
 
 import pathlib
 
-import pytest
-
 REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 MIGRATION_PATH = (
-    REPO_ROOT
-    / "migrations"
-    / "postgres"
-    / "versions"
-    / "014_generation_profile.py"
+    REPO_ROOT / "migrations" / "postgres" / "versions" / "014_generation_profile.py"
 )
 
 
@@ -52,6 +46,6 @@ def test_column_type_is_text():
 
 def test_downgrade_drops_column():
     src = MIGRATION_PATH.read_text()
-    downgrade_src = src[src.find("def downgrade"):]
+    downgrade_src = src[src.find("def downgrade") :]
     assert "drop_column" in downgrade_src
     assert "generation_profile" in downgrade_src
