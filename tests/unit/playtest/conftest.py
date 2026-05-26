@@ -54,6 +54,7 @@ class _AlternatingMockLLM:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        **kwargs: Any,
     ) -> LLMResponse:  # type: ignore[override]
         self._call_count += 1
         is_commentary = self._call_count % 2 == 0
@@ -63,7 +64,13 @@ class _AlternatingMockLLM:
             else self._player_response
         )
         self.call_history.append(
-            {"method": "generate", "role": role, "messages": messages, "params": params}
+            {
+                "method": "generate",
+                "role": role,
+                "messages": messages,
+                "params": params,
+                **{k: v for k, v in kwargs.items() if v is not None},
+            }
         )
         return LLMResponse(
             content=content,
@@ -79,6 +86,7 @@ class _AlternatingMockLLM:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        **kwargs: Any,
     ) -> LLMResponse:
         self.call_history.append(
             {"method": "stream", "role": role, "messages": messages, "params": params}

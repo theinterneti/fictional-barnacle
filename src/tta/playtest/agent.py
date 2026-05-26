@@ -15,6 +15,11 @@ import httpx
 from tta.config import CURRENT_CONSENT_VERSION
 from tta.llm.client import GenerationParams, Message, MessageRole
 from tta.llm.roles import ModelRole
+from tta.llm.serving_profiles import (
+    GenerationServingProfile,
+    GenerationTrafficClass,
+    coerce_generation_profile,
+)
 from tta.playtest.profile import TasteProfile, get_taste_profile
 from tta.playtest.report import Commentary, PlaytestReport, RunStatus, TurnRecord
 
@@ -65,6 +70,9 @@ class PlaytesterAgent:
         self._turns: list[TurnRecord] = []
         self._game_id: str | None = None
         self._run_id: str = str(uuid.uuid4())
+        self._generation_profile: GenerationServingProfile = (
+            GenerationServingProfile.BALANCED
+        )
 
     def setup(
         self,
@@ -72,6 +80,7 @@ class PlaytesterAgent:
         persona_id: str,
         run_seed: int,
         persona_jitter_seed: int = 0,
+        generation_profile: GenerationServingProfile | str | None = None,
     ) -> None:
         """Initialise run parameters, random state, and taste profile.
 
@@ -87,6 +96,7 @@ class PlaytesterAgent:
         self._turns = []
         self._game_id = None
         self._run_id = str(uuid.uuid4())
+        self._generation_profile = coerce_generation_profile(generation_profile)
 
     async def run(self) -> PlaytestReport:
         """Play a full session: create game, play PLAYTEST_MIN_TURNS turns.
@@ -338,6 +348,8 @@ class PlaytesterAgent:
             role=ModelRole.GENERATION,
             messages=messages,
             params=params,
+            generation_profile=self._generation_profile,
+            traffic_class=GenerationTrafficClass.BULK_EVAL,
         )
         return _normalize_player_input(response.content)
 
@@ -495,6 +507,8 @@ class PlaytesterAgent:
             role=ModelRole.GENERATION,
             messages=messages,
             params=params,
+            generation_profile=self._generation_profile,
+            traffic_class=GenerationTrafficClass.BULK_EVAL,
         )
         return _parse_commentary(turn_index, response.content)
 

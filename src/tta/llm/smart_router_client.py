@@ -28,10 +28,10 @@ from typing import Any
 import httpx
 import structlog
 
-from tta.llm.client import GenerationParams, LLMResponse, Message
+from tta.llm.client import GenerationParams, LLMResponse, Message, TokenCount
 from tta.llm.errors import PermanentLLMError, TransientLLMError
 from tta.llm.roles import ModelRole
-from tta.models.turn import TokenCount
+from tta.llm.serving_profiles import GenerationServingProfile, GenerationTrafficClass
 
 log = structlog.get_logger(__name__)
 
@@ -78,18 +78,25 @@ class SmartRouterLLMClient:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        *,
+        generation_profile: GenerationServingProfile | None = None,
+        traffic_class: GenerationTrafficClass | None = None,
     ) -> LLMResponse:
         """Generate a response using free-model-router."""
         await self._ensure_ready()
         assert self._client is not None
 
         task_type = _ROLE_TO_TASK.get(role, "creative")
-        payload = {
+        payload: dict[str, Any] = {
             "messages": [
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             "task": task_type,
         }
+        if generation_profile is not None:
+            payload["generation_profile"] = generation_profile.value
+        if traffic_class is not None:
+            payload["traffic_class"] = traffic_class.value
 
         t0 = time.monotonic()
         try:
@@ -140,6 +147,10 @@ class SmartRouterLLMClient:
                 "model": model_used,
                 "messages_count": len(messages),
                 "latency_ms": latency_ms,
+                "generation_profile": (
+                    generation_profile.value if generation_profile else None
+                ),
+                "traffic_class": traffic_class.value if traffic_class else None,
             }
         )
 
@@ -161,6 +172,9 @@ class SmartRouterLLMClient:
             ),
             latency_ms=latency_ms,
             tier_used="primary",
+            requested_profile=generation_profile.value if generation_profile else "",
+            effective_profile=generation_profile.value if generation_profile else "",
+            traffic_class=traffic_class.value if traffic_class else "",
         )
 
     async def stream(
@@ -168,9 +182,18 @@ class SmartRouterLLMClient:
         role: ModelRole,
         messages: list[Message],
         params: GenerationParams | None = None,
+        *,
+        generation_profile: GenerationServingProfile | None = None,
+        traffic_class: GenerationTrafficClass | None = None,
     ) -> LLMResponse:
         """Buffer-then-stream: delegate to :meth:`generate`."""
-        return await self.generate(role, messages, params)
+        return await self.generate(
+            role,
+            messages,
+            params,
+            generation_profile=generation_profile,
+            traffic_class=traffic_class,
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle

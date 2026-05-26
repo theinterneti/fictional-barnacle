@@ -79,9 +79,20 @@ Callers must opt into `fast` or `quality` explicitly.
 
 ---
 
-## 2. Architecture Overview
+## 2. Technology / Framework Fit
 
-### 2.1 New concepts
+This plan uses the existing TTA stack and does not introduce new infrastructure:
+- Python 3.12 dataclasses / `StrEnum` for canonical policy types
+- existing `LLMClient` / `LiteLLMClient` interfaces
+- LiteLLM OpenAI-compatible request metadata for FMR routing hints
+- existing structlog, Prometheus metrics, and Langfuse integration points
+- existing pytest + AC traceability conventions for validation
+
+---
+
+## 3. Architecture Overview
+
+### 3.1 New concepts
 
 Add these shared types in `src/tta/llm/`:
 
@@ -108,11 +119,9 @@ class GenerationPolicy(BaseModel):
     max_tokens: int
     degradation_chain: list[GenerationServingProfile]
 ```
-```
-
 These are implementation types, not API models yet.
 
-### 2.2 Central policy resolver
+### 3.2 Central policy resolver
 
 Create a new module:
 
@@ -129,7 +138,7 @@ Responsibilities:
 
 Nothing else in the repo should hardcode generation routing policy.
 
-### 2.3 LLM call path integration
+### 3.3 LLM call path integration
 
 Current generation call path:
 - caller specifies `ModelRole.GENERATION`
@@ -144,9 +153,9 @@ New path:
 
 ---
 
-## 3. File-Level Changes
+## 4. File-Level Changes
 
-### 3.1 New files
+### 4.1 New files
 
 Create:
 
@@ -157,7 +166,7 @@ Create:
 - `tests/unit/llm/test_litellm_serving_profiles.py`
 - `tests/unit/eval/test_profile_matrix_planning.py`
 
-### 3.2 Existing files to modify
+### 4.2 Existing files to modify
 
 #### LLM layer
 - `src/tta/llm/client.py`
@@ -206,9 +215,9 @@ Add labels/fields:
 
 ---
 
-## 4. Data Model and API Contract
+## 5. Data Model and API Contract
 
-### 4.1 Internal client contract
+### 5.1 Internal client contract
 
 Extend the generation interface in `src/tta/llm/client.py`.
 
@@ -236,7 +245,7 @@ Rules:
 - non-generation roles ignore them or reject them explicitly
 - if omitted for generation, defaults are resolved centrally
 
-### 4.2 LLMResponse extension
+### 5.2 LLMResponse extension
 
 Extend `LLMResponse` with optional policy metadata:
 
@@ -250,7 +259,7 @@ degradation_reason: str = ""
 
 This keeps downstream logging and eval code simple.
 
-### 4.3 Gameplay API surface
+### 5.3 Gameplay API surface
 
 For v2.2, the safest public API step is session-level support on create/resume,
 not per-turn slider churn.
@@ -274,9 +283,9 @@ logic if you want resume to stay honest.
 
 ---
 
-## 5. Policy Resolution Design
+## 6. Policy Resolution Design
 
-### 5.1 Canonical policy table
+### 6.1 Canonical policy table
 
 Initial v2.2 policy table:
 
@@ -292,7 +301,7 @@ Initial v2.2 policy table:
 These values are starting points, not eternal truths. They should live in one
 resolver module and be easy to retune.
 
-### 5.2 Degradation algorithm
+### 6.2 Degradation algorithm
 
 Pseudo-logic:
 
@@ -317,7 +326,7 @@ profile. The nesting is:
 - within profile: normal model fallback chain
 - across profiles: explicit degradation only when justified
 
-### 5.3 What counts as degradable
+### 6.3 What counts as degradable
 
 Allow profile degradation on:
 - router/provider exhaustion
@@ -333,9 +342,9 @@ Do not degrade on:
 
 ---
 
-## 6. FMR / Router Integration
+## 7. FMR / Router Integration
 
-### 6.1 Explicit request metadata
+### 7.1 Explicit request metadata
 
 At the LiteLLM call boundary, generation requests should include:
 
@@ -348,7 +357,7 @@ call_kwargs["traffic_class"] = traffic_class.value
 If LiteLLM/OpenAI compatibility rejects unknown fields for the current path,
 fallback to `extra_body={...}` rather than losing metadata.
 
-### 6.2 Tenant strategy
+### 7.2 Tenant strategy
 
 Near-term recommendation: do not create one tenant per profile immediately if a
 profile header/body field is enough.
@@ -363,7 +372,7 @@ Recommended rollout:
 2. phase 2: split bulk-eval / quality-benchmark routing into dedicated FMR lanes
 3. phase 3: optional player-profile-aware pinning if frontier data justifies it
 
-### 6.3 No more implicit generation->creative default
+### 7.3 No more implicit generation->creative default
 
 The current hardcoded behavior in `litellm_client.py` is the main bug vector.
 After this change:
@@ -372,9 +381,9 @@ After this change:
 
 ---
 
-## 7. Playtester and Evaluation Changes
+## 8. Playtester and Evaluation Changes
 
-### 7.1 BatchConfig extension
+### 8.1 BatchConfig extension
 
 Extend `BatchConfig` in `src/tta/eval/models.py`:
 
@@ -391,7 +400,7 @@ This changes planning semantics from:
 to:
 - profiles × seeds × personas × reps
 
-### 7.2 PlannedRun extension
+### 8.2 PlannedRun extension
 
 Add to `PlannedRun`:
 
@@ -400,14 +409,14 @@ generation_profile: str
 traffic_class: str
 ```
 
-### 7.3 RunResult / BatchEvalResult extension
+### 8.3 RunResult / BatchEvalResult extension
 
 Add per-run and per-batch profile visibility:
 - profile on `RunResult`
 - grouped medians by profile in `BatchEvalResult`
 - frontier-friendly artifact output
 
-### 7.4 Playtester agent defaults
+### 8.4 Playtester agent defaults
 
 `PlaytesterAgent` should default to:
 - profile = `balanced`
@@ -419,9 +428,9 @@ call stack.
 
 ---
 
-## 8. Observability Design
+## 9. Observability Design
 
-### 8.1 Structured logs
+### 9.1 Structured logs
 
 For every generation call completion/failure, log:
 
@@ -439,23 +448,23 @@ log.info(
 )
 ```
 
-### 8.2 Metrics
+### 9.2 Metrics
 
 Add labels or new metrics for:
 - generation_calls_total{requested_profile,effective_profile,traffic_class,status}
 - generation_latency_seconds{effective_profile,traffic_class}
 - generation_degradations_total{from_profile,to_profile,reason}
 
-### 8.3 Langfuse
+### 9.3 Langfuse
 
 Attach serving profile metadata to traces/scores so profile-based trend analysis
 is possible in Langfuse without custom joins.
 
 ---
 
-## 9. Testing Strategy
+## 10. Testing Strategy
 
-### 9.1 Unit tests
+### 10.1 Unit tests
 
 #### `tests/unit/llm/test_serving_profiles.py`
 Cover:
@@ -477,14 +486,14 @@ Cover:
 - artifact grouping by profile
 - defaulting to balanced when omitted
 
-### 9.2 Integration tests
+### 10.2 Integration tests
 
 Add/extend tests for:
 - session create with `generation_profile`
 - resume/restore preserving profile
 - live smoke running under `fast` vs `balanced`
 
-### 9.3 Evaluation validation
+### 10.3 Evaluation validation
 
 Add one smoke-friendly comparison mode:
 - same seed/persona under `fast` and `balanced`
@@ -493,7 +502,7 @@ Add one smoke-friendly comparison mode:
 
 ---
 
-## 10. Rollout Phases
+## 11. Rollout Phases
 
 ### Phase 1 — Tactical isolation + central policy layer
 
@@ -548,7 +557,7 @@ Outcome:
 
 ---
 
-## 11. Risks and Mitigations
+## 12. Risks and Mitigations
 
 | Risk | Why it matters | Mitigation |
 |---|---|---|
@@ -560,7 +569,7 @@ Outcome:
 
 ---
 
-## 12. Recommended Immediate Implementation Sequence
+## 13. Recommended Immediate Implementation Sequence
 
 1. Create `src/tta/llm/serving_profiles.py`
 2. Extend `LLMClient` interface for optional profile metadata
@@ -576,7 +585,7 @@ bigger API changes.
 
 ---
 
-## 13. Verification Checklist
+## 14. Verification Checklist
 
 Before considering S64 implementation complete:
 
@@ -590,7 +599,7 @@ Before considering S64 implementation complete:
 
 ---
 
-## 14. Open Implementation Decisions
+## 15. Open Implementation Decisions
 
 1. Should unknown OpenAI-compatible request fields go into top-level body or
    `extra_body` for LiteLLM/FMR compatibility?
@@ -603,7 +612,7 @@ Before considering S64 implementation complete:
 
 ---
 
-## 15. Notes for the Current Hotfix Context
+## 16. Notes for the Current Hotfix Context
 
 This plan intentionally preserves the immediate tactical direction:
 - do not fix the current playtesting issue by prompt trimming
