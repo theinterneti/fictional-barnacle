@@ -96,12 +96,17 @@ def _mock_shared_langfuse() -> None:
     Suppresses OTEL exporter noise and initializes shared-langfuse with
     empty credentials so that ``is_configured()`` reports True (enabling
     the code paths) but ``llm_chat()`` uses deterministic mock responses.
+
+    When shared-langfuse is not installed (e.g., CI without the local
+    dependency), this is a silent no-op — observability code paths
+    gracefully degrade via ``is_configured()`` returning False.
     """
     import os
 
     os.environ.setdefault("OTEL_TRACES_EXPORTER", "none")
-    from shared_langfuse import init_langfuse
+    try:
+        from shared_langfuse import init_langfuse
 
-    init_langfuse(
-        host="http://localhost:3001", public_key="pk-test", secret_key="sk-test"
-    )
+        init_langfuse(host="http://localhost:3001", public_key="pk-test", secret_key="sk-test")
+    except ImportError:
+        pass  # shared-langfuse not installed — observability gracefully degraded
