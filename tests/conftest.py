@@ -75,10 +75,42 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     }
     for key, val in test_env.items():
         monkeypatch.setenv(key, val)
-    return Settings()
+    return Settings()  # pyright: ignore[reportCallIssue] — monkeypatched env vars provide required args
 
 
 @pytest.fixture()
 def mock_llm_client() -> MockLLMClient:
     """Provide a deterministic ``MockLLMClient`` with a canned response."""
     return MockLLMClient()
+
+
+# ---------------------------------------------------------------------------
+# shared-langfuse mock mode (FB-005 / observability migration)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _mock_shared_langfuse() -> None:
+    """Configure shared-langfuse in mock mode for all tests.
+
+    Suppresses OTEL exporter noise and initializes shared-langfuse with
+    empty credentials so that ``is_configured()`` reports True (enabling
+    the code paths) but ``llm_chat()`` uses deterministic mock responses.
+
+    When shared-langfuse is not installed (e.g., CI without the local
+    dependency), this is a silent no-op — observability code paths
+    gracefully degrade via ``is_configured()`` returning False.
+    """
+    import os
+
+    os.environ.setdefault("OTEL_TRACES_EXPORTER", "none")
+    try:
+        from shared_langfuse import init_langfuse
+
+        init_langfuse(
+            host="http://localhost:3001",
+            public_key="pk-test",
+            secret_key="sk-test",
+        )
+    except ImportError:
+        pass  # shared-langfuse not installed — observability gracefully degraded

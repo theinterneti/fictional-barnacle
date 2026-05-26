@@ -20,7 +20,9 @@ from tta.eval.models import (
     RegressionResult,
     RunResult,
 )
-from tta.observability.langfuse import get_langfuse
+from tta.observability.langfuse import (
+    get_langfuse,  # noqa: F401 — still used by playtest agents
+)
 from tta.playtester.consent import ConsentDeniedError, check_consent_gate
 from tta.playtester.models import HumanFeedbackRecord
 from tta.quality.models import ALL_CATEGORIES, NarrativeQualityReport
@@ -384,7 +386,7 @@ class EvaluationPipeline:
     # Step 8 — ship to Langfuse
 
     def ship_to_langfuse(self, quality_reports: list[NarrativeQualityReport]) -> None:
-        """Log per-category scores to Langfuse (best-effort, never fatal).
+        """Log per-category scores to Langfuse via shared-langfuse (best-effort).
 
         Scores are keyed by NarrativeQualityReport.session_id, which is set
         to the game's actual session UUID (or the playtest run_id as a
@@ -392,39 +394,32 @@ class EvaluationPipeline:
         than the transient playtest run, making scores durable across
         re-evaluations of the same game session.
         """
-        try:
-            client = get_langfuse()
-            if client is None:
-                return
-            for report in quality_reports:
-                for cat_score in report.categories:
-                    if cat_score.score is None or cat_score.status != "scored":
-                        continue
-                    score_name = (
-                        "narrative_quality_"
-                        + cat_score.category_id.lower().replace("-", "_")
+        from shared_langfuse import score_trace
+        from shared_langfuse.client import is_configured
+
+        if not is_configured():
+            return
+
+        for report in quality_reports:
+            for cat_score in report.categories:
+                if cat_score.score is None or cat_score.status != "scored":
+                    continue
+                score_name = (
+                    "narrative_quality_"
+                    + cat_score.category_id.lower().replace("-", "_")
+                )
+                try:
+                    score_trace(
+                        name=score_name,
+                        value=cat_score.score,
+                        trace_id=report.session_id,
                     )
-                    try:
-                        if hasattr(client, "create_score"):
-                            client.create_score(
-                                name=score_name,
-                                value=cat_score.score,
-                                trace_id=report.session_id,
-                            )
-                        else:
-                            client.score(  # type: ignore[attr-defined]
-                                name=score_name,
-                                value=cat_score.score,
-                                trace_id=report.session_id,
-                            )
-                    except Exception as exc:
-                        log.warning(
-                            "langfuse_score_failed",
-                            score=score_name,
-                            error=str(exc),
-                        )
-        except Exception as exc:
-            log.warning("langfuse_ship_failed", error=str(exc))
+                except Exception as exc:
+                    log.warning(
+                        "langfuse_score_failed",
+                        score=score_name,
+                        error=str(exc),
+                    )
 
     # ------------------------------------------------------------------
     # Step 9 — emit verdict + write outputs

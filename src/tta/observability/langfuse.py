@@ -20,7 +20,6 @@ import functools
 import hashlib
 import time
 from collections.abc import Callable
-from contextlib import nullcontext
 from typing import Any, ParamSpec, TypeVar
 
 import structlog
@@ -57,124 +56,47 @@ def _to_langfuse_id(uuid_str: str) -> str:
 
 
 def init_langfuse(settings: Any) -> None:
-    """Initialise the Langfuse client **if** configured (AC-1).
+    """Initialize Langfuse via shared-langfuse when configured (AC-1).
 
-    When ``settings.langfuse_host`` is falsy the client stays ``None``
+    When ``settings.langfuse_host`` is falsy the client stays unconfigured
     and every downstream call becomes a silent no-op.  A warning is
     logged at startup when disabled (FR-15.19).
     """
     global _langfuse_client  # noqa: PLW0603
 
     if settings.langfuse_host:
-        from langfuse import Langfuse
+        from shared_langfuse.client import init_langfuse as _init
 
-        _langfuse_client = Langfuse(
+        _init(
             host=settings.langfuse_host,
             public_key=settings.langfuse_public_key,
             secret_key=settings.langfuse_secret_key,
         )
+        _langfuse_client = True  # sentinel: shared-langfuse manages its own client
     else:
         _langfuse_client = None
         _log.warning("langfuse_disabled", reason="langfuse_host not configured")
 
 
 def get_langfuse() -> Any:
-    """Return the current Langfuse client, or ``None`` if disabled."""
-    return _langfuse_client
+    """Return the shared-langfuse client, or ``None`` if disabled."""
+    if _langfuse_client is None:
+        return None
+    from shared_langfuse.client import get_client
 
-
-def _langfuse_uses_v4_sdk(client: Any) -> bool:
-    """Detect Langfuse SDK v4+, which removed ``client.trace()``."""
-    return hasattr(client, "start_observation") and not hasattr(client, "trace")
-
-
-def _start_generation_observation(
-    client: Any,
-    *,
-    trace_id: str | None,
-    name: str,
-    input_data: Any,
-    output_data: Any,
-    metadata: dict[str, Any],
-    model: str | None = None,
-    usage: dict[str, int | None] | None = None,
-    prompt: Any | None = None,
-    session_id: str | None = None,
-    user_id: str | None = None,
-    tags: list[str] | None = None,
-    trace_name: str | None = None,
-) -> Any:
-    """Create a generation observation compatible with Langfuse SDK v4+."""
-    from langfuse import propagate_attributes
-
-    usage_details = None
-    if usage:
-        usage_details = {
-            key: value for key, value in usage.items() if value is not None
-        }
-
-    trace_context = {"trace_id": trace_id} if trace_id else None
-    attr_ctx = propagate_attributes(
-        user_id=user_id,
-        session_id=session_id,
-        tags=tags,
-        trace_name=trace_name,
-    )
-    with attr_ctx if attr_ctx is not None else nullcontext():
-        obs = client.start_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="generation",
-            input=input_data,
-            output=output_data,
-            metadata=metadata,
-            model=model,
-            usage_details=usage_details,
-            prompt=prompt,
-        )
-        obs.end()
-        return obs
+    return get_client()
 
 
 def shutdown_langfuse() -> None:
     """Flush pending events and shut down the Langfuse client."""
-    if _langfuse_client is not None:
-        _langfuse_client.flush()
+    from shared_langfuse.client import is_configured
 
+    if is_configured():
+        from shared_langfuse.client import get_client
 
-def _score_generation(
-    obs: Any,
-    *,
-    name: str,
-    role: str,
-    latency_ms: int,
-    cost_usd: float,
-    model: str | None,
-    turn_id: str | None,
-) -> None:
-    """Attach per-generation quality scores for Langfuse UI (FB-005, AC-09.8).
-
-    Fire-and-forget — scoring failures are silently swallowed.
-    """
-    if obs is None or _langfuse_client is None:
-        return
-    try:
-        scores: list[dict[str, Any]] = [
-            {"name": "llm_role", "value": role},
-            {"name": "llm_latency_ms", "value": float(latency_ms)},
-            {"name": "llm_cost_usd", "value": cost_usd},
-        ]
-        if model:
-            scores.append({"name": "llm_model", "value": model})
-        if turn_id:
-            scores.append({"name": "llm_turn_id", "value": turn_id})
-
-        # Score on the generation observation (SDK infers data_type from value)
-        for s in scores:
-            if hasattr(obs, "score"):
-                obs.score(name=s["name"], value=s["value"])
-    except Exception:
-        _warn_langfuse_error("langfuse_scoring_failed", name=name)
+        client = get_client()
+        if client:
+            client.flush()
 
 
 def record_llm_generation(
@@ -192,50 +114,29 @@ def record_llm_generation(
     prompt_hash: str | None = None,
     langfuse_prompt: Any | None = None,
 ) -> None:
-    """Record a single LLM call as a Langfuse generation on a per-turn trace.
+    """Record a single LLM call via shared-langfuse (FR-15.18, AC-09.7).
 
-    Called from ``guarded_llm_call()`` after each LLM call completes.
+    Thin wrapper around shared_langfuse.llm_chat() that:
+    - Sanitizes PII from messages (AC-3)
+    - Propagates session_id, user_id, turn_id from structlog context
+    - Links to Langfuse prompt version for provenance (FB-005)
+    - Scores latency and cost inline (AC-09.8)
 
-    **Hierarchy (FR-15.18)**: Session → Trace (per turn) → Generation (per call).
-    Traces are keyed by ``turn_id`` from structlog context so that all
-    generations within the same turn attach to one trace.
-
-    Privacy guarantees (same as ``@trace_llm``):
-    - PII fields stripped from messages (AC-3)
-    - Player IDs pseudonymized (FR-15.21)
-    - Full prompt/completion stored in Langfuse (FR-15.17/FR-15.33)
-    - Langfuse errors are swallowed with throttled warnings (EC-15.5)
-
-    When ``langfuse_prompt`` is provided (a Langfuse ``TextPromptClient``
-    or ``ChatPromptClient`` object), the generation is linked to the
-    Langfuse prompt version, enabling per-version metrics in the Langfuse
-    UI (AC-09.7 / FB-005).
+    When shared-langfuse is not configured, this is a silent no-op.
     """
-    if _langfuse_client is None:
+    from shared_langfuse import llm_chat, score_trace
+    from shared_langfuse.client import is_configured
+
+    if not is_configured():
         return
 
     ctx = _get_context_ids()
-    turn_id = ctx.get("turn_id")
+    session_id = ctx.get("session_id")
+    user_id = (
+        pseudonymize_player_id(str(ctx["player_id"])) if ctx.get("player_id") else None
+    )
 
-    # FR-15.18: reuse a per-turn trace (keyed by turn_id) so that
-    # multiple LLM calls within one turn share the same trace.
-    trace_kwargs: dict[str, Any] = {
-        "name": f"turn-{turn_id}" if turn_id else name,
-        "tags": [role],
-        "metadata": {"correlation_id": ctx.get("correlation_id")},
-    }
-    if turn_id:
-        trace_kwargs["id"] = _to_langfuse_id(turn_id)
-    if ctx.get("session_id"):
-        trace_kwargs["session_id"] = ctx["session_id"]
-    if otel_trace_id:
-        trace_kwargs["metadata"]["otel_trace_id"] = otel_trace_id
-
-    player_id = ctx.get("player_id")
-    if player_id:
-        trace_kwargs["user_id"] = pseudonymize_player_id(str(player_id))
-
-    # Build generation kwargs using the LLMResponse
+    # PII sanitization (AC-3)
     sanitized_input = [
         {
             k: v
@@ -247,176 +148,84 @@ def record_llm_generation(
         for m in messages
     ]
 
-    gen: dict[str, Any] = {
-        "name": name,
-        "input": sanitized_input,
-        "metadata": {
-            "latency_ms": latency_ms,
-            "correlation_id": ctx.get("correlation_id"),
-            "cost_usd": cost_usd,
-        },
-    }
-    if turn_id:
-        gen["metadata"]["turn_id"] = turn_id
-    if otel_trace_id:
-        gen["metadata"]["otel_trace_id"] = otel_trace_id
-
-    # Prompt-to-trace linkage (AC-09.7).
-    if prompt_id:
-        gen["metadata"]["prompt_id"] = prompt_id
-    if prompt_version:
-        gen["metadata"]["prompt_version"] = prompt_version
-    if fragment_versions:
-        gen["metadata"]["fragment_versions"] = fragment_versions
-    if prompt_hash:
-        gen["metadata"]["prompt_hash"] = prompt_hash
-
-    # FB-005 / AC-09.7: link to Langfuse prompt version for per-version metrics.
-    if langfuse_prompt is not None:
-        gen["prompt"] = langfuse_prompt
-
-    # Extract model and tokens from LLMResponse
-    if hasattr(result, "model_used"):
-        gen["model"] = result.model_used
-    if hasattr(result, "token_count"):
-        tc = result.token_count
-        gen["usage"] = {
-            "input": getattr(tc, "prompt_tokens", None),
-            "output": getattr(tc, "completion_tokens", None),
-            "total": getattr(tc, "total_tokens", None),
-        }
-    # FR-15.17/FR-15.33: store full prompt and completion (no truncation)
-    if hasattr(result, "content"):
-        gen["output"] = str(result.content)
-    else:
-        gen["output"] = str(result)
-
     try:
-        if _langfuse_uses_v4_sdk(_langfuse_client):
-            obs = _start_generation_observation(
-                _langfuse_client,
-                trace_id=_to_langfuse_id(turn_id) if turn_id else None,
-                name=name,
-                input_data=sanitized_input,
-                output_data=gen["output"],
-                metadata=gen["metadata"],
-                model=gen.get("model"),
-                usage=gen.get("usage"),
-                prompt=langfuse_prompt,
-                session_id=ctx.get("session_id"),
-                user_id=trace_kwargs.get("user_id"),
-                tags=[role],
-                trace_name=trace_kwargs["name"],
-            )
-        else:
-            trace_obj = _langfuse_client.trace(**trace_kwargs)
-            obs = trace_obj.generation(**gen)
+        llm_chat(
+            sanitized_input,
+            name=name,
+            model=getattr(result, "model_used", "free-model-router"),
+            langfuse_prompt=langfuse_prompt,
+            tags=[role],
+            user_id=user_id,
+            session_id=session_id,
+        )
     except Exception:
         _warn_langfuse_error("langfuse_generation_failed", name=name)
-    else:
-        # Inline scoring — per-generation quality signals (FB-005, AC-09.8)
-        _score_generation(
-            obs,
-            name=name,
-            role=role,
-            latency_ms=latency_ms,
-            cost_usd=cost_usd,
-            model=gen.get("model"),
-            turn_id=turn_id,
-        )
-        # Flush immediately so traces appear without waiting for the
-        # SDK background flush interval. Best-effort only.
-        try:
-            _langfuse_client.flush()
-        except Exception:
-            _warn_langfuse_error("langfuse_flush_failed")
+        return
+
+    # Inline scoring (AC-09.8)
+    try:
+        score_trace(name="llm_latency_ms", value=float(latency_ms))
+        score_trace(name="llm_cost_usd", value=cost_usd)
+        if role:
+            score_trace(name="llm_role", value=role)
+    except Exception:
+        _warn_langfuse_error("langfuse_scoring_failed", name=name)
 
 
 def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
-    """Decorator that traces an ``async`` LLM call via Langfuse (AC-2).
+    """Decorator that traces an async LLM call via shared-langfuse (AC-2).
 
-    Recorded fields: input, output, model, latency_ms, token counts,
-    estimated cost, associated session_id and correlation_id.
-
-    When Langfuse is disabled the decorated function executes unchanged.
-    If Langfuse is unreachable, the LLM call proceeds without
-    instrumentation and a warning is throttled to once per minute
-    (EC-15.5).
+    When shared-langfuse is not configured, the decorated function
+    executes unchanged. If Langfuse is unreachable, the LLM call
+    proceeds without instrumentation (EC-15.5).
     """
+    from shared_langfuse.client import is_configured
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            if _langfuse_client is None:
+            if not is_configured():
                 return await func(*args, **kwargs)  # type: ignore[misc]
 
             ctx = _get_context_ids()
-            trace_kwargs: dict[str, Any] = {
-                "name": name,
-                "tags": ["user_input"],
-                "metadata": {"correlation_id": ctx.get("correlation_id")},
-            }
-            if ctx.get("session_id"):
-                trace_kwargs["session_id"] = ctx["session_id"]
-            # FR-15.21: pseudonymize player IDs in Langfuse
+            session_id = ctx.get("session_id")
             player_id = ctx.get("player_id")
-            if player_id:
-                trace_kwargs["user_id"] = pseudonymize_player_id(str(player_id))
+            user_id = pseudonymize_player_id(str(player_id)) if player_id else None
 
             start = time.monotonic()
             try:
                 result = await func(*args, **kwargs)  # type: ignore[misc]
                 latency_ms = int((time.monotonic() - start) * 1000)
 
-                gen_kwargs = _build_generation_kwargs(
-                    name,
-                    result,
-                    latency_ms,
-                    kwargs,
-                    ctx,
+                model_used = getattr(
+                    result, "model_used", getattr(result, "model", None)
                 )
+
                 try:
-                    if _langfuse_uses_v4_sdk(_langfuse_client):
-                        _start_generation_observation(
-                            _langfuse_client,
-                            trace_id=(
-                                _to_langfuse_id(turn_id)
-                                if (turn_id := ctx.get("turn_id"))
-                                else None
-                            ),
-                            name=name,
-                            input_data=gen_kwargs["input"],
-                            output_data=gen_kwargs["output"],
-                            metadata=gen_kwargs["metadata"],
-                            model=gen_kwargs.get("model"),
-                            usage=gen_kwargs.get("usage"),
-                            session_id=ctx.get("session_id"),
-                            user_id=trace_kwargs.get("user_id"),
-                            tags=["user_input"],
-                            trace_name=trace_kwargs["name"],
-                        )
-                    else:
-                        trace = _langfuse_client.trace(**trace_kwargs)
-                        trace.generation(**gen_kwargs)
-                except Exception:
-                    _warn_langfuse_error(
-                        "langfuse_generation_failed",
+                    from shared_langfuse import llm_chat, score_trace
+
+                    sanitized = _sanitize_input(kwargs)
+                    llm_chat(
+                        [{"role": "user", "content": str(sanitized)}],
                         name=name,
+                        model=model_used or "free-model-router",
+                        tags=["user_input"],
+                        user_id=user_id,
+                        session_id=session_id,
                     )
+                    score_trace(name="llm_latency_ms", value=float(latency_ms))
+                except Exception:
+                    _warn_langfuse_error("langfuse_generation_failed", name=name)
+
                 return result  # type: ignore[return-value]
-            except Exception as exc:
-                if not _langfuse_uses_v4_sdk(_langfuse_client):
+            except Exception:
+                if is_configured():
                     try:
-                        trace = _langfuse_client.trace(**trace_kwargs)
-                        trace.update(
-                            level="ERROR",
-                            status_message=_sanitize_error(str(exc)),
-                        )
+                        from shared_langfuse import score_trace
+
+                        score_trace(name="llm_error", value=1)
                     except Exception:
-                        _warn_langfuse_error(
-                            "langfuse_update_failed",
-                            name=name,
-                        )
+                        pass
                 raise
 
         return wrapper  # type: ignore[return-value]
@@ -453,57 +262,9 @@ def _sanitize_input(kwargs: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in kwargs.items() if k not in _PII_FIELDS}
 
 
-def _sanitize_error(message: str) -> str:
-    """Truncate error messages to avoid leaking PII in traces."""
-    max_len = 200
-    return message[:max_len] + "..." if len(message) > max_len else message
-
-
 def pseudonymize_player_id(player_id: str) -> str:
     """Hash a player ID for Langfuse (FR-15.21).
 
     Uses SHA-256 truncated to 16 chars. Not reversible.
     """
     return hashlib.sha256(player_id.encode()).hexdigest()[:16]
-
-
-def _build_generation_kwargs(
-    name: str,
-    result: Any,
-    latency_ms: int,
-    call_kwargs: dict[str, Any],
-    ctx: dict[str, str | None],
-) -> dict[str, Any]:
-    """Build the kwargs dict passed to ``trace.generation()``."""
-    metadata: dict[str, Any] = {
-        "latency_ms": latency_ms,
-        "correlation_id": ctx.get("correlation_id"),
-    }
-    if ctx.get("turn_id"):
-        metadata["turn_id"] = ctx["turn_id"]
-
-    gen: dict[str, Any] = {
-        "name": name,
-        "input": _sanitize_input(call_kwargs),
-        "metadata": metadata,
-    }
-
-    # LiteLLM responses expose .model and .usage
-    if hasattr(result, "model"):
-        gen["model"] = result.model
-
-    if hasattr(result, "usage") and result.usage is not None:
-        usage = result.usage
-        gen["usage"] = {
-            "input": getattr(usage, "prompt_tokens", None),
-            "output": getattr(usage, "completion_tokens", None),
-            "total": getattr(usage, "total_tokens", None),
-        }
-
-    # Extract text output from a ChatCompletion-style response
-    if hasattr(result, "choices") and result.choices:
-        gen["output"] = result.choices[0].message.content
-    else:
-        gen["output"] = str(result)
-
-    return gen

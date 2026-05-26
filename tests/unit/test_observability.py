@@ -11,7 +11,6 @@ import structlog
 
 from tta.config import Settings
 from tta.observability import (
-    _sanitize_error,
     _sanitize_input,
     get_langfuse,
     init_langfuse,
@@ -83,30 +82,24 @@ class TestInitLangfuse:
         init_langfuse(settings)
         assert get_langfuse() is None
 
-    @patch("tta.observability.langfuse.Langfuse", create=True)
-    def test_with_host_creates_client(self, mock_cls: MagicMock) -> None:
-        """When langfuse_host is set, a Langfuse client is created."""
-        mock_instance = MagicMock()
-        mock_cls.return_value = mock_instance
+    @patch("shared_langfuse.client.init_langfuse")
+    @patch("shared_langfuse.client.get_client")
+    def test_with_host_creates_client(
+        self, mock_get: MagicMock, mock_init: MagicMock
+    ) -> None:
+        """When langfuse_host is set, shared-langfuse is initialized."""
+        mock_client = MagicMock()
+        mock_get.return_value = mock_client
 
-        with patch(
-            "tta.observability.langfuse.init_langfuse",
-            wraps=init_langfuse,
-        ):
-            # Patch the import inside init_langfuse
-            with patch.dict(
-                "sys.modules",
-                {"langfuse": MagicMock(Langfuse=mock_cls)},
-            ):
-                settings = _make_settings(
-                    langfuse_host="https://langfuse.example.com",
-                    langfuse_public_key="pk-test",
-                    langfuse_secret_key="sk-test",
-                )
-                init_langfuse(settings)
+        settings = _make_settings(
+            langfuse_host="https://langfuse.example.com",
+            langfuse_public_key="pk-test",
+            langfuse_secret_key="sk-test",
+        )
+        init_langfuse(settings)
 
-        assert get_langfuse() is mock_instance
-        mock_cls.assert_called_once_with(
+        assert get_langfuse() is mock_client
+        mock_init.assert_called_once_with(
             host="https://langfuse.example.com",
             public_key="pk-test",
             secret_key="sk-test",
@@ -390,35 +383,6 @@ class TestPrivacy:
         raw = {"messages": ["hi"], "temperature": 0.7}
         clean = _sanitize_input(raw)
         assert clean == raw
-
-    def test_sanitize_error_truncates(self) -> None:
-        """_sanitize_error truncates long messages."""
-        short = "short error"
-        assert _sanitize_error(short) == short
-
-        long_msg = "x" * 300
-        result = _sanitize_error(long_msg)
-        assert len(result) == 203  # 200 + "..."
-        assert result.endswith("...")
-
-    async def test_error_message_sanitized_in_trace(self) -> None:
-        """Error messages are truncated before being sent to Langfuse."""
-        mock = MagicMock()
-        mock_trace = MagicMock()
-        mock.trace.return_value = mock_trace
-        observability._langfuse_client = mock
-
-        long_error = "x" * 300
-
-        @trace_llm(name="bad")
-        async def _call() -> None:
-            raise RuntimeError(long_error)
-
-        with pytest.raises(RuntimeError):
-            await _call()
-
-        update_kw = mock_trace.update.call_args.kwargs
-        assert len(update_kw["status_message"]) == 203
 
 
 # -- shutdown ----------------------------------------------------------
