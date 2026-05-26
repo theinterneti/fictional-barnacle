@@ -132,7 +132,9 @@ def record_llm_generation(
 
     ctx = _get_context_ids()
     session_id = ctx.get("session_id")
-    user_id = pseudonymize_player_id(str(ctx["player_id"])) if ctx.get("player_id") else None
+    user_id = (
+        pseudonymize_player_id(str(ctx["player_id"])) if ctx.get("player_id") else None
+    )
 
     # PII sanitization (AC-3)
     sanitized_input = [
@@ -195,7 +197,9 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
                 result = await func(*args, **kwargs)  # type: ignore[misc]
                 latency_ms = int((time.monotonic() - start) * 1000)
 
-                model_used = getattr(result, "model_used", getattr(result, "model", None))
+                model_used = getattr(
+                    result, "model_used", getattr(result, "model", None)
+                )
 
                 try:
                     from shared_langfuse import llm_chat, score_trace
@@ -214,7 +218,7 @@ def trace_llm(name: str) -> Callable:  # type: ignore[type-arg]
                     _warn_langfuse_error("langfuse_generation_failed", name=name)
 
                 return result  # type: ignore[return-value]
-            except Exception as exc:
+            except Exception:
                 if is_configured():
                     try:
                         from shared_langfuse import score_trace

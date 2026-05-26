@@ -20,7 +20,9 @@ from tta.eval.models import (
     RegressionResult,
     RunResult,
 )
-from tta.observability.langfuse import get_langfuse  # noqa: F401 — still used by playtest agents
+from tta.observability.langfuse import (
+    get_langfuse,  # noqa: F401 — still used by playtest agents
+)
 from tta.playtester.consent import ConsentDeniedError, check_consent_gate
 from tta.playtester.models import HumanFeedbackRecord
 from tta.quality.models import ALL_CATEGORIES, NarrativeQualityReport

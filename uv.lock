@@ -2847,6 +2847,21 @@ wheels = [
 ]
 
 [[package]]
+name = "shared-langfuse"
+version = "0.1.0"
+source = { directory = "../../../../home/theinterneti/Repos/shared-langfuse" }
+dependencies = [
+    { name = "httpx" },
+    { name = "langfuse" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "langfuse", specifier = ">=4.0.0" },
+]
+
+[[package]]
 name = "shellingham"
 version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
@@ -3112,6 +3127,7 @@ dependencies = [
     { name = "pyjwt" },
     { name = "python-ulid" },
     { name = "redis" },
+    { name = "shared-langfuse" },
     { name = "sqlmodel" },
     { name = "structlog" },
     { name = "tenacity" },
@@ -3158,6 +3174,7 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.9" },
     { name = "python-ulid", specifier = ">=3.0" },
     { name = "redis", specifier = ">=5.0" },
+    { name = "shared-langfuse", directory = "../../../../home/theinterneti/Repos/shared-langfuse" },
     { name = "sqlmodel", specifier = ">=0.0.38" },
     { name = "structlog", specifier = ">=24.0" },
     { name = "tenacity", specifier = ">=9.0" },

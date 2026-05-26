@@ -1,7 +1,6 @@
 """Observability package — logging, metrics, tracing, Langfuse."""
 
 from tta.observability.langfuse import (
-    _sanitize_error,
     _sanitize_input,
     get_langfuse,
     init_langfuse,
@@ -17,7 +16,6 @@ from tta.observability.tracing import (
 )
 
 __all__ = [
-    "_sanitize_error",
     "_sanitize_input",
     "current_trace_id",
     "get_langfuse",
