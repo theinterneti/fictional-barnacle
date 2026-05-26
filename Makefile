@@ -7,7 +7,7 @@
 	dashboard trace trace-html \
         lint format typecheck test test-unit test-integration test-persistence test-watch \
         test-bdd test-hypothesis \
-        test-up test-down quality check check-format \
+        test-up test-down quality check check-format gate gate-full \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -61,6 +61,13 @@ quality: format lint ## Format, then lint + type-check
 
 check-format: ## Verify formatting (CI-style, no mutations)
 	uv run ruff format --check
+
+# ---------------------------------------------------------------------------
+# Local pre-push gate (run BEFORE pushing to remote)
+# ---------------------------------------------------------------------------
+gate: check-format lint trace validate-specs validate-plans validate-openapi test-unit ## Full pre-push gate — run before every push
+
+gate-full: gate test-integration ## Pre-push gate + integration tests (requires test services)
 
 # ---------------------------------------------------------------------------
 # Testing

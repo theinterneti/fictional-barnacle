@@ -4,7 +4,7 @@
 > **Release Baseline**: 🆕 v2.2
 > **Implementation Fit**: 🟡 Partially Implemented — Phase 1 primitives exist, but profile-aware evaluation/session plumbing and AC-marked coverage are incomplete
 > **Level**: 2 — AI & Content
-> **Dependencies**: S07 (LLM Integration), S10 (API & Streaming), S11 (Player Identity & Sessions), S15 (Observability), S23 (Error Handling & Resilience), S42 (LLM Playtester Agent Harness), S45 (Evaluation Pipeline), S50 (Rate-Limit Budget & Task Prioritization)
+> **Dependencies**: S07 (LLM Integration), S10 (API & Streaming), S11 (Player Identity & Sessions), S15 (Observability), S23 (Error Handling & Resilience), S42 (LLM Playtester Agent Harness), S45 (Evaluation Pipeline), S66 (Rate-Limit Budget & Task Prioritization)
 > **Related**: `plans/llm-and-pipeline.md`, `plans/v2_1-evaluation-and-playtesting.md`
 > **Last Updated**: 2026-05-25
 
@@ -508,7 +508,7 @@ Feature: Generation Serving Profiles
 
 - `specs/07-llm-integration.md`
 - `specs/45-evaluation-pipeline.md`
-- `specs/50-rate-limit-budget.md`
+- `specs/66-rate-limit-budget.md`
 - `plans/llm-and-pipeline.md`
 - `plans/v2_1-evaluation-and-playtesting.md`
 

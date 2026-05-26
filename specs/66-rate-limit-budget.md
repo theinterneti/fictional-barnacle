@@ -1,4 +1,4 @@
-# S50 — Rate-Limit Budget & Task Prioritization
+# S66 — Rate-Limit Budget & Task Prioritization
 
 > **Status**: 📝 Draft
 > **Release Baseline**: 🆕 v2.1
@@ -66,7 +66,7 @@ provider utilization per tier.
 
 ## 3. User Stories
 
-### US-50.1 — Player Turn Under Load
+### US-66.1 — Player Turn Under Load
 
 **As a** player, **I want** my turn to process normally **so that** background
 playtester activity doesn't make the game feel slow.
@@ -78,7 +78,7 @@ playtester activity doesn't make the game feel slow.
 - **Then** the turn is admitted immediately (player tier has no cap)
 - **And** the turn completes within the v1 latency budget (5-8s for standard turns)
 
-### US-50.2 — Playtester Concurrency Cap
+### US-66.2 — Playtester Concurrency Cap
 
 **As a** system operator, **I want** playtester sessions to be capped at a
 configurable concurrency **so that** they don't overwhelm free-model capacity.
@@ -90,7 +90,7 @@ configurable concurrency **so that** they don't overwhelm free-model capacity.
 - **Then** it is queued (not rejected)
 - **And** it begins when an existing playtester session completes
 
-### US-50.3 — Background Task Throttling
+### US-66.3 — Background Task Throttling
 
 **As a** system operator, **I want** NPC autonomy and world-time advancement
 to slow down under load **so that** they never compete with player turns.
@@ -103,7 +103,7 @@ to slow down under load **so that** they never compete with player turns.
 - **And** remaining NPC updates are deferred by 30s
 - **And** player turns and playtester sessions are unaffected
 
-### US-50.4 — Provider-Aware Routing
+### US-66.4 — Provider-Aware Routing
 
 **As a** system operator, **I want** background work to prefer underutilized
 providers **so that** no single provider is overwhelmed.
@@ -187,42 +187,42 @@ When a LOW or BEST_EFFORT task needs an LLM call, the system:
 
 ## 6. Functional Requirements
 
-### FR-50.01 — Admission Control
+### FR-66.01 — Admission Control
 
 The system MUST check tier concurrency before allowing any LLM call to proceed.
 CRITICAL tier calls MUST always be admitted. HIGH, LOW, and BEST_EFFORT calls
 MUST be checked against their respective concurrency caps.
 
-### FR-50.02 — Queuing
+### FR-66.02 — Queuing
 
 When a HIGH or LOW tier call is at its concurrency cap, the system MUST queue
 the call rather than rejecting it. Queued calls MUST be processed in FIFO order
 when capacity becomes available.
 
-### FR-50.03 — Timeout
+### FR-66.03 — Timeout
 
 Queued calls MUST have a configurable timeout. HIGH tier calls time out after
 5 minutes. LOW tier calls time out after 10 minutes. Timed-out calls return
 an error to the caller.
 
-### FR-50.04 — Provider Awareness
+### FR-66.04 — Provider Awareness
 
 The system MUST track per-provider RPM utilization. When a LOW or BEST_EFFORT
 call is queued or admitted, the system MUST prefer providers in HEALTHY or
 ELEVATED state.
 
-### FR-50.05 — Observability
+### FR-66.05 — Observability
 
 The system MUST log every admission, queue, rejection, and completion event
 via structlog with: tier, task_type, provider (if known), queue_wait_ms,
 and admission_decision (admitted/queued/rejected).
 
-### FR-50.06 — Backpressure
+### FR-66.06 — Backpressure
 
 When the BEST_EFFORT queue exceeds 10 pending calls, new BEST_EFFORT calls
 MUST be dropped (not queued) with a log warning.
 
-### FR-50.07 — Graceful Shutdown
+### FR-66.07 — Graceful Shutdown
 
 On server shutdown, queued calls MUST be cancelled with a clear error message.
 In-flight calls MUST be allowed to complete within a 30s grace period.
@@ -231,26 +231,38 @@ In-flight calls MUST be allowed to complete within a 30s grace period.
 
 ## 7. Non-Functional Requirements
 
-### NFR-50.01 — Admission Overhead
+### NFR-66.01 — Admission Overhead
 
 Admission control MUST add < 1ms overhead to the LLM call path for CRITICAL
 tier calls (the fast path).
 
-### NFR-50.02 — Memory
+### NFR-66.02 — Memory
 
 The component MUST use < 10MB of additional memory under maximum load
 (3 HIGH + 2 LOW + 1 BEST_EFFORT concurrent calls).
 
-### NFR-50.03 — No External Dependency
+### NFR-66.03 — No External Dependency
 
 The component MUST NOT require an external service (Redis, database).
 All state is in-process.
 
 ---
 
-## 8. Acceptance Criteria
+## 8. Edge Cases & Failure Modes
 
-### AC-50.01 — Player Turn Not Blocked
+| # | Scenario | Expected Behavior |
+|---|----------|-------------------|
+| E1 | CRITICAL player turn arrives while all non-critical semaphores are saturated | CRITICAL call bypasses non-critical queues and is admitted immediately |
+| E2 | Queued HIGH call exceeds timeout | Call fails with a clear timeout error and releases queue bookkeeping |
+| E3 | BEST_EFFORT queue is full | New BEST_EFFORT work is dropped with structured warning evidence |
+| E4 | Provider utilization signals are unavailable | System falls back to tier concurrency controls and logs provider state as unknown |
+| E5 | Server shuts down with queued calls | Queued calls are cancelled; in-flight calls receive the configured grace period |
+
+---
+
+## 9. Acceptance Criteria
+
+### AC-66.01 — Player Turn Not Blocked
 
 **Given** the system is at maximum playtester concurrency (3 HIGH tier calls)
 **And** 2 LOW tier calls are running
@@ -258,7 +270,7 @@ All state is in-process.
 **Then** the turn LLM call is admitted immediately
 **And** the turn completes without queuing
 
-### AC-50.02 — Playtester Queued at Cap
+### AC-66.02 — Playtester Queued at Cap
 
 **Given** the playtester concurrency cap is 3
 **And** 3 playtester sessions are running
@@ -266,7 +278,7 @@ All state is in-process.
 **Then** its first LLM call is queued (not rejected)
 **And** it proceeds when an existing playtester session completes
 
-### AC-50.03 — Background Throttled
+### AC-66.03 — Background Throttled
 
 **Given** the background concurrency cap is 2
 **And** 2 LOW tier calls are running
@@ -274,7 +286,7 @@ All state is in-process.
 **Then** it is queued
 **And** CRITICAL tier calls are unaffected
 
-### AC-50.04 — Provider Preference
+### AC-66.04 — Provider Preference
 
 **Given** Google provider is at NEAR_LIMIT (>80% RPM)
 **And** NVIDIA provider is HEALTHY (<50% RPM)
@@ -282,14 +294,14 @@ All state is in-process.
 **Then** the call is dispatched to a model on the NVIDIA provider
 **And** no Google model is used for this call
 
-### AC-50.05 — Structlog Events
+### AC-66.05 — Structlog Events
 
 **Given** any LLM call passes through admission control
 **When** the admission decision is made
 **Then** a structlog event is emitted with: tier, task_type, decision,
 queue_depth (if queued), and provider_utilization (if provider-aware)
 
-### AC-50.06 — Backpressure
+### AC-66.06 — Backpressure
 
 **Given** the BEST_EFFORT queue has 10 pending calls
 **When** an 11th BEST_EFFORT call is requested
@@ -339,10 +351,19 @@ tier over the last 24h."
 
 ---
 
-## 11. Open Questions
+## 12. Out of Scope
+
+- Global distributed rate limiting across multiple API/worker processes.
+- Provider billing optimization beyond utilization-aware routing preference.
+- Replacing FMR provider cooldown or model selection logic.
+- Persistence of queue state across process restarts.
+
+---
+
+## 13. Open Questions
 
 1. **Does LiteLLM expose provider rate-limit headers?** The provider-awareness
-   feature (FR-50.04) depends on reading `X-RateLimit-Remaining` from provider
+   feature (FR-66.04) depends on reading `X-RateLimit-Remaining` from provider
    responses. If LiteLLM doesn't expose these, we need an alternative signal
    (e.g., tracking 429 responses ourselves, or using FMR's `/v1/router/capacity`
    endpoint).
