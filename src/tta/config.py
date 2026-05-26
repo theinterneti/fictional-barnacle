@@ -211,6 +211,13 @@ class Settings(BaseSettings):
     # SSE heartbeat (FR-10.39)
     sse_heartbeat_interval: float = 15.0
 
+    # Turn result delivery backend for POST /turns → SSE handoff.
+    # "auto" preserves the historical test default: in-memory when LLM mock mode
+    # is enabled, Redis otherwise. AC-28.08 tests force "redis" so two app
+    # instances can validate cross-instance stream delivery while still using
+    # deterministic mock LLM responses.
+    turn_result_backend: Literal["auto", "memory", "redis"] = "auto"
+
     @field_validator("sse_heartbeat_interval")
     @classmethod
     def _validate_heartbeat(cls, v: float) -> float:

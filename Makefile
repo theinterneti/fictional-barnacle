@@ -82,7 +82,7 @@ test-integration: ## Run integration tests (starts/stops test services)
 	docker compose -f docker-compose.test.yml up -d
 	@echo "Waiting for services to be ready..."
 	@for i in $$(seq 1 30); do \
-		pg_isready -h localhost -p 5433 -U tta_test >/dev/null 2>&1 && break; \
+		pg_isready -h localhost -p 5434 -U tta_test >/dev/null 2>&1 && break; \
 		sleep 1; \
 	done
 	uv run pytest tests/integration/ -v; \
@@ -99,7 +99,7 @@ test-persistence: ## Run persistence gate (S12/S13/S28) with structured report
 	docker compose -f docker-compose.test.yml up -d
 	@echo "Waiting for PostgreSQL..."
 	@for i in $$(seq 1 30); do \
-		pg_isready -h localhost -p 5433 -U tta_test >/dev/null 2>&1 && break; \
+		pg_isready -h localhost -p 5434 -U tta_test >/dev/null 2>&1 && break; \
 		sleep 1; \
 		test $$i -eq 30 && echo "ERROR: PostgreSQL did not become ready" && exit 1; \
 	done
@@ -136,7 +136,7 @@ test-up: ## Start test service containers
 	docker compose -f docker-compose.test.yml up -d
 	@echo "Waiting for services to be ready..."
 	@for i in $$(seq 1 30); do \
-		pg_isready -h localhost -p 5433 -U tta_test >/dev/null 2>&1 && break; \
+		pg_isready -h localhost -p 5434 -U tta_test >/dev/null 2>&1 && break; \
 		sleep 1; \
 	done
 

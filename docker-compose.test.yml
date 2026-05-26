@@ -1,12 +1,12 @@
 # docker-compose.test.yml — Ephemeral test services for integration tests.
-# Ports offset from dev to avoid conflicts (5433, 7475/7688, 6380).
+# Ports offset from dev to avoid conflicts (5434, 7475/7688, 6380).
 # All use tmpfs for speed — data is discarded on container stop.
 
 services:
   test-postgres:
     image: postgres:16-alpine
     ports:
-      - "5433:5432"
+      - "5434:5432"
     environment:
       POSTGRES_USER: tta_test
       POSTGRES_PASSWORD: tta_test

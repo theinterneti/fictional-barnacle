@@ -245,11 +245,13 @@ Remaining uncovered approved ACs include:
 - S10 reconnect/replay: `AC-10.04`, `AC-10.05`
 - S11 identity/session edge cases: `AC-11.03`, `AC-11.09`, `AC-11.11`, `AC-11.13`
 - S26 admin/operator tooling: `AC-26.02`, `AC-26.08`
-- S28 multi-instance SSE: `AC-28.08`
+- S28 multi-instance SSE: `AC-28.08` now has a local two-app Redis/Postgres
+  surrogate; only production load-balancer smoke remains deferred
 
 Recommendation:
 - Pull S26 ahead of pure S11 cleanup if it directly enables S09 prompt operations
-- Keep `AC-28.08` deferred until there is an actual multi-instance harness
+- `AC-28.08` no longer needs to stay deferred for lack of a harness; keep only
+  production load-balancer smoke deferred until deployed infra exists
 
 ## 4. Proposed execution waves
 
@@ -303,7 +305,7 @@ Candidate order:
 1. S26 admin/operator tooling gaps
 2. S10 SSE reconnect/replay gaps
 3. S11 lifecycle edge cases
-4. S28 multi-instance SSE only when infra exists
+4. Production load-balancer smoke when deployed infra exists
 
 ## 5. What not to do now
 
@@ -346,9 +348,11 @@ This plan succeeded. As of 2026-05-11:
 | 3 | #188 | Persistence gate (`test-persistence` target, PERF=1 override) |
 | 4 | audit | All 25 uncovered ACs confirmed dependency-blocked (no code changes) |
 
-### Remaining uncovered ACs — dependency map
+### Remaining deferred ACs — dependency map
 
-All 25 uncovered approved ACs are **legitimately deferred**, not gaps:
+The original audit found 25 uncovered approved ACs. Current trace has fewer after
+subsequent closure work; this table records the remaining dependency classes rather
+than a live count.
 
 | Count | Blocked by | Examples |
 |-------|-----------|----------|
@@ -358,11 +362,11 @@ All 25 uncovered approved ACs are **legitimately deferred**, not gaps:
 | 3 | Gameplay edge cases (v1 deferred) | AC-01.01, AC-01.04, etc. |
 | 2 | SSE reconnect + timing SLA harness | AC-10.04, AC-10.05 |
 | 1 | Content moderation tuning | AC-24.09 |
-| 1 | Multi-instance infrastructure | AC-28.08 |
+| 1 | Production load-balancer smoke | post-AC-28.08 deployment hardening |
 
-None of these can be closed without building their prerequisites first.
-The trace report is honest — these are correctly marked as uncovered
-because the features they test don't exist yet.
+Only the listed deferred items remain blocked by missing prerequisites.
+The local trace report should no longer list AC-28.08 as uncovered once the
+multi-instance surrogate test is present.
 
 ### Code review gate operational
 

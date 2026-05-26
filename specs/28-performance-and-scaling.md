@@ -337,7 +337,7 @@ Feature: Performance & Scaling
 - [ ] **AC-28.5**: LLM concurrency control
 - [ ] **AC-28.6**: Graceful degradation behavior
 - [ ] **AC-28.7**: Graceful shutdown behavior
-- [ ] **AC-28.8**: Multi-instance correctness
+- [x] **AC-28.8**: Multi-instance correctness (local two-app Redis/Postgres surrogate)
 
 ---
 
@@ -434,6 +434,9 @@ Player submits turn:
 - **Graceful degradation under load** — `test_s28_performance.py` verifies server stays
   responsive when semaphore is at capacity
 - **Pool metrics** — `tests/unit/observability/test_pool_metrics.py` covers AC-28.4
+- **Horizontal scaling readiness surrogate** — `tests/integration/test_s28_horizontal_scaling.py`
+  starts two independent FastAPI app instances sharing PostgreSQL + Redis; instance A
+  submits/processes the turn and instance B consumes the SSE stream (AC-28.8 / AC-28.08).
 
 ### Evidence
 
@@ -441,13 +444,14 @@ Player submits turn:
   `TestS28LatencyBudgets`, `TestS28Semaphore`, `TestS28PoolConfig`,
   `TestS28GracefulDegradation`, `TestS28Shutdown`, `TestS28MemoryBounds`
 - `tests/unit/observability/test_pool_metrics.py` — AC-28.4
+- `tests/integration/test_s28_horizontal_scaling.py` — AC-28.8 / AC-28.08
 
 ### Gaps Found in v1
 
 1. **No live load test** — all performance tests run against in-process mocks; no JMeter
    / k6 load test against a real server with PostgreSQL + Redis + Neo4j
-2. **Multi-instance throughput untested** (AC-28.8 deferred) — horizontal scaling
-   behaviour is unknown
+2. **Production load-balancer smoke untested** — AC-28.8 now has a local two-app
+   surrogate, but no deployed load balancer exercises real network routing yet
 3. **Memory bounds are soft** — `TestS28MemoryBounds` asserts no obvious leak in unit
    tests; no long-running soak test exists
 
@@ -456,7 +460,7 @@ Player submits turn:
 | Feature | Reason |
 |---------|--------|
 | Live load test (k6/JMeter) | Requires live infra environment |
-| Multi-instance throughput (AC-28.8) | Requires container orchestration |
+| Production load-balancer smoke | Requires deployed multi-process/load-balancer environment |
 | Soak test for memory leaks | Requires long-running test environment |
 
 ### Lessons for v2
