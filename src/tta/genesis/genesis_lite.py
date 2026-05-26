@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -18,6 +19,7 @@ from tta.genesis.prompts import (
 )
 from tta.llm.client import GenerationParams, LLMClient, Message, MessageRole
 from tta.llm.roles import ModelRole
+from tta.llm.serving_profiles import GenerationServingProfile, coerce_generation_profile
 from tta.models.world import WorldSeed, WorldTemplate
 from tta.world.service import WorldService
 
@@ -100,6 +102,8 @@ async def run_genesis_lite(
     world_seed: WorldSeed,
     llm: LLMClient,
     world_service: WorldService,
+    *,
+    generation_profile: GenerationServingProfile | str | None = None,
 ) -> GenesisResult:
     """Bootstrap a new game world from a seed and template.
 
@@ -114,6 +118,11 @@ async def run_genesis_lite(
     """
     template = world_seed.template
     template_key = template.metadata.template_key
+    resolved_generation_profile = (
+        coerce_generation_profile(generation_profile)
+        if generation_profile is not None
+        else None
+    )
     log.info(
         "genesis_lite_start",
         session_id=str(session_id),
@@ -126,6 +135,7 @@ async def run_genesis_lite(
         world_seed,
         llm,
         session_id=session_id,
+        generation_profile=resolved_generation_profile,
     )
 
     # 2 — build enriched seed and materialise the world graph
@@ -153,6 +163,7 @@ async def run_genesis_lite(
         location_name=loc_name,
         location_description=loc_desc,
         world_seed=world_seed,
+        generation_profile=resolved_generation_profile,
     )
 
     # 5 — extract genesis elements for post-genesis continuity
@@ -186,6 +197,7 @@ async def enrich_template(
     llm: LLMClient,
     *,
     session_id: UUID | None = None,
+    generation_profile: GenerationServingProfile | str | None = None,
 ) -> EnrichedTemplate:
     """Ask the LLM to generate names / descriptions.
 
@@ -201,6 +213,11 @@ async def enrich_template(
     (S02 AC-2.6).
     """
     # Defensive expansion for terse inputs (AC-2.8)
+    resolved_generation_profile = (
+        coerce_generation_profile(generation_profile)
+        if generation_profile is not None
+        else None
+    )
     tone = world_seed.tone or "mysterious"
     tech_level = world_seed.tech_level or "medieval"
     magic_presence = world_seed.magic_presence or "low"
@@ -251,6 +268,12 @@ async def enrich_template(
         ),
     ]
 
+    call_kwargs: dict[str, Any] = (
+        {"generation_profile": resolved_generation_profile}
+        if resolved_generation_profile is not None
+        else {}
+    )
+
     # --- first attempt ---
     response = await llm.generate(
         ModelRole.EXTRACTION,
@@ -260,6 +283,7 @@ async def enrich_template(
             max_tokens=2048,
             response_format=_enrichment_response_format(),
         ),
+        **call_kwargs,
     )
     first_error_msg: str | None = None
     try:
@@ -296,6 +320,7 @@ async def enrich_template(
             max_tokens=2048,
             response_format=_enrichment_response_format(),
         ),
+        **call_kwargs,
     )
     try:
         return _parse_enrichment(response.content)
@@ -482,6 +507,7 @@ async def _generate_intro(
     location_name: str,
     location_description: str,
     world_seed: WorldSeed,
+    generation_profile: GenerationServingProfile | str | None = None,
 ) -> str:
     """Generate a narrative intro paragraph via LLM."""
     user_prompt = INTRO_USER_PROMPT.format(
@@ -500,8 +526,19 @@ async def _generate_intro(
             content=user_prompt,
         ),
     ]
+    resolved_generation_profile = (
+        coerce_generation_profile(generation_profile)
+        if generation_profile is not None
+        else None
+    )
+    call_kwargs: dict[str, Any] = (
+        {"generation_profile": resolved_generation_profile}
+        if resolved_generation_profile is not None
+        else {}
+    )
     response = await llm.generate(
         ModelRole.GENERATION,
         messages,
+        **call_kwargs,
     )
     return response.content

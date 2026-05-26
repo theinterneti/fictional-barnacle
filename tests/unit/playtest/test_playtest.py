@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from tta.llm.serving_profiles import GenerationTrafficClass
 from tta.playtest.agent import (
     DEFAULT_PLAYER_INPUT,
     MAX_PLAYER_INPUT_CHARS,
@@ -156,11 +157,13 @@ async def test_run_reuses_created_game_without_resume(
     agent.setup("seed-1", "curious-explorer", 123)
 
     request_log: list[tuple[str, str]] = []
+    request_payloads: dict[tuple[str, str], dict] = {}
     game_id = "11111111-1111-1111-1111-111111111111"
 
     async def _fake_request_with_backoff(self, client, method, url, **kwargs):  # type: ignore[no-untyped-def]
-        del self, client, kwargs
+        del self, client
         request_log.append((method, url))
+        request_payloads[(method, url)] = kwargs.get("json") or {}
         if (method, url) == ("POST", "/api/v1/auth/anonymous"):
             return _FakeResponse(200, {"data": {"access_token": "tok"}})
         if (method, url) == ("PATCH", "/api/v1/players/me/consent"):
@@ -268,7 +271,11 @@ async def test_run_reuses_created_game_without_resume(
     assert report.game_id == game_id
     assert ("GET", f"/api/v1/games/{game_id}") in request_log
     assert ("POST", f"/api/v1/games/{game_id}/resume") not in request_log
-    assert ("POST", f"/api/v1/games/{game_id}/turns") in request_log
+    turn_request = ("POST", f"/api/v1/games/{game_id}/turns")
+    assert turn_request in request_log
+    assert request_payloads[turn_request]["traffic_class"] == (
+        GenerationTrafficClass.BULK_EVAL.value
+    )
 
 
 # ---------------------------------------------------------------------------

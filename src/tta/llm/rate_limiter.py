@@ -224,6 +224,8 @@ class RateLimitedLLMClient:
         *,
         tier: TaskPriority = TaskPriority.CRITICAL,
         task_type: str = "",
+        generation_profile=None,
+        traffic_class=None,
     ):
         """Generate with admission control per tier.
 
@@ -231,7 +233,15 @@ class RateLimitedLLMClient:
         """
         await self._enforce(tier, task_type)
         try:
-            return await self._inner.generate(role, messages, params)
+            if generation_profile is None and traffic_class is None:
+                return await self._inner.generate(role, messages, params)
+            return await self._inner.generate(
+                role,
+                messages,
+                params,
+                generation_profile=generation_profile,
+                traffic_class=traffic_class,
+            )
         finally:
             if tier != TaskPriority.CRITICAL:
                 await self._budget.release(tier)
@@ -244,11 +254,21 @@ class RateLimitedLLMClient:
         *,
         tier: TaskPriority = TaskPriority.CRITICAL,
         task_type: str = "",
+        generation_profile=None,
+        traffic_class=None,
     ):
         """Stream with admission control per tier."""
         await self._enforce(tier, task_type)
         try:
-            return await self._inner.stream(role, messages, params)
+            if generation_profile is None and traffic_class is None:
+                return await self._inner.stream(role, messages, params)
+            return await self._inner.stream(
+                role,
+                messages,
+                params,
+                generation_profile=generation_profile,
+                traffic_class=traffic_class,
+            )
         finally:
             if tier != TaskPriority.CRITICAL:
                 await self._budget.release(tier)

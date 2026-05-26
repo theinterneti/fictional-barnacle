@@ -366,7 +366,10 @@ class PlaytesterAgent:
             client,
             "POST",
             f"/api/v1/games/{self._game_id}/turns",
-            json={"input": player_input},
+            json={
+                "input": player_input,
+                "traffic_class": GenerationTrafficClass.BULK_EVAL.value,
+            },
         )
         turn_data = resp.json()["data"]
         turn_id = str(turn_data["turn_id"])
