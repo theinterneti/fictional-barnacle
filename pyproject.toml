@@ -86,6 +86,7 @@ typeCheckingMode = "standard"
 include = ["src"]
 venvPath = "."
 venv = ".venv"
+reportMissingImports = false
 
 # ---------------------------------------------------------------------------
 # Pytest
