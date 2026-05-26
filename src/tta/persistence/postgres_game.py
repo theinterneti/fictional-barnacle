@@ -30,7 +30,7 @@ class PostgresGameRepository:
                     "VALUES (:id, :player_id, "
                     "cast(:world_seed AS jsonb)) "
                     "RETURNING id, player_id, world_seed, "
-                    "status, total_cost_usd, cost_warning_sent, "
+                    "status, generation_profile, total_cost_usd, cost_warning_sent, "
                     "created_at, updated_at"
                 ),
                 {
@@ -46,6 +46,7 @@ class PostgresGameRepository:
                 player_id=row.player_id,
                 world_seed=row.world_seed,
                 status=GameStatus(row.status),
+                generation_profile=row.generation_profile or "balanced",
                 total_cost_usd=row.total_cost_usd,
                 cost_warning_sent=row.cost_warning_sent,
                 created_at=row.created_at,
@@ -58,7 +59,7 @@ class PostgresGameRepository:
                 sa.text(
                     "SELECT id, player_id, world_seed, status, "
                     "title, summary, turn_count, needs_recovery, "
-                    "total_cost_usd, cost_warning_sent, "
+                    "generation_profile, total_cost_usd, cost_warning_sent, "
                     "last_played_at, deleted_at, "
                     "created_at, updated_at "
                     "FROM game_sessions WHERE id = :id"
@@ -77,6 +78,7 @@ class PostgresGameRepository:
                 summary=row.summary,
                 turn_count=row.turn_count,
                 needs_recovery=row.needs_recovery,
+                generation_profile=row.generation_profile or "balanced",
                 total_cost_usd=row.total_cost_usd,
                 cost_warning_sent=row.cost_warning_sent,
                 last_played_at=row.last_played_at,
@@ -148,7 +150,7 @@ class PostgresGameRepository:
                 sa.text(
                     "SELECT id, player_id, world_seed, status, "
                     "title, summary, turn_count, needs_recovery, "
-                    "total_cost_usd, cost_warning_sent, "
+                    "generation_profile, total_cost_usd, cost_warning_sent, "
                     "last_played_at, deleted_at, "
                     "created_at, updated_at "
                     "FROM game_sessions "
@@ -169,6 +171,7 @@ class PostgresGameRepository:
                     summary=r.summary,
                     turn_count=r.turn_count,
                     needs_recovery=r.needs_recovery,
+                    generation_profile=r.generation_profile or "balanced",
                     total_cost_usd=r.total_cost_usd,
                     cost_warning_sent=r.cost_warning_sent,
                     last_played_at=r.last_played_at,

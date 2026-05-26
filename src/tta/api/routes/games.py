@@ -154,25 +154,28 @@ async def create_game(
         for key, value in pref.items()
         if key in _GENESIS_SEED_KEYS and isinstance(value, str)
     }
+    profile = body.generation_profile or "balanced"
     world_seed_json = {
         "world_id": body.world_id,
         "preferences": seed_preferences,
+        "generation_profile": profile,
     }
 
     # Persist game row first — game exists even if genesis fails (S01)
     await pg.execute(
         sa.text(
             "INSERT INTO game_sessions "
-            "(id, player_id, status, world_seed, "
+            "(id, player_id, status, world_seed, generation_profile, "
             "created_at, updated_at, last_played_at) "
             "VALUES (:id, :pid, :status, "
-            "cast(:seed AS jsonb), :now, :now, :now)"
+            "cast(:seed AS jsonb), :profile, :now, :now, :now)"
         ),
         {
             "id": game_id,
             "pid": player.id,
             "status": GameStatus.created.value,
             "seed": json.dumps(world_seed_json),
+            "profile": profile,
             "now": now,
         },
     )
@@ -336,6 +339,7 @@ async def create_game(
             player_id=str(player.id),
             status=GameStatus.active.value,
             turn_count=0,
+            generation_profile=profile,
             narrative_intro=narrative_intro,
             genesis_status=genesis_status,
             genesis_error_code=genesis_error_code,
@@ -385,7 +389,7 @@ async def list_games(
     result = await pg.execute(
         sa.text(
             f"SELECT gs.id, gs.player_id, gs.status, gs.world_seed, "  # noqa: S608
-            f"gs.title, gs.summary, "
+            f"gs.title, gs.summary, gs.generation_profile, "
             f"COALESCE(tc.cnt, 0) AS turn_count, "
             f"gs.created_at, gs.updated_at, gs.last_played_at "
             f"FROM game_sessions gs "
@@ -409,6 +413,7 @@ async def list_games(
             game_id=str(r.id),
             status=_PUBLIC_STATE_MAP.get(r.status or "", r.status or ""),
             turn_count=r.turn_count or 0,
+            generation_profile=getattr(r, "generation_profile", None) or "balanced",
             title=r.title,
             summary=r.summary,
             created_at=r.created_at,
@@ -481,6 +486,7 @@ async def get_game_state(
             "player_id": str(row.player_id),
             "status": row.status,
             "turn_count": turn_count,
+            "generation_profile": getattr(row, "generation_profile", None) or "balanced",
             "title": row.title,
             "summary": row.summary,
             "created_at": row.created_at.isoformat(),

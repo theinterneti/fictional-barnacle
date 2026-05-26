@@ -22,6 +22,7 @@ from opentelemetry import trace
 from tta.llm.client import LLMResponse, Message
 from tta.llm.errors import BudgetExceededError
 from tta.llm.roles import ModelRole
+from tta.llm.serving_profiles import coerce_generation_profile
 from tta.observability.daily_cost import record_daily_cost
 from tta.observability.langfuse import record_llm_generation
 from tta.observability.metrics import (
@@ -46,6 +47,7 @@ async def guarded_llm_call(
     fragment_versions: dict[str, str] | None = None,
     prompt_hash: str | None = None,
     langfuse_prompt: Any | None = None,
+    generation_profile: str | None = None,
 ) -> LLMResponse:
     """Call LLM with cost enforcement, semaphore, and circuit breaker.
 
@@ -91,8 +93,24 @@ async def guarded_llm_call(
     async def _call() -> LLMResponse:
         if deps.llm_circuit_breaker:
             async with deps.llm_circuit_breaker:
-                return await deps.llm.generate(role=role, messages=messages)
-        return await deps.llm.generate(role=role, messages=messages)
+                return await deps.llm.generate(
+                    role=role,
+                    messages=messages,
+                    generation_profile=(
+                        coerce_generation_profile(generation_profile)
+                        if generation_profile
+                        else None
+                    ),
+                )
+        return await deps.llm.generate(
+            role=role,
+            messages=messages,
+            generation_profile=(
+                coerce_generation_profile(generation_profile)
+                if generation_profile
+                else None
+            ),
+        )
 
     # Create OTel child span for this specific LLM call (AC-10)
     tracer = trace.get_tracer("tta")

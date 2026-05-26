@@ -54,7 +54,7 @@ async def get_game(
         row = await session.execute(
             sa.text(
                 "SELECT id, player_id, status, world_seed, title, "
-                "summary, turn_count, needs_recovery, "
+                "summary, turn_count, needs_recovery, generation_profile, "
                 "last_played_at, created_at, updated_at "
                 "FROM game_sessions WHERE id = :gid"
             ),
@@ -81,6 +81,7 @@ async def get_game(
             "player_id": str(game.player_id),
             "status": game.status,
             "world_seed": game.world_seed,
+            "generation_profile": getattr(game, "generation_profile", None) or "balanced",
             "title": game.title,
             "summary": game.summary,
             "turn_count": game.turn_count,

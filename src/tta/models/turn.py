@@ -95,6 +95,9 @@ class TurnState(BaseModel):
     extraction_latency_ms: int | None = None
     context_partial: bool = False
 
+    # --- serving profiles (S64 Phase 3) ---
+    generation_profile: str | None = None
+
     # --- choice & consequence (S05) ---
     choice_classification: ChoiceClassification | None = None
     active_consequences: list[ConsequenceChain] | None = None

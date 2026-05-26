@@ -334,6 +334,7 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             fragment_versions=rendered_system_prompt.fragment_versions,
             prompt_hash=rendered_system_prompt.prompt_hash,
             langfuse_prompt=rendered_system_prompt.metadata.get("langfuse_prompt"),
+            generation_profile=state.generation_profile,
         )
         llm_elapsed_ms = (time.monotonic() - llm_start) * 1000
         narrative = response.content
@@ -493,6 +494,7 @@ async def _llm_with_retries(
     fragment_versions: dict[str, str] | None = None,
     prompt_hash: str | None = None,
     langfuse_prompt: Any | None = None,
+    generation_profile: str | None = None,
 ) -> LLMResponse:
     """Call LLM with retry cascade for transient failures (S03 FR-8).
 
@@ -512,6 +514,7 @@ async def _llm_with_retries(
                 fragment_versions=fragment_versions,
                 prompt_hash=prompt_hash,
                 langfuse_prompt=langfuse_prompt,
+                generation_profile=generation_profile,
             )
         except (TransientLLMError, AllTiersFailedError) as exc:
             last_exc = exc

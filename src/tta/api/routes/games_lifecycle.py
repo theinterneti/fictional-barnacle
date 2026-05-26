@@ -254,6 +254,7 @@ async def resume_game(
             "player_id": str(row.player_id),
             "status": "active",
             "turn_count": turn_count,
+            "generation_profile": getattr(row, "generation_profile", None) or "balanced",
             "title": row.title,
             "context_summary": context_summary,
             "recap": recap,
