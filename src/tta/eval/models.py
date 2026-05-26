@@ -10,7 +10,12 @@ EvalMode = Literal["ci", "local", "full"]
 
 @dataclass
 class BatchConfig:
-    """Configuration for a single evaluation batch (default: 4×5×1 = 20 runs)."""
+    """Configuration for a single evaluation batch (default: 4×5×1 = 20 runs).
+
+    When ``generation_profiles`` is set to more than one profile, the grid
+    expands to seeds × personas × profiles × runs_per_combination, enabling
+    profile-aware evaluation frontier measurement (S64 Phase 2).
+    """
 
     scenario_seed_ids: list[str] = field(
         default_factory=lambda: [
@@ -35,12 +40,14 @@ class BatchConfig:
     baseline_path: str = "data/eval_baseline.json"
     output_dir: str = "data/eval_output"
     human_feedback_dir: str | None = None
+    generation_profiles: list[str] = field(default_factory=lambda: ["balanced"])
 
     @property
     def total_planned(self) -> int:
         return (
             len(self.scenario_seed_ids)
             * len(self.persona_ids)
+            * len(self.generation_profiles)
             * self.runs_per_combination
         )
 
@@ -52,6 +59,7 @@ class PlannedRun:
     persona_id: str
     run_seed: int
     persona_jitter_seed: int = 0
+    generation_profile: str = "balanced"
 
 
 @dataclass
@@ -62,6 +70,7 @@ class RunResult:
     status: Literal["complete", "abandoned", "error"]
     playtest_report: Any | None = None  # PlaytestReport
     error: str | None = None
+    generation_profile: str = "balanced"
 
 
 @dataclass
@@ -84,3 +93,4 @@ class BatchEvalResult:
     regressions: list[RegressionResult] = field(default_factory=list)
     batch_verdict: Literal["pass", "fail", "inconclusive"] = "inconclusive"
     human_feedback_count: int = 0
+    profile_run_counts: dict[str, int] = field(default_factory=dict)

@@ -196,10 +196,68 @@ def test_ac64_08_policy_has_observability_fields() -> None:
 
 
 @pytest.mark.spec("AC-64.06")
-def test_ac64_06_deferred_profile_aware_eval() -> None:
-    """Profile-aware evaluation frontier is deferred to Phase 2.
+def test_ac64_06_batch_config_supports_profile_matrix() -> None:
+    """BatchConfig accepts multiple generation_profiles for frontier comparison."""
+    from tta.eval.models import BatchConfig
 
-    Phase 2 will extend BatchConfig to support profile matrices and
-    emit profile-aware artifacts for latency/quality comparison.
-    """
-    pytest.skip("AC-64.06 deferred to Phase 2 — profile-aware evaluation frontier")
+    config = BatchConfig(
+        scenario_seed_ids=["bus-stop-shimmer"],
+        persona_ids=["curious-explorer"],
+        generation_profiles=["fast", "balanced", "quality"],
+        runs_per_combination=1,
+    )
+    assert config.generation_profiles == ["fast", "balanced", "quality"]
+    # With 1 seed × 1 persona × 3 profiles: 3 total runs
+    assert config.total_planned == 3
+
+
+@pytest.mark.spec("AC-64.06")
+def test_ac64_06_plan_runs_expands_profile_dimension() -> None:
+    """plan_runs() generates one run per seed×persona×profile combination."""
+    from tta.eval.models import BatchConfig
+    from tta.eval.pipeline import EvaluationPipeline
+
+    config = BatchConfig(
+        scenario_seed_ids=["bus-stop-shimmer", "cafe-with-strange-symbols"],
+        persona_ids=["curious-explorer", "terse-minimalist"],
+        generation_profiles=["fast", "quality"],
+        runs_per_combination=1,
+    )
+    pipeline = EvaluationPipeline(config=config)
+    planned = pipeline.plan_runs()
+
+    # 2 seeds × 2 personas × 2 profiles = 8 runs
+    assert len(planned) == 8
+
+    profiles_seen = {p.generation_profile for p in planned}
+    assert profiles_seen == {"fast", "quality"}
+
+
+@pytest.mark.spec("AC-64.06")
+def test_ac64_06_planned_run_carries_profile() -> None:
+    """Each PlannedRun records its generation_profile for downstream analysis."""
+    from tta.eval.models import PlannedRun
+
+    run = PlannedRun(
+        run_id="test",
+        scenario_seed_id="bus-stop-shimmer",
+        persona_id="curious-explorer",
+        run_seed=42,
+        generation_profile="quality",
+    )
+    assert run.generation_profile == "quality"
+
+
+@pytest.mark.spec("AC-64.06")
+def test_ac64_06_run_result_records_profile() -> None:
+    """RunResult tracks generation_profile for frontier analysis."""
+    from tta.eval.models import RunResult
+
+    result = RunResult(
+        run_id="test",
+        scenario_seed_id="bus-stop-shimmer",
+        persona_id="curious-explorer",
+        status="complete",
+        generation_profile="quality",
+    )
+    assert result.generation_profile == "quality"

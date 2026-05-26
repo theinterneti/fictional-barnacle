@@ -52,23 +52,25 @@ class EvaluationPipeline:
     # Step 1 — plan
 
     def plan_runs(self) -> list[PlannedRun]:
-        """Generate the full list of planned runs (seeds × personas × reps)."""
+        """Generate planned runs grid: seeds × personas × profiles × reps."""
         import random
 
         rng = random.Random(42)
         planned: list[PlannedRun] = []
         for seed_id in self._config.scenario_seed_ids:
             for persona_id in self._config.persona_ids:
-                for _ in range(self._config.runs_per_combination):
-                    planned.append(
-                        PlannedRun(
-                            run_id=str(uuid.uuid4()),
-                            scenario_seed_id=seed_id,
-                            persona_id=persona_id,
-                            run_seed=rng.randint(0, 2**31 - 1),
-                            persona_jitter_seed=rng.randint(0, 2**31 - 1),
+                for profile in self._config.generation_profiles:
+                    for _ in range(self._config.runs_per_combination):
+                        planned.append(
+                            PlannedRun(
+                                run_id=str(uuid.uuid4()),
+                                scenario_seed_id=seed_id,
+                                persona_id=persona_id,
+                                run_seed=rng.randint(0, 2**31 - 1),
+                                persona_jitter_seed=rng.randint(0, 2**31 - 1),
+                                generation_profile=profile,
+                            )
                         )
-                    )
         return planned
 
     # ------------------------------------------------------------------
@@ -120,6 +122,7 @@ class EvaluationPipeline:
                             persona_id=p.persona_id,
                             run_seed=p.run_seed,
                             persona_jitter_seed=p.persona_jitter_seed,
+                            generation_profile=p.generation_profile,
                         )
                         report = await agent.run()
                         if report.status != "complete":
@@ -130,6 +133,7 @@ class EvaluationPipeline:
                             persona_id=p.persona_id,
                             status="complete",
                             playtest_report=report,
+                            generation_profile=p.generation_profile,
                         )
                     except Exception as exc:
                         if attempt == 0:
@@ -150,6 +154,7 @@ class EvaluationPipeline:
                             persona_id=p.persona_id,
                             status="error",
                             error=str(exc),
+                            generation_profile=p.generation_profile,
                         )
                 # unreachable, but satisfies type checker
                 return RunResult(  # pragma: no cover
@@ -516,6 +521,13 @@ class EvaluationPipeline:
         error_runs = sum(1 for r in run_results if r.status == "error")
         complete_runs = sum(1 for r in run_results if r.status == "complete")
 
+        # Compute per-profile run distribution for Phase 2 frontier analysis
+        profile_counts: dict[str, int] = {}
+        for r in run_results:
+            profile_counts[r.generation_profile] = (
+                profile_counts.get(r.generation_profile, 0) + 1
+            )
+
         fail_cats = sum(1 for qr in quality_reports if qr.verdict == "fail")
         batch_verdict: str
         if not quality_reports:
@@ -536,6 +548,7 @@ class EvaluationPipeline:
             regressions=regressions,
             batch_verdict=batch_verdict,  # type: ignore[arg-type]
             human_feedback_count=len(human_feedback),
+            profile_run_counts=profile_counts,
         )
 
         # 9 — outputs
