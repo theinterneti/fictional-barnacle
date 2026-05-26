@@ -24,7 +24,7 @@ async def _get_owned_game(pg: AsyncSession, game_id: UUID, player: Player) -> sa
             "SELECT id, player_id, status, world_seed, "
             "title, summary, turn_count, last_played_at, "
             "deleted_at, needs_recovery, summary_generated_at, "
-            "total_cost_usd, cost_warning_sent, "
+            "total_cost_usd, cost_warning_sent, generation_profile, "
             "created_at, updated_at "
             "FROM game_sessions WHERE id = :id AND deleted_at IS NULL"
         ),

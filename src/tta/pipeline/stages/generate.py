@@ -334,6 +334,8 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
             fragment_versions=rendered_system_prompt.fragment_versions,
             prompt_hash=rendered_system_prompt.prompt_hash,
             langfuse_prompt=rendered_system_prompt.metadata.get("langfuse_prompt"),
+            generation_profile=state.generation_profile,
+            traffic_class=state.traffic_class,
         )
         llm_elapsed_ms = (time.monotonic() - llm_start) * 1000
         narrative = response.content
@@ -413,7 +415,10 @@ async def generate_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
     extract_start = time.monotonic()
     try:
         world_updates, suggestions = await _extract_world_changes(
-            narrative, state.player_input, deps
+            narrative,
+            state.player_input,
+            deps,
+            traffic_class=state.traffic_class,
         )
     except TimeoutError:
         extract_elapsed_ms = (time.monotonic() - extract_start) * 1000
@@ -493,6 +498,8 @@ async def _llm_with_retries(
     fragment_versions: dict[str, str] | None = None,
     prompt_hash: str | None = None,
     langfuse_prompt: Any | None = None,
+    generation_profile: str | None = None,
+    traffic_class: str | None = None,
 ) -> LLMResponse:
     """Call LLM with retry cascade for transient failures (S03 FR-8).
 
@@ -501,6 +508,13 @@ async def _llm_with_retries(
     Raises on non-transient or all-tiers-exhausted errors.
     """
     last_exc: Exception | None = None
+    serving_kwargs: dict[str, Any] = {}
+    if generation_profile is not None:
+        serving_kwargs["generation_profile"] = generation_profile
+    resolved_traffic_class = traffic_class or state.traffic_class
+    if resolved_traffic_class is not None:
+        serving_kwargs["traffic_class"] = resolved_traffic_class
+
     for attempt in range(_MAX_TRANSIENT_RETRIES + 1):
         try:
             return await guarded_llm_call(
@@ -512,6 +526,7 @@ async def _llm_with_retries(
                 fragment_versions=fragment_versions,
                 prompt_hash=prompt_hash,
                 langfuse_prompt=langfuse_prompt,
+                **serving_kwargs,
             )
         except (TransientLLMError, AllTiersFailedError) as exc:
             last_exc = exc
@@ -556,6 +571,8 @@ async def _extract_world_changes(
     narrative: str,
     player_input: str,
     deps: PipelineDeps,
+    *,
+    traffic_class: str | None = None,
 ) -> tuple[list[dict], list[str]]:
     """Extract world state changes and suggested actions from narrative.
 
@@ -594,6 +611,7 @@ async def _extract_world_changes(
             fragment_versions=extraction_prompt.fragment_versions,
             prompt_hash=extraction_prompt.prompt_hash,
             langfuse_prompt=extraction_prompt.metadata.get("langfuse_prompt"),
+            traffic_class=traffic_class,
         )
         parsed = _parse_extraction_response(response.content)
         if parsed is None:

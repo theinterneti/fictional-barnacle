@@ -301,12 +301,13 @@ CREATE INDEX idx_player_sessions_player ON player_sessions(player_id);
 
 -- Game sessions
 CREATE TABLE game_sessions (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    player_id   UUID NOT NULL REFERENCES players(id),
-    status      TEXT NOT NULL DEFAULT 'active',  -- active, paused, completed
-    world_seed  JSONB NOT NULL,                  -- Genesis output
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    player_id           UUID NOT NULL REFERENCES players(id),
+    status              TEXT NOT NULL DEFAULT 'active',  -- active, paused, completed
+    world_seed          JSONB NOT NULL,                  -- Genesis output
+    generation_profile  TEXT NOT NULL DEFAULT 'balanced',  -- S64: fast | balanced | quality
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Turn transcripts (append-only, durable record of each turn)

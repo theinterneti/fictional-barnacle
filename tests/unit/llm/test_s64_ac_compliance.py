@@ -261,3 +261,66 @@ def test_ac64_06_run_result_records_profile() -> None:
         generation_profile="quality",
     )
     assert result.generation_profile == "quality"
+
+
+@pytest.mark.asyncio
+@pytest.mark.spec("AC-64.06")
+async def test_ac64_06_batch_turn_generation_uses_bulk_eval_traffic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Eval/batch turn pipeline LLM calls carry bulk_eval traffic class."""
+    from tta.models.turn import TokenCount, TurnState
+    from tta.pipeline.stages import generate as generate_stage_module
+    from tta.pipeline.types import PipelineDeps
+
+    captured: dict[str, object] = {}
+
+    async def fake_guarded_llm_call(*args: object, **kwargs: object):
+        captured.update(kwargs)
+        from tta.llm.client import LLMResponse
+
+        return LLMResponse(
+            content="batch narrative",
+            model_used="mock-model",
+            token_count=TokenCount(
+                prompt_tokens=1,
+                completion_tokens=1,
+                total_tokens=2,
+            ),
+            latency_ms=0.0,
+        )
+
+    monkeypatch.setattr(
+        generate_stage_module,
+        "guarded_llm_call",
+        fake_guarded_llm_call,
+    )
+
+    state = TurnState(
+        session_id="00000000-0000-0000-0000-000000000001",
+        turn_id="00000000-0000-0000-0000-000000000002",
+        turn_number=1,
+        player_input="look around",
+        game_state={},
+        generation_profile="quality",
+        traffic_class=GenerationTrafficClass.BULK_EVAL.value,
+    )
+    deps = PipelineDeps(
+        llm=object(),
+        world=object(),
+        session_repo=object(),
+        turn_repo=object(),
+        safety_pre_input=object(),
+        safety_pre_gen=object(),
+        safety_post_gen=object(),
+    )
+
+    await generate_stage_module._llm_with_retries(
+        [Message(role=MessageRole.USER, content="prompt")],
+        deps,
+        state,
+        generation_profile=state.generation_profile,
+    )
+
+    assert captured["generation_profile"] == "quality"
+    assert captured["traffic_class"] == GenerationTrafficClass.BULK_EVAL.value

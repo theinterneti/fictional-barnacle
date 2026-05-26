@@ -163,6 +163,7 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                 fragment_versions=rendered.fragment_versions,
                 prompt_hash=rendered.prompt_hash,
                 langfuse_prompt=rendered.metadata.get("langfuse_prompt"),
+                traffic_class=state.traffic_class,
             )
             parsed = _parse_classification_response(response.content)
             if parsed is None:
@@ -177,6 +178,7 @@ async def understand_stage(state: TurnState, deps: PipelineDeps) -> TurnState:
                     fragment_versions=rendered.fragment_versions,
                     prompt_hash=rendered.prompt_hash,
                     langfuse_prompt=rendered.metadata.get("langfuse_prompt"),
+                    traffic_class=state.traffic_class,
                 )
                 parsed = _parse_classification_response(response.content)
             if parsed is None:

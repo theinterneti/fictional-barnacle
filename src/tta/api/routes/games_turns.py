@@ -351,6 +351,8 @@ async def submit_turn(
             game_state=game_state,
             session_cost_usd=float(getattr(row, "total_cost_usd", 0) or 0),
             player_id=str(player.id),
+            generation_profile=getattr(row, "generation_profile", None),
+            traffic_class=body.traffic_class,
         )
     )
 

@@ -50,6 +50,7 @@ class GameSession(BaseModel):
     last_played_at: datetime | None = None
     paused_at: datetime | None = None
     deleted_at: datetime | None = None
+    generation_profile: str = "balanced"
 
 
 class GameState(BaseModel):
@@ -70,6 +71,11 @@ class GameState(BaseModel):
 class CreateGameRequest(BaseModel):
     world_id: str | None = None
     preferences: dict[str, str | list[str]] = Field(default_factory=dict)
+    generation_profile: str | None = Field(
+        None,
+        description="Canonical generation serving profile: fast, balanced, or quality.",
+        pattern="^(fast|balanced|quality)$",
+    )
 
 
 _ZERO_WIDTH_CHARS = str.maketrans(
@@ -88,6 +94,14 @@ class SubmitTurnRequest(BaseModel):
     idempotency_key: UUID | None = Field(
         None,
         description="Client-generated UUID for deduplication.",
+    )
+    traffic_class: str | None = Field(
+        None,
+        description=(
+            "Optional generation traffic class for non-interactive clients "
+            "such as eval batches."
+        ),
+        pattern="^(interactive_player|interactive_smoke|bulk_eval|quality_benchmark)$",
     )
 
     @field_validator("input")
@@ -122,6 +136,7 @@ class GameData(BaseModel):
     player_id: str
     status: str
     turn_count: int
+    generation_profile: str = "balanced"
     title: str | None = None
     summary: str | None = None
     narrative_intro: str | None = None
@@ -139,6 +154,7 @@ class GameSummary(BaseModel):
     game_id: str
     status: str
     turn_count: int
+    generation_profile: str = "balanced"
     title: str | None = None
     summary: str | None = None
     created_at: datetime

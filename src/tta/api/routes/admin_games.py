@@ -15,6 +15,7 @@ from tta.admin.auth import AdminIdentity, require_admin
 from tta.api.errors import AppError
 from tta.api.routes._admin_helpers import audit
 from tta.errors import ErrorCategory
+from tta.llm.serving_profiles import coerce_generation_profile
 from tta.models.admin import TerminateRequest
 from tta.observability.metrics import SESSIONS_ACTIVE
 from tta.persistence.redis_session import evict_game_state
@@ -54,7 +55,7 @@ async def get_game(
         row = await session.execute(
             sa.text(
                 "SELECT id, player_id, status, world_seed, title, "
-                "summary, turn_count, needs_recovery, "
+                "summary, turn_count, needs_recovery, generation_profile, "
                 "last_played_at, created_at, updated_at "
                 "FROM game_sessions WHERE id = :gid"
             ),
@@ -75,12 +76,21 @@ async def get_game(
     if recorder is not None:
         flags = await recorder.query(game_id=str(game_id), limit=20)
 
+    raw_generation_profile = getattr(game, "generation_profile", None)
+    try:
+        generation_profile = coerce_generation_profile(
+            raw_generation_profile if isinstance(raw_generation_profile, str) else None
+        ).value
+    except ValueError:
+        generation_profile = coerce_generation_profile(None).value
+
     return JSONResponse(
         content={
             "game_id": str(game.id),
             "player_id": str(game.player_id),
             "status": game.status,
             "world_seed": game.world_seed,
+            "generation_profile": generation_profile,
             "title": game.title,
             "summary": game.summary,
             "turn_count": game.turn_count,
