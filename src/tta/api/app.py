@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import structlog
 from fastapi import FastAPI
@@ -41,6 +41,22 @@ if TYPE_CHECKING:
     from tta.moderation.recorder import ModerationRecorder
 
 log = structlog.get_logger()
+
+TurnResultBackend = Literal["memory", "redis"]
+
+
+def _resolve_turn_result_backend(settings: Settings) -> TurnResultBackend:
+    """Resolve the configured turn-result delivery backend.
+
+    ``auto`` keeps normal unit/integration tests fast by using the in-memory
+    store in mock-LLM mode, while production-like runs use Redis. Tests for
+    AC-28.08 can force ``redis`` to validate cross-instance delivery without
+    paying for live LLM calls.
+    """
+    backend = settings.turn_result_backend
+    if backend == "auto":
+        return "memory" if settings.llm_mock else "redis"
+    return backend
 
 
 @asynccontextmanager
@@ -85,16 +101,18 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         decode_responses=True,
     )
 
-    # 2a. Turn result store (Redis-backed in prod, in-memory for tests)
+    # 2a. Turn result store (Redis-backed in prod, in-memory for fast tests)
     from tta.api.turn_results import (
         InMemoryTurnResultStore,
         RedisTurnResultStore,
     )
 
-    if settings.llm_mock:
-        app.state.turn_result_store = InMemoryTurnResultStore()
-    else:
+    turn_result_backend = _resolve_turn_result_backend(settings)
+
+    if turn_result_backend == "redis":
         app.state.turn_result_store = RedisTurnResultStore(app.state.redis)
+    else:
+        app.state.turn_result_store = InMemoryTurnResultStore()
 
     # 2b. Rate limiter (Redis-backed, in-memory fallback — S25 §3)
     from tta.resilience.rate_limiter import (

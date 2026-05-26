@@ -65,7 +65,7 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     """
     # Ports match docker-compose.test.yml (offset from dev to avoid conflicts).
     test_env = {
-        "TTA_DATABASE_URL": "postgresql://tta_test:tta_test@localhost:5433/tta_test",
+        "TTA_DATABASE_URL": "postgresql://tta_test:tta_test@localhost:5434/tta_test",
         "TTA_NEO4J_PASSWORD": "test_password",
         "TTA_NEO4J_URI": "bolt://localhost:7688",
         "TTA_REDIS_URL": "redis://localhost:6380/1",

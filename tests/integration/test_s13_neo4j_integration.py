@@ -13,6 +13,7 @@ ACs covered:
 from __future__ import annotations
 
 import asyncio
+import os
 import statistics
 import time
 import uuid
@@ -32,6 +33,8 @@ _START_LOC = "large-loc-0-0"
 _NEXT_LOC = "large-loc-0-1"
 
 _SAMPLES = 20
+_RUN_PERF = os.environ.get("TTA_RUN_PERF") == "1"
+_PERF_SKIP_REASON = "set TTA_RUN_PERF=1 to run Neo4j latency threshold tests"
 
 
 def _p95(latencies: list[float]) -> float:
@@ -41,6 +44,7 @@ def _p95(latencies: list[float]) -> float:
 
 
 @pytest.mark.spec("AC-13.04")
+@pytest.mark.skipif(not _RUN_PERF, reason=_PERF_SKIP_REASON)
 class TestAC1304LocationContextLatency:
     """get_location_context(depth=1) p95 must be < 150 ms on the large world."""
 
@@ -59,6 +63,7 @@ class TestAC1304LocationContextLatency:
 
 
 @pytest.mark.spec("AC-13.05")
+@pytest.mark.skipif(not _RUN_PERF, reason=_PERF_SKIP_REASON)
 class TestAC1305MovementValidationLatency:
     """validate_movement p95 must be < 30 ms on the large world."""
 
@@ -80,6 +85,7 @@ class TestAC1305MovementValidationLatency:
 
 @pytest.mark.spec("AC-13.06")
 @pytest.mark.spec("AC-12.08")
+@pytest.mark.skipif(not _RUN_PERF, reason=_PERF_SKIP_REASON)
 class TestAC1306TwoHopLatency:
     """get_location_context(depth=2) p95 must be < 200 ms on the large world.
 

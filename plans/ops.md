@@ -256,7 +256,7 @@ services:
       POSTGRES_PASSWORD: tta_test
       POSTGRES_DB: tta_test
     ports:
-      - "5433:5432"
+      - "5434:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tta_test"]
       interval: 3s
@@ -293,7 +293,7 @@ networks:
     name: tta-test-net
 ```
 
-**Port separation**: Test services use offset ports (5433, 7475/7688, 6380) to avoid conflicts with the dev stack.
+**Port separation**: Test services use offset ports (5434, 7475/7688, 6380) to avoid conflicts with the dev stack.
 
 ### 1.6 — Environment Variable Management
 
@@ -820,14 +820,14 @@ test-unit:                     ## Run unit tests only
 
 test-integration: test-infra-up ## Run integration tests (starts test services)
 	TTA_ENV=testing \
-	TTA_DB_POSTGRES_URL=postgresql+asyncpg://tta_test:tta_test@localhost:5433/tta_test \
+	TTA_DB_POSTGRES_URL=postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test \
 	TTA_DB_NEO4J_URI=bolt://localhost:7688 \
 	TTA_REDIS_URL=redis://localhost:6380/0 \
 	uv run pytest tests/integration/ -m integration
 
 test-bdd: test-infra-up        ## Run BDD (Gherkin) tests
 	TTA_ENV=testing \
-	TTA_DB_POSTGRES_URL=postgresql+asyncpg://tta_test:tta_test@localhost:5433/tta_test \
+	TTA_DB_POSTGRES_URL=postgresql+asyncpg://tta_test:tta_test@localhost:5434/tta_test \
 	TTA_DB_NEO4J_URI=bolt://localhost:7688 \
 	TTA_REDIS_URL=redis://localhost:6380/0 \
 	uv run pytest tests/bdd/

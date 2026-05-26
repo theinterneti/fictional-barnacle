@@ -6,7 +6,7 @@
 
 **Architecture:** All tests live under `tests/integration/` and reuse the existing fixtures in `tests/integration/conftest.py` (`neo4j_session`/`neo4j_db`, `redis_client`, `postgres_engine`, `app`/`client`). Tests skip gracefully when services are unavailable (anti-mock realism gate already enforced). Performance tests use a new 1 000-node world Cypher fixture. Dual-store consistency tests (AC-13.15/13.16) create real SQL rows + Neo4j nodes and assert cross-store invariants. No new source code is needed except for a `tests/integration/test_s28_performance.py` marker test for pool metrics.
 
-**Tech Stack:** pytest-asyncio, neo4j (AsyncDriver), redis-py asyncio, asyncpg, httpx ASGI, docker-compose.test.yml (Postgres :5433, Neo4j :7688, Redis :6380), `uv run pytest tests/integration/ -m integration`
+**Tech Stack:** pytest-asyncio, neo4j (AsyncDriver), redis-py asyncio, asyncpg, httpx ASGI, docker-compose.test.yml (Postgres :5434, Neo4j :7688, Redis :6380), `uv run pytest tests/integration/ -m integration`
 
 **Deferred (out of scope for this wave):**
 - AC-12.11 — SQL restore drill (operational runbook, not automatable)
