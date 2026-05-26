@@ -1,6 +1,6 @@
 # S65 — Local CI Gate
 
-> **Status**: 🔍 Review
+> **Status**: ✅ Approved
 > **Layer**: Process / Developer Tooling
 > **Dependencies**: Makefile targets `check-format`, `lint`, `trace`, `validate-specs`, `validate-plans`, `validate-openapi`, `test-unit`, `test-integration`
 > **Last Updated**: 2026-05-26
@@ -126,10 +126,10 @@ Feature: Local CI gate
 
 ### Criteria Checklist
 
-- [ ] **AC-65.01**: `make gate` runs the standard local CI sequence.
-- [ ] **AC-65.02**: `make gate` exits non-zero when any prerequisite fails.
-- [ ] **AC-65.03**: `make gate-full` includes `test-integration` after `gate`.
-- [ ] **AC-65.04**: Both targets appear in `make help`.
+- [x] **AC-65.01**: `make gate` runs the standard local CI sequence.
+- [x] **AC-65.02**: `make gate` exits non-zero when any prerequisite fails.
+- [x] **AC-65.03**: `make gate-full` includes `test-integration` after `gate`.
+- [x] **AC-65.04**: Both targets appear in `make help`.
 
 ## 8. Dependencies & Integration Boundaries
 

@@ -1,6 +1,6 @@
 # S67 — Autonomous Queue Readiness Gate
 
-> **Status**: 🔍 Review
+> **Status**: ✅ Approved
 > **Level**: Process — Autonomous Pipeline Governance
 > **Dependencies**: S65 (Local CI Gate), spec/plan indexes, `.hermes/pipeline/queue/FB-*.json`
 > **Last Updated**: 2026-05-26
@@ -133,10 +133,10 @@ Feature: Autonomous queue readiness gate
 
 ### Criteria Checklist
 
-- [ ] **AC-67.01**: Draft specs route to SPEC_POLISH, not IMPLEMENT.
-- [ ] **AC-67.02**: Duplicate spec IDs block queue routing.
-- [ ] **AC-67.03**: Bounded approved AC gaps can become IMPLEMENT candidates with validation commands.
-- [ ] **AC-67.04**: Strict mode exits non-zero when no implementation candidates exist.
+- [x] **AC-67.01**: Draft specs route to SPEC_POLISH, not IMPLEMENT.
+- [x] **AC-67.02**: Duplicate spec IDs block queue routing.
+- [x] **AC-67.03**: Bounded approved AC gaps can become IMPLEMENT candidates with validation commands.
+- [x] **AC-67.04**: Strict mode exits non-zero when no implementation candidates exist.
 
 ## 8. Dependencies & Integration Boundaries
 
