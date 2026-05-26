@@ -107,6 +107,10 @@ def _mock_shared_langfuse() -> None:
     try:
         from shared_langfuse import init_langfuse
 
-        init_langfuse(host="http://localhost:3001", public_key="pk-test", secret_key="sk-test")
+        init_langfuse(
+            host="http://localhost:3001",
+            public_key="pk-test",
+            secret_key="sk-test",
+        )
     except ImportError:
         pass  # shared-langfuse not installed — observability gracefully degraded
