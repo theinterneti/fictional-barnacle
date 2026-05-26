@@ -7,7 +7,8 @@
 	dashboard trace trace-html \
         lint format typecheck test test-unit test-integration test-persistence test-watch \
         test-bdd test-hypothesis \
-        test-up test-down quality check check-format gate gate-full \
+        test-up test-down quality check check-format gate gate-fast gate-full \
+        lint-diff check-format-diff \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -65,7 +66,24 @@ check-format: ## Verify formatting (CI-style, no mutations)
 # ---------------------------------------------------------------------------
 # Local pre-push gate (run BEFORE pushing to remote)
 # ---------------------------------------------------------------------------
-gate: check-format lint trace validate-specs validate-plans test-unit ## Full pre-push gate — run before every push
+# Scoped checks — only changed files (fast, avoids pre-existing issues in
+# untouched files blocking your push)
+CHANGED_PY := $(shell git diff --name-only origin/main...HEAD -- '*.py' 2>/dev/null)
+
+lint-diff: ## Run ruff + pyright on changed files only
+	@if [ -z "$(CHANGED_PY)" ]; then echo "No Python files changed"; else \
+		uv run ruff check $(CHANGED_PY); \
+		uv run pyright $(CHANGED_PY); \
+	fi
+
+check-format-diff: ## Verify formatting on changed files only
+	@if [ -z "$(CHANGED_PY)" ]; then echo "No Python files changed"; else \
+		uv run ruff format --check $(CHANGED_PY); \
+	fi
+
+gate: check-format-diff lint-diff trace validate-specs validate-plans test-unit ## Full pre-push gate — changed-files-only lint, then tests
+
+gate-fast: check-format-diff lint-diff trace validate-specs validate-plans ## Fast gate — quality + validators, no tests (for quick feedback)
 
 gate-full: gate test-integration ## Pre-push gate + integration tests (requires test services)
 

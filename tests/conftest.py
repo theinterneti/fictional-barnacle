@@ -75,7 +75,7 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     }
     for key, val in test_env.items():
         monkeypatch.setenv(key, val)
-    return Settings()
+    return Settings()  # pyright: ignore[reportCallIssue] — monkeypatched env vars provide required args
 
 
 @pytest.fixture()

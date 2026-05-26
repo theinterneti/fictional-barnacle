@@ -486,7 +486,8 @@ async def get_game_state(
             "player_id": str(row.player_id),
             "status": row.status,
             "turn_count": turn_count,
-            "generation_profile": getattr(row, "generation_profile", None) or "balanced",
+            "generation_profile": getattr(row, "generation_profile", None)
+            or "balanced",
             "title": row.title,
             "summary": row.summary,
             "created_at": row.created_at.isoformat(),

@@ -84,7 +84,9 @@ class TestInitLangfuse:
 
     @patch("shared_langfuse.client.init_langfuse")
     @patch("shared_langfuse.client.get_client")
-    def test_with_host_creates_client(self, mock_get: MagicMock, mock_init: MagicMock) -> None:
+    def test_with_host_creates_client(
+        self, mock_get: MagicMock, mock_init: MagicMock
+    ) -> None:
         """When langfuse_host is set, shared-langfuse is initialized."""
         mock_client = MagicMock()
         mock_get.return_value = mock_client

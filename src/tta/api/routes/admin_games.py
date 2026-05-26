@@ -81,7 +81,8 @@ async def get_game(
             "player_id": str(game.player_id),
             "status": game.status,
             "world_seed": game.world_seed,
-            "generation_profile": getattr(game, "generation_profile", None) or "balanced",
+            "generation_profile": getattr(game, "generation_profile", None)
+            or "balanced",
             "title": game.title,
             "summary": game.summary,
             "turn_count": game.turn_count,
