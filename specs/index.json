@@ -1,7 +1,7 @@
 {
-  "spec_count": 65,
-  "total_words": 172194,
-  "total_acceptance_criteria": 686,
+  "spec_count": 68,
+  "total_words": 180569,
+  "total_acceptance_criteria": 736,
   "specs": [
     {
       "file": "CLOSEOUT_TEMPLATE.md",
@@ -635,7 +635,7 @@
         "Appendix C: Makefile Quick Reference",
         "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3563,
+      "word_count": 3585,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 34,
       "has_user_stories": true,
@@ -646,6 +646,46 @@
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
       "warnings": []
+    },
+    {
+      "file": "15-langfuse-integration.md",
+      "number": "S15",
+      "title": "LF — Langfuse Integration",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "S15 (Observability)",
+        "S11 (Player Identity & Sessions)",
+        "S09 (Prompt & Content Management)",
+        "S45 (Evaluation Pipeline)"
+      ],
+      "last_updated": "2026-05-13",
+      "sections": [
+        "Overview",
+        "User Lifecycle Tracing",
+        "Session & Game Lifecycle Tracing",
+        "Prompt Enrichment & Provenance",
+        "Evaluation Score Integration",
+        "Langfuse Session Configuration",
+        "Privacy & Data Retention",
+        "Key Scenarios (Gherkin)",
+        "Non-Normative: Trace Architecture",
+        "Changelog"
+      ],
+      "word_count": 3347,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 28,
+      "has_user_stories": false,
+      "has_edge_cases": true,
+      "has_out_of_scope": false,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
+      "warnings": [
+        "No user stories found",
+        "No 'Out of Scope' section"
+      ]
     },
     {
       "file": "15-observability.md",
@@ -2023,6 +2063,46 @@
       ]
     },
     {
+      "file": "50-rate-limit-budget.md",
+      "number": "S50",
+      "title": "Rate-Limit Budget & Task Prioritization",
+      "status": "📝 Draft",
+      "level": "3 — Resilience",
+      "dependencies": [
+        "S07 (LLM Integration)",
+        "S23 (Error Handling & Resilience)"
+      ],
+      "last_updated": "2026-05-14",
+      "sections": [
+        "How to Read This Spec",
+        "Purpose",
+        "Design Principles",
+        "User Stories",
+        "Task Priority Tiers",
+        "Provider Utilization Tracking",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "Acceptance Criteria",
+        "Integration Points",
+        "Implementation Notes",
+        "Open Questions"
+      ],
+      "word_count": 1987,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 6,
+      "has_user_stories": true,
+      "has_edge_cases": false,
+      "has_out_of_scope": false,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 0,
+      "warnings": [
+        "No edge cases section",
+        "No 'Out of Scope' section"
+      ]
+    },
+    {
       "file": "51-cross-universe-travel-protocol.md",
       "number": "S51",
       "title": "Cross-Universe Travel Protocol",
@@ -2500,6 +2580,54 @@
         "No user stories found",
         "No edge cases section"
       ]
+    },
+    {
+      "file": "64-generation-serving-profiles.md",
+      "number": "S64",
+      "title": "Generation Serving Profiles",
+      "status": "✅ Approved",
+      "level": "2 — AI & Content",
+      "dependencies": [
+        "S07 (LLM Integration)",
+        "S10 (API & Streaming)",
+        "S11 (Player Identity & Sessions)",
+        "S15 (Observability)",
+        "S23 (Error Handling & Resilience)",
+        "S42 (LLM Playtester Agent Harness)",
+        "S45 (Evaluation Pipeline)",
+        "S50 (Rate-Limit Budget & Task Prioritization)"
+      ],
+      "last_updated": "2026-05-25",
+      "sections": [
+        "Purpose",
+        "Design Principles",
+        "User Stories",
+        "Canonical Serving Profiles",
+        "Behavioral Scope and Invariants",
+        "Routing and Degradation Contract",
+        "API, Session, and Preference Semantics",
+        "Playtesting and Evaluation Semantics",
+        "Observability and Analytics",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope",
+        "Appendix"
+      ],
+      "word_count": 3019,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 16,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 9,
+      "warnings": []
     }
   ]
 }

@@ -15,6 +15,7 @@ import httpx
 from tta.config import CURRENT_CONSENT_VERSION
 from tta.llm.client import GenerationParams, Message, MessageRole
 from tta.llm.roles import ModelRole
+from tta.llm.serving_profiles import GenerationServingProfile, GenerationTrafficClass
 from tta.playtest.profile import TasteProfile, get_taste_profile
 from tta.playtest.report import Commentary, PlaytestReport, RunStatus, TurnRecord
 
@@ -338,6 +339,8 @@ class PlaytesterAgent:
             role=ModelRole.GENERATION,
             messages=messages,
             params=params,
+            generation_profile=GenerationServingProfile.BALANCED,
+            traffic_class=GenerationTrafficClass.BULK_EVAL,
         )
         return _normalize_player_input(response.content)
 
@@ -495,6 +498,8 @@ class PlaytesterAgent:
             role=ModelRole.GENERATION,
             messages=messages,
             params=params,
+            generation_profile=GenerationServingProfile.BALANCED,
+            traffic_class=GenerationTrafficClass.BULK_EVAL,
         )
         return _parse_commentary(turn_index, response.content)
 

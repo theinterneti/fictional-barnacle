@@ -1,8 +1,8 @@
 # S64 — Generation Serving Profiles
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🆕 v2.2
-> **Implementation Fit**: ❌ Not Started
+> **Implementation Fit**: 🟡 Partially Implemented — Phase 1 primitives exist, but profile-aware evaluation/session plumbing and AC-marked coverage are incomplete
 > **Level**: 2 — AI & Content
 > **Dependencies**: S07 (LLM Integration), S10 (API & Streaming), S11 (Player Identity & Sessions), S15 (Observability), S23 (Error Handling & Resilience), S42 (LLM Playtester Agent Harness), S45 (Evaluation Pipeline), S50 (Rate-Limit Budget & Task Prioritization)
 > **Related**: `plans/llm-and-pipeline.md`, `plans/v2_1-evaluation-and-playtesting.md`
@@ -67,27 +67,27 @@ that bulk runs do not inherit interactive serving assumptions by accident.
 
 ## 3. User Stories
 
-### US-64.1 — Player prefers quick responses
+### US-64.1: As a player, I prefer quick responses
 
 As a player, I want a quick-response mode so that the story keeps moving even if
 prose quality is slightly less rich.
 
-### US-64.2 — Player prefers richer narration
+### US-64.2: As a player, I prefer richer narration
 
 As a player, I want a richer-narration mode so that I can accept longer waits
 when I care more about style and depth.
 
-### US-64.3 — Operator compares the tradeoff frontier
+### US-64.3: As an operator, I compare the tradeoff frontier
 
 As an operator, I want to compare `fast`, `balanced`, and `quality` on the same
 scenarios so that I can make routing decisions using evidence instead of taste.
 
-### US-64.4 — Developer isolates batch evaluation traffic
+### US-64.4: As a developer, I isolate batch evaluation traffic
 
 As a developer, I want bulk automated playtests to use an explicit serving
 profile so that evaluation traffic does not distort player-facing latency paths.
 
-### US-64.5 — Future UI slider has stable semantics
+### US-64.5: As a product designer, I need stable slider semantics
 
 As a product designer, I want the eventual player slider to map to stable serving
 profiles so that the UI does not expose raw model or routing internals.
