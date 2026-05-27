@@ -20,6 +20,8 @@ see `docs/release.md` for release rules.
   validator.
 - Approve S66 rate-limit budget after correcting stale S50 trace markers and
   adding structured admission-control event evidence.
+- Keep changed-file gates responsive on large worktrees by avoiding expensive
+  untracked-file scans during deterministic completion checks.
 
 ## [0.1.0] - 2026-05-27
 

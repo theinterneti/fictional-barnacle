@@ -70,3 +70,30 @@ def test_text_report_is_discoverable_and_deterministic(changed_tests_module) -> 
     assert "Changed-test plan" in report
     assert "tests/unit/api" in report
     assert "uv run python plans/index_plans.py --validate" in report
+
+
+@pytest.mark.spec("AC-65.01")
+def test_changed_files_from_git_avoids_expensive_untracked_scan(
+    changed_tests_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stdout = ""
+
+    def fake_run(command, **_kwargs):
+        commands.append(command)
+        return Result()
+
+    monkeypatch.setattr(changed_tests_module.subprocess, "run", fake_run)
+
+    changed_tests_module.changed_files_from_git("origin/main")
+
+    assert ["git", "ls-files", "--others", "--exclude-standard"] not in commands
+    assert commands == [
+        ["git", "diff", "--name-only", "origin/main...HEAD"],
+        ["git", "diff", "--name-only"],
+        ["git", "diff", "--cached", "--name-only"],
+    ]
