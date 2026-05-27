@@ -1,16 +1,17 @@
-"""Tests for RateLimitBudget — task-priority LLM admission control (S50).
+"""Tests for RateLimitBudget — task-priority LLM admission control (S66).
 
-RED phase starts here — no implementation exists yet.
+Existing implementation reality-check coverage for S66.
 """
 
 import asyncio
 
 import pytest
+from structlog.testing import capture_logs
 
 
-@pytest.mark.spec("AC-50.01")
+@pytest.mark.spec("AC-66.01")
 class TestCriticalTierAlwaysAdmitted:
-    """AC-50.01: Player turn not blocked under load."""
+    """AC-66.01: Player turn not blocked under load."""
 
     async def test_critical_admitted_when_high_tier_at_cap(self) -> None:
         """CRITICAL tier bypasses concurrency caps.
@@ -72,7 +73,7 @@ class TestCriticalTierAlwaysAdmitted:
         assert admitted, "CRITICAL must be admitted under all load conditions"
         assert elapsed_ms < 100, (
             f"CRITICAL admission took {elapsed_ms:.1f}ms, must be < 100ms "
-            f"(target < 1ms per NFR-50.01)"
+            f"(target < 1ms per NFR-66.01)"
         )
 
         # Cleanup
@@ -84,9 +85,9 @@ class TestCriticalTierAlwaysAdmitted:
         await budget.release(TaskPriority.CRITICAL)
 
 
-@pytest.mark.spec("AC-50.02", "AC-50.03")
+@pytest.mark.spec("AC-66.02", "AC-66.03")
 class TestNonCriticalTierConcurrency:
-    """AC-50.02 (playtester cap) and AC-50.03 (background throttled)."""
+    """AC-66.02 (playtester cap) and AC-66.03 (background throttled)."""
 
     async def test_high_tier_capped_at_configured_limit(self) -> None:
         """HIGH tier admits exactly N concurrent calls."""
@@ -155,9 +156,9 @@ class TestNonCriticalTierConcurrency:
         await budget.release(TaskPriority.LOW)
 
 
-@pytest.mark.spec("AC-50.02")
+@pytest.mark.spec("AC-66.02")
 class TestQueuingAtCap:
-    """FR-50.02 / AC-50.02: queued calls proceed when capacity frees (FIFO)."""
+    """FR-66.02 / AC-66.02: queued calls proceed when capacity frees (FIFO)."""
 
     async def test_high_tier_call_queues_and_proceeds_when_slot_frees(self) -> None:
         """A call at cap queues and is processed when a slot releases."""
@@ -284,35 +285,58 @@ class TestBackpressure:
         await budget.release(TaskPriority.BEST_EFFORT)
 
 
-@pytest.mark.spec("AC-50.05")
+@pytest.mark.spec("AC-66.05")
 class TestStructlogEvents:
-    """AC-50.05: structlog events on admission/queuing/rejection."""
+    """AC-66.05: structlog events on admission/queuing/rejection."""
 
     async def test_admission_logs_structlog_event(self) -> None:
-        """admit() emits a structlog event."""
+        """admit() emits a structured admitted decision event."""
         from tta.llm.rate_limiter import RateLimitBudget, TaskPriority
 
         budget = RateLimitBudget()
 
-        # Admission should produce a log
-        assert await budget.admit(TaskPriority.CRITICAL, task_type="player_turn")
-        await budget.release(TaskPriority.CRITICAL)
+        with capture_logs() as logs:
+            assert await budget.admit(TaskPriority.CRITICAL, task_type="player_turn")
+            await budget.release(TaskPriority.CRITICAL)
+
+        assert {
+            "event": "rate_limit_admitted",
+            "tier": "critical",
+            "task_type": "player_turn",
+            "decision": "admitted",
+            "queue_depth": 0,
+            "provider_utilization": None,
+            "log_level": "debug",
+        } in logs
+        assert any(
+            event["event"] == "rate_limit_completed"
+            and event["tier"] == "critical"
+            and event["decision"] == "completed"
+            for event in logs
+        )
 
     async def test_queue_logs_structlog_event(self) -> None:
-        """Queuing emits a structlog debug event."""
+        """Queuing emits a structured queued decision event."""
         from tta.llm.rate_limiter import RateLimitBudget, TaskPriority
 
         budget = RateLimitBudget(high_concurrency=1)
 
-        await budget.admit(TaskPriority.HIGH, task_type="playtester_1")
+        with capture_logs() as logs:
+            await budget.admit(TaskPriority.HIGH, task_type="playtester_1")
+            f = asyncio.ensure_future(
+                budget.admit_or_queue(TaskPriority.HIGH, task_type="playtester_2")
+            )
+            await asyncio.sleep(0)
+            await budget.release(TaskPriority.HIGH)
+            await f
+            await budget.release(TaskPriority.HIGH)
 
-        # This queues and should produce a log
-        f = asyncio.ensure_future(
-            budget.admit_or_queue(TaskPriority.HIGH, task_type="playtester_2")
+        assert any(
+            event["event"] == "rate_limit_queued"
+            and event["tier"] == "high"
+            and event["task_type"] == "playtester_2"
+            and event["decision"] == "queued"
+            and event["queue_depth"] == 1
+            and event["provider_utilization"] is None
+            for event in logs
         )
-        await asyncio.sleep(0)
-
-        # Cleanup
-        await budget.release(TaskPriority.HIGH)
-        await f
-        await budget.release(TaskPriority.HIGH)
