@@ -1,0 +1,29 @@
+{
+  "id": "FB-06604",
+  "title": "Spike S66 AC-66.04 provider-utilization signal",
+  "stage": "PLAN_DRAFT",
+  "spec_ref": "specs/66-rate-limit-budget.md",
+  "plan_ref": "plans/s66-provider-utilization-spike.md",
+  "ac_ids": [
+    "AC-66.04"
+  ],
+  "branch": "feat/s66-provider-utilization-signal",
+  "validation_commands": [
+    "uv run python plans/index_plans.py --validate",
+    "uv run pytest tests/unit/llm/test_provider_utilization.py tests/unit/llm/test_rate_limit_budget.py -q",
+    "make trace",
+    "make complete-check",
+    "make gate"
+  ],
+  "evidence_files": [
+    "plans/s66-provider-utilization-spike.md",
+    "tests/unit/llm/test_provider_utilization.py",
+    "tests/unit/llm/test_rate_limit_budget.py"
+  ],
+  "last_gate_result": "",
+  "review_status": "",
+  "pr_number": null,
+  "release_note_required": false,
+  "changelog_entry": "",
+  "blocked_reason": ""
+}

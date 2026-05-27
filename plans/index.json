@@ -1,7 +1,7 @@
 {
-  "plan_count": 12,
-  "total_lines": 13289,
-  "total_words": 59117,
+  "plan_count": 13,
+  "total_lines": 13576,
+  "total_words": 60507,
   "plans": [
     {
       "file": "system.md",
@@ -836,6 +836,55 @@
         "No technology/framework section found",
         "No testing section found"
       ]
+    },
+    {
+      "file": "s66-provider-utilization-spike.md",
+      "title": "S66 Provider-Utilization Signal Spike Implementation Plan",
+      "scope": "S66 AC-66.04 provider awareness spike only",
+      "wave": "",
+      "status": "\ud83d\udcdd Draft",
+      "last_updated": "2026-05-27",
+      "specs_covered": [
+        "S66"
+      ],
+      "sections": [
+        "1. Why this plan exists",
+        "2. Current-state evidence",
+        "3. Design decision to make",
+        "4. Technology and architecture",
+        "5. Task plan",
+        "6. Testing strategy",
+        "7. Acceptance criteria for this plan",
+        "8. Validation commands"
+      ],
+      "subsections": [
+        "4.1 Data models",
+        "4.2 Interfaces",
+        "4.3 Truth boundary",
+        "Task 1: Inventory actual provider signal surfaces",
+        "Task 2: Add provider-utilization parsing tests",
+        "Task 3: Thread provider utilization into admission logs without routing",
+        "Task 4: Produce implementation recommendation for the real AC-66.04 slice"
+      ],
+      "word_count": 1390,
+      "line_count": 287,
+      "has_tech_stack": true,
+      "has_architecture": true,
+      "has_data_models": true,
+      "has_interfaces": true,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 10,
+      "has_normative_markers": false,
+      "normative_sections": [],
+      "spec_refs": [
+        "S66"
+      ],
+      "plan_refs": [
+        "s66-provider-utilization-spike.md"
+      ],
+      "section_refs": [],
+      "warnings": []
     },
     {
       "file": "serving-profiles-phase3.md",
