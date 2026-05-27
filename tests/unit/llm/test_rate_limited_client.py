@@ -1,4 +1,4 @@
-"""Tests for RateLimitedLLMClient — admission-controlled wrapper (S50 §9.1)."""
+"""Tests for RateLimitedLLMClient — admission-controlled wrapper (S66 §9.1)."""
 
 import asyncio
 
@@ -8,10 +8,8 @@ from tta.llm.client import LLMClient, Message, MessageRole
 from tta.llm.roles import ModelRole
 from tta.llm.testing import MockLLMClient
 
-# RED: RateLimitedLLMClient doesn't exist yet
 
-
-@pytest.mark.spec("AC-50.01")
+@pytest.mark.spec("AC-66.01")
 class TestRateLimitedClientCritical:
     """CRITICAL tier calls pass through without admission check overhead."""
 
@@ -55,7 +53,7 @@ class TestRateLimitedClientCritical:
         assert len(mock.call_history) == 10
 
 
-@pytest.mark.spec("AC-50.02")
+@pytest.mark.spec("AC-66.02")
 class TestRateLimitedClientHigh:
     """HIGH tier calls respect concurrency cap."""
 
@@ -78,11 +76,24 @@ class TestRateLimitedClientHigh:
             # Save original generate, replace with blocking version
             orig_generate = mock.generate
 
-            async def blocking_generate(role, messages, params=None):
+            async def blocking_generate(
+                role,
+                messages,
+                params=None,
+                *,
+                generation_profile=None,
+                traffic_class=None,
+            ):
                 await hold_event.wait()
-                return await orig_generate(role, messages, params)
+                return await orig_generate(
+                    role,
+                    messages,
+                    params,
+                    generation_profile=generation_profile,
+                    traffic_class=traffic_class,
+                )
 
-            mock.generate = blocking_generate
+            mock.generate = blocking_generate  # pyright: ignore[reportAttributeAccessIssue]
             result = await client.generate(
                 role=ModelRole.GENERATION,
                 messages=[Message(role=MessageRole.USER, content="slow")],

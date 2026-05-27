@@ -1,6 +1,6 @@
 {
   "spec_count": 70,
-  "total_words": 182895,
+  "total_words": 183028,
   "total_acceptance_criteria": 752,
   "specs": [
     {
@@ -2634,14 +2634,15 @@
       "file": "66-rate-limit-budget.md",
       "number": "S66",
       "title": "Rate-Limit Budget & Task Prioritization",
-      "status": "📝 Draft",
+      "status": "✅ Approved",
       "level": "3 — Resilience",
       "dependencies": [
         "S07 (LLM Integration)",
         "S23 (Error Handling & Resilience)"
       ],
-      "last_updated": "2026-05-14",
+      "last_updated": "2026-05-27",
       "sections": [
+        "Approval Reality Check",
         "How to Read This Spec",
         "Purpose",
         "Design Principles",
@@ -2657,7 +2658,7 @@
         "Out of Scope",
         "Open Questions"
       ],
-      "word_count": 2152,
+      "word_count": 2285,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 6,
       "has_user_stories": true,

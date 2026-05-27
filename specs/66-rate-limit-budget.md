@@ -1,11 +1,37 @@
 # S66 — Rate-Limit Budget & Task Prioritization
 
-> **Status**: 📝 Draft
+> **Status**: ✅ Approved
 > **Release Baseline**: 🆕 v2.1
 > **Level**: 3 — Resilience
 > **Dependencies**: S07 (LLM Integration), S23 (Error Handling & Resilience)
 > **Companion**: `plans/v2_1-architecture-review.md` §12, `docs/vision/TTA-CRITICAL-REVIEW.md` §1
-> **Last Updated**: 2026-05-14
+> **Last Updated**: 2026-05-27
+
+---
+
+## 0. Approval Reality Check
+
+This spec was approved after comparing the draft against the current
+`tta.llm.rate_limiter` implementation and tests.
+
+Current implementation evidence:
+
+- `RateLimitBudget` covers CRITICAL admission, HIGH/LOW FIFO queuing, LOW
+  throttling, BEST_EFFORT backpressure, and structured admission/queue/drop/
+  completion events.
+- `RateLimitedLLMClient` wraps `generate()` and `stream()` with tier-aware
+  admission control while preserving CRITICAL as the default backward-compatible
+  tier.
+- Existing tests were corrected from stale S50 markers to S66 markers because
+  the code implements this spec, not S50 concurrent universe loading.
+
+Deferred approved target:
+
+- AC-66.04 provider preference remains intentionally deferred until a concrete
+  provider-utilization signal is selected. The current in-process component
+  records `provider_utilization=None` and does not route calls by provider.
+  Planning for AC-66.04 MUST start with a spike that chooses between LiteLLM
+  response metadata, tracked 429s, or an FMR capacity endpoint.
 
 ---
 

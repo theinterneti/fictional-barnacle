@@ -79,12 +79,17 @@ def _dedupe(values: Iterable[str]) -> list[str]:
 
 
 def changed_files_from_git(base_ref: str = "origin/main") -> list[str]:
-    """Return changed paths from merge-base diff plus unstaged/staged dirt."""
+    """Return committed diff plus unstaged/staged dirt.
+
+    Deliberately avoid a full untracked-file scan here. On large worktrees or
+    repos with generated local artifacts, `git ls-files --others` can dominate
+    the feedback loop or hang. This gate is intended for committed/staged work;
+    new files are covered once staged or committed.
+    """
     commands = [
         ["git", "diff", "--name-only", f"{base_ref}...HEAD"],
         ["git", "diff", "--name-only"],
         ["git", "diff", "--cached", "--name-only"],
-        ["git", "ls-files", "--others", "--exclude-standard"],
     ]
     paths: list[str] = []
     for command in commands:

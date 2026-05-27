@@ -1,4 +1,4 @@
-"""Task-priority LLM admission control (S50).
+"""Task-priority LLM admission control (S66).
 
 RateLimitBudget enforces per-tier concurrency caps and queue-based
 admission for non-CRITICAL LLM calls. CRITICAL tier always admitted.
@@ -21,7 +21,7 @@ log = structlog.get_logger(__name__)
 
 
 class TaskPriority(StrEnum):
-    """LLM call priority tiers (S50 §4)."""
+    """LLM call priority tiers (S66 §4)."""
 
     CRITICAL = "critical"  # Player turns, Genesis v2 — never throttled
     HIGH = "high"  # Playtester sessions, quality evaluation
@@ -39,7 +39,7 @@ class _QueueEntry:
 
 
 class RateLimitBudget:
-    """In-process admission controller for LLM calls (S50).
+    """In-process admission controller for LLM calls (S66).
 
     CRITICAL tier calls bypass all limits. HIGH, LOW, and BEST_EFFORT
     calls are admitted under their configured concurrency caps and
@@ -84,6 +84,13 @@ class RateLimitBudget:
         return False at cap (caller must queue or reject)."""
         if tier == TaskPriority.CRITICAL:
             self._active[TaskPriority.CRITICAL] += 1
+            self._log_decision(
+                "rate_limit_admitted",
+                tier,
+                task_type,
+                decision="admitted",
+                queue_depth=0,
+            )
             return True
 
         sem = self._sem_for(tier)
@@ -91,10 +98,17 @@ class RateLimitBudget:
         if ok:
             await sem.acquire()
             self._active[tier] += 1
+            self._log_decision(
+                "rate_limit_admitted",
+                tier,
+                task_type,
+                decision="admitted",
+                queue_depth=len(self._queues[tier]),
+            )
         return ok
 
     async def admit_or_queue(self, tier: TaskPriority, task_type: str = "") -> bool:
-        """Request admission, queuing if at cap (FR-50.02).
+        """Request admission, queuing if at cap (FR-66.02).
 
         CRITICAL: always admitted immediately.
         HIGH/LOW/BEST_EFFORT: admitted if under cap, otherwise FIFO queued.
@@ -107,16 +121,17 @@ class RateLimitBudget:
         if await self.admit(tier, task_type):
             return True
 
-        # BEST_EFFORT backpressure check (FR-50.06)
+        # BEST_EFFORT backpressure check (FR-66.06)
         if tier == TaskPriority.BEST_EFFORT:
             queue_depth = len(self._queues[TaskPriority.BEST_EFFORT])
             if queue_depth >= self._best_effort_backpressure:
-                log.warning(
+                self._log_decision(
                     "rate_limit_dropped",
-                    tier=str(tier),
-                    task_type=task_type,
-                    queue_depth=queue_depth,
+                    tier,
+                    task_type,
                     decision="dropped",
+                    queue_depth=queue_depth,
+                    level="warning",
                 )
                 return False
 
@@ -124,10 +139,11 @@ class RateLimitBudget:
         entry = _QueueEntry(task_type=task_type)
         self._queues[tier].append(entry)
 
-        log.debug(
+        self._log_decision(
             "rate_limit_queued",
-            tier=str(tier),
-            task_type=task_type,
+            tier,
+            task_type,
+            decision="queued",
             queue_depth=len(self._queues[tier]),
         )
 
@@ -137,11 +153,13 @@ class RateLimitBudget:
         except TimeoutError:
             # Clean up stale queue entry
             self._remove_from_queue(tier, entry)
-            log.info(
+            self._log_decision(
                 "rate_limit_timeout",
-                tier=str(tier),
-                task_type=task_type,
+                tier,
+                task_type,
+                decision="rejected",
                 queue_depth=len(self._queues[tier]),
+                level="info",
             )
             raise
 
@@ -153,9 +171,24 @@ class RateLimitBudget:
         """Release a slot. If callers are queued, the next one gets admitted."""
         if tier == TaskPriority.CRITICAL:
             self._active[TaskPriority.CRITICAL] -= 1
+            self._log_decision(
+                "rate_limit_completed",
+                tier,
+                "",
+                decision="completed",
+                queue_depth=0,
+            )
             return
 
         self._active[tier] -= 1
+        queue_depth = len(self._queues[tier])
+        self._log_decision(
+            "rate_limit_completed",
+            tier,
+            "",
+            decision="completed",
+            queue_depth=queue_depth,
+        )
 
         # Try to admit the next queued caller
         if self._queues[tier]:
@@ -189,9 +222,30 @@ class RateLimitBudget:
         except ValueError:
             pass  # Already removed (raced with release)
 
+    def _log_decision(
+        self,
+        event: str,
+        tier: TaskPriority,
+        task_type: str,
+        *,
+        decision: str,
+        queue_depth: int,
+        level: str = "debug",
+    ) -> None:
+        """Emit the common S66 admission-control event shape."""
+        logger = getattr(log, level)
+        logger(
+            event,
+            tier=str(tier),
+            task_type=task_type,
+            decision=decision,
+            queue_depth=queue_depth,
+            provider_utilization=None,
+        )
+
 
 class RateLimitedLLMClient:
-    """Admission-controlled wrapper around LiteLLMClient (S50 §9.1).
+    """Admission-controlled wrapper around LiteLLMClient (S66 §9.1).
 
     CRITICAL tier calls pass through without admission overhead.
     HIGH/LOW/BEST_EFFORT calls go through RateLimitBudget.admit_or_queue().
