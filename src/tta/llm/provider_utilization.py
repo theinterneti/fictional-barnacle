@@ -97,9 +97,18 @@ def from_rate_limit_error(exc: Exception) -> ProviderUtilization:
         - other 429 with Retry-After header → EXHAUSTED
     """
     provider = _extract_provider(exc)
+    status_code = getattr(exc, "status_code", None)
 
     retry_after: float | None = getattr(exc, "retry_after", None)
     headers: dict[str, str] = getattr(exc, "_response_headers", {})
+
+    if status_code != 429:
+        return ProviderUtilization(
+            provider=provider,
+            state=ProviderUtilizationState.UNKNOWN,
+            retry_after_seconds=retry_after,
+            source="non_429_error",
+        )
 
     # Parse Retry-After header if retry_after attribute is not set
     if retry_after is None:

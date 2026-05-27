@@ -17,6 +17,8 @@ from typing import Any
 
 import structlog
 
+from tta.llm.provider_utilization import ProviderUtilizationSnapshot
+
 log = structlog.get_logger(__name__)
 
 
@@ -54,7 +56,7 @@ class RateLimitBudget:
         best_effort_backpressure: int = 10,
         queue_timeout_high: float = 300.0,
         queue_timeout_low: float = 600.0,
-        provider_utilization_snapshot: Any | None = None,
+        provider_utilization_snapshot: ProviderUtilizationSnapshot | None = None,
     ) -> None:
         self._high_concurrency = high_concurrency
         self._low_concurrency = low_concurrency
@@ -90,7 +92,6 @@ class RateLimitBudget:
     ) -> bool:
         """Request immediate admission. CRITICAL always true; others
         return False at cap (caller must queue or reject)."""
-        provider_utilization = self._provider_utilization_for(provider)
         if tier == TaskPriority.CRITICAL:
             self._active[TaskPriority.CRITICAL] += 1
             self._log_decision(
@@ -99,10 +100,11 @@ class RateLimitBudget:
                 task_type,
                 decision="admitted",
                 queue_depth=0,
-                provider_utilization=provider_utilization,
+                provider_utilization=None,
             )
             return True
 
+        provider_utilization = self._provider_utilization_for(provider)
         sem = self._sem_for(tier)
         ok = sem.locked() is False
         if ok:
@@ -254,18 +256,21 @@ class RateLimitBudget:
         if provider is None or self._provider_utilization_snapshot is None:
             return None
 
-        snapshot = self._provider_utilization_snapshot.snapshot()
-        utilization = snapshot.get(provider)
-        if utilization is None:
-            return None
+        try:
+            snapshot = self._provider_utilization_snapshot.snapshot()
+            utilization = snapshot.get(provider)
+            if utilization is None:
+                return None
 
-        return {
-            "provider": utilization.provider,
-            "state": str(utilization.state),
-            "rpm_utilization": utilization.rpm_utilization,
-            "retry_after_seconds": utilization.retry_after_seconds,
-            "source": utilization.source,
-        }
+            return {
+                "provider": utilization.provider,
+                "state": str(utilization.state),
+                "rpm_utilization": utilization.rpm_utilization,
+                "retry_after_seconds": utilization.retry_after_seconds,
+                "source": utilization.source,
+            }
+        except Exception:
+            return None
 
     def _remove_from_queue(self, tier: TaskPriority, entry: _QueueEntry) -> None:
         """Remove a specific entry from the tier queue (O(n) — rare)."""

@@ -14,7 +14,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.spec("AC-66.04")
 class TestProviderUtilizationState:
     """State enum covers all provider utilization levels."""
 
@@ -49,7 +48,6 @@ class TestProviderUtilizationState:
         assert ProviderUtilizationState.UNKNOWN == "unknown"
 
 
-@pytest.mark.spec("AC-66.04")
 class TestProviderUtilizationDataclass:
     """ProviderUtilization is a frozen, serializable record."""
 
@@ -107,7 +105,6 @@ class TestProviderUtilizationDataclass:
             pu.provider = "anthropic"  # type: ignore[reportAttributeAccessIssue]
 
 
-@pytest.mark.spec("AC-66.04")
 class TestFrom429Event:
     """Build ProviderUtilization from a LiteLLM RateLimitError or synthetic 429."""
 
@@ -174,6 +171,27 @@ class TestFrom429Event:
 
         assert pu.provider == "openai"
 
+    def test_non_429_defaults_to_unknown(self) -> None:
+        """Non-429 errors must not be misclassified as provider pressure."""
+        from tta.llm.provider_utilization import (
+            ProviderUtilizationState,
+            from_rate_limit_error,
+        )
+
+        exc = _make_rate_limit_error(
+            status_code=500,
+            retry_after=None,
+            model="google/gemini-2.0-flash",
+            headers={},
+        )
+
+        pu = from_rate_limit_error(exc)
+
+        assert pu.provider == "google"
+        assert pu.state == ProviderUtilizationState.UNKNOWN
+        assert pu.retry_after_seconds is None
+        assert pu.source == "non_429_error"
+
     def test_missing_signal_is_unknown_not_healthy(self) -> None:
         """UNKNOWN is the safe default — never assume HEALTHY without evidence.
 
@@ -193,7 +211,6 @@ class TestFrom429Event:
         assert ProviderUtilizationState.UNKNOWN != ProviderUtilizationState.HEALTHY
 
 
-@pytest.mark.spec("AC-66.04")
 class TestProviderUtilizationSnapshot:
     """Optional snapshot interface for batch provider state queries."""
 
