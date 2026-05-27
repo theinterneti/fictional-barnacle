@@ -1,5 +1,6 @@
 """Tests for ModerationHook — SafetyHook adapter (S24 FR-24.01)."""
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -64,7 +65,7 @@ def _flag_result(
     )
 
 
-def _mock_recorder() -> ModerationRecorder:
+def _mock_recorder() -> Any:
     """Build a ModerationRecorder with a mock session factory."""
     recorder = ModerationRecorder.__new__(ModerationRecorder)
     recorder._sf = MagicMock()
@@ -238,7 +239,7 @@ class TestProtocolCompliance:
 
 
 class TestRecordingIntegration:
-    pytestmark = [pytest.mark.spec("AC-24.04")]
+    pytestmark = [pytest.mark.spec("AC-24.04"), pytest.mark.spec("AC-24.09")]
 
     async def test_pass_saves_record(self) -> None:
         svc = AsyncMock()
@@ -252,7 +253,14 @@ class TestRecordingIntegration:
         record = recorder.save.call_args[0][0]
         assert record.verdict == ModerationVerdict.PASS
         assert record.game_id == "g1"
+        assert record.player_id == "p1"
+        assert record.turn_id == "1"
         assert record.stage == "input"
+        assert record.moderation_id
+        assert record.content_hash
+        assert record.category == ContentCategory.SAFE
+        assert record.confidence == 1.0
+        assert record.timestamp.tzinfo is not None
 
     async def test_block_saves_record(self) -> None:
         svc = AsyncMock()
@@ -266,6 +274,20 @@ class TestRecordingIntegration:
         record = recorder.save.call_args[0][0]
         assert record.verdict == ModerationVerdict.BLOCK
         assert record.content == "bad stuff"
+
+    async def test_flag_saves_record(self) -> None:
+        svc = AsyncMock()
+        svc.moderate_input.return_value = _flag_result()
+        recorder = _mock_recorder()
+        hook = ModerationHook(svc, recorder=recorder)
+
+        await hook.pre_generation_check(_make_state("personal info"))
+
+        recorder.save.assert_awaited_once()
+        record = recorder.save.call_args[0][0]
+        assert record.verdict == ModerationVerdict.FLAG
+        assert record.category == ContentCategory.PERSONAL_INFO
+        assert record.content == "personal info"
 
     async def test_output_moderation_saves_record(self) -> None:
         svc = AsyncMock()

@@ -119,6 +119,21 @@ class TestExtractionWorldChanges:
 class TestCrossTemplate:
     """Cross-template structural checks."""
 
+    pytestmark = [pytest.mark.spec("AC-09.06")]
+
+    def test_registry_maps_prompt_ids_to_active_versions(
+        self, registry: FilePromptRegistry
+    ) -> None:
+        active_versions = {
+            template_id: registry.get(template_id).version
+            for template_id in registry.list_templates()
+        }
+
+        assert active_versions
+        assert active_versions["narrative.generate"] == "1.2.0"
+        assert active_versions["classification.intent"] == "2.0.0"
+        assert active_versions["extraction.world-changes"] == "1.1.0"
+
     def test_all_required_templates_registered(
         self, registry: FilePromptRegistry
     ) -> None:

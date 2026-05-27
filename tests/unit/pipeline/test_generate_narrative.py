@@ -206,6 +206,31 @@ class TestSummaryInjection:
         assert isinstance(prompt, str)
 
 
+class TestGenesisElementInjection:
+    """S02 continuity: first post-Genesis prompt carries established elements."""
+
+    @pytest.mark.spec("AC-02.03")
+    def test_generation_prompt_requires_two_genesis_element_references(self) -> None:
+        state = _make_state(
+            world_context={
+                "game_state": {},
+                "intent": "examine",
+                "genesis_elements": [
+                    "the Thornhaven gates",
+                    "Aldric's warning",
+                    "Pip the street urchin",
+                ],
+            },
+        )
+
+        prompt = _build_generation_prompt(state)
+
+        assert "Established world elements" in prompt
+        assert "the Thornhaven gates" in prompt
+        assert "Aldric's warning" in prompt
+        assert "Reference at least two of these by name" in prompt
+
+
 # ===================================================================
 # 5. Prompt registry resolution (S03 FR-4.3)
 # ===================================================================
