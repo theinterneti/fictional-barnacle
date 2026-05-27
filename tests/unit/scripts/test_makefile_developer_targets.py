@@ -62,3 +62,16 @@ def test_phase3_workflow_targets_are_documented() -> None:
     for target, description in expected_targets.items():
         assert f"{target}:" in makefile
         assert description in makefile
+
+
+def test_phase4_completion_targets_are_documented() -> None:
+    makefile = Path("Makefile").read_text()
+
+    expected_targets = {
+        "tdd-check": "Validate changed production files include test evidence",
+        "spec-check": "Validate a spec is ready for approved implementation",
+        "complete-check": "Run deterministic completion gate for current changed slice",
+    }
+    for target, description in expected_targets.items():
+        assert f"{target}:" in makefile
+        assert description in makefile

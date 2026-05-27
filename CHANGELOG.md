@@ -12,6 +12,8 @@ see `docs/release.md` for release rules.
   environment checks, changelog validation, and release metadata checks.
 - Add an explicit SDD work-item state machine for deterministic stage tracking
   and evidence-gated work advancement.
+- Add deterministic TDD, spec-readiness, and completion checks for changed work
+  slices.
 
 ## [0.1.0] - 2026-05-27
 

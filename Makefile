@@ -11,6 +11,7 @@
         doctor status changed-tests gate-changed \
         changelog-check version-check release-check release-dry-run \
         work-status work-next work-advance \
+        tdd-check spec-check complete-check \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -113,6 +114,18 @@ work-next: ## Show the next non-terminal SDD work item
 
 work-advance: ## Advance a work item after deterministic evidence is present
 	uv run python scripts/workflow_state.py advance $(ITEM) $(STAGE)
+
+# ---------------------------------------------------------------------------
+# SDD/TDD completion checks
+# ---------------------------------------------------------------------------
+tdd-check: ## Validate changed production files include test evidence
+	uv run python scripts/tdd_guard.py
+
+spec-check: ## Validate a spec is ready for approved implementation (SPEC=<path>)
+	uv run python scripts/spec_lifecycle.py $(SPEC)
+
+complete-check: ## Run deterministic completion gate for current changed slice
+	uv run python scripts/completion_check.py
 
 # ---------------------------------------------------------------------------
 # Testing
