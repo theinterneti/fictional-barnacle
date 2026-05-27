@@ -6,6 +6,7 @@ and FR-24.15 (non-moderated turns emit no ModerationEvent).
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -213,6 +214,40 @@ class TestSSEModerationEvent:
 
         assert "event: moderation" not in body
         assert "event: narrative\n" in body
+
+    @pytest.mark.spec("AC-01.01")
+    @pytest.mark.spec("AC-10.04")
+    def test_ready_turn_delivers_first_narrative_event_within_two_seconds(
+        self, client: TestClient, pg: AsyncMock
+    ) -> None:
+        """AC-10.04: ready turn results reach the first narrative SSE event fast."""
+        turn_id = uuid4()
+        normal_state = TurnState(
+            session_id=_GAME_ID,
+            turn_id=turn_id,
+            turn_number=1,
+            player_input="look around",
+            game_state={},
+            status=TurnStatus.complete,
+            narrative_output="You see a tavern.",
+        )
+        pg.execute = AsyncMock(
+            side_effect=[
+                _make_result([_game_row()]),
+                _make_result([{"id": turn_id, "turn_number": 1}]),
+            ]
+        )
+        client.app.state.turn_result_store = _FakeStore(normal_state)  # type: ignore[union-attr]
+
+        started = time.monotonic()
+        resp = client.get(f"/api/v1/games/{_GAME_ID}/stream")
+        elapsed = time.monotonic() - started
+
+        assert resp.status_code == 200
+        assert "event: narrative\n" in resp.text
+        assert "event: narrative_end\n" in resp.text
+        assert elapsed < 2.0
+        assert elapsed < 15.0
 
 
 class TestModerationEventModel:

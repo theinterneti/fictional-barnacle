@@ -324,8 +324,7 @@ class TestAC1212RedisTtlCompliance:
             return_value=(0, [b"tta:session:abc", b"tta:ratelimit:xyz"])
         )
 
-        pipe = AsyncMock()
-        pipe.ttl = AsyncMock()
+        pipe = MagicMock()
         pipe.execute = AsyncMock(return_value=[3600, 60])
         pipe.__aenter__ = AsyncMock(return_value=pipe)
         pipe.__aexit__ = AsyncMock(return_value=False)
@@ -346,8 +345,7 @@ class TestAC1212RedisTtlCompliance:
             return_value=(0, [b"tta:session:abc", b"tta:session:orphan"])
         )
 
-        pipe = AsyncMock()
-        pipe.ttl = AsyncMock()
+        pipe = MagicMock()
         pipe.execute = AsyncMock(return_value=[3600, -1])
         pipe.__aenter__ = AsyncMock(return_value=pipe)
         pipe.__aexit__ = AsyncMock(return_value=False)
@@ -411,3 +409,64 @@ class TestAC1212RedisTtlCompliance:
             result = await audit_ttl_compliance(mock_redis)
 
         assert result == {}
+
+
+# ── AC-12.11: SQL restore runbook and monthly drill log ──────────────────────
+
+
+@pytest.mark.spec("AC-12.11")
+class TestAC1211SqlRestoreRunbook:
+    """AC-12.11: SQL restore is operationally documented and drill-tracked."""
+
+    _OPS_DIR = Path(__file__).parent.parent.parent.parent / "docs" / "ops"
+    _RUNBOOK = _OPS_DIR / "sql-restore.md"
+    _DRILL_LOG = _OPS_DIR / "restore-drill-log.md"
+
+    def test_restore_runbook_exists(self) -> None:
+        """AC-12.11 / FR-12.69: SQL restore runbook is present."""
+        assert self._RUNBOOK.is_file(), "docs/ops/sql-restore.md must exist"
+
+    def test_restore_runbook_covers_required_steps(self) -> None:
+        """AC-12.11 / FR-12.70: Runbook covers restore and verification steps."""
+        text = self._RUNBOOK.read_text()
+
+        required_phrases = [
+            "Backup file location",
+            "Backup checksum",
+            "disk space is at least 2x",
+            "PostgreSQL major version",
+            "pg_restore",
+            "alembic check",
+            "curl --fail --max-time 30 http://localhost:8000/health",
+            "SELECT count(*) FROM players",
+            "turn history",
+            "Rollback Procedure",
+        ]
+        for phrase in required_phrases:
+            assert phrase in text, f"Runbook missing required phrase: {phrase}"
+
+    def test_restore_drill_log_exists_with_required_fields(self) -> None:
+        """AC-12.11 / FR-12.72: Monthly drill log records required fields."""
+        assert self._DRILL_LOG.is_file(), "docs/ops/restore-drill-log.md must exist"
+
+        text = self._DRILL_LOG.read_text()
+        required_fields = [
+            "Start Time",
+            "End Time",
+            "Elapsed Minutes",
+            "Result",
+            "Notes",
+        ]
+        for field in required_fields:
+            assert field in text, f"Drill log missing required field: {field}"
+
+    def test_runbook_documents_monthly_cadence_and_60_minute_investigation(
+        self,
+    ) -> None:
+        """AC-12.11 / FR-12.71/12.73/12.74: cadence and RTO rules documented."""
+        text = self._RUNBOOK.read_text()
+
+        assert "at least monthly" in text
+        assert "schema-changing deployment within 7 days" in text
+        assert "exceeds 60 minutes" in text
+        assert "open an investigation" in text

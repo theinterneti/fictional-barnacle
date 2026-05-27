@@ -15,6 +15,8 @@ from tta.api.sse import (
     SseEventBuffer,
 )
 
+pytestmark = [pytest.mark.spec("AC-10.05")]
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -195,3 +197,11 @@ async def test_ttl_refreshed_on_each_append() -> None:
     assert r.expire.await_count == 3
     for c in r.expire.await_args_list:
         assert c == call("tta:sse_buffer:g", SSE_BUFFER_TTL_SECONDS)
+
+
+@pytest.mark.spec("AC-01.09")
+@pytest.mark.spec("AC-10.05")
+def test_replay_window_covers_30_second_reconnect_contract() -> None:
+    """AC-1.9/10.05: reconnect window preserves turn events after disconnect."""
+    assert SSE_BUFFER_TTL_SECONDS >= 30
+    assert SSE_BUFFER_MAX_EVENTS >= 100

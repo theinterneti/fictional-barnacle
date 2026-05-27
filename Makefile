@@ -8,6 +8,12 @@
         lint format typecheck test test-unit test-integration test-persistence test-watch \
         test-bdd test-hypothesis \
         test-up test-down quality check check-format gate gate-full \
+        doctor status changed-tests gate-changed \
+        changelog-check version-check release-check release-dry-run \
+        work-status work-next work-advance \
+        tdd-check spec-check complete-check \
+        pr-prep pr-check release-workflow-check \
+        practical-gate \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -70,13 +76,85 @@ gate: check-format lint trace validate-specs validate-plans validate-openapi tes
 gate-full: gate test-integration ## Pre-push gate + integration tests (requires test services)
 
 # ---------------------------------------------------------------------------
+# Deterministic local workflow helpers
+# ---------------------------------------------------------------------------
+doctor: ## Check local developer workflow prerequisites
+	uv run python scripts/dev_workflow.py doctor
+
+status: ## Show deterministic repo workflow status
+	uv run python scripts/dev_workflow.py status
+
+changed-tests: ## Plan targeted checks for changed files
+	uv run python scripts/changed_tests.py
+
+gate-changed: ## Run targeted changed-file local gate
+	uv run python scripts/dev_workflow.py gate-changed
+
+# ---------------------------------------------------------------------------
+# Change and release metadata
+# ---------------------------------------------------------------------------
+changelog-check: ## Validate unreleased changelog coverage for changed files
+	uv run python scripts/changelog_check.py
+
+version-check: ## Validate pyproject version and release changelog section
+	uv run python scripts/version_check.py --release
+
+release-check: changelog-check version-check gate ## Run release readiness checks without mutating state
+
+release-dry-run: ## Preview release gate and current version metadata
+	uv run python scripts/changelog_check.py --json
+	uv run python scripts/version_check.py --json
+
+# ---------------------------------------------------------------------------
+# SDD work-item state machine
+# ---------------------------------------------------------------------------
+work-status: ## Show SDD work-item state summary
+	uv run python scripts/workflow_state.py status
+
+work-next: ## Show the next non-terminal SDD work item
+	uv run python scripts/workflow_state.py next
+
+work-advance: ## Advance a work item after deterministic evidence is present
+	uv run python scripts/workflow_state.py advance $(ITEM) $(STAGE)
+
+# ---------------------------------------------------------------------------
+# SDD/TDD completion checks
+# ---------------------------------------------------------------------------
+tdd-check: ## Validate changed production files include test evidence
+	uv run python scripts/tdd_guard.py
+
+spec-check: ## Validate a spec is ready for approved implementation (SPEC=<path>)
+	uv run python scripts/spec_lifecycle.py $(SPEC)
+
+complete-check: ## Run deterministic completion gate for current changed slice
+	uv run python scripts/completion_check.py
+
+# ---------------------------------------------------------------------------
+# PR and release automation
+# ---------------------------------------------------------------------------
+pr-prep: ## Generate a deterministic PR body from local evidence
+	uv run python scripts/pr_prep.py --body
+
+pr-check: ## Validate branch and changed-file readiness for PR creation
+	uv run python scripts/pr_prep.py
+
+release-workflow-check: ## Validate GitHub release workflow wiring
+	uv run pytest tests/unit/scripts/test_release_workflow.py -q
+
+# ---------------------------------------------------------------------------
+# Practical application evidence
+# ---------------------------------------------------------------------------
+practical-gate: ## Validate practical application evidence files
+	uv run python scripts/practical_gate.py
+
+# ---------------------------------------------------------------------------
 # Testing
 # ---------------------------------------------------------------------------
 test: ## Run all tests with coverage
 	uv run pytest --cov
 
 test-unit: ## Run unit tests only (no external services needed)
-	uv run pytest -m "not integration and not e2e"
+	uv run pytest tests/unit tests/bdd -m "not integration and not e2e"
 
 test-integration: ## Run integration tests (starts/stops test services)
 	docker compose -f docker-compose.test.yml up -d

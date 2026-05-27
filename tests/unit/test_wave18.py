@@ -330,8 +330,9 @@ class TestResumeRecap:
 
         return TestClient(app)
 
+    @pytest.mark.spec("AC-01.04")
     def test_recap_with_summary_and_turns(self, client: Any, pg: AsyncMock) -> None:
-        """Games with turns and summary get 'When we last left off:' recap."""
+        """Games with turns and summary return recap plus last narrative context."""
         recent = datetime.now(UTC)
         pg.execute = AsyncMock(
             side_effect=[
@@ -345,7 +346,19 @@ class TestResumeRecap:
                         )
                     ]
                 ),
-                _make_result([]),  # recent turns
+                _make_result(
+                    [
+                        {
+                            "id": uuid4(),
+                            "turn_number": 5,
+                            "player_input": "enter the town",
+                            "narrative_output": (
+                                "A hooded figure watches from the alley."
+                            ),
+                            "created_at": recent,
+                        }
+                    ]
+                ),  # recent turns
                 _make_result(scalar=5),  # turn count
             ]
         )
@@ -355,6 +368,10 @@ class TestResumeRecap:
         assert resp.status_code == 200
         body = resp.json()["data"]
         assert body["recap"] == "When we last left off: Lost in the woods"
+        assert body["recent_turns"][-1]["narrative_output"] == (
+            "A hooded figure watches from the alley."
+        )
+        assert body["status"] == "active"
 
     def test_recap_zero_turns_with_genesis(self, client: Any, pg: AsyncMock) -> None:
         """Zero-turn games derive recap from genesis narrative_intro."""

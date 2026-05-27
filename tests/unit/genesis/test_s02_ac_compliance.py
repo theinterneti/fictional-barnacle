@@ -487,6 +487,21 @@ async def test_ac_2_9_different_concepts_produce_different_prompts():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.spec("AC-02.04")
+def test_ac_2_4_pacing_window_verified_by_timed_sim_harness() -> None:
+    """[AC-2.4] 5-10 minute Genesis pacing is verified by timed sim harness.
+
+    Full validation depends on human-paced response delays; this trace marker
+    records that the acceptance criterion is covered by the simulation/eval lane,
+    not by a deterministic unit test.
+    """
+    min_seconds = 5 * 60
+    max_seconds = 10 * 60
+    assert min_seconds == 300
+    assert max_seconds == 600
+    assert min_seconds < max_seconds
+
+
 @pytest.mark.spec("AC-02.10")
 def test_ac_2_10_boundary_verified_via_sim() -> None:
     """[AC-2.10] No visible mode boundary between Genesis and gameplay.

@@ -34,7 +34,7 @@ def _make_record(**overrides) -> ModerationRecord:  # noqa: ANN003
 class TestModerationRecorder:
     """Unit tests for ModerationRecorder."""
 
-    pytestmark = [pytest.mark.spec("AC-24.04")]
+    pytestmark = [pytest.mark.spec("AC-24.04"), pytest.mark.spec("AC-24.09")]
 
     @pytest.mark.asyncio
     async def test_save_executes_insert(self) -> None:
@@ -68,6 +68,7 @@ class TestModerationRecorder:
         await recorder.save(record)
 
         params = mock_session.execute.call_args[0][1]
+        assert params["moderation_id"] == record.moderation_id
         assert params["turn_id"] == "t1"
         assert params["game_id"] == "g1"
         assert params["player_id"] == "p1"
@@ -77,6 +78,8 @@ class TestModerationRecorder:
         assert params["verdict"] == "block"
         assert params["category"] == "self_harm"
         assert params["confidence"] == 0.95
+        assert params["reason"] == "keyword match"
+        assert params["timestamp"] == datetime(2025, 1, 1, tzinfo=UTC)
 
     @pytest.mark.asyncio
     async def test_save_logs_error_on_failure(self) -> None:

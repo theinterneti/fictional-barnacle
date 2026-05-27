@@ -217,6 +217,19 @@ def print_text(report: dict[str, Any]) -> None:
         )
 
 
+def exit_code_for_report(
+    report: dict[str, Any],
+    *,
+    require_implement_ready: bool,
+    fail_on_governance_blockers: bool,
+) -> int:
+    if fail_on_governance_blockers and report["governance_blocker_count"]:
+        return 3
+    if require_implement_ready and report["implement_ready_count"] == 0:
+        return 2
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", action="store_true", help="Emit JSON report")
@@ -238,11 +251,11 @@ def main() -> int:
     else:
         print_text(report)
 
-    if args.fail_on_governance_blockers and report["governance_blocker_count"]:
-        return 3
-    if args.require_implement_ready and report["implement_ready_count"] == 0:
-        return 2
-    return 0
+    return exit_code_for_report(
+        report,
+        require_implement_ready=args.require_implement_ready,
+        fail_on_governance_blockers=args.fail_on_governance_blockers,
+    )
 
 
 if __name__ == "__main__":
