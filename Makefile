@@ -12,6 +12,7 @@
         changelog-check version-check release-check release-dry-run \
         work-status work-next work-advance \
         tdd-check spec-check complete-check \
+        pr-prep pr-check release-workflow-check \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -126,6 +127,18 @@ spec-check: ## Validate a spec is ready for approved implementation (SPEC=<path>
 
 complete-check: ## Run deterministic completion gate for current changed slice
 	uv run python scripts/completion_check.py
+
+# ---------------------------------------------------------------------------
+# PR and release automation
+# ---------------------------------------------------------------------------
+pr-prep: ## Generate a deterministic PR body from local evidence
+	uv run python scripts/pr_prep.py --body
+
+pr-check: ## Validate branch and changed-file readiness for PR creation
+	uv run python scripts/pr_prep.py
+
+release-workflow-check: ## Validate GitHub release workflow wiring
+	uv run pytest tests/unit/scripts/test_release_workflow.py -q
 
 # ---------------------------------------------------------------------------
 # Testing

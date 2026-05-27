@@ -14,6 +14,8 @@ see `docs/release.md` for release rules.
   and evidence-gated work advancement.
 - Add deterministic TDD, spec-readiness, and completion checks for changed work
   slices.
+- Add PR preparation checks and a manual GitHub release workflow gated by local
+  release readiness automation.
 
 ## [0.1.0] - 2026-05-27
 

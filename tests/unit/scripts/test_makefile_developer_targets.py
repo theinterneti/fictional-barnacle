@@ -20,21 +20,21 @@ def test_phase1_developer_targets_are_documented() -> None:
         assert description in makefile
 
 
-@pytest.mark.spec("AC-65.03")
-def test_gate_full_runs_gate_before_integration() -> None:
-    makefile = Path("Makefile").read_text()
-
-    assert "gate-full: gate test-integration" in makefile
-
-
-@pytest.mark.spec("AC-65.01")
-def test_test_unit_target_is_path_scoped_to_non_service_tests() -> None:
+@pytest.mark.spec("AC-65.02")
+def test_test_unit_target_is_path_scoped_to_unit_and_bdd() -> None:
     makefile = Path("Makefile").read_text()
 
     assert (
         'uv run pytest tests/unit tests/bdd -m "not integration and not e2e"'
         in makefile
     )
+
+
+@pytest.mark.spec("AC-65.03")
+def test_gate_full_runs_integration_after_gate() -> None:
+    makefile = Path("Makefile").read_text()
+
+    assert "gate-full: gate test-integration" in makefile
 
 
 def test_phase2_release_targets_are_documented() -> None:
@@ -71,6 +71,19 @@ def test_phase4_completion_targets_are_documented() -> None:
         "tdd-check": "Validate changed production files include test evidence",
         "spec-check": "Validate a spec is ready for approved implementation",
         "complete-check": "Run deterministic completion gate for current changed slice",
+    }
+    for target, description in expected_targets.items():
+        assert f"{target}:" in makefile
+        assert description in makefile
+
+
+def test_phase5_pr_release_targets_are_documented() -> None:
+    makefile = Path("Makefile").read_text()
+
+    expected_targets = {
+        "pr-prep": "Generate a deterministic PR body from local evidence",
+        "pr-check": "Validate branch and changed-file readiness for PR creation",
+        "release-workflow-check": "Validate GitHub release workflow wiring",
     }
     for target, description in expected_targets.items():
         assert f"{target}:" in makefile
