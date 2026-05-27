@@ -207,6 +207,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         import os
 
         from tta.llm.litellm_client import LiteLLMClient
+        from tta.llm.rate_limiter import RateLimitedLLMClient
         from tta.llm.roles import (
             BACKEND_ROLE_CONFIGS,
             DEFAULT_ROLE_CONFIGS,
@@ -252,7 +253,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 )
             _effective_role_configs = _overridden
 
-        app.state.llm_client = LiteLLMClient(role_configs=_effective_role_configs)
+        app.state.llm_client = RateLimitedLLMClient(
+            inner=LiteLLMClient(role_configs=_effective_role_configs)
+        )
         app.state.llm_role_configs = _effective_role_configs
 
         # S17 FR-17.30: log configured LLM provider on startup for audit trail

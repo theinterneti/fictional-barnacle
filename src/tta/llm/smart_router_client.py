@@ -18,12 +18,14 @@ FREE_MODEL_ROUTER_API_KEY
     API key for the free-model-router (default: \"free-model-router\").
 """
 
+from __future__ import annotations
+
 import asyncio
 import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import structlog
@@ -32,6 +34,9 @@ from tta.llm.client import GenerationParams, LLMResponse, Message, TokenCount
 from tta.llm.errors import PermanentLLMError, TransientLLMError
 from tta.llm.roles import ModelRole
 from tta.llm.serving_profiles import GenerationServingProfile, GenerationTrafficClass
+
+if TYPE_CHECKING:
+    from tta.llm.rate_limiter import TaskPriority
 
 log = structlog.get_logger(__name__)
 
@@ -81,6 +86,7 @@ class SmartRouterLLMClient:
         *,
         generation_profile: GenerationServingProfile | None = None,
         traffic_class: GenerationTrafficClass | None = None,
+        task_priority: TaskPriority | None = None,
     ) -> LLMResponse:
         """Generate a response using free-model-router."""
         await self._ensure_ready()
@@ -185,6 +191,7 @@ class SmartRouterLLMClient:
         *,
         generation_profile: GenerationServingProfile | None = None,
         traffic_class: GenerationTrafficClass | None = None,
+        task_priority: TaskPriority | None = None,
     ) -> LLMResponse:
         """Buffer-then-stream: delegate to :meth:`generate`."""
         return await self.generate(
@@ -193,6 +200,7 @@ class SmartRouterLLMClient:
             params,
             generation_profile=generation_profile,
             traffic_class=traffic_class,
+            task_priority=task_priority,
         )
 
     # ------------------------------------------------------------------
@@ -212,7 +220,7 @@ class SmartRouterLLMClient:
                 self._server_proc.kill()
             self._server_proc = None
 
-    async def __aenter__(self) -> "SmartRouterLLMClient":
+    async def __aenter__(self) -> SmartRouterLLMClient:
         return self
 
     async def __aexit__(self, *_: Any) -> None:

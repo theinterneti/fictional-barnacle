@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +13,9 @@ from tta.llm.serving_profiles import (
     GenerationTrafficClass,
 )
 from tta.models.turn import TokenCount
+
+if TYPE_CHECKING:
+    from tta.llm.rate_limiter import TaskPriority
 
 
 class MessageRole(StrEnum):
@@ -77,6 +80,7 @@ class LLMClient(Protocol):
         *,
         generation_profile: GenerationServingProfile | None = None,
         traffic_class: GenerationTrafficClass | None = None,
+        task_priority: TaskPriority | None = None,
     ) -> LLMResponse: ...
 
     async def stream(
@@ -87,4 +91,5 @@ class LLMClient(Protocol):
         *,
         generation_profile: GenerationServingProfile | None = None,
         traffic_class: GenerationTrafficClass | None = None,
+        task_priority: TaskPriority | None = None,
     ) -> LLMResponse: ...

@@ -19,6 +19,11 @@ from tta.llm.errors import (
     TransientLLMError,
 )
 from tta.llm.litellm_client import LiteLLMClient
+from tta.llm.provider_utilization import (
+    ProviderUtilization,
+    ProviderUtilizationState,
+)
+from tta.llm.rate_limiter import TaskPriority
 from tta.llm.roles import ModelRole, ModelRoleConfig
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -52,6 +57,14 @@ def _role_configs(
 def _no_fallback_configs() -> dict[ModelRole, ModelRoleConfig]:
     """Role config with no fallback model."""
     return _role_configs(fallback=None)
+
+
+class _StaticProviderSnapshot:
+    def __init__(self, snapshot: dict[str, ProviderUtilization]) -> None:
+        self._snapshot = snapshot
+
+    def snapshot(self) -> dict[str, ProviderUtilization]:
+        return self._snapshot
 
 
 def _mock_response(
@@ -328,6 +341,85 @@ class TestFallback:
             await client.generate(ModelRole.GENERATION, MESSAGES)
 
         assert mock_ac.call_count == 1
+
+    @pytest.mark.spec("AC-66.04")
+    @pytest.mark.asyncio
+    @patch(_COST, return_value=0.0)
+    @patch(_ACOMPLETION)
+    async def test_low_tier_prefers_healthier_provider_candidate(
+        self, mock_ac: AsyncMock, mock_cost: MagicMock
+    ) -> None:
+        """LOW tier should try a healthier provider before a near-limit provider."""
+        mock_ac.return_value = _mock_response(content="from healthier provider")
+        client = LiteLLMClient(
+            role_configs=_role_configs(
+                primary="google/gemini-test",
+                fallback="nvidia/llama-test",
+            ),
+            provider_utilization_snapshot=_StaticProviderSnapshot(
+                {
+                    "google": ProviderUtilization(
+                        provider="google",
+                        state=ProviderUtilizationState.NEAR_LIMIT,
+                        source="test",
+                    ),
+                    "nvidia": ProviderUtilization(
+                        provider="nvidia",
+                        state=ProviderUtilizationState.HEALTHY,
+                        source="test",
+                    ),
+                }
+            ),
+        )
+
+        await client.generate(
+            ModelRole.GENERATION,
+            MESSAGES,
+            PARAMS,
+            task_priority=TaskPriority.LOW,
+        )
+
+        first_model = mock_ac.call_args_list[0].kwargs["model"]
+        assert first_model == "nvidia/llama-test"
+
+    @pytest.mark.asyncio
+    @patch(_COST, return_value=0.0)
+    @patch(_ACOMPLETION)
+    async def test_high_tier_keeps_declared_provider_order(
+        self, mock_ac: AsyncMock, mock_cost: MagicMock
+    ) -> None:
+        """HIGH tier keeps declared primary-first order even with provider signal."""
+        mock_ac.return_value = _mock_response(content="from declared primary")
+        client = LiteLLMClient(
+            role_configs=_role_configs(
+                primary="google/gemini-test",
+                fallback="nvidia/llama-test",
+            ),
+            provider_utilization_snapshot=_StaticProviderSnapshot(
+                {
+                    "google": ProviderUtilization(
+                        provider="google",
+                        state=ProviderUtilizationState.NEAR_LIMIT,
+                        source="test",
+                    ),
+                    "nvidia": ProviderUtilization(
+                        provider="nvidia",
+                        state=ProviderUtilizationState.HEALTHY,
+                        source="test",
+                    ),
+                }
+            ),
+        )
+
+        await client.generate(
+            ModelRole.GENERATION,
+            MESSAGES,
+            PARAMS,
+            task_priority=TaskPriority.HIGH,
+        )
+
+        first_model = mock_ac.call_args_list[0].kwargs["model"]
+        assert first_model == "google/gemini-test"
 
 
 # ── retry tests ─────────────────────────────────────────────────────

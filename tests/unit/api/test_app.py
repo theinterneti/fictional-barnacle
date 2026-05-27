@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from tta.api.app import create_app
 from tta.config import Settings
+from tta.llm.rate_limiter import RateLimitedLLMClient
 
 
 @pytest.fixture()
@@ -121,6 +122,10 @@ class TestLifespanWiring:
     def test_world_service_injected(self, app: FastAPI) -> None:
         with TestClient(app) as c:
             assert c.app.state.world_service is not None  # type: ignore[union-attr]
+
+    def test_default_app_uses_rate_limited_llm_client(self, app: FastAPI) -> None:
+        with TestClient(app) as c:
+            assert isinstance(c.app.state.llm_client, RateLimitedLLMClient)  # type: ignore[union-attr]
 
     def test_summary_service_qualifies_explicit_summary_model_alias(self) -> None:
         app = create_app(
