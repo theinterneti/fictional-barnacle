@@ -9,6 +9,7 @@
         test-bdd test-hypothesis \
         test-up test-down quality check check-format gate gate-full \
         doctor status changed-tests gate-changed \
+        changelog-check version-check release-check release-dry-run \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -84,6 +85,21 @@ changed-tests: ## Plan targeted checks for changed files
 
 gate-changed: ## Run targeted changed-file local gate
 	uv run python scripts/dev_workflow.py gate-changed
+
+# ---------------------------------------------------------------------------
+# Change and release metadata
+# ---------------------------------------------------------------------------
+changelog-check: ## Validate unreleased changelog coverage for changed files
+	uv run python scripts/changelog_check.py
+
+version-check: ## Validate pyproject version and release changelog section
+	uv run python scripts/version_check.py --release
+
+release-check: changelog-check version-check gate ## Run release readiness checks without mutating state
+
+release-dry-run: ## Preview release gate and current version metadata
+	uv run python scripts/changelog_check.py --json
+	uv run python scripts/version_check.py --json
 
 # ---------------------------------------------------------------------------
 # Testing

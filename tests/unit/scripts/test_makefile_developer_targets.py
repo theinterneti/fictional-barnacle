@@ -35,3 +35,17 @@ def test_test_unit_target_is_path_scoped_to_non_service_tests() -> None:
         'uv run pytest tests/unit tests/bdd -m "not integration and not e2e"'
         in makefile
     )
+
+
+def test_phase2_release_targets_are_documented() -> None:
+    makefile = Path("Makefile").read_text()
+
+    expected_targets = {
+        "changelog-check": "Validate unreleased changelog coverage for changed files",
+        "version-check": "Validate pyproject version and release changelog section",
+        "release-check": "Run release readiness checks without mutating state",
+        "release-dry-run": "Preview release gate and current version metadata",
+    }
+    for target, description in expected_targets.items():
+        assert f"{target}:" in makefile
+        assert description in makefile
