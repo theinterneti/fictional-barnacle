@@ -1,6 +1,6 @@
 {
   "spec_count": 70,
-  "total_words": 182850,
+  "total_words": 182895,
   "total_acceptance_criteria": 752,
   "specs": [
     {
@@ -1229,7 +1229,7 @@
         "Appendix",
         "v1 Closeout (Non-normative)"
       ],
-      "word_count": 3247,
+      "word_count": 3300,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 16,
       "has_user_stories": true,
@@ -2590,10 +2590,10 @@
       "warnings": []
     },
     {
-      "file": "draft/gate-local-ci.md",
+      "file": "65-local-ci-gate.md",
       "number": "S65",
       "title": "Local CI Gate",
-      "status": "🔍 Review",
+      "status": "✅ Approved",
       "level": "Unknown",
       "dependencies": [
         "Makefile targets `check-format`",
@@ -2618,7 +2618,7 @@
         "Open Questions",
         "Out of Scope"
       ],
-      "word_count": 1028,
+      "word_count": 1024,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 8,
       "has_user_stories": true,
@@ -2670,10 +2670,10 @@
       "warnings": []
     },
     {
-      "file": "draft/queue-readiness-gate.md",
+      "file": "67-autonomous-queue-readiness-gate.md",
       "number": "S67",
       "title": "Autonomous Queue Readiness Gate",
-      "status": "🔍 Review",
+      "status": "✅ Approved",
       "level": "Process — Autonomous Pipeline Governance",
       "dependencies": [
         "S65 (Local CI Gate)",
@@ -2693,7 +2693,7 @@
         "Open Questions",
         "Out of Scope"
       ],
-      "word_count": 1088,
+      "word_count": 1084,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 8,
       "has_user_stories": true,

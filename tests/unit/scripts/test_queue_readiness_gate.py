@@ -19,6 +19,7 @@ def queue_gate_module():
     return module
 
 
+@pytest.mark.spec("AC-67.01")
 def test_draft_spec_routes_to_spec_polish(queue_gate_module):
     item = {
         "id": "FB-DRAFT",
@@ -37,6 +38,7 @@ def test_draft_spec_routes_to_spec_polish(queue_gate_module):
     assert result.human_gate_required is True
 
 
+@pytest.mark.spec("AC-67.02")
 def test_duplicate_spec_id_blocks_routing(queue_gate_module):
     item = {
         "id": "FB-DUP",
@@ -60,6 +62,7 @@ def test_duplicate_spec_id_blocks_routing(queue_gate_module):
     assert result.human_gate_required is True
 
 
+@pytest.mark.spec("AC-67.03")
 def test_bounded_approved_ac_gap_routes_to_implement(queue_gate_module):
     item = {
         "id": "FB-READY",
@@ -77,3 +80,29 @@ def test_bounded_approved_ac_gap_routes_to_implement(queue_gate_module):
     assert result.recommended_lane == "IMPLEMENT"
     assert result.validation_command == "make gate"
     assert result.human_gate_required is False
+
+
+@pytest.mark.spec("AC-67.04")
+def test_strict_mode_fails_without_implementation_candidate(queue_gate_module):
+    report = {"implement_ready_count": 0, "governance_blocker_count": 0}
+
+    exit_code = queue_gate_module.exit_code_for_report(
+        report,
+        require_implement_ready=True,
+        fail_on_governance_blockers=False,
+    )
+
+    assert exit_code == 2
+
+
+@pytest.mark.spec("AC-67.04")
+def test_governance_blocker_takes_precedence_over_empty_queue(queue_gate_module):
+    report = {"implement_ready_count": 0, "governance_blocker_count": 1}
+
+    exit_code = queue_gate_module.exit_code_for_report(
+        report,
+        require_implement_ready=True,
+        fail_on_governance_blockers=True,
+    )
+
+    assert exit_code == 3

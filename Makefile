@@ -8,6 +8,7 @@
         lint format typecheck test test-unit test-integration test-persistence test-watch \
         test-bdd test-hypothesis \
         test-up test-down quality check check-format gate gate-full \
+        doctor status changed-tests gate-changed \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -70,13 +71,28 @@ gate: check-format lint trace validate-specs validate-plans validate-openapi tes
 gate-full: gate test-integration ## Pre-push gate + integration tests (requires test services)
 
 # ---------------------------------------------------------------------------
+# Deterministic local workflow helpers
+# ---------------------------------------------------------------------------
+doctor: ## Check local developer workflow prerequisites
+	uv run python scripts/dev_workflow.py doctor
+
+status: ## Show deterministic repo workflow status
+	uv run python scripts/dev_workflow.py status
+
+changed-tests: ## Plan targeted checks for changed files
+	uv run python scripts/changed_tests.py
+
+gate-changed: ## Run targeted changed-file local gate
+	uv run python scripts/dev_workflow.py gate-changed
+
+# ---------------------------------------------------------------------------
 # Testing
 # ---------------------------------------------------------------------------
 test: ## Run all tests with coverage
 	uv run pytest --cov
 
 test-unit: ## Run unit tests only (no external services needed)
-	uv run pytest -m "not integration and not e2e"
+	uv run pytest tests/unit tests/bdd -m "not integration and not e2e"
 
 test-integration: ## Run integration tests (starts/stops test services)
 	docker compose -f docker-compose.test.yml up -d

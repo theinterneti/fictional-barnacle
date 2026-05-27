@@ -7,7 +7,7 @@
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
 |  | [CLOSEOUT_TEMPLATE](CLOSEOUT_TEMPLATE.md) | Unknown | 545 | 0 | 0 | ❌ | ❌ | Missing acceptance criteria, No user stories found, No edge cases section, No 'Out of Scope' section, No Gherkin scenarios — ACs should use Given/When/Then |
-| S65 | [Local CI Gate](draft/gate-local-ci.md) | 🔍 Review | 1028 | 8 | 4 | ✅ | ✅ | — |
+| S65 | [Local CI Gate](65-local-ci-gate.md) | ✅ Approved | 1024 | 8 | 4 | ✅ | ✅ | — |
 
 ## 0 — Foundation
 
@@ -66,7 +66,7 @@
 | S16 | [Testing Infrastructure](16-testing-infrastructure.md) | ✅ Approved | 5072 | 48 | 8 | ✅ | ✅ | — |
 | S17 | [Data Privacy](17-data-privacy.md) | ✅ Approved | 4574 | 44 | 4 | ✅ | ✅ | — |
 | S26 | [Admin & Operator Tooling](26-admin-and-operator-tooling.md) | ✅ Approved | 3423 | 16 | 8 | ✅ | ✅ | — |
-| S28 | [Performance & Scaling](28-performance-and-scaling.md) | ✅ Approved | 3247 | 16 | 8 | ✅ | ✅ | — |
+| S28 | [Performance & Scaling](28-performance-and-scaling.md) | ✅ Approved | 3300 | 16 | 8 | ✅ | ✅ | — |
 | S42 | [LLM Playtester Agent Harness](42-llm-playtester-agent-harness.md) | ✅ Approved | 1506 | 5 | 5 | ✅ | ❌ | No edge cases section |
 | S43 | [Human Playtester Program](43-human-playtester-program.md) | ✅ Approved | 1542 | 4 | 5 | ✅ | ❌ | No edge cases section |
 | S44 | [Narrative Quality Evaluation](44-narrative-quality-evaluation.md) | ✅ Approved | 1503 | 5 | 5 | ❌ | ❌ | No user stories found, No edge cases section |
@@ -130,12 +130,12 @@
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S67 | [Autonomous Queue Readiness Gate](draft/queue-readiness-gate.md) | 🔍 Review | 1088 | 8 | 4 | ✅ | ✅ | — |
+| S67 | [Autonomous Queue Readiness Gate](67-autonomous-queue-readiness-gate.md) | ✅ Approved | 1084 | 8 | 4 | ✅ | ✅ | — |
 
 ## Summary
 
 - **Total specs**: 70
-- **Total words**: 182,850
+- **Total words**: 182,895
 - **Total acceptance criteria**: 752
 - **Specs with warnings**: 31/70
 - **Specs with Gherkin scenarios**: 66/70
