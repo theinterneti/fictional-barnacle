@@ -4,6 +4,7 @@ Existing implementation reality-check coverage for S66.
 """
 
 import asyncio
+from collections.abc import Mapping
 
 import pytest
 from structlog.testing import capture_logs
@@ -340,3 +341,106 @@ class TestStructlogEvents:
             and event["provider_utilization"] is None
             for event in logs
         )
+
+    async def test_admission_logs_provider_utilization_when_snapshot_supplied(
+        self,
+    ) -> None:
+        """Admission logs include provider state when a snapshot and provider are known.
+
+        This spike enriches observability only. It does NOT claim provider-aware
+        routing yet — the decision remains the normal admission decision.
+        """
+        from tta.llm.provider_utilization import (
+            ProviderUtilization,
+            ProviderUtilizationState,
+        )
+        from tta.llm.rate_limiter import RateLimitBudget, TaskPriority
+
+        class FakeSnapshot:
+            def snapshot(self) -> dict[str, ProviderUtilization]:
+                return {
+                    "google": ProviderUtilization(
+                        provider="google",
+                        state=ProviderUtilizationState.NEAR_LIMIT,
+                        retry_after_seconds=2.0,
+                        source="retry_after_header",
+                    )
+                }
+
+        budget = RateLimitBudget(provider_utilization_snapshot=FakeSnapshot())
+
+        with capture_logs() as logs:
+            assert await budget.admit(
+                TaskPriority.LOW,
+                task_type="npc_autonomy",
+                provider="google",
+            )
+            await budget.release(TaskPriority.LOW, provider="google")
+
+        admitted_event = next(
+            event for event in logs if event["event"] == "rate_limit_admitted"
+        )
+        assert admitted_event["tier"] == "low"
+        assert admitted_event["task_type"] == "npc_autonomy"
+        assert admitted_event["decision"] == "admitted"
+        assert admitted_event["provider_utilization"] == {
+            "provider": "google",
+            "state": "near_limit",
+            "rpm_utilization": None,
+            "retry_after_seconds": 2.0,
+            "source": "retry_after_header",
+        }
+        assert "routing_decision" not in admitted_event
+        assert "provider_selected_by_utilization" not in admitted_event
+
+    async def test_critical_admission_ignores_snapshot_lookup_failures(self) -> None:
+        """Observability snapshot failures must not block CRITICAL admission."""
+        from tta.llm.provider_utilization import ProviderUtilization
+        from tta.llm.rate_limiter import RateLimitBudget, TaskPriority
+
+        class BrokenSnapshot:
+            def snapshot(self) -> Mapping[str, ProviderUtilization]:
+                raise RuntimeError("snapshot unavailable")
+
+        budget = RateLimitBudget(provider_utilization_snapshot=BrokenSnapshot())
+
+        with capture_logs() as logs:
+            assert await budget.admit(
+                TaskPriority.CRITICAL,
+                task_type="player_turn",
+                provider="google",
+            )
+            await budget.release(TaskPriority.CRITICAL, provider="google")
+
+        admitted_event = next(
+            event for event in logs if event["event"] == "rate_limit_admitted"
+        )
+        assert admitted_event["tier"] == "critical"
+        assert admitted_event["provider_utilization"] is None
+
+    async def test_snapshot_lookup_failures_fail_open_for_non_critical_logs(
+        self,
+    ) -> None:
+        """Observability seam must fail open when snapshot lookup raises."""
+        from tta.llm.provider_utilization import ProviderUtilization
+        from tta.llm.rate_limiter import RateLimitBudget, TaskPriority
+
+        class BrokenSnapshot:
+            def snapshot(self) -> Mapping[str, ProviderUtilization]:
+                raise RuntimeError("snapshot unavailable")
+
+        budget = RateLimitBudget(provider_utilization_snapshot=BrokenSnapshot())
+
+        with capture_logs() as logs:
+            assert await budget.admit(
+                TaskPriority.LOW,
+                task_type="npc_autonomy",
+                provider="google",
+            )
+            await budget.release(TaskPriority.LOW, provider="google")
+
+        admitted_event = next(
+            event for event in logs if event["event"] == "rate_limit_admitted"
+        )
+        assert admitted_event["tier"] == "low"
+        assert admitted_event["provider_utilization"] is None

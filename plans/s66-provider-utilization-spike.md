@@ -244,7 +244,86 @@ uv run python scripts/workflow_state.py status
 make trace
 ```
 
-## 6. Testing strategy
+## 6. Spike Result
+
+Result: complete for the signal-seam objective; AC-66.04 remains deferred.
+
+### 6.1 Selected source
+
+Selected first source: observed LiteLLM/FMR 429 events with retry-after metadata.
+
+Why this won:
+
+- deterministic in unit tests with synthetic exceptions;
+- no live spend, no network probing;
+- directly represents provider exhaustion/congestion;
+- already aligned with existing `tta.llm.errors.classify_error()` transient handling.
+
+Implemented evidence:
+
+- `src/tta/llm/provider_utilization.py` introduces:
+  - `ProviderUtilizationState`
+  - `ProviderUtilization`
+  - `ProviderUtilizationSnapshot`
+  - `from_rate_limit_error(exc)`
+- `tests/unit/llm/test_provider_utilization.py` proves:
+  - 429 + retry-after => `EXHAUSTED`
+  - 429 without retry-after => `NEAR_LIMIT`
+  - missing signal => `UNKNOWN`, not `HEALTHY`
+- `src/tta/llm/rate_limiter.py` now accepts an optional provider snapshot and logs serialized provider state when a provider is supplied.
+- `tests/unit/llm/test_rate_limit_budget.py` proves log enrichment without any routing claim.
+
+### 6.2 Implementation seam
+
+Chosen seam:
+
+- signal production lives outside `RateLimitBudget`;
+- `RateLimitBudget` remains admission-only and receives:
+  - `provider` (optional string context)
+  - `provider_utilization_snapshot` (optional injected snapshot source)
+- log enrichment happens via `_provider_utilization_for(provider)` and `_log_decision(..., provider_utilization=...)`.
+
+This keeps HTTP/LiteLLM internals out of `RateLimitBudget` and preserves a clean boundary for the real routing slice.
+
+### 6.3 Rejected or deferred alternatives
+
+1. LiteLLM response headers
+   - Deferred.
+   - Useful, but the response-object/header contract is less stable and harder to test cleanly than synthetic 429 exceptions.
+
+2. FMR capacity endpoint
+   - Deferred to the next slice.
+   - Architecturally attractive for proactive routing, but it requires a documented, stable local endpoint contract and should be introduced only when routing behavior is actually implemented.
+
+### 6.4 Exact next routing tests for the real AC-66.04 slice
+
+These are the next tests to add when provider-aware routing is implemented:
+
+```python
+@pytest.mark.spec("AC-66.04")
+def test_low_tier_prefers_healthy_provider_over_near_limit_provider():
+    ...
+
+@pytest.mark.spec("AC-66.04")
+def test_best_effort_avoids_exhausted_provider_when_healthy_alternative_exists():
+    ...
+
+@pytest.mark.spec("AC-66.04")
+def test_unknown_provider_state_does_not_override_explicit_healthy_choice():
+    ...
+
+@pytest.mark.spec("AC-66.04")
+def test_admission_logs_selected_provider_and_utilization_basis_when_routed():
+    ...
+```
+
+Required behavior for that slice:
+
+- LOW/BEST_EFFORT calls must choose a model/provider using provider state;
+- `NEAR_LIMIT` and `EXHAUSTED` providers must be deprioritized when healthier alternatives exist;
+- `tests/unit/v2_deferred_coverage.py` may only drop the AC-66.04 skip once that routing behavior exists.
+
+## 7. Testing strategy
 
 Use no-spend tests only:
 
@@ -261,14 +340,14 @@ Do not run live LLM calls for this spike. If a local FMR endpoint must be probed
 - Capture and paste the exact response shape into the Spike Result section before implementation consumes it.
 
 
-## 7. Acceptance criteria for this plan
+## 8. Acceptance criteria for this plan
 
 - The plan is indexed by `plans/index_plans.py` without new warnings specific to this file.
 - A machine-readable work item references `specs/66-rate-limit-budget.md`, this plan, and `AC-66.04`.
 - The first implementation task is a spike with no-spend evidence, not a routing rewrite.
 - AC-66.04 remains truthfully deferred until routing behavior exists.
 
-## 8. Validation commands
+## 9. Validation commands
 
 ```bash
 uv run python plans/index_plans.py --validate
