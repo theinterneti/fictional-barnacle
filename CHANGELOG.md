@@ -10,6 +10,8 @@ see `docs/release.md` for release rules.
 ### Added
 - Add deterministic local workflow gates for changed-test planning, developer
   environment checks, changelog validation, and release metadata checks.
+- Add an explicit SDD work-item state machine for deterministic stage tracking
+  and evidence-gated work advancement.
 
 ## [0.1.0] - 2026-05-27
 

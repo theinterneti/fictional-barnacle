@@ -49,3 +49,16 @@ def test_phase2_release_targets_are_documented() -> None:
     for target, description in expected_targets.items():
         assert f"{target}:" in makefile
         assert description in makefile
+
+
+def test_phase3_workflow_targets_are_documented() -> None:
+    makefile = Path("Makefile").read_text()
+
+    expected_targets = {
+        "work-status": "Show SDD work-item state summary",
+        "work-next": "Show the next non-terminal SDD work item",
+        "work-advance": "Advance a work item after deterministic evidence is present",
+    }
+    for target, description in expected_targets.items():
+        assert f"{target}:" in makefile
+        assert description in makefile

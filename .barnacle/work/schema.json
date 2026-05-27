@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "fictional-barnacle SDD work item",
+  "type": "object",
+  "required": ["id", "title", "stage"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^FB-[A-Za-z0-9_-]+$"},
+    "title": {"type": "string", "minLength": 1},
+    "stage": {
+      "type": "string",
+      "enum": [
+        "DISCOVERED",
+        "DRAFT_SPEC",
+        "SPEC_REVIEW",
+        "APPROVED_SPEC",
+        "PLAN_DRAFT",
+        "PLAN_REVIEW",
+        "PLAN_APPROVED",
+        "IMPLEMENTING",
+        "TESTING",
+        "TRACE_DECORATED",
+        "LOCAL_GATE_GREEN",
+        "REVIEWED",
+        "PR_OPEN",
+        "CI_GREEN",
+        "MERGED",
+        "RELEASED",
+        "BLOCKED",
+        "CANCELLED"
+      ]
+    },
+    "spec_ref": {"type": "string"},
+    "plan_ref": {"type": "string"},
+    "ac_ids": {"type": "array", "items": {"type": "string"}},
+    "branch": {"type": "string"},
+    "validation_commands": {"type": "array", "items": {"type": "string"}},
+    "evidence_files": {"type": "array", "items": {"type": "string"}},
+    "last_gate_result": {"type": "string"},
+    "review_status": {"type": "string"},
+    "pr_number": {"type": ["integer", "null"]},
+    "release_note_required": {"type": "boolean"},
+    "changelog_entry": {"type": "string"},
+    "blocked_reason": {"type": "string"}
+  }
+}

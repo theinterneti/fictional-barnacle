@@ -10,6 +10,7 @@
         test-up test-down quality check check-format gate gate-full \
         doctor status changed-tests gate-changed \
         changelog-check version-check release-check release-dry-run \
+        work-status work-next work-advance \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -100,6 +101,18 @@ release-check: changelog-check version-check gate ## Run release readiness check
 release-dry-run: ## Preview release gate and current version metadata
 	uv run python scripts/changelog_check.py --json
 	uv run python scripts/version_check.py --json
+
+# ---------------------------------------------------------------------------
+# SDD work-item state machine
+# ---------------------------------------------------------------------------
+work-status: ## Show SDD work-item state summary
+	uv run python scripts/workflow_state.py status
+
+work-next: ## Show the next non-terminal SDD work item
+	uv run python scripts/workflow_state.py next
+
+work-advance: ## Advance a work item after deterministic evidence is present
+	uv run python scripts/workflow_state.py advance $(ITEM) $(STAGE)
 
 # ---------------------------------------------------------------------------
 # Testing
