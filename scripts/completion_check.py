@@ -17,6 +17,7 @@ def completion_commands() -> list[str]:
         "make tdd-check",
         "make changelog-check",
         "make trace",
+        "make practical-gate",
     ]
 
 

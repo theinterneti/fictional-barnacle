@@ -88,3 +88,10 @@ def test_phase5_pr_release_targets_are_documented() -> None:
     for target, description in expected_targets.items():
         assert f"{target}:" in makefile
         assert description in makefile
+
+
+def test_phase6_practical_gate_target_is_documented() -> None:
+    makefile = Path("Makefile").read_text()
+
+    assert "practical-gate:" in makefile
+    assert "Validate practical application evidence files" in makefile

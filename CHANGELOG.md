@@ -16,6 +16,8 @@ see `docs/release.md` for release rules.
   slices.
 - Add PR preparation checks and a manual GitHub release workflow gated by local
   release readiness automation.
+- Add practical application evidence conventions and a deterministic evidence
+  validator.
 
 ## [0.1.0] - 2026-05-27
 

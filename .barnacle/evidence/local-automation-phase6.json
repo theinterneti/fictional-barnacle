@@ -1,0 +1,7 @@
+{
+  "gate": "local-automation-phase6",
+  "command": "make gate",
+  "status": "pass",
+  "timestamp": "2026-05-27T00:00:00Z",
+  "summary": "Local automation roadmap changes pass the full repository gate with approved AC trace coverage at 351/351."
+}

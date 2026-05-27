@@ -27,6 +27,7 @@ def test_completion_commands_are_deterministic(completion_module) -> None:
         "make tdd-check",
         "make changelog-check",
         "make trace",
+        "make practical-gate",
     ]
 
 

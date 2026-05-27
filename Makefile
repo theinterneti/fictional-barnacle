@@ -13,6 +13,7 @@
         work-status work-next work-advance \
         tdd-check spec-check complete-check \
         pr-prep pr-check release-workflow-check \
+        practical-gate \
         dev play playtest playtest-web up down build logs shell \
         docker-up docker-down docker-langfuse \
         migrate migrate-neo4j clean load-test sim sim-quick
@@ -139,6 +140,12 @@ pr-check: ## Validate branch and changed-file readiness for PR creation
 
 release-workflow-check: ## Validate GitHub release workflow wiring
 	uv run pytest tests/unit/scripts/test_release_workflow.py -q
+
+# ---------------------------------------------------------------------------
+# Practical application evidence
+# ---------------------------------------------------------------------------
+practical-gate: ## Validate practical application evidence files
+	uv run python scripts/practical_gate.py
 
 # ---------------------------------------------------------------------------
 # Testing
