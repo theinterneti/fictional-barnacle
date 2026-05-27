@@ -124,7 +124,7 @@
 
 | # | Title | Status | Words | ACs | Gherkin | Stories | Edge Cases | Warnings |
 |---|-------|--------|------:|----:|-------:|:-------:|:----------:|----------|
-| S66 | [Rate-Limit Budget & Task Prioritization](66-rate-limit-budget.md) | 📝 Draft | 2152 | 6 | 0 | ✅ | ✅ | — |
+| S66 | [Rate-Limit Budget & Task Prioritization](66-rate-limit-budget.md) | ✅ Approved | 2285 | 6 | 0 | ✅ | ✅ | — |
 
 ## Process — Autonomous Pipeline Governance
 
@@ -135,7 +135,7 @@
 ## Summary
 
 - **Total specs**: 70
-- **Total words**: 182,895
+- **Total words**: 183,028
 - **Total acceptance criteria**: 752
 - **Specs with warnings**: 31/70
 - **Specs with Gherkin scenarios**: 66/70

@@ -5,12 +5,15 @@
 import pytest
 
 
-# This test is skipped because it is planned, but not yet implemented in v1.
-@pytest.mark.spec("AC-66.06")
-@pytest.mark.skip(reason="Not yet implemented in v1.")
-def test_ac66_06_backpressure_not_yet_implemented():
-    # This is a stub for AC-66.06 coverage deferral
-    pass
+@pytest.mark.spec("AC-66.04")
+@pytest.mark.skip(
+    reason=(
+        "S66 approved target: provider-preference needs a provider-utilization "
+        "signal spike before implementation."
+    )
+)
+def test_ac66_04_deferred_provider_preference() -> None:
+    """AC-66.04 requires routing LOW calls away from NEAR_LIMIT providers."""
 
 
 @pytest.mark.spec("AC-03.07")

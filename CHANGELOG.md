@@ -18,6 +18,8 @@ see `docs/release.md` for release rules.
   release readiness automation.
 - Add practical application evidence conventions and a deterministic evidence
   validator.
+- Approve S66 rate-limit budget after correcting stale S50 trace markers and
+  adding structured admission-control event evidence.
 
 ## [0.1.0] - 2026-05-27
 
