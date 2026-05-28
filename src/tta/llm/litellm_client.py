@@ -7,7 +7,8 @@ See plans/llm-and-pipeline.md §1 for design details.
 from __future__ import annotations
 
 import time
-from typing import Any, Literal
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Literal
 
 import litellm
 import structlog
@@ -29,6 +30,12 @@ from tta.llm.errors import (
     TransientLLMError,
     classify_error,
 )
+from tta.llm.provider_utilization import (
+    ProviderUtilization,
+    ProviderUtilizationSnapshot,
+    ProviderUtilizationState,
+    from_rate_limit_error,
+)
 from tta.llm.roles import (
     DEFAULT_ROLE_CONFIGS,
     ModelRole,
@@ -41,6 +48,11 @@ from tta.llm.serving_profiles import (
     resolve_generation_policy,
 )
 from tta.models.turn import TokenCount
+
+if TYPE_CHECKING:
+    from tta.llm.rate_limiter import TaskPriority
+
+from tta.llm.rate_limiter import TaskPriority
 from tta.observability.metrics import (
     TURN_LLM_CALLS,
     TURN_LLM_DURATION,
@@ -77,8 +89,10 @@ class LiteLLMClient:
     def __init__(
         self,
         role_configs: dict[ModelRole, ModelRoleConfig] | None = None,
+        provider_utilization_snapshot: ProviderUtilizationSnapshot | None = None,
     ) -> None:
         self._role_configs = role_configs or DEFAULT_ROLE_CONFIGS
+        self._provider_utilization_snapshot = provider_utilization_snapshot
 
     async def generate(
         self,
@@ -88,6 +102,7 @@ class LiteLLMClient:
         *,
         generation_profile: GenerationServingProfile | None = None,
         traffic_class: GenerationTrafficClass | None = None,
+        task_priority: TaskPriority | None = None,
     ) -> LLMResponse:
         """Generate a complete response (non-streaming)."""
         return await self._call_with_fallback(
@@ -97,6 +112,7 @@ class LiteLLMClient:
             stream=False,
             generation_profile=generation_profile,
             traffic_class=traffic_class,
+            task_priority=task_priority,
         )
 
     async def stream(
@@ -107,6 +123,7 @@ class LiteLLMClient:
         *,
         generation_profile: GenerationServingProfile | None = None,
         traffic_class: GenerationTrafficClass | None = None,
+        task_priority: TaskPriority | None = None,
     ) -> LLMResponse:
         """Buffer-then-stream: streams internally, returns LLMResponse."""
         return await self._call_with_fallback(
@@ -116,6 +133,7 @@ class LiteLLMClient:
             stream=True,
             generation_profile=generation_profile,
             traffic_class=traffic_class,
+            task_priority=task_priority,
         )
 
     async def _call_with_fallback(
@@ -127,6 +145,7 @@ class LiteLLMClient:
         stream: bool,
         generation_profile: GenerationServingProfile | None,
         traffic_class: GenerationTrafficClass | None,
+        task_priority: TaskPriority | None,
     ) -> LLMResponse:
         config = self._role_configs.get(role)
         if config is None:
@@ -157,6 +176,11 @@ class LiteLLMClient:
         ]
         if config.fallback:
             tiers.append((config.fallback, "fallback"))
+        tiers = self._order_tiers_by_provider_utilization(
+            tiers,
+            role=role,
+            task_priority=task_priority,
+        )
 
         errors: list[Exception] = []
         for model, tier_name in tiers:
@@ -192,6 +216,7 @@ class LiteLLMClient:
             except PermanentLLMError:
                 raise
             except TransientLLMError as exc:
+                self._record_provider_utilization(exc)
                 errors.append(exc)
                 log.warning(
                     "tier_failed",
@@ -209,6 +234,86 @@ class LiteLLMClient:
                 errors=errors,
             )
         raise AllTiersFailedError(role=str(role), errors=errors)
+
+    def _order_tiers_by_provider_utilization(
+        self,
+        tiers: list[tuple[str, TierName]],
+        *,
+        role: ModelRole,
+        task_priority: TaskPriority | None,
+    ) -> list[tuple[str, TierName]]:
+        if (
+            role != ModelRole.GENERATION
+            or task_priority not in {TaskPriority.LOW, TaskPriority.BEST_EFFORT}
+            or self._provider_utilization_snapshot is None
+            or len(tiers) < 2
+        ):
+            return tiers
+
+        snapshot = self._safe_snapshot()
+        if snapshot is None:
+            return tiers
+
+        providers = [self._provider_for_model(model) for model, _ in tiers]
+        distinct_providers = {
+            provider for provider in providers if provider is not None
+        }
+        if len(distinct_providers) < 2:
+            return tiers
+
+        indexed = list(enumerate(tiers))
+        indexed.sort(
+            key=lambda item: (
+                self._provider_state_rank(
+                    snapshot.get(self._provider_for_model(item[1][0]) or "")
+                ),
+                item[0],
+            )
+        )
+        return [tier for _, tier in indexed]
+
+    def _safe_snapshot(self) -> Mapping[str, ProviderUtilization] | None:
+        snapshot = self._provider_utilization_snapshot
+        if snapshot is None:
+            return None
+        try:
+            return snapshot.snapshot()
+        except Exception:
+            return None
+
+    def _record_provider_utilization(self, exc: Exception) -> None:
+        snapshot = self._provider_utilization_snapshot
+        if snapshot is None:
+            return
+        source_exc = exc.__cause__ if isinstance(exc.__cause__, Exception) else exc
+        record = getattr(snapshot, "record", None)
+        if callable(record):
+            try:
+                record(source_exc)
+                return
+            except Exception:
+                return
+        try:
+            from_rate_limit_error(source_exc)
+        except Exception:
+            return
+
+    def _provider_for_model(self, model: str) -> str | None:
+        if "/" not in model:
+            return None
+        return model.split("/", 1)[0]
+
+    def _provider_state_rank(self, utilization: ProviderUtilization | None) -> int:
+        if utilization is None:
+            return 2
+        order = {
+            ProviderUtilizationState.HEALTHY: 0,
+            ProviderUtilizationState.ELEVATED: 1,
+            ProviderUtilizationState.UNKNOWN: 2,
+            ProviderUtilizationState.NEAR_LIMIT: 3,
+            ProviderUtilizationState.EXHAUSTED: 4,
+        }
+        return order.get(utilization.state, 2)
 
     @retry(
         retry=retry_if_exception_type(TransientLLMError),

@@ -1,5 +1,9 @@
 """Deterministic mock LLM client for testing."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from tta.llm.client import (
     GenerationParams,
     LLMResponse,
@@ -11,6 +15,9 @@ from tta.llm.serving_profiles import (
     GenerationTrafficClass,
 )
 from tta.models.turn import TokenCount
+
+if TYPE_CHECKING:
+    from tta.llm.rate_limiter import TaskPriority
 
 MOCK_RESPONSE = "You enter a dimly lit chamber."
 
@@ -56,6 +63,7 @@ class MockLLMClient:
         *,
         generation_profile: GenerationServingProfile | None = None,
         traffic_class: GenerationTrafficClass | None = None,
+        task_priority: TaskPriority | None = None,
     ) -> LLMResponse:
         self.call_history.append(
             {
@@ -63,6 +71,7 @@ class MockLLMClient:
                 "role": role,
                 "messages": messages,
                 "params": params,
+                "task_priority": task_priority,
             }
         )
         return self._build_response(messages, role)
@@ -75,6 +84,7 @@ class MockLLMClient:
         *,
         generation_profile: GenerationServingProfile | None = None,
         traffic_class: GenerationTrafficClass | None = None,
+        task_priority: TaskPriority | None = None,
     ) -> LLMResponse:
         """Buffer-then-stream: returns complete LLMResponse like generate()."""
         self.call_history.append(
@@ -83,6 +93,7 @@ class MockLLMClient:
                 "role": role,
                 "messages": messages,
                 "params": params,
+                "task_priority": task_priority,
             }
         )
         return self._build_response(messages, role)

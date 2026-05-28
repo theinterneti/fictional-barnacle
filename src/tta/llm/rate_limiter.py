@@ -346,25 +346,33 @@ class RateLimitedLLMClient:
         task_type: str = "",
         generation_profile=None,
         traffic_class=None,
+        task_priority: TaskPriority | None = None,
     ):
         """Generate with admission control per tier.
 
         CRITICAL tier bypasses the budget entirely.
         """
-        await self._enforce(tier, task_type)
+        effective_tier = task_priority or tier
+        await self._enforce(effective_tier, task_type)
         try:
             if generation_profile is None and traffic_class is None:
-                return await self._inner.generate(role, messages, params)
+                return await self._inner.generate(
+                    role,
+                    messages,
+                    params,
+                    task_priority=effective_tier,
+                )
             return await self._inner.generate(
                 role,
                 messages,
                 params,
                 generation_profile=generation_profile,
                 traffic_class=traffic_class,
+                task_priority=effective_tier,
             )
         finally:
-            if tier != TaskPriority.CRITICAL:
-                await self._budget.release(tier)
+            if effective_tier != TaskPriority.CRITICAL:
+                await self._budget.release(effective_tier)
 
     async def stream(
         self,
@@ -376,22 +384,30 @@ class RateLimitedLLMClient:
         task_type: str = "",
         generation_profile=None,
         traffic_class=None,
+        task_priority: TaskPriority | None = None,
     ):
         """Stream with admission control per tier."""
-        await self._enforce(tier, task_type)
+        effective_tier = task_priority or tier
+        await self._enforce(effective_tier, task_type)
         try:
             if generation_profile is None and traffic_class is None:
-                return await self._inner.stream(role, messages, params)
+                return await self._inner.stream(
+                    role,
+                    messages,
+                    params,
+                    task_priority=effective_tier,
+                )
             return await self._inner.stream(
                 role,
                 messages,
                 params,
                 generation_profile=generation_profile,
                 traffic_class=traffic_class,
+                task_priority=effective_tier,
             )
         finally:
-            if tier != TaskPriority.CRITICAL:
-                await self._budget.release(tier)
+            if effective_tier != TaskPriority.CRITICAL:
+                await self._budget.release(effective_tier)
 
     # ------------------------------------------------------------------
     # Internal

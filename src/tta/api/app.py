@@ -207,6 +207,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         import os
 
         from tta.llm.litellm_client import LiteLLMClient
+        from tta.llm.provider_utilization import InMemoryProviderUtilizationSnapshot
+        from tta.llm.rate_limiter import RateLimitBudget, RateLimitedLLMClient
         from tta.llm.roles import (
             BACKEND_ROLE_CONFIGS,
             DEFAULT_ROLE_CONFIGS,
@@ -233,6 +235,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         _primary_override = _qualify_model_name(settings.litellm_model)
         _fallback_override = _qualify_model_name(settings.litellm_fallback_model)
+        _provider_snapshot = InMemoryProviderUtilizationSnapshot()
 
         # Allow env-var overrides for primary/fallback model per FR-17.30 audit.
         # If TTA_LITELLM_MODEL is non-default, override ALL roles so that
@@ -252,7 +255,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 )
             _effective_role_configs = _overridden
 
-        app.state.llm_client = LiteLLMClient(role_configs=_effective_role_configs)
+        app.state.llm_client = RateLimitedLLMClient(
+            inner=LiteLLMClient(
+                role_configs=_effective_role_configs,
+                provider_utilization_snapshot=_provider_snapshot,
+            ),
+            budget=RateLimitBudget(provider_utilization_snapshot=_provider_snapshot),
+        )
         app.state.llm_role_configs = _effective_role_configs
 
         # S17 FR-17.30: log configured LLM provider on startup for audit trail

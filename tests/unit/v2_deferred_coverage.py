@@ -5,17 +5,6 @@
 import pytest
 
 
-@pytest.mark.spec("AC-66.04")
-@pytest.mark.skip(
-    reason=(
-        "S66 approved target: provider-preference needs a provider-utilization "
-        "signal spike before implementation."
-    )
-)
-def test_ac66_04_deferred_provider_preference() -> None:
-    """AC-66.04 requires routing LOW calls away from NEAR_LIMIT providers."""
-
-
 @pytest.mark.spec("AC-03.07")
 @pytest.mark.skip(
     reason="V2 deferred: coherence checker/regeneration is not built yet."

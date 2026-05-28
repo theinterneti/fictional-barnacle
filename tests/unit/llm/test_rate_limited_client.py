@@ -1,6 +1,7 @@
 """Tests for RateLimitedLLMClient — admission-controlled wrapper (S66 §9.1)."""
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
@@ -83,6 +84,7 @@ class TestRateLimitedClientHigh:
                 *,
                 generation_profile=None,
                 traffic_class=None,
+                task_priority=None,
             ):
                 await hold_event.wait()
                 return await orig_generate(
@@ -91,6 +93,7 @@ class TestRateLimitedClientHigh:
                     params,
                     generation_profile=generation_profile,
                     traffic_class=traffic_class,
+                    task_priority=task_priority,
                 )
 
             mock.generate = blocking_generate  # pyright: ignore[reportAttributeAccessIssue]
@@ -140,3 +143,32 @@ class TestRateLimitedClientHigh:
             messages=[Message(role=MessageRole.USER, content="no_tier")],
         )
         assert result.content == "default"
+
+    @pytest.mark.spec("AC-66.04")
+    async def test_low_tier_forwards_dispatch_context_to_inner_client(self) -> None:
+        """LOW tier must be forwarded so the inner client can reorder providers."""
+        from tta.llm.rate_limiter import (
+            RateLimitBudget,
+            RateLimitedLLMClient,
+            TaskPriority,
+        )
+
+        captured: dict[str, object] = {}
+
+        class RecordingInner:
+            async def generate(self, role, messages, params=None, **kwargs):
+                captured.update(kwargs)
+                return SimpleNamespace(content="ok")
+
+        budget = RateLimitBudget(high_concurrency=1)
+        client = RateLimitedLLMClient(inner=RecordingInner(), budget=budget)
+
+        result = await client.generate(
+            role=ModelRole.GENERATION,
+            messages=[Message(role=MessageRole.USER, content="prefer healthy")],
+            tier=TaskPriority.LOW,
+            task_type="npc_autonomy",
+        )
+
+        assert result.content == "ok"
+        assert captured["task_priority"] == TaskPriority.LOW
