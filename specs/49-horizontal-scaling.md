@@ -263,7 +263,7 @@ Feature: Horizontal Scaling
 
 | ID | Question | Status | Resolution |
 |---|----------|--------|------------|
-| OQ-49.01 | Session affinity vs stateless sessions? | ✅ Resolved | **Stateless sessions via Redis** for all request types; **Fly-instance affinity for SSE only** via `fly-force-instance-id` response header. |
+| OQ-49.01 | Session affinity vs stateless sessions? | ✅ Resolved | **Stateless sessions via Redis** for all correctness paths. SSE reconnect portability is provided by Redis-backed replay/snapshot state; Fly routing hints may be explored as an optimization, but instance affinity is not a normative requirement. |
 | OQ-49.02 | How to handle SSE on instance loss? | ✅ Resolved | Client reconnects via existing SSE `onerror` + `Last-Event-ID` replay from Redis stream. No additional server-side machinery needed. |
 
 ## 11. Out of Scope

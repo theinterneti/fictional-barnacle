@@ -277,7 +277,7 @@ Feature: Async Job Runner
 | ID | Question | Status | Resolution |
 |---|----------|--------|------------|
 | OQ-48.01 | ARQ vs Celery vs RQ? | ✅ Resolved | **ARQ** — asyncio-native, Redis-backed (no new infra), minimal dependencies, built-in cron. |
-| OQ-48.02 | Worker co-location or separate host? | ✅ Resolved | **Same Fly Machine in v3** (entrypoint process; fits single-unit mandate). S49 review will address scaling the worker separately if needed. |
+| OQ-48.02 | Worker co-location or separate host? | ✅ Resolved | **Separate worker process group from the same image; co-location is optional**. In v3, the API and worker share one codebase/image, but may run on separate Fly Machines when memory, shutdown, or scaling needs require it; implementations must not assume same-host co-location. |
 
 ## 11. Out of Scope
 
