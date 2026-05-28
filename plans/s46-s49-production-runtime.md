@@ -303,3 +303,273 @@ Recommended subagent split:
 - Agent D: S46 Fly deployment artifacts and production config validation.
 
 Integration owner must merge in the dependency order above and run the bundle gate after each agent lands. Do not let deployment artifacts merge before S47/S49/S48 runtime tests are green.
+
+## Appendix A: Implementation-Ready Sub-Tasks
+
+Each high-level task above is expanded here into 2-5 minute sub-tasks with exact file paths, code, and verification commands. Implementers should work through these sub-tasks sequentially within each parent task.
+
+---
+
+### A1. S47 Sub-Tasks: Live Service Integration Gates
+
+#### A1.1: Make CI fail loud on service startup failure
+
+**File:** `.github/workflows/ci.yml`
+
+Replace the silent-failure pattern:
+
+```yaml
+# BEFORE (line ~45 in integration job):
+- run: docker compose -f docker-compose.test.yml up -d --wait || echo "warning: services unavailable"
+
+# AFTER:
+- run: docker compose -f docker-compose.test.yml up -d --wait
+```
+
+```bash
+git add .github/workflows/ci.yml
+git commit -m "fix(ci): fail loud on test service startup failure"
+```
+
+#### A1.2: Add service diagnostics on failure
+
+**File:** Create `scripts/wait_for_test_services.py`
+
+```python
+#!/usr/bin/env python3
+"""Wait for test services with diagnostic output on failure."""
+import subprocess, sys, time
+
+SERVICES = {
+    "postgres": ["pg_isready", "-h", "localhost", "-p", "5432"],
+    "redis": ["redis-cli", "-h", "localhost", "-p", "6379", "ping"],
+    "neo4j": ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "http://localhost:7474"],
+}
+
+TIMEOUT = 60
+failed = []
+for name, cmd in SERVICES.items():
+    start = time.time()
+    while time.time() - start < TIMEOUT:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0 or (name == "neo4j" and result.stdout.strip() == "200"):
+            print(f"  {name}: ready ({time.time() - start:.1f}s)")
+            break
+        time.sleep(2)
+    else:
+        print(f"  {name}: FAILED after {TIMEOUT}s")
+        failed.append(name)
+
+if failed:
+    print(f"\nDiagnostics:", file=sys.stderr)
+    subprocess.run(["docker", "compose", "-f", "docker-compose.test.yml", "ps"], check=False)
+    subprocess.run(["docker", "compose", "-f", "docker-compose.test.yml", "logs", "--tail=20", "neo4j"], check=False)
+    sys.exit(1)
+print("All services ready.")
+```
+
+```bash
+chmod +x scripts/wait_for_test_services.py
+uv run python scripts/wait_for_test_services.py
+git add scripts/wait_for_test_services.py
+git commit -m "feat(s47): add test service readiness script with diagnostics"
+```
+
+#### A1.3: Verify Neo4j integration tests pass
+
+```bash
+docker compose -f docker-compose.test.yml up -d --wait
+uv run pytest tests/integration/test_s13_neo4j_integration.py -v --tb=short
+# Expected: all tests pass, Neo4j fixtures load correctly
+```
+
+---
+
+### A2. S46+S49 Sub-Tasks: Production Config Validation
+
+#### A2.1: Add production-mode config guard
+
+**File:** `src/tta/config.py`
+
+```python
+@field_validator("tta_environment")
+@classmethod
+def _validate_production_safety(cls, v: str, info: ValidationInfo) -> str:
+    if v == "production":
+        data = info.data
+        if data.get("jwt_secret", "") in ("", "change-me", "dev-secret"):
+            raise ValueError("JWT secret must not be default in production")
+        if data.get("cors_origins") == ["*"]:
+            raise ValueError("CORS origins must be explicit in production")
+    return v
+```
+
+**TDD:** Write failing test in `tests/unit/test_config.py` first.
+
+```bash
+uv run pytest tests/unit/test_config.py::test_production_rejects_default_secrets -v
+# Expected: FAIL (test doesn't exist yet)
+# Then: implement, verify PASS
+git commit -m "feat(s46): add production-mode config safety validation"
+```
+
+#### A2.2: Create Fly deployment config
+
+**File:** Create `fly.toml`
+
+```toml
+app = "tta-staging"
+primary_region = "iad"
+
+[build]
+  image = "tta:latest"
+
+[env]
+  TTA_ENVIRONMENT = "production"
+  PORT = "8000"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8000
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+```
+
+```bash
+git add fly.toml
+git commit -m "feat(s46): add Fly.io deployment config"
+```
+
+---
+
+### A3. S49 Sub-Tasks: Redis-Backed Horizontal Scaling
+
+#### A3.1: Audit in-memory state and enforce Redis backing
+
+**File:** `src/tta/api/app.py`
+
+Ensure lifespan startup wires Redis for turn results:
+
+```python
+# In create_app():
+turn_result_store = RedisTurnResultStore(redis_client)
+app.dependency_overrides[TurnResultStore] = lambda: turn_result_store
+```
+
+**TDD:**
+
+```python
+# tests/unit/api/test_app.py
+def test_default_app_uses_redis_turn_result_store():
+    app = create_app(Settings(redis_url="redis://localhost:6379"))
+    # Verify TurnResultStore dependency is Redis-backed
+```
+
+```bash
+uv run pytest tests/unit/api/test_app.py -k "redis_turn_result" -v
+git commit -m "feat(s49): enforce Redis-backed turn result store in production"
+```
+
+#### A3.2: Add cross-instance SSE reconnect test
+
+**File:** `tests/integration/test_s28_horizontal_scaling.py`
+
+```python
+@pytest.mark.spec("AC-49.03")
+@pytest.mark.asyncio
+async def test_sse_reconnect_across_instances():
+    """Two app instances sharing Redis — reconnect from instance B after turn on instance A."""
+    app_a = create_app(settings)
+    app_b = create_app(settings)  # same Redis, different app object
+    # Submit turn on A, reconnect SSE on B with Last-Event-ID
+    # Assert turn result streamed from B
+```
+
+```bash
+uv run pytest tests/integration/test_s28_horizontal_scaling.py::test_sse_reconnect_across_instances -v
+git commit -m "test(s49): add cross-instance SSE reconnect test"
+```
+
+---
+
+### A4. S48 Sub-Tasks: ARQ Worker Infrastructure
+
+#### A4.1: Create ARQ worker module
+
+**File:** Create `src/tta/jobs/worker.py`
+
+```python
+"""ARQ worker with Redis-backed job queue."""
+from arq import create_pool
+from arq.worker import func
+from tta.config import Settings
+
+@func
+async def gdpr_delete_player(ctx, player_id: str) -> dict:
+    """GDPR-compliant player data deletion."""
+    # Pseudocode — bind to actual privacy purge logic
+    return {"status": "deleted", "player_id": player_id}
+
+class ArqWorker:
+    def __init__(self, settings: Settings):
+        self.redis_url = settings.redis_url
+
+    async def start(self):
+        self.pool = await create_pool(self.redis_url)
+```
+
+**TDD:**
+
+```python
+# tests/unit/jobs/test_worker.py
+def test_worker_settings_use_configured_redis():
+    settings = Settings(redis_url="redis://test:6379")
+    worker = ArqWorker(settings)
+    assert worker.redis_url == "redis://test:6379"
+```
+
+```bash
+uv run pytest tests/unit/jobs/test_worker.py -v
+git commit -m "feat(s48): add ARQ worker module with GDPR job stub"
+```
+
+#### A4.2: Enqueue endpoint
+
+**File:** Modify `src/tta/api/routes/admin_operations.py`
+
+```python
+@router.post("/admin/jobs/gdpr-delete/{player_id}")
+async def enqueue_gdpr_delete(player_id: str, job_ctx: ArqWorker = Depends()):
+    job = await job_ctx.pool.enqueue_job("gdpr_delete_player", player_id)
+    return {"job_id": job.job_id}
+```
+
+---
+
+### A5. Bundle Gate Sub-Tasks
+
+Run in order after all implementation sub-tasks:
+
+```bash
+# 1. Spec/plan validation
+uv run python specs/index_specs.py --validate
+uv run python plans/index_plans.py --validate
+
+# 2. Code quality
+uv run ruff check
+uv run pyright
+
+# 3. Unit tests
+uv run pytest tests/unit -v
+
+# 4. Integration tests (requires test services)
+docker compose -f docker-compose.test.yml up -d --wait
+uv run pytest tests/integration/test_s13_neo4j_integration.py tests/integration/test_s28_horizontal_scaling.py -v --tb=short
+
+# 5. Trace
+make trace
+```

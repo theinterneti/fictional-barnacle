@@ -156,7 +156,22 @@ These pass `--validate` with no warnings. Ready for REVIEW.
 | S68 | Playtester Client Evolution | Yes (`v2_1-playtester-bundle.md`) |
 | S69 | World-Based Systems, Difficulty, Progression | Yes (same bundle plan) |
 | S70 | Routes, Distances, and Text Map | Yes (same bundle plan) |
-| S71 | Langfuse Integration | No |
+| S71 | Langfuse Integration | `specs/draft/` |
+
+### Known Intentional Gaps
+
+These Approved specs have validator warnings by design, not by oversight:
+
+| Spec | Gaps | Rationale |
+|---|---|---|
+| S00 | No user stories, no edge cases | Project charter — not a functional spec |
+| S41 | No edge cases | Scenario seed library — edge cases deferred to implementation |
+| S42 | No edge cases | LLM playtester harness — tool spec, edge cases in integration tests |
+| S43 | No edge cases | Human playtester program — process spec, not software spec |
+| S44 | No user stories, no edge cases | Narrative quality evaluation — scoring rubric, not user-facing feature |
+| S45 | No user stories, no edge cases | Evaluation pipeline — infrastructure spec, user stories in S43 |
+
+These should NOT be "fixed" by inventing placeholder content.
 
 ### DRAFT — Has Warnings (14 specs)
 
