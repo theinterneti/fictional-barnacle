@@ -185,3 +185,27 @@ AC-66.04 is complete only when all are true:
 - LOW/BEST_EFFORT dispatch demonstrably prefers healthier providers when distinct provider candidates exist
 - HIGH/CRITICAL behavior remains unchanged
 - `make trace` stays green
+
+---
+
+## Technology & Framework
+
+- **Runtime**: Python 3.12+, FastAPI, LiteLLM proxy
+- **Rate limiting**: `src/tta/llm/rate_limiter.py` (`RateLimitBudget`, `RateLimitedLLMClient`)
+- **Provider dispatch**: `src/tta/llm/litellm_client.py` (`_call_with_fallback`, provider reorder seam)
+- **Utilization snapshot**: `src/tta/llm/provider_utilization.py` (`InMemoryProviderUtilizationSnapshot`)
+- **Testing**: pytest with `@pytest.mark.spec("AC-66.04")` marker, SpyLLM for no-spend verification
+
+## Code Example: Provider Reorder Seam
+
+```python
+# The reorder seam in LiteLLMClient._call_with_fallback:
+def _reorder_models(self, models: list[str], priority: TaskPriority) -> list[str]:
+    if priority is not TaskPriority.LOW:
+        return models  # HIGH/CRITICAL: no reordering
+    snapshot = self._provider_utilization_snapshot.snapshot()
+    if not snapshot:
+        return models
+    # Prefer models from providers with lowest utilization
+    return sorted(models, key=lambda m: snapshot.get(self._provider_for(m), 0.0))
+```

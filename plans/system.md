@@ -743,7 +743,6 @@ jobs:
 - No direct push to `main`.
 
 ### 7.4 — Configuration
-
 All configuration via environment variables. Loaded by Pydantic Settings.
 
 ```python
@@ -752,8 +751,39 @@ class Settings(BaseSettings):
 
     # PostgreSQL (required — validated to start with postgresql://)
     database_url: str
+    # ... (rest of the settings)
+```
 
-    # Redis
+---
+
+## 8. Testing Strategy
+
+The TTA system employs a multi-layered testing pyramid to ensure narrative coherence and system stability.
+
+### 8.1 — Unit Testing
+Focuses on isolated logic in `src/tta/pipeline/`, `src/tta/llm/`, and `src/tta/world/`.
+- **Target**: 80% coverage for game-critical paths.
+- **Tooling**: `pytest` with `asyncio` support.
+- **Mocks**: Use the deterministic mock in `src/tta/llm/testing.py` to avoid LLM costs and flakiness in CI.
+
+### 8.2 — Integration Testing
+Verifies the interaction between the FastAPI app and its dependencies (Postgres, Neo4j, Redis).
+- **Scope**: Full turn lifecycle from `/turns` POST to SSE stream completion.
+- **Environment**: Run against real containers via `docker-compose`.
+- **Verification**: Check that `world_events` are correctly appended to Postgres and graph state is updated in Neo4j.
+
+### 8.3 — BDD / Acceptance Testing
+Validates high-level functional requirements (S01-S17).
+- **Format**: Gherkin `.feature` files.
+- **Execution**: `pytest-bdd`.
+- **Focus**: "Given a player is at Location X, when they input 'go north', then they should arrive at Location Y."
+
+### 8.4 — Automated Playtesting (The "LLM Critic")
+Since narrative quality is subjective, we use an LLM-based playtester.
+- **Process**: An agent plays multiple sessions, recording transcripts.
+- **Evaluation**: A separate "Critic" LLM scores the transcripts on agency, coherence, and surprise.
+- **Output**: Evaluation reports saved to `data/eval_output/`.
+
     redis_url: str = "redis://localhost:6379"
 
     # Neo4j

@@ -668,4 +668,20 @@ Each wave produces a PR-ready increment that can be independently tested and dep
 
 | Date | Author | Description |
 |------|--------|-------------|
-| 2025-07-21 | Copilot audit | Corrected normative code examples to match actual implementation. Updated field names, types, enum members, file paths, and model definitions to reflect codebase as of commit 8045faa. |
+| 2025-07-21 | Copilot audit | Corrected normative code examples to match implementation. Updated field names, types, enum
+
+---
+
+## Technology Stack
+
+- **Runtime**: Python 3.12+, FastAPI, Uvicorn
+- **Error handling**: `src/tta/api/error_handlers.py` (Starlette exception handlers), `src/tta/errors.py` (typed error taxonomy)
+- **Content moderation**: `src/tta/safety/moderation.py` (buffer-then-stream pipeline)
+- **Rate limiting**: Redis-backed counters via `src/tta/api/rate_limit.py` with `ratelimit:` key prefix
+- **Observability**: structlog for error logging, Prometheus metrics for rate limit counters
+
+## Testing Strategy
+
+- **Unit tests**: Error taxonomy mapping (`tests/unit/test_errors.py`), moderation classifier with known-safe/unsafe samples
+- **Integration tests**: Rate limit middleware with real Redis, moderation pipeline with buffer-then-stream
+- **Resilience tests**: App behavior when Redis is unavailable (rate limiting fails open), moderation service timeout

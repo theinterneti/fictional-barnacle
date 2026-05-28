@@ -264,3 +264,31 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
    from GitHub release `v0.1.0-alpha`. RetryPrimitive and CachePrimitive verified.
    Integration pattern: wrap async functions as `WorkflowPrimitive` subclasses.
 3. **What is the Neo4j CE concurrent read ceiling?** Gates Decision #3 at v3.
+
+---
+
+## Testing Strategy
+
+This is an architecture review document, not an implementation plan. Testing is covered by individual component plans:
+- `plans/s46-s49-production-runtime.md` — S46-S49 testing
+- `plans/v2_1-playtester-bundle.md` — S68-S70 testing
+- `plans/v2_1-evaluation-and-playtesting.md` — S42-S45 testing
+
+Architecture decisions are verified by implementation gates (`make gate`, CI integration tests) rather than dedicated architecture-review tests.
+
+## Code Example: Architecture Decision Implementation
+
+Decision #4 (Redis for cross-instance state) surfaces in the health check:
+
+```python
+# src/tta/api/health.py
+@app.get("/api/v1/health/ready")
+async def readiness():
+    checks = {}
+    try:
+        await redis.ping()
+        checks["redis"] = "ok"
+    except Exception:
+        checks["redis"] = "unavailable"
+    return {"status": "ok" if all(v == "ok" for v in checks.values()) else "degraded", "checks": checks}
+```

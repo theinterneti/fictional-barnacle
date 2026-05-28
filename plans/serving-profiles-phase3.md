@@ -60,3 +60,24 @@ survives resume/restore.
 - `src/tta/persistence/postgres_game.py` (all queries)
 - `tests/unit/models/test_game_models.py` (new/existing)
 - `tests/unit/test_migration_014.py` (NEW)
+
+## Technology & Framework
+
+- **Runtime**: Python 3.12+, FastAPI, SQLAlchemy async
+- **Persistence**: PostgreSQL via Alembic migrations, SQLModel ORM
+- **Configuration**: Pydantic Settings with `generation_profile` enum validation
+- **Testing**: pytest with mock DB sessions, migration tests with real SQLite/Postgres
+
+## Code Example: Profile Validation
+
+```python
+from enum import StrEnum
+
+class GenerationProfile(StrEnum):
+    balanced = "balanced"
+    creative = "creative"
+    precise = "precise"
+
+# In CreateGameRequest:
+generation_profile: GenerationProfile = GenerationProfile.balanced
+```
