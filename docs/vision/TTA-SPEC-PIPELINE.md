@@ -280,3 +280,60 @@ When advancing a spec, use this checklist:
 - [ ] All ACs covered and verified
 - [ ] Spec moved to `specs/archived/`
 - [ ] Index regenerated
+
+---
+
+## 8. Automation
+
+The pipeline is managed by `scripts/spec_pipeline.py` — a deterministic, agent-friendly CLI that reads `specs/index.json` and `plans/index.json` to infer stage and check advancement criteria.
+
+### Commands
+
+```
+make spec-pipeline                    # Full pipeline overview (all specs by stage)
+make spec-pipeline-check SPEC=S68     # Check if S68 can advance to next stage
+make spec-pipeline-validate           # Pipeline consistency audit
+```
+
+Or directly:
+
+```
+python scripts/spec_pipeline.py status              # All specs grouped by stage
+python scripts/spec_pipeline.py status S68          # Single spec detail
+python scripts/spec_pipeline.py status --json       # Machine-readable (for agents)
+python scripts/spec_pipeline.py check S68           # Can S68 advance? Exit 0 if ready
+python scripts/spec_pipeline.py check S68 --json    # Machine-readable result
+python scripts/spec_pipeline.py advance S68 REVIEW  # Advance to REVIEW (validates first)
+python scripts/spec_pipeline.py advance --dry-run S68 REVIEW
+python scripts/spec_pipeline.py validate            # Consistency check
+```
+
+### Exit Codes
+
+- `0` = ready to advance / no issues
+- `1` = not ready (blocking criteria found)
+- `2` = error (missing files, corrupt data)
+
+### How Agents Use It
+
+```
+# Before implementing: check if spec is ready
+spec_pipeline.py check S68
+# → exit 0: ready for IMPLEMENTING
+# → exit 1: shows what's blocking
+
+# After review: advance the spec
+spec_pipeline.py advance S68 REVIEW
+# → updates spec header, regenerates index
+
+# Before portfolio work: see current state
+spec_pipeline.py status --json
+# → machine-readable pipeline state for all specs
+```
+
+### Determinism Guarantees
+
+- **No LLM calls.** All checks are rules-based against `index.json`, `plan_index.json`, and `@pytest.mark.spec` markers.
+- **Idempotent.** Running `advance` twice on the same spec produces the same result.
+- **Traceable.** Blocking criteria are enumerated — there's no opaque "maybe ready."
+- **Repo-gated.** The `APPROVED` and `DONE` stages require human/paid-model approval and are flagged as `auto_advance: false`.
