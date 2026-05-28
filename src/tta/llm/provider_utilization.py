@@ -17,7 +17,7 @@ implemented here. That belongs to the slice that consumes this signal.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol
 
@@ -75,6 +75,21 @@ class ProviderUtilizationSnapshot(Protocol):
 
 #: Type alias for concrete snapshot implementations
 type ProviderUtilizationSource = ProviderUtilizationSnapshot
+
+
+@dataclass
+class InMemoryProviderUtilizationSnapshot:
+    """Mutable in-process provider state store for routing and observability."""
+
+    _snapshot: dict[str, ProviderUtilization] = field(default_factory=dict)
+
+    def snapshot(self) -> Mapping[str, ProviderUtilization]:
+        return dict(self._snapshot)
+
+    def record(self, exc: Exception) -> ProviderUtilization:
+        utilization = from_rate_limit_error(exc)
+        self._snapshot[utilization.provider] = utilization
+        return utilization
 
 
 def from_rate_limit_error(exc: Exception) -> ProviderUtilization:

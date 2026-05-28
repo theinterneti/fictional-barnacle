@@ -127,6 +127,18 @@ class TestLifespanWiring:
         with TestClient(app) as c:
             assert isinstance(c.app.state.llm_client, RateLimitedLLMClient)  # type: ignore[union-attr]
 
+    def test_default_app_shares_provider_snapshot_between_budget_and_inner_client(
+        self, app: FastAPI
+    ) -> None:
+        with TestClient(app) as c:
+            llm_client = c.app.state.llm_client  # type: ignore[union-attr]
+            assert isinstance(llm_client, RateLimitedLLMClient)
+            assert llm_client._budget._provider_utilization_snapshot is not None
+            assert (
+                llm_client._inner._provider_utilization_snapshot
+                is llm_client._budget._provider_utilization_snapshot
+            )
+
     def test_summary_service_qualifies_explicit_summary_model_alias(self) -> None:
         app = create_app(
             Settings(

@@ -22,6 +22,7 @@ from tta.llm.litellm_client import LiteLLMClient
 from tta.llm.provider_utilization import (
     ProviderUtilization,
     ProviderUtilizationState,
+    from_rate_limit_error,
 )
 from tta.llm.rate_limiter import TaskPriority
 from tta.llm.roles import ModelRole, ModelRoleConfig
@@ -65,6 +66,18 @@ class _StaticProviderSnapshot:
 
     def snapshot(self) -> dict[str, ProviderUtilization]:
         return self._snapshot
+
+
+class _MutableProviderSnapshot:
+    def __init__(self) -> None:
+        self._snapshot: dict[str, ProviderUtilization] = {}
+
+    def snapshot(self) -> dict[str, ProviderUtilization]:
+        return dict(self._snapshot)
+
+    def record(self, exc: Exception) -> None:
+        utilization = from_rate_limit_error(exc)
+        self._snapshot[utilization.provider] = utilization
 
 
 def _mock_response(
@@ -420,6 +433,64 @@ class TestFallback:
 
         first_model = mock_ac.call_args_list[0].kwargs["model"]
         assert first_model == "google/gemini-test"
+
+    @pytest.mark.spec("AC-66.04")
+    @pytest.mark.asyncio
+    @patch(_COST, return_value=0.0)
+    @patch(_ACOMPLETION)
+    async def test_low_tier_reorders_after_provider_rate_limit_signal(
+        self, mock_ac: AsyncMock, mock_cost: MagicMock
+    ) -> None:
+        """A real 429 should seed provider state for the next LOW-tier call."""
+        snapshot = _MutableProviderSnapshot()
+        seed_client = LiteLLMClient(
+            role_configs=_role_configs(
+                primary="google/gemini-test",
+                fallback=None,
+            ),
+            provider_utilization_snapshot=snapshot,
+        )
+        followup_client = LiteLLMClient(
+            role_configs=_role_configs(
+                primary="google/gemini-test",
+                fallback="nvidia/llama-test",
+            ),
+            provider_utilization_snapshot=snapshot,
+        )
+
+        rate_limit_exc = Exception("rate limited")
+        rate_limit_exc.status_code = 429  # type: ignore[attr-defined]
+        rate_limit_exc.model = "google/gemini-test"  # type: ignore[attr-defined]
+        rate_limit_exc.retry_after = None  # type: ignore[attr-defined]
+        rate_limit_exc._response_headers = {}  # type: ignore[attr-defined]
+        mock_ac.side_effect = [
+            rate_limit_exc,
+            rate_limit_exc,
+            rate_limit_exc,
+            _mock_response(content="from healthier provider"),
+        ]
+
+        with pytest.raises(AllTiersFailedError):
+            await seed_client.generate(
+                ModelRole.GENERATION,
+                MESSAGES,
+                PARAMS,
+                task_priority=TaskPriority.LOW,
+            )
+
+        assert (
+            snapshot.snapshot()["google"].state == ProviderUtilizationState.NEAR_LIMIT
+        )
+
+        await followup_client.generate(
+            ModelRole.GENERATION,
+            MESSAGES,
+            PARAMS,
+            task_priority=TaskPriority.LOW,
+        )
+
+        first_model = mock_ac.call_args_list[3].kwargs["model"]
+        assert first_model == "nvidia/llama-test"
 
 
 # ── retry tests ─────────────────────────────────────────────────────

@@ -34,6 +34,7 @@ from tta.llm.provider_utilization import (
     ProviderUtilization,
     ProviderUtilizationSnapshot,
     ProviderUtilizationState,
+    from_rate_limit_error,
 )
 from tta.llm.roles import (
     DEFAULT_ROLE_CONFIGS,
@@ -51,6 +52,7 @@ from tta.models.turn import TokenCount
 if TYPE_CHECKING:
     from tta.llm.rate_limiter import TaskPriority
 
+from tta.llm.rate_limiter import TaskPriority
 from tta.observability.metrics import (
     TURN_LLM_CALLS,
     TURN_LLM_DURATION,
@@ -214,6 +216,7 @@ class LiteLLMClient:
             except PermanentLLMError:
                 raise
             except TransientLLMError as exc:
+                self._record_provider_utilization(exc)
                 errors.append(exc)
                 log.warning(
                     "tier_failed",
@@ -241,8 +244,7 @@ class LiteLLMClient:
     ) -> list[tuple[str, TierName]]:
         if (
             role != ModelRole.GENERATION
-            or task_priority is None
-            or str(task_priority) not in {"low", "best_effort"}
+            or task_priority not in {TaskPriority.LOW, TaskPriority.BEST_EFFORT}
             or self._provider_utilization_snapshot is None
             or len(tiers) < 2
         ):
@@ -278,6 +280,23 @@ class LiteLLMClient:
             return snapshot.snapshot()
         except Exception:
             return None
+
+    def _record_provider_utilization(self, exc: Exception) -> None:
+        snapshot = self._provider_utilization_snapshot
+        if snapshot is None:
+            return
+        source_exc = exc.__cause__ if isinstance(exc.__cause__, Exception) else exc
+        record = getattr(snapshot, "record", None)
+        if callable(record):
+            try:
+                record(source_exc)
+                return
+            except Exception:
+                return
+        try:
+            from_rate_limit_error(source_exc)
+        except Exception:
+            return
 
     def _provider_for_model(self, model: str) -> str | None:
         if "/" not in model:
