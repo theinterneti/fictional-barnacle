@@ -60,7 +60,7 @@ jobs:
       - run: uv python install 3.12
       - run: uv sync --dev --frozen
       - name: Start test services
-        run: timeout 120 docker compose -f docker-compose.test.yml up -d --wait || echo "::warning::Services failed to start within 2 minutes"
+        run: timeout 120 docker compose -f docker-compose.test.yml up -d --wait
       - name: Run integration tests
         run: |
           # Exit code 5 = no tests collected (acceptable during bootstrap)
