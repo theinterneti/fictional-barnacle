@@ -1,7 +1,7 @@
-# S15-LF — Langfuse Integration
+# S71 — Langfuse Integration
 
 > **Status**: 📝 Draft
-> **Release Baseline**: 🔒 v1 Closed (extends S15)
+> **Release Baseline**: 🆕 v2.1 → v3 (extends S15)
 > **Implementation Fit**: ❌ Not Started
 > **Level**: 4 — Operations
 > **Dependencies**: S15 (Observability), S11 (Player Identity & Sessions), S09 (Prompt & Content Management), S45 (Evaluation Pipeline)
@@ -48,6 +48,19 @@ LLM tracing surface with prompt provenance and eval integration.
 - **Session-native**: Every trace carries a `session_id`. Langfuse sessions
   group all traces for a player's game session. The Langfuse session view
   shows the full session lifecycle.
+
+## User Stories
+
+- **As a** developer, I want non-LLM user/session lifecycle events in Langfuse so I can debug gameplay journeys without stitching together application logs manually.
+- **As a** prompt engineer, I want prompt version and fragment provenance attached to generations so I can compare quality, latency, and cost across prompt changes.
+- **As an** operator, I want evaluation scores and privacy-safe lifecycle metadata in Langfuse so release-readiness analysis can use one observability surface without exposing raw PII.
+
+## Out of Scope
+
+- Replacing the S15 infrastructure metrics stack; Grafana/Prometheus remain responsible for host, container, and service health metrics.
+- Re-implementing S15's base LLM call instrumentation; this spec extends it with lifecycle, provenance, and evaluation semantics.
+- Building account-management UI, admin UX, or GDPR workflow screens beyond the trace events those flows must emit.
+- Using Langfuse trace availability as a gameplay dependency; all trace and score emission remains best-effort.
 
 ---
 

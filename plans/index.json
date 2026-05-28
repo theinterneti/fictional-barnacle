@@ -1,7 +1,7 @@
 {
-  "plan_count": 13,
-  "total_lines": 13576,
-  "total_words": 60507,
+  "plan_count": 16,
+  "total_lines": 14294,
+  "total_words": 64700,
   "plans": [
     {
       "file": "system.md",
@@ -838,6 +838,110 @@
       ]
     },
     {
+      "file": "s46-s49-production-runtime.md",
+      "title": "S46-S49 Production Runtime Implementation Plan",
+      "scope": "S46, S47, S48, S49",
+      "wave": "v2.1 Production Runtime",
+      "status": "Draft",
+      "last_updated": "2026-05-28",
+      "specs_covered": [
+        "S46",
+        "S47",
+        "S48",
+        "S49"
+      ],
+      "sections": [
+        "Bundle Scope",
+        "Current-State Anchors",
+        "Dependency Ordering",
+        "Data Model and Persistence Contracts",
+        "Interface Sketch",
+        "Build Order",
+        "Testing Strategy",
+        "Risk Controls",
+        "Open Decisions for Implementation",
+        "Implementation Handoff"
+      ],
+      "subsections": [
+        "Task 1: Stabilize live service integration gates (S47)",
+        "Task 2: Pin production configuration contracts (S46 + S49)",
+        "Task 3: Finish Redis-backed horizontal scaling primitives (S49)",
+        "Task 4: Introduce ARQ worker infrastructure (S48)",
+        "Task 5: Wire Fly.io deployment artifacts and CI/CD promotion (S46)",
+        "Task 6: Bundle gate and documentation lock"
+      ],
+      "word_count": 2201,
+      "line_count": 305,
+      "has_tech_stack": true,
+      "has_architecture": true,
+      "has_data_models": true,
+      "has_interfaces": true,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 2,
+      "has_normative_markers": true,
+      "normative_sections": [
+        "Interface Sketch"
+      ],
+      "spec_refs": [
+        "S46",
+        "S47",
+        "S48",
+        "S49"
+      ],
+      "plan_refs": [],
+      "section_refs": [],
+      "warnings": []
+    },
+    {
+      "file": "s66-ac6604-provider-preference.md",
+      "title": "S66 AC-66.04 Provider-Preference Implementation Plan",
+      "scope": "S66 AC-66.04 real implementation",
+      "wave": "",
+      "status": "\ud83d\udcdd Draft",
+      "last_updated": "",
+      "specs_covered": [],
+      "sections": [
+        "Goal",
+        "Truth boundary",
+        "Design constraints",
+        "Proposed implementation",
+        "Test plan",
+        "Files likely to change",
+        "Verification",
+        "Risks",
+        "Exit criteria"
+      ],
+      "subsections": [
+        "1. Extend role config to express provider candidates",
+        "2. Add provider-ordering policy helper",
+        "3. Thread task tier into the real dispatch path",
+        "4. Reorder candidate traversal in LiteLLMClient",
+        "5. Honest deferred-coverage cleanup",
+        "Red tests to add first"
+      ],
+      "word_count": 914,
+      "line_count": 187,
+      "has_tech_stack": false,
+      "has_architecture": true,
+      "has_data_models": false,
+      "has_interfaces": false,
+      "has_testing": true,
+      "has_code_blocks": false,
+      "code_block_count": 0,
+      "has_normative_markers": false,
+      "normative_sections": [],
+      "spec_refs": [
+        "S66"
+      ],
+      "plan_refs": [],
+      "section_refs": [],
+      "warnings": [
+        "No technology/framework section found",
+        "No code examples found"
+      ]
+    },
+    {
       "file": "s66-provider-utilization-spike.md",
       "title": "S66 Provider-Utilization Signal Spike Implementation Plan",
       "scope": "S66 AC-66.04 provider awareness spike only",
@@ -853,9 +957,10 @@
         "3. Design decision to make",
         "4. Technology and architecture",
         "5. Task plan",
-        "6. Testing strategy",
-        "7. Acceptance criteria for this plan",
-        "8. Validation commands"
+        "6. Spike Result",
+        "7. Testing strategy",
+        "8. Acceptance criteria for this plan",
+        "9. Validation commands"
       ],
       "subsections": [
         "4.1 Data models",
@@ -864,17 +969,21 @@
         "Task 1: Inventory actual provider signal surfaces",
         "Task 2: Add provider-utilization parsing tests",
         "Task 3: Thread provider utilization into admission logs without routing",
-        "Task 4: Produce implementation recommendation for the real AC-66.04 slice"
+        "Task 4: Produce implementation recommendation for the real AC-66.04 slice",
+        "6.1 Selected source",
+        "6.2 Implementation seam",
+        "6.3 Rejected or deferred alternatives",
+        "6.4 Exact next routing tests for the real AC-66.04 slice"
       ],
-      "word_count": 1390,
-      "line_count": 287,
+      "word_count": 1712,
+      "line_count": 366,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
       "has_testing": true,
       "has_code_blocks": true,
-      "code_block_count": 10,
+      "code_block_count": 11,
       "has_normative_markers": false,
       "normative_sections": [],
       "spec_refs": [
@@ -1229,6 +1338,58 @@
         "\u00a76.1",
         "\u00a78.1"
       ],
+      "warnings": []
+    },
+    {
+      "file": "v2_1-playtester-bundle.md",
+      "title": "v2.1 Playtester Bundle Plan",
+      "scope": "",
+      "wave": "",
+      "status": "Unknown",
+      "last_updated": "",
+      "specs_covered": [],
+      "sections": [
+        "Bundle Scope",
+        "Technology & Framework",
+        "Testing Strategy",
+        "Interface Sketch",
+        "Build Order"
+      ],
+      "subsections": [
+        "Task 1: Pin shared data contracts",
+        "Task 2: Implement S70 route read model first",
+        "Task 3: Implement S69 deterministic mechanics resolver",
+        "Task 4: Implement S68 same-origin client shell",
+        "Task 5: Integrate feedback into S43/S45",
+        "Task 6: End-to-end bundle gate"
+      ],
+      "word_count": 756,
+      "line_count": 147,
+      "has_tech_stack": true,
+      "has_architecture": false,
+      "has_data_models": false,
+      "has_interfaces": true,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 1,
+      "has_normative_markers": true,
+      "normative_sections": [
+        "Interface Sketch"
+      ],
+      "spec_refs": [
+        "S10",
+        "S11",
+        "S12",
+        "S13",
+        "S27",
+        "S43",
+        "S45",
+        "S68",
+        "S69",
+        "S70"
+      ],
+      "plan_refs": [],
+      "section_refs": [],
       "warnings": []
     },
     {

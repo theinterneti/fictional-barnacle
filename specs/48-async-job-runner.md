@@ -2,11 +2,11 @@
 
 > **Status**: 📝 Draft
 > **Release Baseline**: 🆕 v3
-> **Implementation Fit**: ❌ Not Started
+> **Implementation Fit**: ⚠️ Partial
 > **Level**: 4 — Operations
-> **Dependencies**: v1 S17 (Data Privacy / GDPR), v1 S26 (Admin Tooling)
+> **Dependencies**: v1 S17 (Data Privacy / GDPR), v1 S26 (Admin Tooling), S46 (Cloud Deployment Target), S49 (Horizontal Scaling), S66 (Rate-Limit Budget & Task Prioritization)
 > **Related**: S46 (Cloud Deployment), v1 S15 (Observability)
-> **Last Updated**: 2026-04-21
+> **Last Updated**: 2026-05-28
 
 ---
 
@@ -20,16 +20,20 @@ a Redis queue, runs them, and reports results.
 
 The worker process is explicitly **not a microservice**. It shares the same
 codebase and image as the FastAPI process; it is started with a different
-entrypoint. Both processes run within a single Fly Machine (or on the same
-host in local dev). The single-process-per-deployment-unit mandate from the
-project charter applies per-instance; a worker co-located on the same machine
-is a separate process, not a separate service.
+entrypoint. In Fly.io (S46), the API and worker run as separate process groups from the same image (`app` and `worker`) and may run on separate Fly Machines when memory or shutdown requirements demand it. In local dev they may run on the same host. The single-process-per-deployment-unit mandate applies per process group; the worker is a separate process, not a separate service or codebase.
 
 ---
 
-## 2. Design Decisions
+## 2. User Stories
 
-### 2.1 Job Runner Library: ARQ
+- **As an** operator, **I want** slow maintenance work to run outside request handling, **so that** user-facing endpoints are not blocked by retention or erasure jobs.
+- **As a** player, **I want** GDPR deletion and retention behavior to complete reliably, **so that** privacy guarantees are operational rather than aspirational.
+- **As a** developer, **I want** all job enqueueing to go through a testable queue abstraction, **so that** job behavior can be verified without Redis in unit tests.
+- **As an** operator, **I want** failed jobs to be observable and recoverable, **so that** dead-letter work does not disappear silently.
+
+## 3. Design Decisions
+
+### 3.1 Job Runner Library: ARQ
 
 **Decision**: TTA uses **ARQ** (Async Redis Queue) as the job runner.
 
@@ -43,18 +47,16 @@ Rationale:
 - Celery requires a broker abstraction layer and heavier dependencies.
 - RQ is sync-only; Dramatiq lacks built-in asyncio support.
 
-### 2.2 Worker Entrypoint
+### 3.2 Worker Entrypoint
 
 The worker is started via:
 ```bash
 uv run arq tta.jobs.worker.WorkerSettings
 ```
 
-In Docker Compose, a `tta-worker` service (already defined in S14 FR-14.2)
-runs this command. In Fly.io (S46), the worker runs as a separate process
-entrypoint on the same Fly Machine as the API.
+In Docker Compose, a `tta-worker` service (already defined in S14 FR-14.2) runs this command. In Fly.io (S46), the worker runs as a separate `worker` process group from the same image. The default v3 topology is one API process group and one worker process group; co-location on the same physical host is not required and must not be assumed for memory budgeting.
 
-### 2.3 Job Catalog
+### 3.3 Job Catalog
 
 The following job types are defined in v3:
 
@@ -63,11 +65,11 @@ The following job types are defined in v3:
 | `gdpr_delete_player` | API: POST /admin/players/{id}/delete | Full GDPR erasure (S17 FR-17.09) | 120s |
 | `retention_sweep` | Cron: daily 03:00 UTC | Delete data past retention window (S17 FR-17.07) | 600s |
 | `session_cleanup` | Cron: hourly | Remove expired Redis session keys (S11) | 60s |
-| `game_backfill` | Admin: POST /admin/jobs/game-backfill | Rebuild derived data from event log | 1800s |
+| `game_backfill` | Admin: POST /admin/jobs/game-backfill | Rebuild derived data from event log in resumable chunks | 1800s total, chunked into <=25s units |
 
 ---
 
-## 3. Functional Requirements
+## 4. Functional Requirements
 
 ### FR-48.01 — ARQ WorkerSettings
 
@@ -133,15 +135,12 @@ Prometheus metrics SHALL include:
 
 ### FR-48.06 — Graceful Shutdown
 
-The ARQ worker SHALL handle `SIGTERM` by completing the current job (up to
-its individual timeout) and then exiting. In-flight jobs are not interrupted
-mid-execution on graceful shutdown. A `SIGKILL` fallback occurs after the
-deployment max stop timeout (configurable; default 30s in Fly).
+The ARQ worker SHALL handle `SIGTERM` by completing the current chunk of work and then exiting before the deployment stop timeout. Jobs with individual timeouts longer than the platform stop timeout, such as `game_backfill`, MUST be resumable and chunked into <=25s units under Fly's default 30s stop timeout, or S46 must explicitly raise the worker stop timeout. In-flight jobs are never reported as successful until their durable checkpoint is complete.
 
 ### FR-48.07 — Admin Job Enqueueing
 
 The existing admin API (S26) SHALL gain two endpoints:
-- `POST /admin/jobs/{job_id}/enqueue` — enqueues a named job on demand
+- `POST /admin/jobs/{job_type}/enqueue` — enqueues an allowed job type on demand and returns a generated `job_id`
 - `GET /admin/jobs/{job_id}/status` — returns current status from ARQ result store
 
 These endpoints require admin authentication (S26 AC).
@@ -149,12 +148,65 @@ These endpoints require admin authentication (S26 AC).
 ### FR-48.08 — Dead Letter Handling
 
 Jobs that exhaust their retries SHALL be moved to a `tta:jobs:dead` dead-letter
-queue key in Redis. A Prometheus alert SHALL fire if the dead-letter count
-exceeds 5. The admin can inspect dead-letter jobs via `GET /admin/jobs/dead`.
+queue key in Redis. A Prometheus alert SHALL fire if the dead-letter count exceeds 5 in a 1-hour window or if any single dead-letter job remains unacknowledged for more than 24 hours. The admin can inspect dead-letter jobs via `GET /admin/jobs/dead`.
 
 ---
 
-## 4. Acceptance Criteria (Gherkin)
+## 5. Non-Functional Requirements
+
+### NFR-48.01 — Request-path isolation
+
+**Category**: Performance
+
+**Target**: Retention, cleanup, backfill, and erasure jobs do not run inline on player-facing request paths.
+
+### NFR-48.02 — Job observability
+
+**Category**: Operations
+
+**Target**: Every job transition emits structured logs and metrics with job ID, function, status, duration, and sanitized failure details.
+
+### NFR-48.03 — Idempotent recovery
+
+**Category**: Reliability
+
+**Target**: Retryable jobs either complete idempotently or land in dead-letter storage with enough metadata for operator action.
+
+## 6. User Journeys
+
+### Journey 1: Admin enqueues a maintenance job
+
+- **Trigger**: An authenticated admin requests a supported job.
+- **Steps**:
+  1. API validates the job name and authorization.
+  2. Queue abstraction enqueues the ARQ job and returns a job ID.
+  3. Worker picks up the job, emits started/completed metrics, and stores the result.
+  4. Admin checks job status through the API.
+- **Happy path**: Maintenance work completes without blocking user-facing requests.
+- **Alternative paths**: Unknown job names, Redis failure, or exhausted retries produce explicit failures.
+
+### Journey 2: Scheduled cleanup runs automatically
+
+- **Trigger**: ARQ cron fires for retention or session cleanup.
+- **Steps**:
+  1. Worker starts the scheduled job.
+  2. Job processes records in bounded batches.
+  3. Success/failure metrics are emitted.
+- **Happy path**: Cleanup finishes within timeout and leaves an auditable result.
+
+## 7. Edge Cases & Failure Modes
+
+| # | Scenario | Expected Behavior |
+|---|----------|-------------------|
+| E1 | Redis is unavailable when enqueueing | Caller receives a clear enqueue failure; no job is reported as accepted. |
+| E2 | GDPR job starts for an already-erased player | Job exits successfully with `already_erased`. |
+| E3 | Retention sweep hits a transient database error | Job retries according to policy and logs sanitized failure details. |
+| E4 | Worker receives SIGTERM during a job | Current job completes within timeout or is safely retried; no partial silent success. |
+| E5 | Job exhausts retries | Job moves to dead-letter storage and increments failure metrics. |
+| E6 | Admin tries to enqueue an unknown job | API rejects the request with a clear allowed-job list. |
+| E7 | Job result contains PII | Logging/result serialization strips or redacts protected values. |
+
+## 8. Acceptance Criteria (Gherkin)
 
 ```gherkin
 Feature: Async Job Runner
@@ -198,9 +250,36 @@ Feature: Async Job Runner
     And GET /admin/jobs/{job_id}/status returns the current state
 ```
 
+### Criteria Checklist
+
+- [ ] **AC-48.01**: GDPR erasure job runs end-to-end.
+- [ ] **AC-48.02**: GDPR job is idempotent.
+- [ ] **AC-48.03**: Retention sweep deletes expired records in batches.
+- [ ] **AC-48.04**: Failed jobs after 3 retries land in dead-letter queue.
+- [ ] **AC-48.05**: Worker shuts down gracefully on SIGTERM.
+- [ ] **AC-48.06**: Admin can enqueue and check job status.
+
 ---
 
-## 5. Out of Scope
+## 9. Dependencies & Integration Boundaries
+
+| Spec | Relationship | Contract |
+|---|---|---|
+| S11 | Sessions | Session cleanup jobs operate on Redis-backed session state. |
+| S12 | Persistence | Backfill/retention jobs operate on canonical persistent stores. |
+| S17 | Data privacy | GDPR and retention jobs implement privacy lifecycle guarantees. |
+| S26 | Admin tooling | Admin endpoints enqueue and inspect supported jobs. |
+| S46 | Cloud deployment | Deployment must start API and worker entrypoints from the same image. |
+| S49 | Horizontal scaling | Multiple workers require deduplication for scheduled jobs. |
+
+## 10. Open Questions
+
+| ID | Question | Status | Resolution |
+|---|----------|--------|------------|
+| OQ-48.01 | ARQ vs Celery vs RQ? | ✅ Resolved | **ARQ** — asyncio-native, Redis-backed (no new infra), minimal dependencies, built-in cron. |
+| OQ-48.02 | Worker co-location or separate host? | ✅ Resolved | **Same Fly Machine in v3** (entrypoint process; fits single-unit mandate). S49 review will address scaling the worker separately if needed. |
+
+## 11. Out of Scope
 
 - Distributed job locking across multiple worker instances (S49 concern).
 - Priority queues (all jobs share one queue in v3).
@@ -208,10 +287,3 @@ Feature: Async Job Runner
 - Long-running generative jobs (LLM calls happen on the request path; S08).
 
 ---
-
-## 6. Open Questions
-
-| ID | Question | Status | Resolution |
-|---|----------|--------|------------|
-| OQ-48.01 | ARQ vs Celery vs RQ? | ✅ Resolved | **ARQ** — asyncio-native, Redis-backed (no new infra), minimal dependencies, built-in cron. |
-| OQ-48.02 | Worker co-location or separate host? | ✅ Resolved | **Same Fly Machine in v3** (entrypoint process; fits single-unit mandate). S49 review will address scaling the worker separately if needed. |

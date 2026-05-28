@@ -1,7 +1,7 @@
 {
-  "spec_count": 70,
-  "total_words": 183028,
-  "total_acceptance_criteria": 752,
+  "spec_count": 73,
+  "total_words": 191913,
+  "total_acceptance_criteria": 814,
   "specs": [
     {
       "file": "CLOSEOUT_TEMPLATE.md",
@@ -646,46 +646,6 @@
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
       "warnings": []
-    },
-    {
-      "file": "15-langfuse-integration.md",
-      "number": "S15",
-      "title": "LF — Langfuse Integration",
-      "status": "📝 Draft",
-      "level": "4 — Operations",
-      "dependencies": [
-        "S15 (Observability)",
-        "S11 (Player Identity & Sessions)",
-        "S09 (Prompt & Content Management)",
-        "S45 (Evaluation Pipeline)"
-      ],
-      "last_updated": "2026-05-13",
-      "sections": [
-        "Overview",
-        "User Lifecycle Tracing",
-        "Session & Game Lifecycle Tracing",
-        "Prompt Enrichment & Provenance",
-        "Evaluation Score Integration",
-        "Langfuse Session Configuration",
-        "Privacy & Data Retention",
-        "Key Scenarios (Gherkin)",
-        "Non-Normative: Trace Architecture",
-        "Changelog"
-      ],
-      "word_count": 3347,
-      "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 28,
-      "has_user_stories": false,
-      "has_edge_cases": true,
-      "has_out_of_scope": false,
-      "has_open_questions": false,
-      "has_given_when_then": true,
-      "has_gherkin_scenarios": true,
-      "gherkin_scenario_count": 5,
-      "warnings": [
-        "No user stories found",
-        "No 'Out of Scope' section"
-      ]
     },
     {
       "file": "15-observability.md",
@@ -1901,29 +1861,31 @@
       "dependencies": [
         "v1 S14 (Deployment — local Docker Compose)"
       ],
-      "last_updated": "2026-04-21",
+      "last_updated": "2026-05-28",
       "sections": [
         "Purpose",
+        "User Stories",
         "Design Decisions",
         "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
         "Acceptance Criteria (Gherkin)",
-        "Out of Scope",
-        "Open Questions"
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope"
       ],
-      "word_count": 1229,
+      "word_count": 2078,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 5,
-      "has_user_stories": false,
-      "has_edge_cases": false,
+      "acceptance_criteria_count": 10,
+      "has_user_stories": true,
+      "has_edge_cases": true,
       "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 5,
-      "warnings": [
-        "No user stories found",
-        "No edge cases section"
-      ]
+      "warnings": []
     },
     {
       "file": "47-live-neo4j-in-ci.md",
@@ -1935,29 +1897,31 @@
         "v1 S13 (World Graph Schema)",
         "v1 S16 (Testing Infrastructure)"
       ],
-      "last_updated": "2026-04-21",
+      "last_updated": "2026-05-28",
       "sections": [
         "Purpose",
+        "User Stories",
         "Design Decisions",
         "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
         "Acceptance Criteria (Gherkin)",
-        "Out of Scope",
-        "Open Questions"
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope"
       ],
-      "word_count": 1042,
+      "word_count": 1661,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 5,
-      "has_user_stories": false,
-      "has_edge_cases": false,
+      "acceptance_criteria_count": 10,
+      "has_user_stories": true,
+      "has_edge_cases": true,
       "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 5,
-      "warnings": [
-        "No user stories found",
-        "No edge cases section"
-      ]
+      "warnings": []
     },
     {
       "file": "48-async-job-runner.md",
@@ -1967,31 +1931,36 @@
       "level": "4 — Operations",
       "dependencies": [
         "v1 S17 (Data Privacy / GDPR)",
-        "v1 S26 (Admin Tooling)"
+        "v1 S26 (Admin Tooling)",
+        "S46 (Cloud Deployment Target)",
+        "S49 (Horizontal Scaling)",
+        "S66 (Rate-Limit Budget & Task Prioritization)"
       ],
-      "last_updated": "2026-04-21",
+      "last_updated": "2026-05-28",
       "sections": [
         "Purpose",
+        "User Stories",
         "Design Decisions",
         "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
         "Acceptance Criteria (Gherkin)",
-        "Out of Scope",
-        "Open Questions"
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope"
       ],
-      "word_count": 1216,
+      "word_count": 1973,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 6,
-      "has_user_stories": false,
-      "has_edge_cases": false,
+      "acceptance_criteria_count": 12,
+      "has_user_stories": true,
+      "has_edge_cases": true,
       "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 6,
-      "warnings": [
-        "No user stories found",
-        "No edge cases section"
-      ]
+      "warnings": []
     },
     {
       "file": "49-horizontal-scaling.md",
@@ -2003,29 +1972,31 @@
         "v1 S11 (Player Identity & Sessions)",
         "v1 S12 (Persistence Strategy)"
       ],
-      "last_updated": "2026-04-21",
+      "last_updated": "2026-05-28",
       "sections": [
         "Purpose",
+        "User Stories",
         "Design Decisions",
         "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
         "Acceptance Criteria (Gherkin)",
-        "Out of Scope",
-        "Open Questions"
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope"
       ],
-      "word_count": 1327,
+      "word_count": 2189,
       "has_acceptance_criteria": true,
-      "acceptance_criteria_count": 6,
-      "has_user_stories": false,
-      "has_edge_cases": false,
+      "acceptance_criteria_count": 12,
+      "has_user_stories": true,
+      "has_edge_cases": true,
       "has_out_of_scope": true,
       "has_open_questions": true,
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 6,
-      "warnings": [
-        "No user stories found",
-        "No edge cases section"
-      ]
+      "warnings": []
     },
     {
       "file": "50-concurrent-universe-loading.md",
@@ -2704,6 +2675,168 @@
       "has_given_when_then": true,
       "has_gherkin_scenarios": true,
       "gherkin_scenario_count": 4,
+      "warnings": []
+    },
+    {
+      "file": "68-playtester-client-evolution.md",
+      "number": "S68",
+      "title": "Playtester Client Evolution",
+      "status": "📝 Draft",
+      "level": "6 — Player Experience & Client",
+      "dependencies": [
+        "S01 (Gameplay Loop)",
+        "S02 (Genesis Onboarding)",
+        "S05 (Choice & Consequence)",
+        "S10 (API & Streaming)",
+        "S11 (Player Identity & Sessions)",
+        "S27 (Save/Load & Game Management)",
+        "S43 (Human Playtester Program)",
+        "S45 (Evaluation Pipeline)"
+      ],
+      "last_updated": "2026-05-28",
+      "sections": [
+        "Purpose",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope"
+      ],
+      "word_count": 1807,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 14,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 7,
+      "warnings": []
+    },
+    {
+      "file": "69-world-based-systems-difficulty-progression.md",
+      "number": "S69",
+      "title": "World-Based Systems, Narrative Failure, and Milestones",
+      "status": "📝 Draft",
+      "level": "4 — Systems, Difficulty & Progression",
+      "dependencies": [
+        "S01 (Gameplay Loop)",
+        "S02 (Genesis Onboarding)",
+        "S03 (Narrative Engine)",
+        "S05 (Choice & Consequence)",
+        "S06 (Character System)",
+        "S11 (Player Identity & Sessions)",
+        "S12 (Persistence Strategy)",
+        "S27 (Save/Load & Game Management)",
+        "S39 (Universe Composition Model)",
+        "S66 (Rate-Limit Budget & Task Prioritization)"
+      ],
+      "last_updated": "2026-05-28",
+      "sections": [
+        "Purpose",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope"
+      ],
+      "word_count": 1944,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 12,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 6,
+      "warnings": []
+    },
+    {
+      "file": "70-routes-distances-and-text-map.md",
+      "number": "S70",
+      "title": "Routes, Distances, and Text Map",
+      "status": "📝 Draft",
+      "level": "2 — Simulation / Player Experience",
+      "dependencies": [
+        "S04 (World Model)",
+        "S13 (World Graph Schema)",
+        "S29 (Universe as First-Class Entity)",
+        "S33 (Universe Persistence Schema)",
+        "S34 (Diegetic Time)",
+        "S39 (Universe Composition Model)"
+      ],
+      "last_updated": "2026-05-28",
+      "sections": [
+        "Purpose",
+        "User Stories",
+        "Functional Requirements",
+        "Non-Functional Requirements",
+        "User Journeys",
+        "Edge Cases & Failure Modes",
+        "Acceptance Criteria (Gherkin)",
+        "Dependencies & Integration Boundaries",
+        "Open Questions",
+        "Out of Scope"
+      ],
+      "word_count": 1895,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 14,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": true,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 7,
+      "warnings": []
+    },
+    {
+      "file": "71-langfuse-integration.md",
+      "number": "S71",
+      "title": "Langfuse Integration",
+      "status": "📝 Draft",
+      "level": "4 — Operations",
+      "dependencies": [
+        "S15 (Observability)",
+        "S11 (Player Identity & Sessions)",
+        "S09 (Prompt & Content Management)",
+        "S45 (Evaluation Pipeline)"
+      ],
+      "last_updated": "2026-05-13",
+      "sections": [
+        "Overview",
+        "User Stories",
+        "Out of Scope",
+        "User Lifecycle Tracing",
+        "Session & Game Lifecycle Tracing",
+        "Prompt Enrichment & Provenance",
+        "Evaluation Score Integration",
+        "Langfuse Session Configuration",
+        "Privacy & Data Retention",
+        "Key Scenarios (Gherkin)",
+        "Non-Normative: Trace Architecture",
+        "Changelog"
+      ],
+      "word_count": 3499,
+      "has_acceptance_criteria": true,
+      "acceptance_criteria_count": 28,
+      "has_user_stories": true,
+      "has_edge_cases": true,
+      "has_out_of_scope": true,
+      "has_open_questions": false,
+      "has_given_when_then": true,
+      "has_gherkin_scenarios": true,
+      "gherkin_scenario_count": 5,
       "warnings": []
     }
   ]
