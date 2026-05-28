@@ -37,6 +37,7 @@ dependencies = [
     "httpx-sse>=0.4.3",
     "ttadev",
     "textual>=8.2.7",
+    "discord-py>=2.5",
 ]
 
 [project.scripts]
