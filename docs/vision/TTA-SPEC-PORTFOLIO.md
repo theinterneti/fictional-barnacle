@@ -112,6 +112,20 @@ This control-plane pass creates or remediates the following next-major-step arti
 4. Plan S69 and S70 only after confirming they do not conflict with active v2.0 simulation implementation.
 5. Leave sharing/image generation for the next portfolio pass unless there is remaining session capacity after validators are clean.
 
+## 8. Pipeline Governance
+
+Spec pipeline stages are defined in `docs/vision/TTA-SPEC-PIPELINE.md`. Every spec belongs to exactly one stage:
+
+- **STUB** (24 specs): S18-S22 (future/), S50-S63 (v4/v5 boundary stubs)
+- **DRAFT — Clean** (8 specs): S46-S49, S68-S71 — ready for REVIEW
+- **DRAFT — Warnings** (14 specs): S50-S63 — reclassify as STUB
+- **APPROVED** (37 specs): S00-S17, S23-S40, S64-S67 — locked for implementation
+- **PLANNED**: None yet — bundle plans need review before specs advance
+- **IMPLEMENTING**: None yet
+- **DONE**: None yet
+
+The physical directory migration (`active/`, `draft/`, `stubs/`, etc.) is planned but deferred to a dedicated governance PR after the current implementation bundle. This avoids breaking the indexer, plan references, and CI mid-implementation.
+
 
 ### External Review Artifacts
 
