@@ -119,8 +119,8 @@ Conclusion:
 - Current branch: `feat/fb-013-admin-and-operator-tooling`
 - Uncommitted changes:
   - `.serena/project.yml`
-  - `specs/09-prompt-and-content.md`
-  - `specs/12-persistence-strategy.md`
+  - `specs/active/09-prompt-and-content.md`
+  - `specs/active/12-persistence-strategy.md`
   - `specs/FB-005-draft.md`
 
 Interpretation:
@@ -205,7 +205,7 @@ Target AC cluster:
 - `AC-09.09` preview/shadow tooling
 
 Why now:
-- `specs/09-prompt-and-content.md` is actively being revised
+- `specs/active/09-prompt-and-content.md` is actively being revised
 - `specs/FB-005-draft.md` exists specifically to expand this area
 - The current branch is admin/operator tooling adjacent, which is the right surface for preview/metrics/activation controls
 - `tests/unit/prompts/test_s09_ac_compliance.py` explicitly marks these ACs as deferred/missing

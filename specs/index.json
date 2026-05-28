@@ -1,6 +1,6 @@
 {
   "spec_count": 73,
-  "total_words": 191913,
+  "total_words": 191951,
   "total_acceptance_criteria": 814,
   "specs": [
     {
@@ -37,7 +37,7 @@
       ]
     },
     {
-      "file": "00-project-charter.md",
+      "file": "active/00-project-charter.md",
       "number": "S00",
       "title": "Project Charter",
       "status": "✅ Approved",
@@ -80,7 +80,7 @@
       ]
     },
     {
-      "file": "01-gameplay-loop.md",
+      "file": "active/01-gameplay-loop.md",
       "number": "S01",
       "title": "Gameplay Loop & Progression",
       "status": "✅ Approved",
@@ -116,7 +116,7 @@
       "warnings": []
     },
     {
-      "file": "02-genesis-onboarding.md",
+      "file": "active/02-genesis-onboarding.md",
       "number": "S02",
       "title": "Genesis Onboarding",
       "status": "✅ Approved",
@@ -151,7 +151,7 @@
       "warnings": []
     },
     {
-      "file": "03-narrative-engine.md",
+      "file": "active/03-narrative-engine.md",
       "number": "S03",
       "title": "Narrative Engine",
       "status": "✅ Approved",
@@ -186,7 +186,7 @@
       "warnings": []
     },
     {
-      "file": "04-world-model.md",
+      "file": "active/04-world-model.md",
       "number": "S04",
       "title": "World Model",
       "status": "✅ Approved",
@@ -221,7 +221,7 @@
       "warnings": []
     },
     {
-      "file": "05-choice-and-consequence.md",
+      "file": "active/05-choice-and-consequence.md",
       "number": "S05",
       "title": "Choice & Consequence",
       "status": "✅ Approved",
@@ -256,7 +256,7 @@
       "warnings": []
     },
     {
-      "file": "06-character-system.md",
+      "file": "active/06-character-system.md",
       "number": "S06",
       "title": "Character System",
       "status": "✅ Approved",
@@ -291,7 +291,7 @@
       "warnings": []
     },
     {
-      "file": "07-llm-integration.md",
+      "file": "active/07-llm-integration.md",
       "number": "S07",
       "title": "LLM Integration",
       "status": "✅ Approved",
@@ -334,7 +334,7 @@
       "warnings": []
     },
     {
-      "file": "08-turn-processing-pipeline.md",
+      "file": "active/08-turn-processing-pipeline.md",
       "number": "S08",
       "title": "Turn Processing Pipeline",
       "status": "✅ Approved",
@@ -379,7 +379,7 @@
       "warnings": []
     },
     {
-      "file": "09-prompt-and-content.md",
+      "file": "active/09-prompt-and-content.md",
       "number": "S09",
       "title": "Prompt & Content Management",
       "status": "✅ Approved",
@@ -426,7 +426,7 @@
       "warnings": []
     },
     {
-      "file": "10-api-and-streaming.md",
+      "file": "active/10-api-and-streaming.md",
       "number": "S10",
       "title": "API & Streaming",
       "status": "✅ Approved",
@@ -470,7 +470,7 @@
       "warnings": []
     },
     {
-      "file": "11-player-identity-and-sessions.md",
+      "file": "active/11-player-identity-and-sessions.md",
       "number": "S11",
       "title": "Player Identity & Sessions",
       "status": "✅ Approved",
@@ -510,7 +510,7 @@
       "warnings": []
     },
     {
-      "file": "12-persistence-strategy.md",
+      "file": "active/12-persistence-strategy.md",
       "number": "S12",
       "title": "Persistence Strategy",
       "status": "✅ Approved (v2)",
@@ -564,7 +564,7 @@
       "warnings": []
     },
     {
-      "file": "13-world-graph-schema.md",
+      "file": "active/13-world-graph-schema.md",
       "number": "S13",
       "title": "World Graph Schema",
       "status": "✅ Approved",
@@ -606,7 +606,7 @@
       "warnings": []
     },
     {
-      "file": "14-deployment.md",
+      "file": "active/14-deployment.md",
       "number": "S14",
       "title": "Deployment & Infrastructure",
       "status": "✅ Approved",
@@ -648,7 +648,7 @@
       "warnings": []
     },
     {
-      "file": "15-observability.md",
+      "file": "active/15-observability.md",
       "number": "S15",
       "title": "Observability",
       "status": "✅ Approved",
@@ -687,7 +687,7 @@
       "warnings": []
     },
     {
-      "file": "16-testing-infrastructure.md",
+      "file": "active/16-testing-infrastructure.md",
       "number": "S16",
       "title": "Testing Infrastructure",
       "status": "✅ Approved",
@@ -732,7 +732,7 @@
       "warnings": []
     },
     {
-      "file": "17-data-privacy.md",
+      "file": "active/17-data-privacy.md",
       "number": "S17",
       "title": "Data Privacy",
       "status": "✅ Approved",
@@ -776,7 +776,7 @@
       "warnings": []
     },
     {
-      "file": "future/18-therapeutic-framework.md",
+      "file": "stubs/18-therapeutic-framework.md",
       "number": "S18",
       "title": "Therapeutic Framework",
       "status": "📝 Stub (Future)",
@@ -812,7 +812,7 @@
       ]
     },
     {
-      "file": "future/19-crisis-and-content-safety.md",
+      "file": "stubs/19-crisis-and-content-safety.md",
       "number": "S19",
       "title": "Crisis & Content Safety",
       "status": "📝 Stub (Future)",
@@ -849,7 +849,7 @@
       ]
     },
     {
-      "file": "future/20-story-sharing.md",
+      "file": "stubs/20-story-sharing.md",
       "number": "S20",
       "title": "Story Sharing",
       "status": "📝 Stub (Future)",
@@ -886,7 +886,7 @@
       ]
     },
     {
-      "file": "future/21-collaborative-writing.md",
+      "file": "stubs/21-collaborative-writing.md",
       "number": "S21",
       "title": "Collaborative Writing",
       "status": "📝 Stub (Future)",
@@ -925,7 +925,7 @@
       ]
     },
     {
-      "file": "future/22-community.md",
+      "file": "stubs/22-community.md",
       "number": "S22",
       "title": "Community",
       "status": "📝 Stub (Future)",
@@ -961,7 +961,7 @@
       ]
     },
     {
-      "file": "23-error-handling-and-resilience.md",
+      "file": "active/23-error-handling-and-resilience.md",
       "number": "S23",
       "title": "Error Handling & Resilience",
       "status": "✅ Approved",
@@ -1002,7 +1002,7 @@
       "warnings": []
     },
     {
-      "file": "24-content-moderation-v1.md",
+      "file": "active/24-content-moderation-v1.md",
       "number": "S24",
       "title": "Content Moderation v1",
       "status": "✅ Approved",
@@ -1042,7 +1042,7 @@
       "warnings": []
     },
     {
-      "file": "25-rate-limiting-and-anti-abuse.md",
+      "file": "active/25-rate-limiting-and-anti-abuse.md",
       "number": "S25",
       "title": "Rate Limiting & Anti-Abuse",
       "status": "✅ Approved",
@@ -1082,7 +1082,7 @@
       "warnings": []
     },
     {
-      "file": "26-admin-and-operator-tooling.md",
+      "file": "active/26-admin-and-operator-tooling.md",
       "number": "S26",
       "title": "Admin & Operator Tooling",
       "status": "✅ Approved",
@@ -1122,7 +1122,7 @@
       "warnings": []
     },
     {
-      "file": "27-save-load-and-game-management.md",
+      "file": "active/27-save-load-and-game-management.md",
       "number": "S27",
       "title": "Save/Load & Game Management",
       "status": "✅ Approved",
@@ -1162,7 +1162,7 @@
       "warnings": []
     },
     {
-      "file": "28-performance-and-scaling.md",
+      "file": "active/28-performance-and-scaling.md",
       "number": "S28",
       "title": "Performance & Scaling",
       "status": "✅ Approved",
@@ -1202,7 +1202,7 @@
       "warnings": []
     },
     {
-      "file": "29-universe-as-first-class-entity.md",
+      "file": "active/29-universe-as-first-class-entity.md",
       "number": "S29",
       "title": "Universe as First-Class Entity",
       "status": "✅ Approved",
@@ -1242,7 +1242,7 @@
       "warnings": []
     },
     {
-      "file": "30-session-universe-binding.md",
+      "file": "active/30-session-universe-binding.md",
       "number": "S30",
       "title": "Session↔Universe Binding",
       "status": "✅ Approved",
@@ -1280,7 +1280,7 @@
       "warnings": []
     },
     {
-      "file": "31-actor-identity-portability.md",
+      "file": "active/31-actor-identity-portability.md",
       "number": "S31",
       "title": "Actor Identity Portability",
       "status": "✅ Approved",
@@ -1318,7 +1318,7 @@
       "warnings": []
     },
     {
-      "file": "32-transport-abstraction.md",
+      "file": "active/32-transport-abstraction.md",
       "number": "S32",
       "title": "Transport Abstraction",
       "status": "✅ Approved",
@@ -1354,7 +1354,7 @@
       "warnings": []
     },
     {
-      "file": "33-universe-persistence-schema.md",
+      "file": "active/33-universe-persistence-schema.md",
       "number": "S33",
       "title": "Universe Persistence Schema",
       "status": "✅ Approved",
@@ -1395,7 +1395,7 @@
       "warnings": []
     },
     {
-      "file": "34-diegetic-time.md",
+      "file": "active/34-diegetic-time.md",
       "number": "S34",
       "title": "Diegetic Time",
       "status": "✅ Approved",
@@ -1431,7 +1431,7 @@
       "warnings": []
     },
     {
-      "file": "35-npc-autonomy-between-turns.md",
+      "file": "active/35-npc-autonomy-between-turns.md",
       "number": "S35",
       "title": "NPC Autonomy Between Turns",
       "status": "✅ Approved",
@@ -1468,7 +1468,7 @@
       "warnings": []
     },
     {
-      "file": "36-consequence-propagation.md",
+      "file": "active/36-consequence-propagation.md",
       "number": "S36",
       "title": "Consequence Propagation",
       "status": "✅ Approved",
@@ -1507,7 +1507,7 @@
       "warnings": []
     },
     {
-      "file": "37-world-memory-model.md",
+      "file": "active/37-world-memory-model.md",
       "number": "S37",
       "title": "World Memory Model",
       "status": "✅ Approved",
@@ -1548,7 +1548,7 @@
       "warnings": []
     },
     {
-      "file": "38-npc-memory-and-social-model.md",
+      "file": "active/38-npc-memory-and-social-model.md",
       "number": "S38",
       "title": "NPC Memory & Social Model",
       "status": "✅ Approved",
@@ -1589,7 +1589,7 @@
       "warnings": []
     },
     {
-      "file": "39-universe-composition-model.md",
+      "file": "active/39-universe-composition-model.md",
       "number": "S39",
       "title": "Universe Composition Model",
       "status": "✅ Approved",
@@ -1626,7 +1626,7 @@
       "warnings": []
     },
     {
-      "file": "40-genesis-v2-real-to-strange.md",
+      "file": "active/40-genesis-v2-real-to-strange.md",
       "number": "S40",
       "title": "Genesis v2: Real→Strange",
       "status": "✅ Approved",
@@ -1667,7 +1667,7 @@
       "warnings": []
     },
     {
-      "file": "41-scenario-seed-library.md",
+      "file": "active/41-scenario-seed-library.md",
       "number": "S41",
       "title": "Scenario Seed Library",
       "status": "✅ Approved",
@@ -1705,7 +1705,7 @@
       ]
     },
     {
-      "file": "42-llm-playtester-agent-harness.md",
+      "file": "active/42-llm-playtester-agent-harness.md",
       "number": "S42",
       "title": "LLM Playtester Agent Harness",
       "status": "✅ Approved",
@@ -1742,7 +1742,7 @@
       ]
     },
     {
-      "file": "43-human-playtester-program.md",
+      "file": "active/43-human-playtester-program.md",
       "number": "S43",
       "title": "Human Playtester Program",
       "status": "✅ Approved",
@@ -1779,7 +1779,7 @@
       ]
     },
     {
-      "file": "44-narrative-quality-evaluation.md",
+      "file": "active/44-narrative-quality-evaluation.md",
       "number": "S44",
       "title": "Narrative Quality Evaluation",
       "status": "✅ Approved",
@@ -1816,7 +1816,7 @@
       ]
     },
     {
-      "file": "45-evaluation-pipeline.md",
+      "file": "active/45-evaluation-pipeline.md",
       "number": "S45",
       "title": "Evaluation Pipeline",
       "status": "✅ Approved",
@@ -1853,7 +1853,7 @@
       ]
     },
     {
-      "file": "46-cloud-deployment-target.md",
+      "file": "active/46-cloud-deployment-target.md",
       "number": "S46",
       "title": "Cloud Deployment Target",
       "status": "📝 Draft",
@@ -1888,7 +1888,7 @@
       "warnings": []
     },
     {
-      "file": "47-live-neo4j-in-ci.md",
+      "file": "active/47-live-neo4j-in-ci.md",
       "number": "S47",
       "title": "Live Neo4j in CI",
       "status": "📝 Draft",
@@ -1924,7 +1924,7 @@
       "warnings": []
     },
     {
-      "file": "48-async-job-runner.md",
+      "file": "active/48-async-job-runner.md",
       "number": "S48",
       "title": "Async Job Runner",
       "status": "📝 Draft",
@@ -1950,7 +1950,7 @@
         "Open Questions",
         "Out of Scope"
       ],
-      "word_count": 1973,
+      "word_count": 1994,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 12,
       "has_user_stories": true,
@@ -1963,7 +1963,7 @@
       "warnings": []
     },
     {
-      "file": "49-horizontal-scaling.md",
+      "file": "active/49-horizontal-scaling.md",
       "number": "S49",
       "title": "Horizontal Scaling & Multi-Instance Sessions",
       "status": "📝 Draft",
@@ -1986,7 +1986,7 @@
         "Open Questions",
         "Out of Scope"
       ],
-      "word_count": 2189,
+      "word_count": 2206,
       "has_acceptance_criteria": true,
       "acceptance_criteria_count": 12,
       "has_user_stories": true,
@@ -1999,7 +1999,7 @@
       "warnings": []
     },
     {
-      "file": "50-concurrent-universe-loading.md",
+      "file": "stubs/50-concurrent-universe-loading.md",
       "number": "S50",
       "title": "Concurrent Universe Loading",
       "status": "📝 Draft",
@@ -2034,7 +2034,7 @@
       ]
     },
     {
-      "file": "51-cross-universe-travel-protocol.md",
+      "file": "stubs/51-cross-universe-travel-protocol.md",
       "number": "S51",
       "title": "Cross-Universe Travel Protocol",
       "status": "📝 Draft",
@@ -2069,7 +2069,7 @@
       ]
     },
     {
-      "file": "52-nexus-as-special-universe.md",
+      "file": "stubs/52-nexus-as-special-universe.md",
       "number": "S52",
       "title": "Nexus as Special Universe",
       "status": "📝 Draft",
@@ -2105,7 +2105,7 @@
       ]
     },
     {
-      "file": "53-nexus-access-rules.md",
+      "file": "stubs/53-nexus-access-rules.md",
       "number": "S53",
       "title": "Nexus Access Rules",
       "status": "📝 Draft",
@@ -2142,7 +2142,7 @@
       ]
     },
     {
-      "file": "54-inter-universe-event-substrate.md",
+      "file": "stubs/54-inter-universe-event-substrate.md",
       "number": "S54",
       "title": "Inter-Universe Event Substrate",
       "status": "📝 Draft",
@@ -2177,7 +2177,7 @@
       ]
     },
     {
-      "file": "55-bleedthrough-propagation-rules.md",
+      "file": "stubs/55-bleedthrough-propagation-rules.md",
       "number": "S55",
       "title": "Bleedthrough Propagation Rules",
       "status": "📝 Draft",
@@ -2215,7 +2215,7 @@
       ]
     },
     {
-      "file": "56-resonance-correlation-engine.md",
+      "file": "stubs/56-resonance-correlation-engine.md",
       "number": "S56",
       "title": "Resonance Correlation Engine",
       "status": "📝 Draft",
@@ -2251,7 +2251,7 @@
       ]
     },
     {
-      "file": "57-multi-actor-universe-model.md",
+      "file": "stubs/57-multi-actor-universe-model.md",
       "number": "S57",
       "title": "Multi-Actor Universe Model",
       "status": "📝 Draft",
@@ -2288,7 +2288,7 @@
       ]
     },
     {
-      "file": "58-turn-conflict-resolution.md",
+      "file": "stubs/58-turn-conflict-resolution.md",
       "number": "S58",
       "title": "Turn Conflict Resolution",
       "status": "📝 Draft",
@@ -2325,7 +2325,7 @@
       ]
     },
     {
-      "file": "59-multiplayer-transport.md",
+      "file": "stubs/59-multiplayer-transport.md",
       "number": "S59",
       "title": "Multiplayer Transport",
       "status": "📝 Draft",
@@ -2366,7 +2366,7 @@
       ]
     },
     {
-      "file": "60-crisis-safety-protocol.md",
+      "file": "stubs/60-crisis-safety-protocol.md",
       "number": "S60",
       "title": "Crisis Safety Protocol",
       "status": "📝 Draft",
@@ -2402,7 +2402,7 @@
       ]
     },
     {
-      "file": "61-therapeutic-framework.md",
+      "file": "stubs/61-therapeutic-framework.md",
       "number": "S61",
       "title": "Therapeutic Framework",
       "status": "📝 Draft",
@@ -2439,7 +2439,7 @@
       ]
     },
     {
-      "file": "62-story-sharing.md",
+      "file": "stubs/62-story-sharing.md",
       "number": "S62",
       "title": "Story Sharing",
       "status": "📝 Draft",
@@ -2476,7 +2476,7 @@
       ]
     },
     {
-      "file": "63-community-and-user-generated-worlds.md",
+      "file": "stubs/63-community-and-user-generated-worlds.md",
       "number": "S63",
       "title": "Community and User-Generated Worlds",
       "status": "📝 Draft",
@@ -2513,7 +2513,7 @@
       ]
     },
     {
-      "file": "64-generation-serving-profiles.md",
+      "file": "active/64-generation-serving-profiles.md",
       "number": "S64",
       "title": "Generation Serving Profiles",
       "status": "✅ Approved",
@@ -2561,7 +2561,7 @@
       "warnings": []
     },
     {
-      "file": "65-local-ci-gate.md",
+      "file": "active/65-local-ci-gate.md",
       "number": "S65",
       "title": "Local CI Gate",
       "status": "✅ Approved",
@@ -2602,7 +2602,7 @@
       "warnings": []
     },
     {
-      "file": "66-rate-limit-budget.md",
+      "file": "active/66-rate-limit-budget.md",
       "number": "S66",
       "title": "Rate-Limit Budget & Task Prioritization",
       "status": "✅ Approved",
@@ -2642,7 +2642,7 @@
       "warnings": []
     },
     {
-      "file": "67-autonomous-queue-readiness-gate.md",
+      "file": "active/67-autonomous-queue-readiness-gate.md",
       "number": "S67",
       "title": "Autonomous Queue Readiness Gate",
       "status": "✅ Approved",
@@ -2678,7 +2678,7 @@
       "warnings": []
     },
     {
-      "file": "68-playtester-client-evolution.md",
+      "file": "active/68-playtester-client-evolution.md",
       "number": "S68",
       "title": "Playtester Client Evolution",
       "status": "📝 Draft",
@@ -2719,7 +2719,7 @@
       "warnings": []
     },
     {
-      "file": "69-world-based-systems-difficulty-progression.md",
+      "file": "active/69-world-based-systems-difficulty-progression.md",
       "number": "S69",
       "title": "World-Based Systems, Narrative Failure, and Milestones",
       "status": "📝 Draft",
@@ -2762,7 +2762,7 @@
       "warnings": []
     },
     {
-      "file": "70-routes-distances-and-text-map.md",
+      "file": "active/70-routes-distances-and-text-map.md",
       "number": "S70",
       "title": "Routes, Distances, and Text Map",
       "status": "📝 Draft",
@@ -2801,7 +2801,7 @@
       "warnings": []
     },
     {
-      "file": "71-langfuse-integration.md",
+      "file": "draft/71-langfuse-integration.md",
       "number": "S71",
       "title": "Langfuse Integration",
       "status": "📝 Draft",

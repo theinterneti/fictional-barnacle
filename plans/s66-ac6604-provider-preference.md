@@ -7,7 +7,7 @@
 
 ## Goal
 
-Implement the real AC-66.04 behavior from `specs/66-rate-limit-budget.md`:
+Implement the real AC-66.04 behavior from `specs/active/66-rate-limit-budget.md`:
 
 - Given Google is `NEAR_LIMIT`
 - And NVIDIA is `HEALTHY`

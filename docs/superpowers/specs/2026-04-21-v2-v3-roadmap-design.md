@@ -307,7 +307,7 @@ during the individual spec's brainstorm, not here.
 Assuming this roadmap is approved:
 
 1. **`specs/README.md`** — ✅ Done. "Reserved" block listing S29–S63 with release assignments added.
-2. **`specs/00-project-charter.md`** — ✅ Done. Roadmap pointer block appended below the v1 Closeout section. v1 Closeout content remains frozen.
+2. **`specs/active/00-project-charter.md`** — ✅ Done. Roadmap pointer block appended below the v1 Closeout section. v1 Closeout content remains frozen.
 3. **`plans/index.md`** — No changes yet. Each release gets its own plan document after its specs are drafted.
 4. **`specs/future/` stubs** — No changes yet. S18/S19/S20/S22 stay as stubs until v5+ begins.
 5. **This document** — Lives at `docs/superpowers/specs/2026-04-21-v2-v3-roadmap-design.md` as the planning artifact.

@@ -84,7 +84,7 @@ This document intentionally prevents fake implementation specs for speculative a
 
 | Hazard | Evidence | Control decision |
 |---|---|---|
-| Resolved duplicate S15 | `specs/71-langfuse-integration.md` now carries the Langfuse extension; `specs/15-observability.md` remains the approved S15 baseline | Route future Langfuse work by S71; S15 remains the approved observability baseline. |
+| Resolved duplicate S15 | `specs/draft/71-langfuse-integration.md` now carries the Langfuse extension; `specs/active/15-observability.md` remains the approved S15 baseline | Route future Langfuse work by S71; S15 remains the approved observability baseline. |
 | Future stubs counted as warnings | `specs/future/*` have no ACs by design | Treat warnings as expected for boundary stubs; do not "fix" by inventing fake ACs. |
 | Draft v4/v5 specs look implementation-shaped | S50-S58, S61-S63 have Gherkin but no stories/edge cases and target speculative layers | Keep as boundary/research until version gate, except narrow story-export slice if promoted later. |
 | Root worktree stale | Durable repo note says root is stale; current work uses `.worktrees/fb013-performance-ac2808-plan` | Continue spec/portfolio work in the clean main worktree; avoid root WIP. |

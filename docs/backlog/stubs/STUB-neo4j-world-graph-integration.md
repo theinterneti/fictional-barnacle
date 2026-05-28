@@ -27,7 +27,7 @@ All AC-13.04–13.16 require a live Neo4j instance in the test environment. That
 
 ## Evidence
 
-- `specs/13-world-graph-schema.md` — AC-13.04–13.16 all marked [v2 — Neo4j]
+- `specs/active/13-world-graph-schema.md` — AC-13.04–13.16 all marked [v2 — Neo4j]
 - `make trace` output 2026-05-03 — 9 S13 ACs in uncovered list
 - Dukat `Product_Specification.md §3` — "AI-Driven World Persistence: every action has a ripple effect"
 - TTA `specs/persistence/neo4j-story-graph.md` — TTA's graph persistence spec as reference

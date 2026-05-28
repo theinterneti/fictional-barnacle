@@ -42,7 +42,7 @@ before a second graph dataset can be integrated. This is at minimum a Phase 3 co
 - `Dukat/App Development/DukatDataModel.json` — entity schema
 - `Dukat/Next_Phase_Roadmap.md` — Pillar 1: Data Consolidation strategy
 - `Dukat/Product_Specification.md` §5 — "Scalable Data Architecture" as core goal
-- barnacle `specs/13-world-graph-schema.md` — the receiving schema
+- barnacle `specs/active/13-world-graph-schema.md` — the receiving schema
 - barnacle `plans/world-and-genesis.md` — integration point
 
 ## Adam's Notes
