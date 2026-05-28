@@ -15,6 +15,10 @@ S00-S09, S65, and S67 are Approved specs that are already implemented. They do n
 
 If any of these specs receive new ACs in a future version, a dedicated implementation plan should be written for that delta.
 
+## Technology & Framework
+
+This is a coverage document, not an implementation plan. Technology and testing are covered by the existing system plan (`plans/system.md`) for S00-S09 and by the Makefile/scripts themselves for S65/S67. No new framework decisions are introduced here.
+
 ---
 
 ## Spec-by-Spec Implementation Status

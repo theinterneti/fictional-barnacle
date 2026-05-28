@@ -8,6 +8,15 @@
 
 **Tech Stack:** Langfuse Python SDK, FastAPI dependency injection, existing S11 player identity, S15 observability base, S45 evaluation pipeline, SHA-256 pseudonymization.
 
+## Technology & Framework
+
+- **Observability**: `langfuse` Python SDK (self-hosted), fire-and-forget trace emission
+- **Identity**: SHA-256 pseudonymization of player IDs before leaving app boundary
+- **Prompt provenance**: S09 `RenderedPrompt` enriched with `langfuse_prompt` object
+- **Scores**: S45 evaluation pipeline emits `eval.{dimension}` scores to Langfuse
+- **Resilience**: All Langfuse calls wrapped in try-except, `TTA_LANGFUSE_ENABLED` gate
+- **Testing**: pytest with mock `Langfuse` client, privacy audit assertions
+
 ---
 
 ## Bundle Scope
