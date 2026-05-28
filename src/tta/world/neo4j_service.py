@@ -10,6 +10,13 @@ import sqlalchemy as sa
 import structlog
 from neo4j import AsyncDriver
 
+from tta.models.v21_playtester import (
+    DistanceUnit,
+    LocalMapResponse,
+    RouteDiscoveryState,
+    RouteNode,
+    TravelTimeEstimate,
+)
 from tta.models.world import (
     Location,
     LocationContext,
@@ -35,6 +42,77 @@ if TYPE_CHECKING:
     from sqlmodel.ext.asyncio.session import AsyncSession
 
 logger = structlog.get_logger(__name__)
+
+
+def _route_node_from_record(record: dict[str, object]) -> RouteNode:
+    """Build a v2.1 ``RouteNode`` from a Neo4j result record or test dict.
+
+    Handles both real Neo4j ``Record`` objects (accessed via
+    ``record[key]``) and plain ``dict`` fixtures so unit tests can
+    pass flat mappings without touching a live database.
+    """
+    is_hidden: bool = bool(record.get("is_hidden", False))
+    discovery_state = (
+        RouteDiscoveryState.undiscovered if is_hidden else RouteDiscoveryState.known
+    )
+    distance_value = float(record.get("distance_value", 1))
+    distance_unit: DistanceUnit = str(record.get("distance_unit", "km"))  # type: ignore[assignment]
+
+    # Deterministic travel-time estimate: walking at 5 km/h.
+    hours = distance_value / 5.0
+    if hours < 0.02:
+        travel_time = TravelTimeEstimate(value=round(hours * 60, 1), unit="minutes")
+    elif hours < 1:
+        travel_time = TravelTimeEstimate(value=round(hours * 60), unit="minutes")
+    else:
+        travel_time = TravelTimeEstimate(value=round(hours, 1), unit="hours")
+
+    travel_modes_raw = record.get("travel_modes", ["walking"])
+    if isinstance(travel_modes_raw, (list, tuple)):
+        travel_modes = [str(m) for m in travel_modes_raw]
+    else:
+        travel_modes = [str(travel_modes_raw)]
+
+    encounter_tags_raw = record.get("encounter_tags", [])
+    if isinstance(encounter_tags_raw, (list, tuple)):
+        encounter_tags = [str(t) for t in encounter_tags_raw]
+    else:
+        encounter_tags = [str(encounter_tags_raw)]
+
+    coordinates_raw = record.get("coordinates")
+    coordinates: dict[str, float | str] | None = None
+    if isinstance(coordinates_raw, dict):
+        coordinates = {}
+        for k, v in coordinates_raw.items():
+            if isinstance(v, (int, float, str)):
+                coordinates[str(k)] = v
+
+    secret_metadata = record.get("secret_metadata", {})
+    if not isinstance(secret_metadata, dict):
+        secret_metadata = {}
+
+    return RouteNode(
+        route_id=str(record["route_id"]),
+        from_location_id=str(record.get("from_location_id", "")),
+        to_location_id=str(record.get("to_location_id", "")),
+        label=str(record.get("label", "")),
+        terrain_type=str(record.get("terrain_type", "unknown")),
+        distance_value=distance_value,
+        distance_unit=distance_unit,
+        travel_modes=travel_modes,
+        directionality=str(record.get("directionality", "two_way")),
+        discovery_state=discovery_state,
+        blocked=bool(record.get("is_locked", False)),
+        blocked_reason=(
+            str(record["blocked_reason"])
+            if record.get("blocked_reason") is not None
+            else None
+        ),
+        encounter_tags=encounter_tags,
+        coordinates=coordinates,
+        secret_metadata=secret_metadata,
+        estimated_travel_time=travel_time,
+    )
 
 
 class Neo4jWorldService:
@@ -676,4 +754,100 @@ class Neo4jWorldService:
             nearby_locations=[_node_to_location(n) for n in record["nearby"]],
             npcs_present=[_node_to_npc(n) for n in record["npcs"]],
             items_here=[_node_to_item(n) for n in record["items"]],
+        )
+
+    # -- Protocol method: list_available_routes (S70) ------------
+
+    async def list_available_routes(
+        self,
+        session_id: UUID,
+        location_id: str,
+    ) -> list[RouteNode]:
+        """Return known routes originating from a location.
+
+        Traverses CONNECTS_TO edges from the given location and
+        builds v2.1 RouteNode DTOs for each connected destination.
+        Hidden routes are returned with
+        ``RouteDiscoveryState.undiscovered`` so the caller can
+        filter them via :meth:`RouteNode.player_facing_dump`.
+        """
+        sid = str(session_id)
+        query = """
+        MATCH (loc:Location {session_id: $sid, id: $location_id})
+              -[c:CONNECTS_TO]->(dest:Location {session_id: $sid})
+        RETURN loc.id AS current_location_id,
+               loc.name AS current_location_name,
+               loc.id AS from_location_id,
+               dest.id AS to_location_id,
+               dest.name AS to_location_name,
+               COALESCE(c.label, 'Path to ' + dest.name) AS label,
+               COALESCE(c.terrain_type, 'unknown') AS terrain_type,
+               COALESCE(c.distance_value, 1) AS distance_value,
+               COALESCE(c.distance_unit, 'km') AS distance_unit,
+               COALESCE(c.travel_modes, ['walking']) AS travel_modes,
+               c.directionality AS directionality,
+               c.is_hidden AS is_hidden,
+               c.is_locked AS is_locked,
+               c.blocked_reason AS blocked_reason,
+               COALESCE(c.encounter_tags, []) AS encounter_tags,
+               c.coordinates AS coordinates,
+               c.secret_metadata AS secret_metadata
+        """
+        async with self._driver.session() as session:
+            result = await session.run(
+                query,
+                sid=sid,
+                location_id=location_id,
+            )
+            records = [r async for r in result]
+        return [_route_node_from_record(r) for r in records]
+
+    # -- Protocol method: get_local_map (S70) -------------------
+
+    async def get_local_map(
+        self,
+        session_id: UUID,
+    ) -> LocalMapResponse:
+        """Build a local-map response for the player's current location.
+
+        Resolves the player's current location from the session graph,
+        then collects all CONNECTS_TO routes.  The returned
+        ``LocalMapResponse`` includes every route (including hidden
+        ones) so the caller can derive visibility via
+        :meth:`LocalMapResponse.player_facing_dump`.
+        """
+        sid = str(session_id)
+        location_query = """
+        MATCH (ps:PlayerSession {session_id: $sid})-[:IS_AT]->(loc:Location)
+        RETURN loc.id AS location_id, loc.name AS location_name
+        """
+        async with self._driver.session() as session:
+            loc_result = await session.run(location_query, sid=sid)
+            loc_records = [r async for r in loc_result]
+
+        if not loc_records:
+            msg = f"No player location for session {sid}"
+            raise ValueError(msg)
+
+        location_id = str(
+            loc_records[0].get(
+                "location_id",
+                loc_records[0].get("current_location_id", ""),
+            )
+        )
+        location_name = str(
+            loc_records[0].get(
+                "location_name",
+                loc_records[0].get("current_location_name", ""),
+            )
+        )
+
+        routes = await self.list_available_routes(
+            session_id,
+            location_id,
+        )
+        return LocalMapResponse(
+            current_location_id=location_id,
+            current_location_name=location_name,
+            routes=routes,
         )
