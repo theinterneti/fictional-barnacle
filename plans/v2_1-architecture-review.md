@@ -67,7 +67,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   FMR is routed provider (`openai/tta`). `SmartRouterLLMClient` (256 lines,
   `smart_router_client.py`) talks to FMR via direct HTTP but is **not wired**
   into the app. The app uses `LiteLLMClient` exclusively.
-- **Why it was chosen**: `specs/07-llm-integration.md` — abstract provider.
+- **Why it was chosen**: `specs/active/07-llm-integration.md` — abstract provider.
   Multi-backend PR #193 hardened with role-configurable backends.
 - **What we learned**: Two parallel clients for the same purpose. SmartRouter
   duplicates token counting, error handling, call history. LiteLLM handles
@@ -210,7 +210,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   providers.
 - **Verdict**: **BUILD**. In-process component: asyncio semaphores keyed by
   task type, provider-aware via LiteLLM hooks.
-- **Action**: ✅ Spec written: `specs/66-rate-limit-budget.md`. Implement as
+- **Action**: ✅ Spec written: `specs/active/66-rate-limit-budget.md`. Implement as
   `src/tta/llm/rate_limiter.py`. Success: under 3× concurrent playtester load,
   player turn latency stays within budget.
 
@@ -250,7 +250,7 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
   - [x] #5 (structured output): **spike complete** — prompt + Pydantic wins
   - [x] #6 (arq worker): **spike complete** — infrastructure ready, call sites mapped
   - [x] #8 (htmx UI): **spike complete** — htmx via script tags, zero deps
-  - [x] #12 (rate-limit): **spec written** — `specs/66-rate-limit-budget.md`
+  - [x] #12 (rate-limit): **spec written** — `specs/active/66-rate-limit-budget.md`
 - [x] Decisions reflected in `plans/v2_1-evaluation-and-playtesting.md`.
 - [x] Anti-decisions documented and signed off.
 - [x] No v2.1 spec work begins on a call site whose architectural choice is TBD.
@@ -264,3 +264,31 @@ Verdicts: **KEEP** · **REPLACE** · **AUGMENT** · **DEFER**.
    from GitHub release `v0.1.0-alpha`. RetryPrimitive and CachePrimitive verified.
    Integration pattern: wrap async functions as `WorkflowPrimitive` subclasses.
 3. **What is the Neo4j CE concurrent read ceiling?** Gates Decision #3 at v3.
+
+---
+
+## Testing Strategy
+
+This is an architecture review document, not an implementation plan. Testing is covered by individual component plans:
+- `plans/s46-s49-production-runtime.md` — S46-S49 testing
+- `plans/v2_1-playtester-bundle.md` — S68-S70 testing
+- `plans/v2_1-evaluation-and-playtesting.md` — S42-S45 testing
+
+Architecture decisions are verified by implementation gates (`make gate`, CI integration tests) rather than dedicated architecture-review tests.
+
+## Code Example: Architecture Decision Implementation
+
+Decision #4 (Redis for cross-instance state) surfaces in the health check:
+
+```python
+# src/tta/api/health.py
+@app.get("/api/v1/health/ready")
+async def readiness():
+    checks = {}
+    try:
+        await redis.ping()
+        checks["redis"] = "ok"
+    except Exception:
+        checks["redis"] = "unavailable"
+    return {"status": "ok" if all(v == "ok" for v in checks.values()) else "degraded", "checks": checks}
+```

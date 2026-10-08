@@ -485,6 +485,33 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
     )
 
+    # 9. Discord playtester bot (best-effort)
+    discord_task: asyncio.Task[None] | None = None
+    if settings.discord_bot_token and settings.discord_playtest_channel_id:
+        from tta.clients.discord_playtester import create_bot
+
+        bot = create_bot(
+            channel_id=settings.discord_playtest_channel_id,
+            session_factory=session_factory,
+            app_state=app.state,
+        )
+
+        async def _run_bot() -> None:
+            try:
+                log.info("discord_bot_connecting", token_len=len(settings.discord_bot_token))
+                await bot.start(settings.discord_bot_token)
+                log.info("discord_bot_stopped_cleanly")
+            except Exception:
+                log.exception("discord_bot_failed")
+
+        discord_task = asyncio.create_task(_run_bot())
+        log.info(
+            "discord_bot_starting",
+            channel_id=settings.discord_playtest_channel_id,
+        )
+    else:
+        log.info("discord_bot_disabled", reason="missing_token_or_channel")
+
     # Start pool metrics sampler (S28 FR-28.10)
     from tta.observability.pool_metrics import start_pool_metrics_sampler
 
@@ -533,6 +560,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         pass
     shutdown_langfuse()
     shutdown_tracing()
+    if discord_task is not None:
+        discord_task.cancel()
+        try:
+            await discord_task
+        except asyncio.CancelledError:
+            pass
     if app.state.neo4j_driver is not None:
         await app.state.neo4j_driver.close()
     await app.state.redis.aclose()

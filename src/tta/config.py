@@ -265,6 +265,10 @@ class Settings(BaseSettings):
     idle_timeout_minutes: int = 30
     environment: Environment = Environment.DEVELOPMENT
 
+    # Discord playtester bot (optional)
+    discord_bot_token: str = ""
+    discord_playtest_channel_id: int = 0
+
 
 @lru_cache
 def get_settings() -> Settings:

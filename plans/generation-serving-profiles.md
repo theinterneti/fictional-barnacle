@@ -159,7 +159,7 @@ New path:
 
 Create:
 
-- `specs/64-generation-serving-profiles.md`
+- `specs/active/64-generation-serving-profiles.md`
 - `plans/generation-serving-profiles.md`
 - `src/tta/llm/serving_profiles.py`
 - `tests/unit/llm/test_serving_profiles.py`

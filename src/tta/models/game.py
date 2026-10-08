@@ -95,6 +95,12 @@ class SubmitTurnRequest(BaseModel):
         None,
         description="Client-generated UUID for deduplication.",
     )
+    metadata: dict[str, object] = Field(
+        default_factory=dict,
+        description=(
+            "Optional client metadata for S68 turn source/correlation contracts."
+        ),
+    )
     traffic_class: str | None = Field(
         None,
         description=(

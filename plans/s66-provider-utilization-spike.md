@@ -30,7 +30,7 @@ This plan turns AC-66.04 into a bounded spike with a clear truth boundary:
 
 Relevant files:
 
-- `specs/66-rate-limit-budget.md` — AC-66.04 and the approval reality-check deferral.
+- `specs/active/66-rate-limit-budget.md` — AC-66.04 and the approval reality-check deferral.
 - `src/tta/llm/rate_limiter.py` — `RateLimitBudget._log_decision()` emits `provider_utilization=None` today.
 - `src/tta/llm/litellm_client.py` — has model/provider naming, router task hints, LiteLLM calls, retry/fallback handling, and `llm_call_complete` logs.
 - `tests/unit/v2_deferred_coverage.py` — marks `AC-66.04` as skipped/deferred.
@@ -343,7 +343,7 @@ Do not run live LLM calls for this spike. If a local FMR endpoint must be probed
 ## 8. Acceptance criteria for this plan
 
 - The plan is indexed by `plans/index_plans.py` without new warnings specific to this file.
-- A machine-readable work item references `specs/66-rate-limit-budget.md`, this plan, and `AC-66.04`.
+- A machine-readable work item references `specs/active/66-rate-limit-budget.md`, this plan, and `AC-66.04`.
 - The first implementation task is a spike with no-spend evidence, not a routing rewrite.
 - AC-66.04 remains truthfully deferred until routing behavior exists.
 

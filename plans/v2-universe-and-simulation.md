@@ -806,3 +806,17 @@ The following sections of this plan are **locked**:
 | `llm-and-pipeline.md §2.3` | §4.6 (TurnState additions) |
 | `api-and-sessions.md §5.1` | §8 (new endpoints, backward-compat create path) |
 | `world-and-genesis.md §1` | §2 (Neo4j additions; session_id kept) |
+
+## Technology & Framework
+
+- **Runtime**: Python 3.12+, FastAPI, Uvicorn
+- **Persistence**: PostgreSQL (SQLAlchemy async, SQLModel), Neo4j (async driver, Cypher)
+- **Simulation**: In-process synchronous stages in turn pipeline (§5.1)
+- **Identity**: ULID-based actor identity, nullable `universe_id` FK
+- **Transport**: `NarrativeTransport` Protocol (duck-typing, not ABC)
+
+## Testing Strategy
+
+- **Unit tests**: Universe entity CRUD, actor identity portability, transport protocol conformance
+- **Integration tests**: Neo4j graph mutations (session-scoped subgraphs), simulation stage execution order
+- **Backward compat**: V1 sessions (NULL universe_id) must still load and play correctly

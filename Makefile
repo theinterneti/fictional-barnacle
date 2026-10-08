@@ -84,7 +84,16 @@ doctor: ## Check local developer workflow prerequisites
 status: ## Show deterministic repo workflow status
 	uv run python scripts/dev_workflow.py status
 
-changed-tests: ## Plan targeted checks for changed files
+spec-pipeline: ## Show spec pipeline status (all specs by stage)
+	uv run python scripts/spec_pipeline.py status
+
+spec-pipeline-check: ## Check if a specific spec can advance (usage: make spec-pipeline-check SPEC=S68)
+	uv run python scripts/spec_pipeline.py check $(SPEC)
+
+spec-pipeline-validate: ## Validate pipeline consistency
+	uv run python scripts/spec_pipeline.py validate
+
+changed-tests:
 	uv run python scripts/changed_tests.py
 
 gate-changed: ## Run targeted changed-file local gate

@@ -1,7 +1,7 @@
 {
-  "plan_count": 13,
-  "total_lines": 13576,
-  "total_words": 60507,
+  "plan_count": 18,
+  "total_lines": 15210,
+  "total_words": 68232,
   "plans": [
     {
       "file": "system.md",
@@ -22,10 +22,7 @@
         "5. Non-Functional Requirements and Constraints",
         "6. Resolved Architectural Questions",
         "7. Development Workflow",
-        "8. Docker Compose (v1)",
-        "9. Implementation Wave Strategy",
-        "10. Open Items for Component Plans",
-        "Changelog"
+        "8. Testing Strategy"
       ],
       "subsections": [
         "1.1 \u2014 Core Technologies",
@@ -61,54 +58,56 @@
         "7.1 \u2014 Local Development",
         "7.2 \u2014 CI Pipeline (GitHub Actions)",
         "7.3 \u2014 Branching Strategy",
-        "7.4 \u2014 Configuration"
+        "7.4 \u2014 Configuration",
+        "8.1 \u2014 Unit Testing",
+        "8.2 \u2014 Integration Testing",
+        "8.3 \u2014 BDD / Acceptance Testing",
+        "8.4 \u2014 Automated Playtesting (The \"LLM Critic\")"
       ],
-      "word_count": 5843,
-      "line_count": 1048,
+      "word_count": 6055,
+      "line_count": 1078,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
-      "has_testing": false,
+      "has_testing": true,
       "has_code_blocks": true,
-      "code_block_count": 15,
+      "code_block_count": 16,
       "has_normative_markers": true,
       "normative_sections": [
         "3.2 \u2014 PostgreSQL Schema (Core Tables \u2014 Normative)",
-        "4.3 \u2014 TurnState (Pipeline Internal Contract \u2014 Normative)",
-        "7.4 \u2014 Configuration"
+        "4.3 \u2014 TurnState (Pipeline Internal Contract \u2014 Normative)"
       ],
       "spec_refs": [
         "S00",
         "S01",
-        "S05",
-        "S06",
         "S10",
         "S11",
+        "S15",
         "S17",
         "S18",
         "S19",
         "S23",
+        "S24",
+        "S25",
+        "S26",
+        "S27",
+        "S28",
         "S42",
         "S45"
       ],
       "plan_refs": [
-        "api-and-sessions.md",
-        "llm-and-pipeline.md",
-        "ops.md",
-        "prompts.md",
         "world-and-genesis.md"
       ],
       "section_refs": [
         "\u00a73.2",
+        "\u00a73.3",
+        "\u00a73.5",
+        "\u00a74",
         "\u00a74.1",
-        "\u00a74.3",
-        "\u00a75.2",
-        "\u00a75.3"
+        "\u00a75.2"
       ],
-      "warnings": [
-        "No testing section found"
-      ]
+      "warnings": []
     },
     {
       "file": "api-and-sessions.md",
@@ -266,6 +265,55 @@
         "\u00a77.4"
       ],
       "warnings": []
+    },
+    {
+      "file": "foundation-coverage.md",
+      "title": "Foundation & Process Specs \u2014 Coverage Plan",
+      "scope": "",
+      "wave": "",
+      "status": "Unknown",
+      "last_updated": "2026-05-28",
+      "specs_covered": [],
+      "sections": [
+        "Purpose",
+        "Technology & Framework",
+        "Testing Strategy",
+        "Spec-by-Spec Implementation Status",
+        "Future Delta Plans"
+      ],
+      "subsections": [],
+      "word_count": 446,
+      "line_count": 55,
+      "has_tech_stack": true,
+      "has_architecture": false,
+      "has_data_models": false,
+      "has_interfaces": false,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 1,
+      "has_normative_markers": false,
+      "normative_sections": [],
+      "spec_refs": [
+        "S00",
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "S65",
+        "S67"
+      ],
+      "plan_refs": [
+        "system.md"
+      ],
+      "section_refs": [],
+      "warnings": [
+        "Very short (446 words) \u2014 may lack detail"
+      ]
     },
     {
       "file": "generation-serving-profiles.md",
@@ -783,7 +831,9 @@
         "5. Database Migrations",
         "6. File Inventory",
         "7. Implementation Waves",
-        "Changelog"
+        "Changelog",
+        "Technology Stack",
+        "Testing Strategy"
       ],
       "subsections": [
         "1.1 \u2014 Error Taxonomy",
@@ -806,13 +856,13 @@
         "3.6 \u2014 In-Memory Fallback",
         "5.1 \u2014 Moderation Audit Table"
       ],
-      "word_count": 2355,
-      "line_count": 671,
-      "has_tech_stack": false,
+      "word_count": 2434,
+      "line_count": 687,
+      "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
-      "has_testing": false,
+      "has_testing": true,
       "has_code_blocks": true,
       "code_block_count": 20,
       "has_normative_markers": true,
@@ -832,10 +882,116 @@
       "section_refs": [
         "\u00a72.4"
       ],
-      "warnings": [
-        "No technology/framework section found",
-        "No testing section found"
-      ]
+      "warnings": []
+    },
+    {
+      "file": "s46-s49-production-runtime.md",
+      "title": "S46-S49 Production Runtime Implementation Plan",
+      "scope": "S46, S47, S48, S49",
+      "wave": "v2.1 Production Runtime",
+      "status": "Draft",
+      "last_updated": "2026-05-28",
+      "specs_covered": [
+        "S46",
+        "S47",
+        "S48",
+        "S49"
+      ],
+      "sections": [
+        "Bundle Scope",
+        "Current-State Anchors",
+        "Dependency Ordering",
+        "Data Model and Persistence Contracts",
+        "Interface Sketch",
+        "Build Order",
+        "Testing Strategy",
+        "Risk Controls",
+        "Open Decisions for Implementation",
+        "Implementation Handoff",
+        "Appendix A: Implementation-Ready Sub-Tasks"
+      ],
+      "subsections": [
+        "Task 1: Stabilize live service integration gates (S47)",
+        "Task 2: Pin production configuration contracts (S46 + S49)",
+        "Task 3: Finish Redis-backed horizontal scaling primitives (S49)",
+        "Task 4: Introduce ARQ worker infrastructure (S48)",
+        "Task 5: Wire Fly.io deployment artifacts and CI/CD promotion (S46)",
+        "Task 6: Bundle gate and documentation lock",
+        "A1. S47 Sub-Tasks: Live Service Integration Gates",
+        "A2. S46+S49 Sub-Tasks: Production Config Validation",
+        "A3. S49 Sub-Tasks: Redis-Backed Horizontal Scaling",
+        "A4. S48 Sub-Tasks: ARQ Worker Infrastructure",
+        "A5. Bundle Gate Sub-Tasks"
+      ],
+      "word_count": 3022,
+      "line_count": 575,
+      "has_tech_stack": true,
+      "has_architecture": true,
+      "has_data_models": true,
+      "has_interfaces": true,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 21,
+      "has_normative_markers": true,
+      "normative_sections": [
+        "Interface Sketch"
+      ],
+      "spec_refs": [
+        "S46",
+        "S47",
+        "S48",
+        "S49"
+      ],
+      "plan_refs": [],
+      "section_refs": [],
+      "warnings": []
+    },
+    {
+      "file": "s66-ac6604-provider-preference.md",
+      "title": "S66 AC-66.04 Provider-Preference Implementation Plan",
+      "scope": "S66 AC-66.04 real implementation",
+      "wave": "",
+      "status": "\ud83d\udcdd Draft",
+      "last_updated": "",
+      "specs_covered": [],
+      "sections": [
+        "Goal",
+        "Truth boundary",
+        "Design constraints",
+        "Proposed implementation",
+        "Test plan",
+        "Files likely to change",
+        "Verification",
+        "Risks",
+        "Exit criteria",
+        "Technology & Framework",
+        "Code Example: Provider Reorder Seam"
+      ],
+      "subsections": [
+        "1. Extend role config to express provider candidates",
+        "2. Add provider-ordering policy helper",
+        "3. Thread task tier into the real dispatch path",
+        "4. Reorder candidate traversal in LiteLLMClient",
+        "5. Honest deferred-coverage cleanup",
+        "Red tests to add first"
+      ],
+      "word_count": 1010,
+      "line_count": 211,
+      "has_tech_stack": true,
+      "has_architecture": true,
+      "has_data_models": false,
+      "has_interfaces": false,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 1,
+      "has_normative_markers": false,
+      "normative_sections": [],
+      "spec_refs": [
+        "S66"
+      ],
+      "plan_refs": [],
+      "section_refs": [],
+      "warnings": []
     },
     {
       "file": "s66-provider-utilization-spike.md",
@@ -853,9 +1009,10 @@
         "3. Design decision to make",
         "4. Technology and architecture",
         "5. Task plan",
-        "6. Testing strategy",
-        "7. Acceptance criteria for this plan",
-        "8. Validation commands"
+        "6. Spike Result",
+        "7. Testing strategy",
+        "8. Acceptance criteria for this plan",
+        "9. Validation commands"
       ],
       "subsections": [
         "4.1 Data models",
@@ -864,17 +1021,21 @@
         "Task 1: Inventory actual provider signal surfaces",
         "Task 2: Add provider-utilization parsing tests",
         "Task 3: Thread provider utilization into admission logs without routing",
-        "Task 4: Produce implementation recommendation for the real AC-66.04 slice"
+        "Task 4: Produce implementation recommendation for the real AC-66.04 slice",
+        "6.1 Selected source",
+        "6.2 Implementation seam",
+        "6.3 Rejected or deferred alternatives",
+        "6.4 Exact next routing tests for the real AC-66.04 slice"
       ],
-      "word_count": 1390,
-      "line_count": 287,
+      "word_count": 1712,
+      "line_count": 366,
       "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
       "has_testing": true,
       "has_code_blocks": true,
-      "code_block_count": 10,
+      "code_block_count": 11,
       "has_normative_markers": false,
       "normative_sections": [],
       "spec_refs": [
@@ -883,6 +1044,52 @@
       "plan_refs": [
         "s66-provider-utilization-spike.md"
       ],
+      "section_refs": [],
+      "warnings": []
+    },
+    {
+      "file": "s71-langfuse-integration.md",
+      "title": "S71 Langfuse Integration \u2014 Implementation Plan",
+      "scope": "",
+      "wave": "",
+      "status": "Unknown",
+      "last_updated": "",
+      "specs_covered": [],
+      "sections": [
+        "Technology & Framework",
+        "Bundle Scope",
+        "Current-State Anchors",
+        "Build Order",
+        "Testing Strategy",
+        "Risk Controls"
+      ],
+      "subsections": [
+        "Task 1: LangfuseManager singleton",
+        "Task 2: User lifecycle instrumentation",
+        "Task 3: Session lifecycle instrumentation",
+        "Task 4: Prompt provenance enrichment",
+        "Task 5: Evaluation score emission",
+        "Task 6: Integration gate"
+      ],
+      "word_count": 871,
+      "line_count": 223,
+      "has_tech_stack": true,
+      "has_architecture": false,
+      "has_data_models": false,
+      "has_interfaces": false,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 6,
+      "has_normative_markers": false,
+      "normative_sections": [],
+      "spec_refs": [
+        "S09",
+        "S11",
+        "S15",
+        "S45",
+        "S71"
+      ],
+      "plan_refs": [],
       "section_refs": [],
       "warnings": []
     },
@@ -897,7 +1104,9 @@
       "sections": [
         "Goal",
         "Steps",
-        "Files touched"
+        "Files touched",
+        "Technology & Framework",
+        "Code Example: Profile Validation"
       ],
       "subsections": [
         "1. DB migration (014)",
@@ -909,15 +1118,15 @@
         "7. Admin",
         "8. Tests"
       ],
-      "word_count": 278,
-      "line_count": 62,
-      "has_tech_stack": false,
+      "word_count": 346,
+      "line_count": 83,
+      "has_tech_stack": true,
       "has_architecture": false,
       "has_data_models": false,
       "has_interfaces": true,
       "has_testing": true,
-      "has_code_blocks": false,
-      "code_block_count": 0,
+      "has_code_blocks": true,
+      "code_block_count": 1,
       "has_normative_markers": false,
       "normative_sections": [],
       "spec_refs": [
@@ -930,9 +1139,7 @@
         "\u00a711"
       ],
       "warnings": [
-        "No technology/framework section found",
-        "No code examples found",
-        "Very short (278 words) \u2014 may lack detail"
+        "Very short (346 words) \u2014 may lack detail"
       ]
     },
     {
@@ -969,7 +1176,9 @@
         "9. Settings Extensions",
         "10. Testing Strategy",
         "11. Wave Implementation Order",
-        "12. Cross-References"
+        "12. Cross-References",
+        "Technology & Framework",
+        "Testing Strategy"
       ],
       "subsections": [
         "1.1 \u2014 Design Principles",
@@ -1010,9 +1219,9 @@
         "Normative Sections",
         "Compatibility with v1 Plans"
       ],
-      "word_count": 3783,
-      "line_count": 808,
-      "has_tech_stack": false,
+      "word_count": 3867,
+      "line_count": 822,
+      "has_tech_stack": true,
       "has_architecture": true,
       "has_data_models": true,
       "has_interfaces": true,
@@ -1061,9 +1270,7 @@
         "\u00a75.1",
         "\u00a78"
       ],
-      "warnings": [
-        "No technology/framework section found"
-      ]
+      "warnings": []
     },
     {
       "file": "v2_1-architecture-review.md",
@@ -1091,36 +1298,42 @@
         "13. No `ttadev` Dependency (NEW for v2.1)",
         "Frameworks Explicitly Deferred",
         "Exit Criteria",
-        "Open Questions"
+        "Open Questions",
+        "Testing Strategy",
+        "Code Example: Architecture Decision Implementation"
       ],
       "subsections": [],
-      "word_count": 2028,
-      "line_count": 266,
+      "word_count": 2135,
+      "line_count": 294,
       "has_tech_stack": true,
-      "has_architecture": false,
+      "has_architecture": true,
       "has_data_models": false,
       "has_interfaces": true,
-      "has_testing": false,
-      "has_code_blocks": false,
-      "code_block_count": 0,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 1,
       "has_normative_markers": false,
       "normative_sections": [],
-      "spec_refs": [],
+      "spec_refs": [
+        "S42",
+        "S45",
+        "S46",
+        "S49",
+        "S68",
+        "S70"
+      ],
       "plan_refs": [
         "api-and-sessions.md",
         "prompts.md",
         "resilience-and-safety.md",
+        "s46-s49-production-runtime.md",
         "system.md"
       ],
       "section_refs": [
         "\u00a71",
         "\u00a76"
       ],
-      "warnings": [
-        "No testing section found",
-        "No code examples found",
-        "No spec references found (S01, S02, etc.)"
-      ]
+      "warnings": []
     },
     {
       "file": "v2_1-evaluation-and-playtesting.md",
@@ -1229,6 +1442,65 @@
         "\u00a76.1",
         "\u00a78.1"
       ],
+      "warnings": []
+    },
+    {
+      "file": "v2_1-playtester-bundle.md",
+      "title": "v2.1 Playtester Bundle Plan",
+      "scope": "",
+      "wave": "",
+      "status": "Unknown",
+      "last_updated": "",
+      "specs_covered": [],
+      "sections": [
+        "Bundle Scope",
+        "Technology & Framework",
+        "Testing Strategy",
+        "Interface Sketch",
+        "Build Order",
+        "Appendix A: Implementation-Ready Sub-Tasks"
+      ],
+      "subsections": [
+        "Task 1: Pin shared data contracts",
+        "Task 2: Implement S70 route read model first",
+        "Task 3: Implement S69 deterministic mechanics resolver",
+        "Task 4: Implement S68 same-origin client shell",
+        "Task 5: Integrate feedback into S43/S45",
+        "Task 6: End-to-end bundle gate",
+        "A1. Task 1 Sub-Tasks: Pin Shared Data Contracts",
+        "A2. Task 2 Sub-Tasks: Implement S70 Route Read Model",
+        "A3. Task 3 Sub-Tasks: Implement S69 Mechanics Resolver",
+        "A4. Task 4 Sub-Tasks: Implement S68 Client Shell",
+        "A5. Task 5 Sub-Tasks: Integrate Feedback into S43/S45",
+        "A6. Task 6 Sub-Tasks: End-to-End Bundle Gate"
+      ],
+      "word_count": 1504,
+      "line_count": 382,
+      "has_tech_stack": true,
+      "has_architecture": false,
+      "has_data_models": false,
+      "has_interfaces": true,
+      "has_testing": true,
+      "has_code_blocks": true,
+      "code_block_count": 16,
+      "has_normative_markers": true,
+      "normative_sections": [
+        "Interface Sketch"
+      ],
+      "spec_refs": [
+        "S10",
+        "S11",
+        "S12",
+        "S13",
+        "S27",
+        "S43",
+        "S45",
+        "S68",
+        "S69",
+        "S70"
+      ],
+      "plan_refs": [],
+      "section_refs": [],
       "warnings": []
     },
     {
