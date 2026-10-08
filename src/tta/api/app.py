@@ -498,7 +498,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         async def _run_bot() -> None:
             try:
+                log.info("discord_bot_connecting", token_len=len(settings.discord_bot_token))
                 await bot.start(settings.discord_bot_token)
+                log.info("discord_bot_stopped_cleanly")
             except Exception:
                 log.exception("discord_bot_failed")
 

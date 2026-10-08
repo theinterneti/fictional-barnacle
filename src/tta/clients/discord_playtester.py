@@ -349,20 +349,50 @@ class TTAPlaytesterBot(commands.Bot):
 
     async def on_ready(self) -> None:
         log.info("discord_bot_ready", user=str(self.user))
+        channel = self.get_channel(self._channel_id)
+        if channel:
+            await channel.send(
+                embed=discord.Embed(
+                    title="TTA Playtester Online",
+                    description="Type **!play** to begin your adventure!",
+                    color=COLOUR_SYSTEM,
+                )
+            )
 
     async def on_message(self, message: discord.Message) -> None:
         if message.author.bot:
             return
         if message.channel.id != self._channel_id:
             return
+        # Diagnostic: echo what the bot sees
+        log.info(
+            "discord_message_received",
+            author=str(message.author),
+            content=message.content[:100],
+        )
 
         user_id = message.author.id
         content = message.content.strip()
         session = self._get_session(user_id)
 
         # Commands always work
+        if content.lower() == "!play":
+            await self.cmd_play_direct(message)
+            return
+        if content.lower() == "!help":
+            await self.cmd_help_direct(message)
+            return
+        if content.lower() == "!status":
+            await self.cmd_status_direct(message)
+            return
+        if content.lower() == "!end":
+            await self.cmd_end_direct(message)
+            return
+        if content.lower() == "!save":
+            await self.cmd_save_direct(message)
+            return
         if content.startswith("!"):
-            await self.process_commands(message)
+            await message.channel.send(f"Unknown command. Type **!help** for commands.")
             return
 
         # Route by phase
@@ -513,6 +543,94 @@ class TTAPlaytesterBot(commands.Bot):
         session.genesis_index = len(GENESIS_QUESTIONS)
         await self._finish_genesis(ctx.channel, ctx.author.id, session)
 
+    # ── Direct command handlers (bypass commands.Bot decorator issues) ──
+
+    async def cmd_play_direct(self, message: discord.Message) -> None:
+        """Handle !play directly."""
+        session = self._get_session(message.author.id)
+        if session.phase != PlayerPhase.IDLE:
+            await message.channel.send(
+                "You're already in a game! Type **!end** to stop."
+            )
+            return
+        session.phase = PlayerPhase.GENESIS
+        session.genesis_index = 0
+        session.genesis_prefs = {}
+        await self._send_genesis_question(message.channel, session)
+
+    async def cmd_help_direct(self, message: discord.Message) -> None:
+        """Handle !help directly."""
+        await message.channel.send(
+            embed=discord.Embed(
+                title="TTA Playtester — Commands",
+                description=(
+                    "**!play** — Start a new adventure\n"
+                    "**!end** — End your current game\n"
+                    "**!save** — Save your progress\n"
+                    "**!status** — Show game status\n"
+                    "**!help** — Show this help"
+                ),
+                color=COLOUR_SYSTEM,
+            )
+        )
+
+    async def cmd_status_direct(self, message: discord.Message) -> None:
+        """Handle !status directly."""
+        session = self._get_session(message.author.id)
+        if session.phase == PlayerPhase.IDLE:
+            await message.channel.send(
+                "No game in progress. Type **!play** to start."
+            )
+            return
+        phase_str = {
+            PlayerPhase.GENESIS: f"Genesis (question {session.genesis_index + 1}/9)",
+            PlayerPhase.CREATING: "Creating world...",
+            PlayerPhase.PLAYING: "Playing",
+        }.get(session.phase, str(session.phase))
+        await message.channel.send(
+            f"**Phase**: {phase_str}\n**Game ID**: {session.game_id or 'N/A'}"
+        )
+
+    async def cmd_end_direct(self, message: discord.Message) -> None:
+        """Handle !end directly."""
+        session = self._get_session(message.author.id)
+        if session.phase == PlayerPhase.IDLE:
+            await message.channel.send("No game in progress.")
+            return
+        gid = session.game_id
+        session.phase = PlayerPhase.IDLE
+        session.game_id = None
+        session.genesis_prefs = {}
+        session.genesis_index = 0
+        if gid:
+            async with self._pg() as pg:
+                await pg.execute(
+                    sa.text(
+                        "UPDATE game_sessions SET status = 'ended', "
+                        "updated_at = :now WHERE id = :gid"
+                    ),
+                    {"gid": gid, "now": datetime.now(UTC)},
+                )
+                await pg.commit()
+        await message.channel.send("Game ended. Type **!play** to start a new one.")
+
+    async def cmd_save_direct(self, message: discord.Message) -> None:
+        """Handle !save directly."""
+        session = self._get_session(message.author.id)
+        if session.phase != PlayerPhase.PLAYING or not session.game_id:
+            await message.channel.send("No active game to save.")
+            return
+        async with self._pg() as pg:
+            await pg.execute(
+                sa.text(
+                    "UPDATE game_sessions SET updated_at = :now "
+                    "WHERE id = :gid"
+                ),
+                {"gid": session.game_id, "now": datetime.now(UTC)},
+            )
+            await pg.commit()
+        await message.channel.send("Game saved.")
+
     # ── Genesis flow ────────────────────────────────────────
 
     async def _send_genesis_question(
@@ -582,9 +700,11 @@ class TTAPlaytesterBot(commands.Bot):
             player_id = await _get_or_create_player(
                 self._pg,
                 user_id,
-                channel.guild.get_member(user_id).display_name
-                if channel.guild
-                else "player",
+                getattr(
+                    channel.guild.get_member(user_id) if channel.guild else None,
+                    "display_name",
+                    "player",
+                ),
             )
             session.player_id = player_id
 
